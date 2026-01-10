@@ -68,6 +68,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # DotVM core library
 add_library(dotvm_core STATIC
     src/dotvm/core/register_file.cpp
+    src/dotvm/core/instruction.cpp
 )
 
 target_include_directories(dotvm_core PUBLIC
@@ -99,6 +100,7 @@ if(DOTVM_BUILD_TESTS)
     add_executable(dotvm_tests
         tests/dotvm/core/value_test.cpp
         tests/dotvm/core/register_file_test.cpp
+        tests/dotvm/core/instruction_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
