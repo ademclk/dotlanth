@@ -3,6 +3,24 @@ build/
 cmake-build-*/
 out/
 
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
 # Compiled objects
 *.o
 *.obj
@@ -11,34 +29,18 @@ out/
 *.so
 *.dylib
 *.dll
-
-# Executables
 *.exe
-*.out
-dotlanth
 
-# IDE and editor files
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-compile_commands.json
-
-# Package managers
-vcpkg_installed/
-conan/
-
-# Testing
+# Test artifacts
 Testing/
 CTestTestfile.cmake
 
-# Documentation
-docs/_build/
+# Coverage
+*.gcno
+*.gcda
+*.gcov
+coverage/
+
+# Package managers
+_deps/
+vcpkg_installed/
