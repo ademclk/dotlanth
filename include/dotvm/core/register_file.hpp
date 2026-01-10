@@ -3,10 +3,11 @@
 #include "value.hpp"
 #include "register_conventions.hpp"
 
+#include <algorithm>
 #include <array>
-#include <span>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 namespace dotvm::core {
 
@@ -60,29 +61,12 @@ public:
         std::uint8_t reg_;
     };
 
-    // Proxy class for const operator[] access
-    class ConstRegisterProxy {
-    public:
-        constexpr ConstRegisterProxy(const RegisterFile& rf,
-                                     std::uint8_t reg) noexcept
-            : rf_{rf}, reg_{reg} {}
-
-        constexpr operator Value() const noexcept {
-            return rf_.read(reg_);
-        }
-
-    private:
-        const RegisterFile& rf_;
-        std::uint8_t reg_;
-    };
-
     [[nodiscard]] constexpr RegisterProxy operator[](std::uint8_t reg) noexcept {
         return RegisterProxy{*this, reg};
     }
 
-    [[nodiscard]] constexpr ConstRegisterProxy operator[](
-        std::uint8_t reg) const noexcept {
-        return ConstRegisterProxy{*this, reg};
+    [[nodiscard]] constexpr Value operator[](std::uint8_t reg) const noexcept {
+        return read(reg);
     }
 
     // Bulk operations for context switching
@@ -99,30 +83,26 @@ public:
     // Save/restore for context switching
     void save_caller_saved(
         std::span<Value, reg_range::CALLER_SAVED_COUNT> out) const noexcept {
-        for (std::size_t i = 0; i < reg_range::CALLER_SAVED_COUNT; ++i) {
-            out[i] = regs_[reg_range::CALLER_SAVED_START + i];
-        }
+        std::copy_n(regs_.begin() + reg_range::CALLER_SAVED_START,
+                    reg_range::CALLER_SAVED_COUNT, out.begin());
     }
 
     void restore_caller_saved(
         std::span<const Value, reg_range::CALLER_SAVED_COUNT> in) noexcept {
-        for (std::size_t i = 0; i < reg_range::CALLER_SAVED_COUNT; ++i) {
-            regs_[reg_range::CALLER_SAVED_START + i] = in[i];
-        }
+        std::copy(in.begin(), in.end(),
+                  regs_.begin() + reg_range::CALLER_SAVED_START);
     }
 
     void save_callee_saved(
         std::span<Value, reg_range::CALLEE_SAVED_COUNT> out) const noexcept {
-        for (std::size_t i = 0; i < reg_range::CALLEE_SAVED_COUNT; ++i) {
-            out[i] = regs_[reg_range::CALLEE_SAVED_START + i];
-        }
+        std::copy_n(regs_.begin() + reg_range::CALLEE_SAVED_START,
+                    reg_range::CALLEE_SAVED_COUNT, out.begin());
     }
 
     void restore_callee_saved(
         std::span<const Value, reg_range::CALLEE_SAVED_COUNT> in) noexcept {
-        for (std::size_t i = 0; i < reg_range::CALLEE_SAVED_COUNT; ++i) {
-            regs_[reg_range::CALLEE_SAVED_START + i] = in[i];
-        }
+        std::copy(in.begin(), in.end(),
+                  regs_.begin() + reg_range::CALLEE_SAVED_START);
     }
 
     // Clear all registers (reset to zero)

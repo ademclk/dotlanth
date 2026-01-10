@@ -25,6 +25,10 @@ namespace nan_box {
     inline constexpr std::uint64_t HANDLE_PREFIX   = QNAN_PREFIX | TAG_HANDLE;
     inline constexpr std::uint64_t NIL_VALUE       = QNAN_PREFIX | TAG_NIL;
     inline constexpr std::uint64_t POINTER_PREFIX  = QNAN_PREFIX | TAG_POINTER;
+
+    // Masks for type checking
+    inline constexpr std::uint64_t TYPE_CHECK_MASK = 0x7FFF'0000'0000'0000ULL;
+    inline constexpr std::uint64_t BOOL_CHECK_MASK = 0x7FFF'FFFF'FFFF'FFFEULL;
 } // namespace nan_box
 
 // Handle structure: 32-bit index + 32-bit generation
@@ -116,20 +120,19 @@ public:
     }
 
     [[nodiscard]] constexpr bool is_float() const noexcept {
-        // Not a qNaN with our prefix
-        return (bits_ & 0x7FF8'0000'0000'0000ULL) != nan_box::QNAN_PREFIX;
+        return (bits_ & nan_box::QNAN_PREFIX) != nan_box::QNAN_PREFIX;
     }
 
     [[nodiscard]] constexpr bool is_integer() const noexcept {
-        return (bits_ & 0x7FFF'0000'0000'0000ULL) == nan_box::INTEGER_PREFIX;
+        return (bits_ & nan_box::TYPE_CHECK_MASK) == nan_box::INTEGER_PREFIX;
     }
 
     [[nodiscard]] constexpr bool is_bool() const noexcept {
-        return (bits_ & 0x7FFF'FFFF'FFFF'FFFEULL) == nan_box::BOOL_PREFIX;
+        return (bits_ & nan_box::BOOL_CHECK_MASK) == nan_box::BOOL_PREFIX;
     }
 
     [[nodiscard]] constexpr bool is_handle() const noexcept {
-        return (bits_ & 0x7FFF'0000'0000'0000ULL) == nan_box::HANDLE_PREFIX;
+        return (bits_ & nan_box::TYPE_CHECK_MASK) == nan_box::HANDLE_PREFIX;
     }
 
     [[nodiscard]] constexpr bool is_nil() const noexcept {
@@ -137,7 +140,7 @@ public:
     }
 
     [[nodiscard]] constexpr bool is_pointer() const noexcept {
-        return (bits_ & 0x7FFF'0000'0000'0000ULL) == nan_box::POINTER_PREFIX;
+        return (bits_ & nan_box::TYPE_CHECK_MASK) == nan_box::POINTER_PREFIX;
     }
 
     // Value accessors
