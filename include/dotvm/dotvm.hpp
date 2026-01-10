@@ -5,3 +5,4 @@
 #include "core/value.hpp"
 #include "core/register_conventions.hpp"
 #include "core/register_file.hpp"
+#include "core/instruction.hpp"
