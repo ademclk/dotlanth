@@ -1,5 +1,7 @@
 #include <dotvm/core/memory.hpp>
 
+#include <cassert>
+
 // Platform detection for memory allocation
 #if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
     #include <sys/mman.h>
@@ -37,16 +39,25 @@ void* MemoryManager::os_allocate(std::size_t size) noexcept {
 void MemoryManager::os_deallocate(void* ptr, std::size_t size) noexcept {
     if (!ptr) return;
 
+    // Validate size is reasonable (not 0, which would indicate corruption)
+    assert(size > 0 && "os_deallocate called with size 0 - possible corruption");
+    assert(size <= mem_config::MAX_ALLOCATION_SIZE && "os_deallocate size exceeds max - possible corruption");
+
 #if DOTVM_USE_MMAP
-    munmap(ptr, size);
+    [[maybe_unused]] int result = munmap(ptr, size);
+    // munmap returns 0 on success, -1 on error
+    assert(result == 0 && "munmap failed - possible memory corruption or invalid pointer");
 
 #elif DOTVM_USE_VIRTUALALLOC
     (void)size;  // VirtualFree doesn't need size
-    VirtualFree(ptr, 0, MEM_RELEASE);
+    [[maybe_unused]] BOOL result = VirtualFree(ptr, 0, MEM_RELEASE);
+    // VirtualFree returns non-zero on success, 0 on failure
+    assert(result != 0 && "VirtualFree failed - possible memory corruption or invalid pointer");
 
 #else
     (void)size;  // std::free doesn't need size
     std::free(ptr);
+    // std::free has no return value, cannot detect errors
 #endif
 }
 
@@ -68,8 +79,12 @@ MemoryManager::Result<Handle> MemoryManager::allocate(std::size_t size) noexcept
         return {invalid_handle(), MemoryError::InvalidSize};
     }
 
-    // Round up to page boundary
+    // Round up to page boundary (returns 0 on overflow)
     std::size_t aligned_size = align_to_page(size);
+    if (aligned_size == 0) {
+        // Overflow occurred in page alignment - size too large
+        return {invalid_handle(), MemoryError::InvalidSize};
+    }
 
     // Allocate a slot in the handle table
     std::uint32_t index = table_.allocate_slot();
@@ -111,6 +126,8 @@ MemoryError MemoryManager::deallocate(Handle h) noexcept {
     // Free the memory
     if (entry.ptr) {
         os_deallocate(entry.ptr, entry.size);
+        // Prevent underflow in total_allocated_ accounting
+        assert(entry.size <= total_allocated_ && "total_allocated_ underflow - accounting error");
         total_allocated_ -= entry.size;
     }
 

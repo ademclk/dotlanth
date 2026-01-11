@@ -42,6 +42,15 @@ namespace bytecode {
 
     // Maximum string length in constant pool (16 MB)
     inline constexpr std::uint32_t MAX_STRING_LENGTH = 0x01'00'00'00U;
+
+    // Maximum number of constant pool entries (prevents DoS via memory exhaustion)
+    inline constexpr std::uint32_t MAX_CONST_POOL_ENTRIES = 0x00'10'00'00U;  // 1M entries
+
+    // Maximum bytecode file size (2 GB)
+    inline constexpr std::size_t MAX_FILE_SIZE = 0x80'00'00'00ULL;  // 2GB
+
+    // Instruction alignment requirement (4 bytes)
+    inline constexpr std::size_t INSTRUCTION_ALIGNMENT = 4;
 } // namespace bytecode
 
 // ============================================================================
@@ -85,7 +94,14 @@ enum class BytecodeError : std::uint8_t {
 
     // General errors
     FileTooSmall = 13,
-    UnexpectedEof = 14
+    UnexpectedEof = 14,
+
+    // Security-related errors
+    IntegerOutOfRange = 15,     // 64-bit integer doesn't fit in 48-bit Value
+    EntryPointNotAligned = 16,  // Entry point not aligned to instruction boundary
+    TooManyConstants = 17,      // Constant pool entry count exceeds maximum
+    FileTooLarge = 18,          // Bytecode file exceeds maximum size
+    StringNotSupported = 19     // String constants not yet implemented
 };
 
 /// Returns a human-readable error message for a BytecodeError
@@ -121,6 +137,16 @@ enum class BytecodeError : std::uint8_t {
             return "File too small for header";
         case BytecodeError::UnexpectedEof:
             return "Unexpected end of file";
+        case BytecodeError::IntegerOutOfRange:
+            return "Integer constant out of 48-bit range";
+        case BytecodeError::EntryPointNotAligned:
+            return "Entry point not aligned to instruction boundary";
+        case BytecodeError::TooManyConstants:
+            return "Constant pool entry count exceeds maximum";
+        case BytecodeError::FileTooLarge:
+            return "Bytecode file exceeds maximum size";
+        case BytecodeError::StringNotSupported:
+            return "String constants not yet supported";
     }
     return "Unknown error";
 }
@@ -327,6 +353,11 @@ inline constexpr std::uint16_t VALID_FLAGS_MASK =
 [[nodiscard]] constexpr BytecodeError validate_header(
     const BytecodeHeader& header,
     std::size_t total_file_size) noexcept {
+    // Validate file size isn't too large (prevents DoS)
+    if (total_file_size > bytecode::MAX_FILE_SIZE) {
+        return BytecodeError::FileTooLarge;
+    }
+
     // Validate magic
     if (!validate_magic(std::span<const std::uint8_t, 4>{header.magic})) {
         return BytecodeError::InvalidMagic;
@@ -371,13 +402,19 @@ inline constexpr std::uint16_t VALID_FLAGS_MASK =
         return BytecodeError::CodeSectionOutOfBounds;
     }
 
-    // Validate entry point (must be within code section)
+    // Validate entry point (must be within code section and aligned)
     if (header.code_size == 0) {
         if (header.entry_point != 0) {
             return BytecodeError::EntryPointOutOfBounds;
         }
-    } else if (header.entry_point >= header.code_size) {
-        return BytecodeError::EntryPointOutOfBounds;
+    } else {
+        if (header.entry_point >= header.code_size) {
+            return BytecodeError::EntryPointOutOfBounds;
+        }
+        // Validate entry point is instruction-aligned
+        if (header.entry_point % bytecode::INSTRUCTION_ALIGNMENT != 0) {
+            return BytecodeError::EntryPointNotAligned;
+        }
     }
 
     // Check for section overlap between const_pool and code
@@ -514,6 +551,16 @@ read_const_pool_header(std::span<const std::uint8_t> data) noexcept {
     return header;
 }
 
+/// Minimum value for 48-bit signed integer (used by NaN-boxed Value)
+inline constexpr std::int64_t MIN_VALUE_INT = -(1LL << 47);
+/// Maximum value for 48-bit signed integer (used by NaN-boxed Value)
+inline constexpr std::int64_t MAX_VALUE_INT = (1LL << 47) - 1;
+
+/// Check if a 64-bit integer fits in the 48-bit range supported by Value
+[[nodiscard]] inline constexpr bool is_valid_value_int(std::int64_t value) noexcept {
+    return value >= MIN_VALUE_INT && value <= MAX_VALUE_INT;
+}
+
 /// Read a single constant entry from data
 /// Returns the Value and number of bytes consumed
 [[nodiscard]] inline BytecodeResult<std::pair<Value, std::size_t>>
@@ -531,6 +578,10 @@ read_constant_entry(std::span<const std::uint8_t> data) noexcept {
                 return std::unexpected(BytecodeError::ConstPoolTruncated);
             }
             std::int64_t value = endian::read_i64_le(data.data() + 1);
+            // Validate integer fits in 48-bit range used by Value
+            if (!is_valid_value_int(value)) {
+                return std::unexpected(BytecodeError::IntegerOutOfRange);
+            }
             bytes_consumed = 9;
             return std::pair{Value::from_int(value), bytes_consumed};
         }
@@ -545,24 +596,9 @@ read_constant_entry(std::span<const std::uint8_t> data) noexcept {
         }
 
         case bytecode::CONST_TYPE_STRING: {
-            if (data.size() < 5) {
-                return std::unexpected(BytecodeError::ConstPoolTruncated);
-            }
-            std::uint32_t length = endian::read_u32_le(data.data() + 1);
-
-            if (length > bytecode::MAX_STRING_LENGTH) {
-                return std::unexpected(BytecodeError::StringTooLong);
-            }
-
-            if (data.size() < 5 + length) {
-                return std::unexpected(BytecodeError::ConstPoolTruncated);
-            }
-
-            bytes_consumed = 5 + length;
-            // Strings are stored as handles (index into string table)
-            // For now, return nil as a placeholder
-            // The VM will manage string storage separately
-            return std::pair{Value::nil(), bytes_consumed};
+            // String constants are not yet implemented - return explicit error
+            // rather than silently returning nil, which could cause subtle bugs
+            return std::unexpected(BytecodeError::StringNotSupported);
         }
 
         default:
@@ -586,6 +622,19 @@ load_constant_pool(std::span<const std::uint8_t> pool_data) noexcept {
         return std::unexpected(header_result.error());
     }
 
+    // Validate entry count to prevent DoS via massive memory allocation
+    if (header_result->entry_count > bytecode::MAX_CONST_POOL_ENTRIES) {
+        return std::unexpected(BytecodeError::TooManyConstants);
+    }
+
+    // Additional sanity check: entry count should be reasonable given pool size
+    // Minimum entry size is 1 (type tag only, though invalid), realistically 9 bytes
+    // This prevents allocating huge vectors for small data sizes
+    const std::size_t data_size = pool_data.size() - sizeof(ConstantPoolHeader);
+    if (header_result->entry_count > data_size) {
+        return std::unexpected(BytecodeError::ConstPoolCorrupted);
+    }
+
     std::vector<Value> constants;
     constants.reserve(header_result->entry_count);
 
@@ -602,6 +651,11 @@ load_constant_pool(std::span<const std::uint8_t> pool_data) noexcept {
         }
 
         constants.push_back(entry_result->first);
+
+        // Check for offset overflow before incrementing
+        if (offset > SIZE_MAX - entry_result->second) {
+            return std::unexpected(BytecodeError::ConstPoolCorrupted);
+        }
         offset += entry_result->second;
     }
 
