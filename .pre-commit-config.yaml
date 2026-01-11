@@ -1,0 +1,49 @@
+# Pre-commit hooks configuration for DotLanth
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # General file quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # C++ formatting with clang-format
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format
+        description: Format C++ files with clang-format
+        entry: clang-format -i
+        language: system
+        files: \.(cpp|hpp|h|cc|cxx)$
+        types_or: [c++, c]
+
+  # CMake formatting (optional)
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        additional_dependencies: [pyyaml>=5.1]
+
+  # YAML formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        types: [yaml]
+        exclude: ^\.clang-format$|^\.clang-tidy$
+
+# Configuration for clang-format hook
+# Requires clang-format to be installed on the system
+# Install via: apt install clang-format or brew install clang-format

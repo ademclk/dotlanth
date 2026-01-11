@@ -34,10 +34,12 @@ option(DOTVM_BUILD_TESTS "Build unit tests" ON)
 option(DOTVM_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(DOTVM_ENABLE_SIMD "Enable SIMD optimizations" ON)
 option(DOTVM_ENABLE_SANITIZERS "Enable sanitizers in Debug builds" OFF)
+option(DOTVM_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 
 # Define strict warning flags (applied only to our targets, not dependencies)
 set(DOTVM_WARNING_FLAGS "")
 set(DOTVM_SANITIZER_FLAGS "")
+set(DOTVM_COVERAGE_FLAGS "")
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     set(DOTVM_WARNING_FLAGS
@@ -56,6 +58,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND DOTVM_ENABLE_SANITIZERS)
         set(DOTVM_SANITIZER_FLAGS -fsanitize=address,undefined -fno-omit-frame-pointer)
+    endif()
+
+    # Code coverage flags (GCC and Clang)
+    if(DOTVM_ENABLE_COVERAGE)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+            set(DOTVM_COVERAGE_FLAGS --coverage -fprofile-arcs -ftest-coverage)
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            set(DOTVM_COVERAGE_FLAGS -fprofile-instr-generate -fcoverage-mapping)
+        endif()
     endif()
 
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -90,9 +101,12 @@ target_include_directories(dotvm_core PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS})
+target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 if(DOTVM_SANITIZER_FLAGS)
     target_link_options(dotvm_core PUBLIC ${DOTVM_SANITIZER_FLAGS})
+endif()
+if(DOTVM_COVERAGE_FLAGS)
+    target_link_options(dotvm_core PUBLIC ${DOTVM_COVERAGE_FLAGS})
 endif()
 
 # Main executable
@@ -101,7 +115,7 @@ add_executable(dotlanth
 )
 
 target_link_libraries(dotlanth PRIVATE dotvm_core)
-target_compile_options(dotlanth PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS})
+target_compile_options(dotlanth PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
 # Testing
 if(DOTVM_BUILD_TESTS)
@@ -143,7 +157,7 @@ if(DOTVM_BUILD_TESTS)
         GTest::gtest_main
     )
 
-    target_compile_options(dotvm_tests PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS})
+    target_compile_options(dotvm_tests PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(dotvm_tests)
