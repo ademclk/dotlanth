@@ -6,10 +6,20 @@ project(dotlanth
     LANGUAGES CXX
 )
 
-# C++26 requirement - use Clang 19+
-set(CMAKE_CXX_STANDARD 26)
+# C++26 requirement - use Clang 19+ or GCC 14+
+# CMake may not recognize "26" as valid, so we fall back to 23 and add the flag manually
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Add C++26 flag for compilers that support it
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    # GCC 14+ supports -std=c++26
+    add_compile_options(-std=c++2c)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # Clang 19+ supports -std=c++26
+    add_compile_options(-std=c++2c)
+endif()
 
 # Export compile commands for IDE integration
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
