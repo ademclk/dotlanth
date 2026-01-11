@@ -9,6 +9,8 @@
 #include <string>
 #include <type_traits>
 
+#include "arch_config.hpp"  // for Architecture enum and masking functions
+
 namespace dotvm::core {
 
 // NaN-boxing constants
@@ -173,6 +175,18 @@ public:
         return Value{i};
     }
 
+    /// Create an integer Value with architecture-specific masking
+    ///
+    /// In Arch32 mode, the value is masked to 32 bits and sign-extended.
+    /// In Arch64 mode, the value is stored unchanged (using full 48-bit range).
+    ///
+    /// @param i The integer value
+    /// @param arch The target architecture
+    /// @return A Value containing the masked integer
+    [[nodiscard]] static constexpr Value from_int(std::int64_t i, Architecture arch) noexcept {
+        return Value{arch_config::mask_int(i, arch)};
+    }
+
     /// Create a Value from a boolean
     [[nodiscard]] static constexpr Value from_bool(bool b) noexcept {
         return Value{b};
@@ -324,6 +338,23 @@ public:
 
     // Comparison operators
     constexpr bool operator==(const Value& other) const noexcept = default;
+
+    // Architecture-aware operations
+
+    /// Mask this Value's integer to the target architecture width
+    ///
+    /// If this Value is an integer, returns a new Value with the integer
+    /// masked to the appropriate width for the architecture. For non-integer
+    /// Values, returns a copy unchanged.
+    ///
+    /// @param arch The target architecture
+    /// @return A Value with the integer masked to architecture width
+    [[nodiscard]] constexpr Value mask_to_arch(Architecture arch) const noexcept {
+        if (!is_integer()) {
+            return *this;
+        }
+        return from_int(arch_config::mask_int(as_integer(), arch));
+    }
 
     /// Truthiness (for conditionals)
     /// nil and false are falsy; everything else is truthy

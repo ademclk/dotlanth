@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "value.hpp"
+#include "arch_types.hpp"  // for Architecture enum
 
 namespace dotvm::core {
 
@@ -57,11 +58,7 @@ namespace bytecode {
 // Enumerations
 // ============================================================================
 
-/// Target architecture for bytecode
-enum class Architecture : std::uint8_t {
-    Arch32 = 0,
-    Arch64 = 1
-};
+// Note: Architecture enum is defined in arch_types.hpp
 
 /// Constant entry type tag
 enum class ConstantType : std::uint8_t {
@@ -315,8 +312,9 @@ static_assert(sizeof(ConstantPoolHeader) == 4, "ConstantPoolHeader must be exact
 }
 
 /// Validate architecture value
+/// @note Uses is_valid_architecture from arch_types.hpp
 [[nodiscard]] constexpr bool validate_architecture(Architecture arch) noexcept {
-    return arch == Architecture::Arch32 || arch == Architecture::Arch64;
+    return is_valid_architecture(arch);
 }
 
 /// Check if section bounds are valid (no overflow, within file size)
@@ -532,6 +530,34 @@ write_header(const BytecodeHeader& header) noexcept {
         .const_pool_size = const_pool_size,
         .code_offset = code_offset,
         .code_size = code_size
+    };
+}
+
+// ============================================================================
+// VM Configuration Extraction
+// ============================================================================
+
+// Forward declaration for VmConfig (full definition in vm_context.hpp)
+struct VmConfig;
+
+/// Extract VM configuration from a bytecode header
+///
+/// Creates a VmConfig suitable for initializing a VmContext from the
+/// information contained in a BytecodeHeader. This function extracts:
+/// - Target architecture (Arch32 or Arch64)
+/// - Debug mode (from FLAG_DEBUG, maps to strict_overflow)
+///
+/// @param header The bytecode header to extract from
+/// @return A VmConfig configured for the bytecode
+/// @note This returns a partial VmConfig - the caller should set max_memory
+inline auto extract_vm_config(const BytecodeHeader& header) noexcept {
+    struct VmConfigPartial {
+        Architecture arch;
+        bool strict_overflow;
+    };
+    return VmConfigPartial{
+        .arch = header.arch,
+        .strict_overflow = header.is_debug()
     };
 }
 
