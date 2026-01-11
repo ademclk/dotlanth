@@ -330,6 +330,32 @@ DOTVM_API void dotvm_clear_error(dotvm_vm_t* vm) {
     }
 }
 
+DOTVM_API size_t dotvm_get_error_copy(dotvm_vm_t* vm,
+                                       char* buffer,
+                                       size_t buffer_size) {
+    // Handle null VM or empty error
+    if (vm == nullptr || vm->last_error.empty()) {
+        if (buffer != nullptr && buffer_size > 0) {
+            buffer[0] = '\0';
+        }
+        return 0;
+    }
+
+    const size_t error_len = vm->last_error.size();
+
+    // If buffer is nullptr or zero size, just return required size
+    if (buffer == nullptr || buffer_size == 0) {
+        return error_len;
+    }
+
+    // Copy as much as fits (always null-terminate)
+    const size_t copy_len = (error_len < buffer_size) ? error_len : (buffer_size - 1);
+    std::memcpy(buffer, vm->last_error.c_str(), copy_len);
+    buffer[copy_len] = '\0';
+
+    return error_len;
+}
+
 // ----------------------------------------------------------------------------
 // Value Helpers
 // ----------------------------------------------------------------------------

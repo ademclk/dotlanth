@@ -7,18 +7,25 @@
  * for ABI stability.
  *
  * Thread Safety:
- *   - A dotvm_vm_t instance is NOT thread-safe
- *   - Each thread should have its own VM instance
- *   - The caller is responsible for synchronization if sharing VMs
+ *   - dotvm_create() and dotvm_destroy() are thread-safe (can be called
+ *     from multiple threads simultaneously on different VMs)
+ *   - All other functions operating on a VM instance are NOT thread-safe
+ *   - Each thread should have its own VM instance for best performance
+ *   - If sharing a VM between threads, external synchronization is required
+ *   - Value helper functions (dotvm_value_*) are thread-safe (pure functions)
+ *   - dotvm_version() and dotvm_bytecode_version() are thread-safe
  *
  * Memory Management:
  *   - VMs created with dotvm_create() must be destroyed with dotvm_destroy()
- *   - All bytecode data must remain valid until dotvm_load_bytecode() returns
+ *   - Bytecode data is copied during load; original need not remain valid
+ *   - After dotvm_load_bytecode() returns, the data pointer is not retained
  *
  * Error Handling:
  *   - All fallible functions return dotvm_result_t
- *   - Use dotvm_get_error() to retrieve error messages
- *   - Error strings are valid until the next API call on the same VM
+ *   - Use dotvm_get_error() to retrieve error messages (temporary pointer)
+ *   - Use dotvm_get_error_copy() for safe error string handling
+ *   - Error strings from dotvm_get_error() are invalidated by the next API call
+ *   - Error strings from dotvm_get_error_copy() are owned by the caller
  */
 
 #ifndef DOTVM_C_H
@@ -268,6 +275,37 @@ DOTVM_API const char* dotvm_get_error(dotvm_vm_t* vm);
  * @note Thread-safety: NOT thread-safe. Caller must ensure exclusive access.
  */
 DOTVM_API void dotvm_clear_error(dotvm_vm_t* vm);
+
+/**
+ * @brief Copy the last error message to a user-provided buffer
+ *
+ * @param vm          VM instance
+ * @param buffer      Destination buffer for error message (may be NULL)
+ * @param buffer_size Size of the destination buffer in bytes
+ * @return Number of bytes required (excluding null terminator), or 0 if no error.
+ *         If buffer is provided and large enough, the error is copied and
+ *         null-terminated.
+ *
+ * This function is safer than dotvm_get_error() because the caller owns
+ * the buffer and controls its lifetime. The message is always null-terminated
+ * if buffer_size > 0.
+ *
+ * Usage pattern:
+ * @code
+ *   size_t needed = dotvm_get_error_copy(vm, NULL, 0);
+ *   if (needed > 0) {
+ *       char* buf = malloc(needed + 1);
+ *       dotvm_get_error_copy(vm, buf, needed + 1);
+ *       // use buf...
+ *       free(buf);
+ *   }
+ * @endcode
+ *
+ * @note Thread-safety: NOT thread-safe. Caller must ensure exclusive access.
+ */
+DOTVM_API size_t dotvm_get_error_copy(dotvm_vm_t* vm,
+                                       char* buffer,
+                                       size_t buffer_size);
 
 /* ============================================================================
  * Value Helper Functions

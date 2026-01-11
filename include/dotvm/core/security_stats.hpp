@@ -6,6 +6,57 @@
 
 namespace dotvm::core {
 
+// ============================================================================
+// Security Event Types
+// ============================================================================
+
+/// Security event types for audit logging and monitoring
+///
+/// These events represent security-relevant occurrences during VM execution
+/// that may indicate attacks or resource exhaustion.
+enum class SecurityEvent : std::uint8_t {
+    GenerationWraparound = 0,   ///< Handle generation counter wrapped
+    BoundsViolation = 1,        ///< Out-of-bounds memory access attempt
+    InvalidHandleAccess = 2,    ///< Access to invalid/deallocated handle
+    CfiViolation = 3,           ///< Control flow integrity violation
+    AllocationLimitHit = 4,     ///< Allocation size limit exceeded
+    HandleTableExhaustion = 5,  ///< No more handles available
+    InstructionLimitHit = 6,    ///< Instruction execution limit exceeded
+    MemoryLimitHit = 7          ///< Total memory limit exceeded
+};
+
+/// Returns a human-readable name for a security event
+[[nodiscard]] constexpr const char* event_name(SecurityEvent e) noexcept {
+    switch (e) {
+        case SecurityEvent::GenerationWraparound:
+            return "GenerationWraparound";
+        case SecurityEvent::BoundsViolation:
+            return "BoundsViolation";
+        case SecurityEvent::InvalidHandleAccess:
+            return "InvalidHandleAccess";
+        case SecurityEvent::CfiViolation:
+            return "CfiViolation";
+        case SecurityEvent::AllocationLimitHit:
+            return "AllocationLimitHit";
+        case SecurityEvent::HandleTableExhaustion:
+            return "HandleTableExhaustion";
+        case SecurityEvent::InstructionLimitHit:
+            return "InstructionLimitHit";
+        case SecurityEvent::MemoryLimitHit:
+            return "MemoryLimitHit";
+    }
+    return "Unknown";
+}
+
+/// Callback type for security event notifications
+///
+/// @param event The type of security event that occurred
+/// @param context Optional context string (may be nullptr)
+/// @param user_data User-provided data pointer
+using SecurityEventCallback = void (*)(SecurityEvent event,
+                                        const char* context,
+                                        void* user_data);
+
 /// Security event statistics for monitoring and auditing.
 ///
 /// Tracks security-relevant events that occur during VM execution:
@@ -15,7 +66,17 @@ namespace dotvm::core {
 ///
 /// Thread Safety: All counters are atomic for safe concurrent access.
 /// Performance: Uses relaxed memory ordering for minimal overhead.
+///
+/// Note: SecurityStats is non-copyable and non-movable due to atomic members.
+/// Embed it directly or use std::unique_ptr if indirection is needed.
 struct SecurityStats {
+    // Non-copyable, non-movable (contains std::atomic members)
+    SecurityStats() = default;
+    SecurityStats(const SecurityStats&) = delete;
+    SecurityStats& operator=(const SecurityStats&) = delete;
+    SecurityStats(SecurityStats&&) = delete;
+    SecurityStats& operator=(SecurityStats&&) = delete;
+
     /// Number of times a handle generation counter wrapped from MAX to INITIAL.
     /// High values may indicate handle reuse attacks or resource exhaustion.
     std::atomic<std::size_t> generation_wraparounds{0};
@@ -149,6 +210,37 @@ struct SecurityStats {
         handle_table_exhaustions.store(0, std::memory_order_relaxed);
         total_allocations.store(0, std::memory_order_relaxed);
         total_deallocations.store(0, std::memory_order_relaxed);
+    }
+
+    // ========== Event Callback ==========
+
+    /// Sets a callback for security event notifications
+    ///
+    /// @param callback Function to call on security events (nullptr to disable)
+    /// @param user_data User data passed to callback
+    ///
+    /// @note NOT thread-safe. Set before starting concurrent operations.
+    /// @note The callback is invoked synchronously from the recording thread.
+    void set_event_callback(SecurityEventCallback callback,
+                            void* user_data = nullptr) noexcept {
+        event_callback_ = callback;
+        callback_user_data_ = user_data;
+    }
+
+    /// Check if an event callback is registered
+    [[nodiscard]] bool has_event_callback() const noexcept {
+        return event_callback_ != nullptr;
+    }
+
+private:
+    SecurityEventCallback event_callback_{nullptr};
+    void* callback_user_data_{nullptr};
+
+    /// Internal: notify callback if set
+    void notify_event(SecurityEvent event, const char* context = nullptr) noexcept {
+        if (event_callback_ != nullptr) {
+            event_callback_(event, context, callback_user_data_);
+        }
     }
 };
 

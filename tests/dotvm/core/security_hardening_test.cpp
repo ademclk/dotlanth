@@ -473,3 +473,144 @@ TEST_F(DoSResistanceTest, HandleTableExhaustionGraceful) {
         [[maybe_unused]] auto err = mem.deallocate(h);
     }
 }
+
+// ============================================================================
+// Resource Limits Tests
+// ============================================================================
+
+class ResourceLimitsTest : public ::testing::Test {};
+
+TEST_F(ResourceLimitsTest, UnlimitedPolicyHasNoLimits) {
+    auto limits = ResourceLimits::unlimited();
+    EXPECT_EQ(limits.max_instructions, 0u);
+    EXPECT_EQ(limits.max_allocations, 0u);
+    EXPECT_EQ(limits.max_total_memory, 0u);
+    EXPECT_EQ(limits.max_call_depth, 0u);
+    EXPECT_EQ(limits.max_backward_jumps, 0u);
+    EXPECT_FALSE(limits.has_limits());
+}
+
+TEST_F(ResourceLimitsTest, RestrictedPolicyHasReasonableDefaults) {
+    auto limits = ResourceLimits::restricted();
+    EXPECT_GT(limits.max_instructions, 0u);
+    EXPECT_GT(limits.max_allocations, 0u);
+    EXPECT_GT(limits.max_total_memory, 0u);
+    EXPECT_GT(limits.max_call_depth, 0u);
+    EXPECT_GT(limits.max_backward_jumps, 0u);
+    EXPECT_TRUE(limits.has_limits());
+}
+
+TEST_F(ResourceLimitsTest, RestrictedLimitsAreReasonable) {
+    auto limits = ResourceLimits::restricted();
+    // Should be at least 100K instructions (reasonable minimum)
+    EXPECT_GE(limits.max_instructions, 100'000u);
+    // Should be at least 100 allocations
+    EXPECT_GE(limits.max_allocations, 100u);
+    // Should be at least 1MB
+    EXPECT_GE(limits.max_total_memory, 1024u * 1024u);
+}
+
+TEST_F(ResourceLimitsTest, EqualityComparison) {
+    auto l1 = ResourceLimits::restricted();
+    auto l2 = ResourceLimits::restricted();
+    auto l3 = ResourceLimits::unlimited();
+
+    EXPECT_EQ(l1, l2);
+    EXPECT_NE(l1, l3);
+}
+
+// ============================================================================
+// Sandboxed Configuration Tests
+// ============================================================================
+
+class SandboxedConfigTest : public ::testing::Test {};
+
+TEST_F(SandboxedConfigTest, SandboxedConfigCombinesSecurityFeatures) {
+    auto config = VmConfig::sandboxed();
+
+    // Should have CFI enabled
+    EXPECT_TRUE(config.cfi_enabled);
+
+    // Should have strict overflow
+    EXPECT_TRUE(config.strict_overflow);
+
+    // Should have resource limits
+    EXPECT_TRUE(config.resource_limits.has_limits());
+    EXPECT_GT(config.resource_limits.max_instructions, 0u);
+}
+
+TEST_F(SandboxedConfigTest, SandboxedConfigHasReducedMemory) {
+    auto sandboxed = VmConfig::sandboxed();
+    auto normal = VmConfig::arch64();
+
+    // Sandboxed should have smaller memory limit
+    EXPECT_LT(sandboxed.max_memory, normal.max_memory);
+}
+
+TEST_F(SandboxedConfigTest, VmContextWithSandboxedConfig) {
+    VmContext ctx{VmConfig::sandboxed()};
+
+    EXPECT_TRUE(ctx.cfi_enabled());
+    EXPECT_TRUE(ctx.config().strict_overflow);
+    EXPECT_TRUE(ctx.config().resource_limits.has_limits());
+}
+
+// ============================================================================
+// Security Event Tests
+// ============================================================================
+
+class SecurityEventTest : public ::testing::Test {};
+
+TEST_F(SecurityEventTest, EventNameReturnsValidStrings) {
+    EXPECT_STREQ(event_name(SecurityEvent::GenerationWraparound), "GenerationWraparound");
+    EXPECT_STREQ(event_name(SecurityEvent::BoundsViolation), "BoundsViolation");
+    EXPECT_STREQ(event_name(SecurityEvent::InvalidHandleAccess), "InvalidHandleAccess");
+    EXPECT_STREQ(event_name(SecurityEvent::CfiViolation), "CfiViolation");
+    EXPECT_STREQ(event_name(SecurityEvent::AllocationLimitHit), "AllocationLimitHit");
+    EXPECT_STREQ(event_name(SecurityEvent::HandleTableExhaustion), "HandleTableExhaustion");
+    EXPECT_STREQ(event_name(SecurityEvent::InstructionLimitHit), "InstructionLimitHit");
+    EXPECT_STREQ(event_name(SecurityEvent::MemoryLimitHit), "MemoryLimitHit");
+}
+
+// ============================================================================
+// Security Event Callback Tests
+// ============================================================================
+
+namespace {
+struct CallbackState {
+    int call_count = 0;
+    SecurityEvent last_event{};
+    const char* last_context = nullptr;
+};
+
+void test_callback(SecurityEvent event, const char* context, void* user_data) {
+    auto* state = static_cast<CallbackState*>(user_data);
+    state->call_count++;
+    state->last_event = event;
+    state->last_context = context;
+}
+}  // namespace
+
+class SecurityEventCallbackTest : public ::testing::Test {
+protected:
+    SecurityStats stats;
+    CallbackState state;
+
+    void SetUp() override {
+        stats.set_event_callback(test_callback, &state);
+    }
+};
+
+TEST_F(SecurityEventCallbackTest, CallbackIsRegistered) {
+    EXPECT_TRUE(stats.has_event_callback());
+}
+
+TEST_F(SecurityEventCallbackTest, NoCallbackByDefault) {
+    SecurityStats fresh_stats;
+    EXPECT_FALSE(fresh_stats.has_event_callback());
+}
+
+TEST_F(SecurityEventCallbackTest, CallbackCanBeCleared) {
+    stats.set_event_callback(nullptr);
+    EXPECT_FALSE(stats.has_event_callback());
+}

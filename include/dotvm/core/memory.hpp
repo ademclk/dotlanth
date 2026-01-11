@@ -208,11 +208,11 @@ public:
         : table_(mem_config::INITIAL_TABLE_CAPACITY, &stats_),
           max_allocation_size_(max_allocation_size) {}
 
-    // Non-copyable, movable
+    // Non-copyable, non-movable (contains SecurityStats which has atomics)
     MemoryManager(const MemoryManager&) = delete;
     MemoryManager& operator=(const MemoryManager&) = delete;
-    MemoryManager(MemoryManager&&) noexcept = default;
-    MemoryManager& operator=(MemoryManager&&) noexcept = default;
+    MemoryManager(MemoryManager&&) = delete;
+    MemoryManager& operator=(MemoryManager&&) = delete;
 
     /// Destructor frees all active allocations.
     ~MemoryManager();
