@@ -97,6 +97,12 @@ add_library(dotvm_core STATIC
     src/dotvm/core/memory.cpp
     # SIMD subsystem
     src/dotvm/core/simd/cpu_features.cpp
+    src/dotvm/core/simd/simd_alu.cpp
+    # BigInt arbitrary precision integers
+    src/dotvm/core/bigint/bigint.cpp
+    # Crypto subsystem
+    src/dotvm/core/crypto/sha256.cpp
+    src/dotvm/core/crypto/aes.cpp
 )
 
 target_include_directories(dotvm_core PUBLIC
@@ -193,6 +199,16 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/fuzz_edge_cases_test.cpp
         # SIMD subsystem tests
         tests/dotvm/core/simd/cpu_features_test.cpp
+        tests/dotvm/core/simd/vector_types_test.cpp
+        tests/dotvm/core/simd/vector_register_file_test.cpp
+        tests/dotvm/core/simd/simd_alu_test.cpp
+        # VmContext SIMD integration tests
+        tests/dotvm/core/vm_context_simd_test.cpp
+        # BigInt tests
+        tests/dotvm/core/bigint/bigint_test.cpp
+        # Crypto subsystem tests
+        tests/dotvm/core/crypto/sha256_test.cpp
+        tests/dotvm/core/crypto/aes_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
@@ -255,3 +271,62 @@ endif()
 install(DIRECTORY include/
     DESTINATION include
 )
+
+# ============================================================================
+# Benchmarks
+# ============================================================================
+
+if(DOTVM_BUILD_BENCHMARKS)
+    # Benchmark support library
+    add_library(dotvm_bench STATIC
+        src/dotvm/core/bench/benchmark_config.cpp
+    )
+
+    target_include_directories(dotvm_bench PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    )
+
+    target_compile_options(dotvm_bench PRIVATE ${DOTVM_WARNING_FLAGS})
+
+    # SIMD benchmark
+    add_executable(dotvm_simd_benchmark
+        benchmarks/simd_benchmark.cpp
+    )
+
+    target_link_libraries(dotvm_simd_benchmark PRIVATE
+        dotvm_core
+        dotvm_bench
+    )
+
+    target_compile_options(dotvm_simd_benchmark PRIVATE ${DOTVM_WARNING_FLAGS})
+
+    # BigInt benchmark
+    add_executable(dotvm_bigint_benchmark
+        benchmarks/bigint_benchmark.cpp
+    )
+
+    target_link_libraries(dotvm_bigint_benchmark PRIVATE
+        dotvm_core
+        dotvm_bench
+    )
+
+    target_compile_options(dotvm_bigint_benchmark PRIVATE ${DOTVM_WARNING_FLAGS})
+
+    # Crypto benchmark
+    add_executable(dotvm_crypto_benchmark
+        benchmarks/crypto_benchmark.cpp
+    )
+
+    target_link_libraries(dotvm_crypto_benchmark PRIVATE
+        dotvm_core
+        dotvm_bench
+    )
+
+    target_compile_options(dotvm_crypto_benchmark PRIVATE ${DOTVM_WARNING_FLAGS})
+
+    # Install benchmarks
+    install(TARGETS dotvm_simd_benchmark dotvm_bigint_benchmark dotvm_crypto_benchmark
+        RUNTIME DESTINATION bin
+    )
+endif()
