@@ -2,6 +2,7 @@
 
 #include <dotvm/core/memory_config.hpp>
 #include <dotvm/core/value.hpp>
+#include <dotvm/core/arch_config.hpp>
 
 #include <cstring>
 #include <type_traits>
@@ -316,6 +317,48 @@ public:
             .index = mem_config::INVALID_INDEX,
             .generation = 0
         };
+    }
+
+    // ========== Architecture-Aware Address Computation ==========
+
+    /// Computes a bounded address with architecture-specific masking
+    ///
+    /// In Arch32 mode, the resulting address is masked to the 32-bit
+    /// address space (4GB limit). In Arch64 mode, the address is used
+    /// as-is (within the 48-bit canonical range).
+    ///
+    /// This function handles address overflow by wrapping within the
+    /// architecture's address space.
+    ///
+    /// @param base Base address
+    /// @param offset Offset to add to base
+    /// @param arch Target architecture
+    /// @return The computed address, masked for the architecture
+    [[nodiscard]] static constexpr std::size_t compute_address(
+        std::size_t base,
+        std::size_t offset,
+        Architecture arch) noexcept {
+        std::size_t addr = base + offset;
+        return static_cast<std::size_t>(arch_config::mask_addr(addr, arch));
+    }
+
+    /// Validates that an address range is within the architecture's limits
+    ///
+    /// @param addr Start address
+    /// @param size Size of the access
+    /// @param arch Target architecture
+    /// @return true if the entire range fits within the architecture's address space
+    [[nodiscard]] static constexpr bool address_in_range(
+        std::size_t addr,
+        std::size_t size,
+        Architecture arch) noexcept {
+        // Check for overflow
+        if (addr > SIZE_MAX - size) {
+            return false;
+        }
+
+        std::size_t end_addr = addr + size;
+        return arch_config::addr_fits_in_arch(end_addr, arch);
     }
 
 private:

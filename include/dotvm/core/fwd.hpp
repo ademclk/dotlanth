@@ -7,9 +7,16 @@ namespace dotvm::core {
 // Core types
 class Value;
 class RegisterFile;
+class ArchRegisterFile;
 struct Handle;
 enum class ValueType : std::uint8_t;
 enum class RegisterClass : std::uint8_t;
+
+// Architecture types
+enum class Architecture : std::uint8_t;
+class ALU;
+struct VmConfig;
+class VmContext;
 
 // Instruction types
 struct DecodedTypeA;

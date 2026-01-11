@@ -2,6 +2,7 @@
 
 #include "value.hpp"
 #include "register_conventions.hpp"
+#include "arch_config.hpp"
 
 #include <algorithm>
 #include <array>
@@ -135,5 +136,152 @@ private:
 static_assert(sizeof(Value) == 8, "Value must be 8 bytes for <16 byte target");
 static_assert(alignof(RegisterFile) == CACHE_LINE_SIZE,
               "RegisterFile must be cache-line aligned");
+
+// ============================================================================
+// Architecture-Aware Register File Wrapper
+// ============================================================================
+
+/// Architecture-aware register file wrapper
+///
+/// This wrapper applies architecture-specific value masking on writes.
+/// In Arch32 mode, integer values are automatically masked to 32 bits
+/// with proper sign extension before being stored.
+///
+/// The underlying RegisterFile is preserved, allowing direct access
+/// for operations that don't require masking.
+class ArchRegisterFile {
+public:
+    /// Construct an architecture-aware register file
+    ///
+    /// @param arch Target architecture (default: Arch64)
+    explicit ArchRegisterFile(Architecture arch = Architecture::Arch64) noexcept
+        : arch_{arch} {}
+
+    // =========================================================================
+    // Architecture Configuration
+    // =========================================================================
+
+    /// Get the current architecture
+    [[nodiscard]] Architecture arch() const noexcept { return arch_; }
+
+    /// Set the architecture
+    void set_arch(Architecture arch) noexcept { arch_ = arch; }
+
+    // =========================================================================
+    // Register Access
+    // =========================================================================
+
+    /// Read a register value
+    ///
+    /// Reading does not mask the value - it returns the stored value as-is.
+    /// R0 always returns zero regardless of architecture.
+    ///
+    /// @param reg Register index (0-255)
+    /// @return The register value
+    [[nodiscard]] Value read(std::uint8_t reg) const noexcept {
+        return regs_.read(reg);
+    }
+
+    /// Write a register value with architecture-aware masking
+    ///
+    /// In Arch32 mode, integer values are masked to 32 bits with sign extension.
+    /// Non-integer values (float, bool, handle, nil, pointer) are stored unchanged.
+    /// Writes to R0 are silently ignored.
+    ///
+    /// @param reg Register index (0-255)
+    /// @param val Value to write
+    void write(std::uint8_t reg, Value val) noexcept {
+        if (arch_ == Architecture::Arch32 && val.is_integer()) {
+            val = Value::from_int(arch_config::mask_int(val.as_integer(), arch_));
+        }
+        regs_.write(reg, val);
+    }
+
+    /// Write an integer value with architecture-aware masking
+    ///
+    /// The integer is masked to the appropriate width for the architecture
+    /// before being stored.
+    ///
+    /// @param reg Register index (0-255)
+    /// @param val Integer value to write
+    void write_int(std::uint8_t reg, std::int64_t val) noexcept {
+        regs_.write(reg, Value::from_int(arch_config::mask_int(val, arch_)));
+    }
+
+    /// Write a value without masking
+    ///
+    /// Bypasses architecture masking - use for values that should not be masked.
+    ///
+    /// @param reg Register index (0-255)
+    /// @param val Value to write
+    void write_raw(std::uint8_t reg, Value val) noexcept {
+        regs_.write(reg, val);
+    }
+
+    // =========================================================================
+    // Proxy for operator[] access
+    // =========================================================================
+
+    /// Proxy class for architecture-aware operator[] access
+    class ArchRegisterProxy {
+    public:
+        constexpr ArchRegisterProxy(ArchRegisterFile& rf, std::uint8_t reg) noexcept
+            : rf_{rf}, reg_{reg} {}
+
+        operator Value() const noexcept {
+            return rf_.read(reg_);
+        }
+
+        ArchRegisterProxy& operator=(Value val) noexcept {
+            rf_.write(reg_, val);
+            return *this;
+        }
+
+    private:
+        ArchRegisterFile& rf_;
+        std::uint8_t reg_;
+    };
+
+    [[nodiscard]] ArchRegisterProxy operator[](std::uint8_t reg) noexcept {
+        return ArchRegisterProxy{*this, reg};
+    }
+
+    [[nodiscard]] Value operator[](std::uint8_t reg) const noexcept {
+        return read(reg);
+    }
+
+    // =========================================================================
+    // Bulk Operations
+    // =========================================================================
+
+    /// Clear all registers (reset to zero)
+    void clear() noexcept { regs_.clear(); }
+
+    /// Get the number of registers
+    [[nodiscard]] static constexpr std::size_t size() noexcept {
+        return RegisterFile::size();
+    }
+
+    // =========================================================================
+    // Raw Access
+    // =========================================================================
+
+    /// Get mutable access to the underlying RegisterFile
+    ///
+    /// Use for operations that don't require architecture-aware masking.
+    [[nodiscard]] RegisterFile& raw() noexcept { return regs_; }
+
+    /// Get const access to the underlying RegisterFile
+    [[nodiscard]] const RegisterFile& raw() const noexcept { return regs_; }
+
+    /// Get raw view of all register values
+    [[nodiscard]] std::span<const Value, REGISTER_FILE_SIZE> raw_view() const noexcept {
+        return regs_.raw_view();
+    }
+
+private:
+    RegisterFile regs_;
+    Architecture arch_;
+};
 
 } // namespace dotvm::core

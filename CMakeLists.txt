@@ -129,6 +129,11 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/instruction_test.cpp
         tests/dotvm/core/bytecode_test.cpp
         tests/dotvm/core/memory_test.cpp
+        tests/dotvm/core/arch_config_test.cpp
+        tests/dotvm/core/alu_test.cpp
+        tests/dotvm/core/arch_register_file_test.cpp
+        tests/dotvm/core/vm_context_test.cpp
+        tests/dotvm/core/interop_32_64_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
