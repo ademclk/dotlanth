@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.28)
 project(dotlanth
     VERSION 0.1.0
     DESCRIPTION "AI-Powered Automation Platform"
-    LANGUAGES CXX
+    LANGUAGES CXX C
 )
 
 # C++26 requirement - use Clang 19+ or GCC 14+
@@ -32,6 +32,7 @@ endif()
 # Options
 option(DOTVM_BUILD_TESTS "Build unit tests" ON)
 option(DOTVM_BUILD_BENCHMARKS "Build benchmarks" OFF)
+option(DOTVM_BUILD_C_API "Build C API shared library for FFI" ON)
 option(DOTVM_ENABLE_SIMD "Enable SIMD optimizations" ON)
 option(DOTVM_ENABLE_SANITIZERS "Enable sanitizers in Debug builds" OFF)
 option(DOTVM_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
@@ -109,6 +110,44 @@ if(DOTVM_COVERAGE_FLAGS)
     target_link_options(dotvm_core PUBLIC ${DOTVM_COVERAGE_FLAGS})
 endif()
 
+# ============================================================================
+# C API Shared Library
+# ============================================================================
+
+if(DOTVM_BUILD_C_API)
+    add_library(dotvm_c SHARED
+        src/dotvm/dotvm_c.cpp
+    )
+
+    target_link_libraries(dotvm_c PRIVATE dotvm_core)
+
+    target_include_directories(dotvm_c PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    )
+
+    target_compile_options(dotvm_c PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+    # Define DOTVM_C_EXPORTS for DLL export on Windows
+    target_compile_definitions(dotvm_c PRIVATE DOTVM_C_EXPORTS)
+
+    # Set library version
+    set_target_properties(dotvm_c PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}
+        C_VISIBILITY_PRESET default
+        CXX_VISIBILITY_PRESET default
+        VISIBILITY_INLINES_HIDDEN OFF
+    )
+
+    if(DOTVM_SANITIZER_FLAGS)
+        target_link_options(dotvm_c PUBLIC ${DOTVM_SANITIZER_FLAGS})
+    endif()
+    if(DOTVM_COVERAGE_FLAGS)
+        target_link_options(dotvm_c PUBLIC ${DOTVM_COVERAGE_FLAGS})
+    endif()
+endif()
+
 # Main executable
 add_executable(dotlanth
     src/main.cpp
@@ -161,6 +200,37 @@ if(DOTVM_BUILD_TESTS)
 
     include(GoogleTest)
     gtest_discover_tests(dotvm_tests)
+
+    # C API tests (only if C API is enabled)
+    if(DOTVM_BUILD_C_API)
+        # C++ unit tests for C API
+        add_executable(dotvm_c_tests
+            tests/dotvm/dotvm_c_test.cpp
+        )
+
+        target_link_libraries(dotvm_c_tests PRIVATE
+            dotvm_c
+            GTest::gtest_main
+        )
+
+        target_compile_options(dotvm_c_tests PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+        gtest_discover_tests(dotvm_c_tests)
+
+        # Pure C compilation/compatibility test
+        add_executable(dotvm_c_compat_test
+            tests/dotvm/dotvm_c_test.c
+        )
+
+        # Force C compilation (not C++)
+        set_target_properties(dotvm_c_compat_test PROPERTIES
+            LINKER_LANGUAGE C
+        )
+
+        target_link_libraries(dotvm_c_compat_test PRIVATE dotvm_c)
+
+        add_test(NAME dotvm_c_compat_test COMMAND dotvm_c_compat_test)
+    endif()
 endif()
 
 # Installation
@@ -169,6 +239,14 @@ install(TARGETS dotvm_core dotlanth
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
 )
+
+if(DOTVM_BUILD_C_API)
+    install(TARGETS dotvm_c
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+endif()
 
 install(DIRECTORY include/
     DESTINATION include
