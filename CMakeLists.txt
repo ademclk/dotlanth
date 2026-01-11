@@ -95,6 +95,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/instruction.cpp
     src/dotvm/core/bytecode.cpp
     src/dotvm/core/memory.cpp
+    # SIMD subsystem
+    src/dotvm/core/simd/cpu_features.cpp
 )
 
 target_include_directories(dotvm_core PUBLIC
@@ -189,6 +191,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/interop_32_64_test.cpp
         tests/dotvm/core/security_hardening_test.cpp
         tests/dotvm/core/fuzz_edge_cases_test.cpp
+        # SIMD subsystem tests
+        tests/dotvm/core/simd/cpu_features_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
