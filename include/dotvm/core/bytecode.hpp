@@ -18,9 +18,9 @@ namespace dotvm::core {
 // ============================================================================
 
 namespace bytecode {
-    // Magic bytes "DOTV" as little-endian u32
-    inline constexpr std::uint32_t MAGIC = 0x5654'4F44U;  // "DOTV" LE
-    inline constexpr std::array<std::uint8_t, 4> MAGIC_BYTES = {'D', 'O', 'T', 'V'};
+    // Magic bytes "DOTM" as little-endian u32
+    inline constexpr std::uint32_t MAGIC = 0x4D54'4F44U;  // "DOTM" LE
+    inline constexpr std::array<std::uint8_t, 4> MAGIC_BYTES = {'D', 'O', 'T', 'M'};
 
     // Version
     inline constexpr std::uint8_t CURRENT_VERSION = 26;
@@ -94,7 +94,7 @@ enum class BytecodeError : std::uint8_t {
         case BytecodeError::Success:
             return "";
         case BytecodeError::InvalidMagic:
-            return "Invalid magic bytes - expected 'DOTV'";
+            return "Invalid magic bytes - expected 'DOTM'";
         case BytecodeError::UnsupportedVersion:
             return "Unsupported bytecode version";
         case BytecodeError::InvalidArchitecture:

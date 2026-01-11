@@ -102,14 +102,14 @@ TEST_F(BytecodeHeaderTest, ConstantPoolHeaderSizeIs4Bytes) {
 TEST_F(BytecodeHeaderTest, HeaderConstantsAreCorrect) {
     EXPECT_EQ(bytecode::HEADER_SIZE, 48);
     EXPECT_EQ(bytecode::CURRENT_VERSION, 26);
-    EXPECT_EQ(bytecode::MAGIC, 0x5654'4F44U);
+    EXPECT_EQ(bytecode::MAGIC, 0x4D54'4F44U);
 }
 
 TEST_F(BytecodeHeaderTest, MagicBytesAreCorrect) {
     EXPECT_EQ(bytecode::MAGIC_BYTES[0], 'D');
     EXPECT_EQ(bytecode::MAGIC_BYTES[1], 'O');
     EXPECT_EQ(bytecode::MAGIC_BYTES[2], 'T');
-    EXPECT_EQ(bytecode::MAGIC_BYTES[3], 'V');
+    EXPECT_EQ(bytecode::MAGIC_BYTES[3], 'M');
 }
 
 TEST_F(BytecodeHeaderTest, ConstantTypesAreCorrect) {
@@ -258,7 +258,7 @@ TEST_F(BytecodeHeaderTest, WriteProducesExpectedBytes) {
     EXPECT_EQ(bytes[0], 'D');
     EXPECT_EQ(bytes[1], 'O');
     EXPECT_EQ(bytes[2], 'T');
-    EXPECT_EQ(bytes[3], 'V');
+    EXPECT_EQ(bytes[3], 'M');
 
     // Check version
     EXPECT_EQ(bytes[4], 26);
@@ -285,7 +285,7 @@ TEST_F(BytecodeHeaderTest, MakeHeaderSetsDefaults) {
 // ============================================================================
 
 TEST_F(BytecodeHeaderTest, ValidMagicAccepted) {
-    std::array<std::uint8_t, 4> magic = {'D', 'O', 'T', 'V'};
+    std::array<std::uint8_t, 4> magic = {'D', 'O', 'T', 'M'};
     EXPECT_TRUE(validate_magic(magic));
 }
 
@@ -774,7 +774,7 @@ TEST_F(BytecodeHeaderTest, ErrorToStringCompleteness) {
 // ============================================================================
 
 TEST_F(BytecodeHeaderTest, ConstexprMagicValidation) {
-    constexpr std::array<std::uint8_t, 4> valid_magic = {'D', 'O', 'T', 'V'};
+    constexpr std::array<std::uint8_t, 4> valid_magic = {'D', 'O', 'T', 'M'};
     constexpr bool is_valid = validate_magic(valid_magic);
     static_assert(is_valid);
 
@@ -831,7 +831,7 @@ TEST_F(BytecodeHeaderTest, ConstexprWriteHeader) {
     static_assert(bytes[0] == 'D');
     static_assert(bytes[1] == 'O');
     static_assert(bytes[2] == 'T');
-    static_assert(bytes[3] == 'V');
+    static_assert(bytes[3] == 'M');
     static_assert(bytes[4] == 26);
 
     EXPECT_EQ(bytes[0], 'D');
