@@ -6,7 +6,7 @@ project(dotlanth
     LANGUAGES CXX
 )
 
-# C++26 requirement - use Clang 19+ which supports C++26
+# C++26 requirement - use Clang 19+
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -25,9 +25,12 @@ option(DOTVM_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(DOTVM_ENABLE_SIMD "Enable SIMD optimizations" ON)
 option(DOTVM_ENABLE_SANITIZERS "Enable sanitizers in Debug builds" OFF)
 
-# Compiler-specific flags
+# Define strict warning flags (applied only to our targets, not dependencies)
+set(DOTVM_WARNING_FLAGS "")
+set(DOTVM_SANITIZER_FLAGS "")
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    add_compile_options(
+    set(DOTVM_WARNING_FLAGS
         -Wall
         -Wextra
         -Wpedantic
@@ -38,19 +41,18 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     )
 
     if(DOTVM_ENABLE_SIMD)
-        add_compile_options(-march=native)
+        list(APPEND DOTVM_WARNING_FLAGS -march=native)
     endif()
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND DOTVM_ENABLE_SANITIZERS)
-        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
-        add_link_options(-fsanitize=address,undefined)
+        set(DOTVM_SANITIZER_FLAGS -fsanitize=address,undefined -fno-omit-frame-pointer)
     endif()
 
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        add_compile_options(-O3 -DNDEBUG)
+        list(APPEND DOTVM_WARNING_FLAGS -O3 -DNDEBUG)
     endif()
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    add_compile_options(
+    set(DOTVM_WARNING_FLAGS
         /W4
         /WX
         /permissive-
@@ -58,7 +60,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     )
 
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        add_compile_options(/O2)
+        list(APPEND DOTVM_WARNING_FLAGS /O2)
     endif()
 endif()
 
@@ -69,6 +71,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 add_library(dotvm_core STATIC
     src/dotvm/core/register_file.cpp
     src/dotvm/core/instruction.cpp
+    src/dotvm/core/bytecode.cpp
 )
 
 target_include_directories(dotvm_core PUBLIC
@@ -76,12 +79,18 @@ target_include_directories(dotvm_core PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS})
+if(DOTVM_SANITIZER_FLAGS)
+    target_link_options(dotvm_core PUBLIC ${DOTVM_SANITIZER_FLAGS})
+endif()
+
 # Main executable
 add_executable(dotlanth
     src/main.cpp
 )
 
 target_link_libraries(dotlanth PRIVATE dotvm_core)
+target_compile_options(dotlanth PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS})
 
 # Testing
 if(DOTVM_BUILD_TESTS)
@@ -101,12 +110,15 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/value_test.cpp
         tests/dotvm/core/register_file_test.cpp
         tests/dotvm/core/instruction_test.cpp
+        tests/dotvm/core/bytecode_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
         dotvm_core
         GTest::gtest_main
     )
+
+    target_compile_options(dotvm_tests PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(dotvm_tests)
