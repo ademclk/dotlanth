@@ -233,6 +233,40 @@ if(DOTVM_BUILD_TESTS)
     endif()
 endif()
 
+# ============================================================================
+# Fuzzing Targets (Clang only, with LibFuzzer)
+# ============================================================================
+
+option(DOTVM_BUILD_FUZZERS "Build fuzzing targets (requires Clang with LibFuzzer)" OFF)
+
+if(DOTVM_BUILD_FUZZERS)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(WARNING "Fuzzers require Clang compiler. Skipping fuzzer targets.")
+    else()
+        set(FUZZER_FLAGS -fsanitize=fuzzer,address -fno-omit-frame-pointer)
+
+        # Bytecode parsing fuzzer
+        add_executable(bytecode_fuzzer
+            fuzz/bytecode_fuzzer.cpp
+        )
+        target_link_libraries(bytecode_fuzzer PRIVATE dotvm_core)
+        target_compile_options(bytecode_fuzzer PRIVATE ${FUZZER_FLAGS})
+        target_link_options(bytecode_fuzzer PRIVATE ${FUZZER_FLAGS})
+
+        # C API fuzzer
+        if(DOTVM_BUILD_C_API)
+            add_executable(capi_fuzzer
+                fuzz/capi_fuzzer.cpp
+            )
+            target_link_libraries(capi_fuzzer PRIVATE dotvm_c)
+            target_compile_options(capi_fuzzer PRIVATE ${FUZZER_FLAGS})
+            target_link_options(capi_fuzzer PRIVATE ${FUZZER_FLAGS})
+        endif()
+
+        message(STATUS "Fuzzer targets enabled. Build with: cmake --build . --target bytecode_fuzzer capi_fuzzer")
+    endif()
+endif()
+
 # Installation
 install(TARGETS dotvm_core dotlanth
     ARCHIVE DESTINATION lib

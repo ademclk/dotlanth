@@ -366,6 +366,95 @@ TEST_F(DotVMCApiErrorTest, ClearError_NullVM_NoOp) {
 }
 
 // ============================================================================
+// Safe Error Copy Tests
+// ============================================================================
+
+TEST_F(DotVMCApiErrorTest, GetErrorCopy_NoError_ReturnsZero) {
+    size_t len = dotvm_get_error_copy(vm, nullptr, 0);
+    EXPECT_EQ(len, 0u);
+}
+
+TEST_F(DotVMCApiErrorTest, GetErrorCopy_NullVM_ReturnsZero) {
+    char buffer[64];
+    EXPECT_EQ(dotvm_get_error_copy(nullptr, buffer, sizeof(buffer)), 0u);
+    // Buffer should be null-terminated even on error
+    EXPECT_STREQ(buffer, "");
+}
+
+TEST_F(DotVMCApiErrorTest, GetErrorCopy_WithError_ReturnsLength) {
+    // Trigger an error
+    dotvm_load_bytecode(vm, nullptr, 0);
+
+    // Query required size
+    size_t needed = dotvm_get_error_copy(vm, nullptr, 0);
+    EXPECT_GT(needed, 0u);
+
+    // Allocate buffer and copy
+    char buffer[256];
+    size_t written = dotvm_get_error_copy(vm, buffer, sizeof(buffer));
+    EXPECT_EQ(written, needed);
+    EXPECT_EQ(strlen(buffer), written);
+}
+
+TEST_F(DotVMCApiErrorTest, GetErrorCopy_SmallBuffer_Truncates) {
+    // Trigger an error with a known message
+    dotvm_load_bytecode(vm, nullptr, 0);
+
+    // Get required size
+    size_t needed = dotvm_get_error_copy(vm, nullptr, 0);
+    EXPECT_GT(needed, 3u);  // Error message should be longer than 3 chars
+
+    // Use small buffer
+    char small_buffer[4];
+    size_t len = dotvm_get_error_copy(vm, small_buffer, sizeof(small_buffer));
+
+    // Returns full required length
+    EXPECT_EQ(len, needed);
+
+    // But only copied 3 chars + null
+    EXPECT_EQ(strlen(small_buffer), 3u);
+}
+
+TEST_F(DotVMCApiErrorTest, GetErrorCopy_ExactBuffer_Works) {
+    // Trigger an error
+    dotvm_load_bytecode(vm, nullptr, 0);
+
+    size_t needed = dotvm_get_error_copy(vm, nullptr, 0);
+    EXPECT_GT(needed, 0u);
+
+    // Allocate exact size + 1 for null terminator
+    std::vector<char> buffer(needed + 1);
+    size_t len = dotvm_get_error_copy(vm, buffer.data(), buffer.size());
+
+    EXPECT_EQ(len, needed);
+    EXPECT_EQ(strlen(buffer.data()), needed);
+}
+
+TEST_F(DotVMCApiErrorTest, GetErrorCopy_ZeroBufferSize_ReturnsLength) {
+    // Trigger an error
+    dotvm_load_bytecode(vm, nullptr, 0);
+
+    char buffer[64] = "untouched";
+    size_t needed = dotvm_get_error_copy(vm, buffer, 0);
+
+    EXPECT_GT(needed, 0u);
+    // Buffer should not be modified when buffer_size is 0
+    EXPECT_STREQ(buffer, "untouched");
+}
+
+TEST_F(DotVMCApiErrorTest, GetErrorCopy_AfterClear_ReturnsZero) {
+    // Trigger an error
+    dotvm_load_bytecode(vm, nullptr, 0);
+    EXPECT_GT(dotvm_get_error_copy(vm, nullptr, 0), 0u);
+
+    // Clear the error
+    dotvm_clear_error(vm);
+
+    // Should return 0 now
+    EXPECT_EQ(dotvm_get_error_copy(vm, nullptr, 0), 0u);
+}
+
+// ============================================================================
 // Query Function Tests
 // ============================================================================
 

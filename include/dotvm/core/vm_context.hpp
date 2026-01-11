@@ -22,6 +22,70 @@
 namespace dotvm::core {
 
 // ============================================================================
+// Resource Limits
+// ============================================================================
+
+/// Resource limit policy for VM execution
+///
+/// Defines limits that can be enforced during bytecode execution
+/// to prevent resource exhaustion attacks. Use with VmConfig::sandboxed()
+/// for untrusted bytecode.
+struct ResourceLimits {
+    /// Maximum number of instructions to execute (0 = unlimited)
+    ///
+    /// When the limit is reached, execution pauses with an error.
+    /// Use to prevent infinite loops or excessive computation.
+    std::uint64_t max_instructions = 0;
+
+    /// Maximum number of memory allocations (0 = unlimited)
+    ///
+    /// Limits the number of allocate() calls, not total memory.
+    std::uint64_t max_allocations = 0;
+
+    /// Maximum total allocated bytes (0 = use VmConfig::max_memory)
+    ///
+    /// Separate from individual allocation size limits.
+    std::size_t max_total_memory = 0;
+
+    /// Maximum call stack depth (overrides CfiPolicy if set, 0 = use CfiPolicy)
+    std::uint32_t max_call_depth = 0;
+
+    /// Maximum backward jumps (overrides CfiPolicy if set, 0 = use CfiPolicy)
+    std::uint32_t max_backward_jumps = 0;
+
+    /// Creates default unlimited policy (no restrictions)
+    [[nodiscard]] static constexpr ResourceLimits unlimited() noexcept {
+        return ResourceLimits{};
+    }
+
+    /// Creates a restricted policy suitable for untrusted bytecode
+    ///
+    /// Default limits:
+    /// - 1M instructions
+    /// - 1K allocations
+    /// - 16MB total memory
+    /// - 256 call depth
+    /// - 10K backward jumps
+    [[nodiscard]] static constexpr ResourceLimits restricted() noexcept {
+        return ResourceLimits{
+            .max_instructions = 1'000'000,
+            .max_allocations = 1'000,
+            .max_total_memory = 16 * 1024 * 1024,
+            .max_call_depth = 256,
+            .max_backward_jumps = 10'000};
+    }
+
+    /// Check if any limits are set
+    [[nodiscard]] constexpr bool has_limits() const noexcept {
+        return max_instructions > 0 || max_allocations > 0 ||
+               max_total_memory > 0 || max_call_depth > 0 ||
+               max_backward_jumps > 0;
+    }
+
+    constexpr bool operator==(const ResourceLimits&) const noexcept = default;
+};
+
+// ============================================================================
 // VM Configuration
 // ============================================================================
 
@@ -56,6 +120,9 @@ struct VmConfig {
     /// CFI policy configuration (used when cfi_enabled is true)
     cfi::CfiPolicy cfi_policy{};
 
+    /// Resource limits for sandboxed execution (optional)
+    ResourceLimits resource_limits{};
+
     /// Creates a default configuration for the given architecture
     [[nodiscard]] static constexpr VmConfig for_arch(Architecture arch) noexcept {
         return VmConfig{.arch = arch};
@@ -79,6 +146,24 @@ struct VmConfig {
             .max_memory = mem_config::MAX_ALLOCATION_SIZE,
             .cfi_enabled = true,
             .cfi_policy = cfi::CfiPolicy::strict()
+        };
+    }
+
+    /// Creates a fully sandboxed configuration for untrusted bytecode
+    ///
+    /// Combines security features with resource limits:
+    /// - CFI with strict policy
+    /// - Strict overflow checking
+    /// - Resource limits (instruction, memory, call depth)
+    /// - Reduced memory allocation cap
+    [[nodiscard]] static constexpr VmConfig sandboxed() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .strict_overflow = true,
+            .max_memory = 16 * 1024 * 1024,  // 16MB per-allocation limit
+            .cfi_enabled = true,
+            .cfi_policy = cfi::CfiPolicy::strict(),
+            .resource_limits = ResourceLimits::restricted()
         };
     }
 
