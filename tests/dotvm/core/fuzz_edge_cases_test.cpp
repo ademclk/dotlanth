@@ -1,5 +1,12 @@
 #include <gtest/gtest.h>
 
+// GCC's -Warray-bounds warning has false positives with constexpr code
+// that has early size checks. Suppress for this fuzz test file.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
 #include <dotvm/core/bytecode.hpp>
 #include <dotvm/core/memory.hpp>
 #include <dotvm/core/value.hpp>
@@ -86,7 +93,8 @@ TEST_F(BytecodeFuzzTest, InvalidArchitectureRejected) {
     auto data = make_valid_header();
 
     // Test invalid architecture values
-    std::array<std::uint8_t, 4> bad_archs = {2, 3, 128, 255};
+    // Note: Arch128=2, Arch256=3, Arch512=4 are now valid, so only 5+ is invalid
+    std::array<std::uint8_t, 4> bad_archs = {5, 6, 128, 255};
 
     for (auto arch : bad_archs) {
         auto corrupted = data;
@@ -514,3 +522,7 @@ TEST_F(ExecutionConstraintFuzzTest, LargeOffsetJumps) {
     EXPECT_EQ(validate_jump_target(1 << 24, -(1 << 20), LARGE_CODE_SIZE),
               BytecodeError::Success);
 }
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif

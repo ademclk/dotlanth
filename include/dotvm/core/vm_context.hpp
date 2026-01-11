@@ -5,9 +5,10 @@
 ///
 /// This header provides the VmConfig structure and VmContext class which
 /// together carry the runtime state needed for VM execution, including
-/// the target architecture, register file, memory manager, and ALU.
+/// the target architecture, register file, memory manager, ALU, and SIMD support.
 
 #include <cstdint>
+#include <memory>
 
 #include "arch_config.hpp"
 #include "arch_types.hpp"
@@ -16,6 +17,9 @@
 #include "register_file.hpp"
 #include "memory.hpp"
 #include "security_stats.hpp"
+#include "simd/vector_register_file.hpp"
+#include "simd/simd_alu.hpp"
+#include "simd/cpu_features.hpp"
 
 #include <optional>
 
@@ -56,6 +60,18 @@ struct VmConfig {
     /// CFI policy configuration (used when cfi_enabled is true)
     cfi::CfiPolicy cfi_policy{};
 
+    /// SIMD vector width (0 = auto-detect from CPU)
+    ///
+    /// When set to 0, the optimal SIMD width is detected at runtime.
+    /// Valid explicit values: 128, 256, 512
+    std::size_t simd_width = 0;
+
+    /// Enable SIMD operations
+    ///
+    /// When false (default), SIMD operations are disabled and vector
+    /// registers/ALU are not initialized.
+    bool simd_enabled = false;
+
     /// Creates a default configuration for the given architecture
     [[nodiscard]] static constexpr VmConfig for_arch(Architecture arch) noexcept {
         return VmConfig{.arch = arch};
@@ -82,6 +98,62 @@ struct VmConfig {
         };
     }
 
+    /// Creates a scalar-only configuration (no SIMD)
+    ///
+    /// SIMD operations are explicitly disabled.
+    [[nodiscard]] static constexpr VmConfig scalar_only() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 0,
+            .simd_enabled = false
+        };
+    }
+
+    /// Creates a 128-bit SIMD configuration
+    ///
+    /// Enables SIMD with 128-bit vectors (SSE/NEON equivalent).
+    [[nodiscard]] static constexpr VmConfig simd128() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 128,
+            .simd_enabled = true
+        };
+    }
+
+    /// Creates a 256-bit SIMD configuration
+    ///
+    /// Enables SIMD with 256-bit vectors (AVX2 equivalent).
+    [[nodiscard]] static constexpr VmConfig simd256() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 256,
+            .simd_enabled = true
+        };
+    }
+
+    /// Creates a 512-bit SIMD configuration
+    ///
+    /// Enables SIMD with 512-bit vectors (AVX-512 equivalent).
+    [[nodiscard]] static constexpr VmConfig simd512() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 512,
+            .simd_enabled = true
+        };
+    }
+
+    /// Creates a configuration with auto-detected SIMD
+    ///
+    /// Enables SIMD and auto-detects the optimal vector width
+    /// based on CPU capabilities at runtime.
+    [[nodiscard]] static constexpr VmConfig auto_detect() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 0,  // 0 = auto-detect
+            .simd_enabled = true
+        };
+    }
+
     constexpr bool operator==(const VmConfig&) const noexcept = default;
 };
 
@@ -96,6 +168,7 @@ struct VmConfig {
 /// - Register file (architecture-aware)
 /// - Memory manager
 /// - ALU (architecture-aware arithmetic)
+/// - SIMD vector registers and ALU (optional)
 ///
 /// The context provides convenience methods for creating values and
 /// computing addresses that respect the configured architecture.
@@ -108,10 +181,16 @@ public:
         : config_{config},
           regs_{config.arch},
           mem_{config.max_memory},
-          alu_{config.arch} {
+          alu_{config.arch},
+          simd_enabled_{config.simd_enabled} {
         // Initialize CFI context if enabled
         if (config.cfi_enabled) {
             cfi_.emplace(config.cfi_policy, &mem_.security_stats());
+        }
+
+        // Initialize SIMD if enabled
+        if (config.simd_enabled) {
+            initialize_simd(config.simd_width);
         }
     }
 
@@ -249,6 +328,41 @@ public:
     }
 
     // =========================================================================
+    // SIMD Access
+    // =========================================================================
+
+    /// Check if SIMD is enabled
+    ///
+    /// @return true if SIMD operations are available
+    [[nodiscard]] bool simd_enabled() const noexcept { return simd_enabled_; }
+
+    /// Get the active SIMD architecture
+    ///
+    /// @return The SIMD architecture in use, or Arch64 if SIMD is disabled
+    [[nodiscard]] Architecture simd_architecture() const noexcept { return simd_arch_; }
+
+    /// Access vector registers (V0-V31)
+    ///
+    /// @return Mutable reference to the vector register file
+    /// @note Always available, but operations have no effect if SIMD disabled
+    [[nodiscard]] simd::VectorRegisterFile& vec_registers() noexcept { return vec_regs_; }
+
+    /// Access vector registers (V0-V31) - const version
+    ///
+    /// @return Const reference to the vector register file
+    [[nodiscard]] const simd::VectorRegisterFile& vec_registers() const noexcept { return vec_regs_; }
+
+    /// Access SIMD ALU
+    ///
+    /// @return Pointer to the SIMD ALU, or nullptr if SIMD is disabled
+    [[nodiscard]] simd::SimdAlu* simd_alu() noexcept { return simd_alu_.get(); }
+
+    /// Access SIMD ALU - const version
+    ///
+    /// @return Const pointer to the SIMD ALU, or nullptr if SIMD is disabled
+    [[nodiscard]] const simd::SimdAlu* simd_alu() const noexcept { return simd_alu_.get(); }
+
+    // =========================================================================
     // Security Statistics
     // =========================================================================
 
@@ -268,10 +382,11 @@ public:
 
     /// Reset the context to initial state
     ///
-    /// Clears all registers and deallocates all memory.
+    /// Clears all registers (scalar and vector) and deallocates all memory.
     /// Configuration is preserved.
     void reset() noexcept {
         regs_.clear();
+        vec_regs_.clear();
         // Note: Memory manager doesn't have a clear() method
         // Allocations persist until deallocated individually
     }
@@ -290,11 +405,42 @@ public:
     }
 
 private:
+    /// Initialize SIMD subsystem
+    ///
+    /// @param width Requested SIMD width (0 = auto-detect)
+    void initialize_simd(std::size_t width) noexcept {
+        // Determine the SIMD architecture based on width or auto-detection
+        if (width == 0) {
+            // Auto-detect optimal architecture
+            simd_arch_ = simd::select_optimal_simd_arch();
+        } else if (width >= 512) {
+            simd_arch_ = Architecture::Arch512;
+        } else if (width >= 256) {
+            simd_arch_ = Architecture::Arch256;
+        } else {
+            simd_arch_ = Architecture::Arch128;
+        }
+
+        // Create the SIMD ALU with the determined architecture
+        simd_alu_ = std::make_unique<simd::SimdAlu>(simd_arch_);
+
+        // Verify CPU support - fall back if necessary
+        if (!simd_alu_->features().supports_arch(simd_arch_)) {
+            simd_arch_ = simd_alu_->arch();  // Use ALU's fallback
+        }
+    }
+
     VmConfig config_;
     ArchRegisterFile regs_;
     MemoryManager mem_;
     ALU alu_;
     std::optional<cfi::CfiContext> cfi_;
+
+    // SIMD support
+    simd::VectorRegisterFile vec_regs_;
+    std::unique_ptr<simd::SimdAlu> simd_alu_;
+    bool simd_enabled_ = false;
+    Architecture simd_arch_ = Architecture::Arch64;
 };
 
 }  // namespace dotvm::core
