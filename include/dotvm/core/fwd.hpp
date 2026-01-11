@@ -18,4 +18,10 @@ struct DecodedTypeC;
 enum class OpcodeCategory : std::uint8_t;
 enum class InstructionType : std::uint8_t;
 
+// Memory types
+struct HandleEntry;
+class HandleTable;
+class MemoryManager;
+enum class MemoryError : std::uint8_t;
+
 } // namespace dotvm::core

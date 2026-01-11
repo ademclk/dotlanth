@@ -6,3 +6,5 @@
 #include "core/register_conventions.hpp"
 #include "core/register_file.hpp"
 #include "core/instruction.hpp"
+#include "core/memory_config.hpp"
+#include "core/memory.hpp"
