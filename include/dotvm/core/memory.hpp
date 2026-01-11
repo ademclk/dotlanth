@@ -201,7 +201,7 @@ public:
     /// Increments generation counter to invalidate existing handles.
     /// @param h The handle to deallocate.
     /// @return Error code.
-    MemoryError deallocate(Handle h) noexcept;
+    [[nodiscard]] MemoryError deallocate(Handle h) noexcept;
 
     /// Gets the raw pointer for a handle (validated).
     /// @param h The handle.
@@ -245,7 +245,7 @@ public:
     /// @param value The value to write.
     /// @return Error code.
     template<typename T>
-    MemoryError write(Handle h, std::size_t offset, T value) noexcept {
+    [[nodiscard]] MemoryError write(Handle h, std::size_t offset, T value) noexcept {
         static_assert(std::is_trivially_copyable_v<T>,
                       "write<T> requires trivially copyable type");
 
@@ -271,8 +271,8 @@ public:
     /// @param src Source buffer.
     /// @param count Number of bytes to copy.
     /// @return Error code.
-    MemoryError write_bytes(Handle h, std::size_t offset,
-                            const void* src, std::size_t count) noexcept;
+    [[nodiscard]] MemoryError write_bytes(Handle h, std::size_t offset,
+                                          const void* src, std::size_t count) noexcept;
 
     /// Copies data from an allocation.
     /// @param h The handle.

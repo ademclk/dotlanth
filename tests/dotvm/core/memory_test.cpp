@@ -262,7 +262,7 @@ TEST_F(MemoryManagerTest, AllocateMaxSize) {
 
     EXPECT_EQ(err, MemoryError::Success);
 
-    mm.deallocate(h);  // Clean up large allocation
+    (void)mm.deallocate(h);  // Clean up large allocation
 }
 
 TEST_F(MemoryManagerTest, AllocatedPtrIsPageAligned) {
@@ -339,7 +339,7 @@ TEST_F(MemoryManagerTest, DeallocateIncrementsGeneration) {
     ASSERT_EQ(err1, MemoryError::Success);
     auto gen1 = h1.generation;
 
-    mm.deallocate(h1);
+    (void)mm.deallocate(h1);
 
     // Allocate again (reuses slot)
     auto [h2, err2] = mm.allocate(4096);
@@ -383,7 +383,7 @@ TEST_F(MemoryManagerTest, OldHandleInvalidAfterReallocation) {
     ASSERT_EQ(err1, MemoryError::Success);
     Handle old = h1;
 
-    mm.deallocate(h1);
+    (void)mm.deallocate(h1);
 
     auto [h2, err2] = mm.allocate(4096);
     ASSERT_EQ(err2, MemoryError::Success);
@@ -586,10 +586,10 @@ TEST_F(MemoryManagerTest, ActiveAllocationsCount) {
     auto [h2, e2] = mm.allocate(4096);
     EXPECT_EQ(mm.active_allocations(), 2);
 
-    mm.deallocate(h1);
+    (void)mm.deallocate(h1);
     EXPECT_EQ(mm.active_allocations(), 1);
 
-    mm.deallocate(h2);
+    (void)mm.deallocate(h2);
     EXPECT_EQ(mm.active_allocations(), 0);
 }
 
@@ -603,7 +603,7 @@ TEST_F(MemoryManagerTest, TotalAllocatedBytes) {
     (void)e2;  // Suppress unused warning
     EXPECT_EQ(mm.total_allocated_bytes(), 4096 + 8192);
 
-    mm.deallocate(h1);
+    (void)mm.deallocate(h1);
     EXPECT_EQ(mm.total_allocated_bytes(), 8192);
 }
 
@@ -639,7 +639,7 @@ TEST_F(MemoryManagerTest, FreeListReusesSlots) {
 
     // Deallocate all
     for (auto h : handles) {
-        mm.deallocate(h);
+        (void)mm.deallocate(h);
     }
 
     // Re-allocate - should reuse same indices (in LIFO order)
@@ -664,7 +664,7 @@ TEST_F(MemoryManagerTest, AllocateDeallocateCycle) {
         auto [val, read_err] = mm.read<int>(h, 0);
         EXPECT_EQ(val, cycle);
 
-        mm.deallocate(h);
+        EXPECT_EQ(mm.deallocate(h), MemoryError::Success);
     }
 
     EXPECT_EQ(mm.active_allocations(), 0);
@@ -681,7 +681,7 @@ TEST_F(MemoryManagerTest, ManySmallAllocations) {
         handles.push_back(h);
 
         // Write identifier
-        mm.write<int>(h, 0, static_cast<int>(i));
+        EXPECT_EQ(mm.write<int>(h, 0, static_cast<int>(i)), MemoryError::Success);
     }
 
     // Verify all
@@ -692,7 +692,7 @@ TEST_F(MemoryManagerTest, ManySmallAllocations) {
 
     // Clean up
     for (auto h : handles) {
-        mm.deallocate(h);
+        (void)mm.deallocate(h);
     }
 }
 
@@ -708,11 +708,11 @@ TEST_F(MemoryManagerTest, AlternatingAllocDealloc) {
         ASSERT_EQ(eb, MemoryError::Success);
         h2 = hb;
 
-        mm.deallocate(h1);
+        (void)mm.deallocate(h1);
         // h2 still valid
         EXPECT_TRUE(mm.is_valid(h2));
 
-        mm.deallocate(h2);
+        (void)mm.deallocate(h2);
     }
 }
 
@@ -745,7 +745,7 @@ TEST_F(MemoryManagerTest, HandleFromValueRoundTrip) {
     ASSERT_EQ(err, MemoryError::Success);
 
     // Write data using original handle
-    mm.write<int>(h, 0, 999);
+    EXPECT_EQ(mm.write<int>(h, 0, 999), MemoryError::Success);
 
     // Round-trip through Value
     Value v = Value::from_handle(h);

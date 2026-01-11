@@ -55,11 +55,9 @@ void MemoryManager::os_deallocate(void* ptr, std::size_t size) noexcept {
 MemoryManager::~MemoryManager() {
     // Free all active allocations
     for (std::uint32_t i = 0; i < table_.capacity(); ++i) {
-        if (table_.is_valid_index(i)) {
-            const auto& entry = table_[i];
-            if (entry.is_active && entry.ptr) {
-                os_deallocate(entry.ptr, entry.size);
-            }
+        const auto& entry = table_[i];
+        if (entry.is_active && entry.ptr) {
+            os_deallocate(entry.ptr, entry.size);
         }
     }
 }

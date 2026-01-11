@@ -45,35 +45,35 @@ namespace mem_config {
 /// Rounds a size up to the nearest page boundary.
 /// @param size The size to align.
 /// @return The aligned size (multiple of PAGE_SIZE).
-[[nodiscard]] constexpr std::size_t align_to_page(std::size_t size) noexcept {
+[[nodiscard]] inline constexpr std::size_t align_to_page(std::size_t size) noexcept {
     return (size + mem_config::PAGE_MASK) & ~mem_config::PAGE_MASK;
 }
 
 /// Checks if a size is page-aligned.
 /// @param size The size to check.
 /// @return true if size is a multiple of PAGE_SIZE.
-[[nodiscard]] constexpr bool is_page_aligned(std::size_t size) noexcept {
+[[nodiscard]] inline constexpr bool is_page_aligned(std::size_t size) noexcept {
     return (size & mem_config::PAGE_MASK) == 0;
 }
 
 /// Checks if an address is page-aligned.
 /// @param addr The address to check.
 /// @return true if address is aligned to PAGE_SIZE.
-[[nodiscard]] constexpr bool is_address_page_aligned(std::uintptr_t addr) noexcept {
+[[nodiscard]] inline constexpr bool is_address_page_aligned(std::uintptr_t addr) noexcept {
     return (addr & mem_config::PAGE_MASK) == 0;
 }
 
 /// Validates that a size is within allocation limits.
 /// @param size The requested allocation size.
 /// @return true if size > 0 and size <= MAX_ALLOCATION_SIZE.
-[[nodiscard]] constexpr bool is_valid_allocation_size(std::size_t size) noexcept {
+[[nodiscard]] inline constexpr bool is_valid_allocation_size(std::size_t size) noexcept {
     return size > 0 && size <= mem_config::MAX_ALLOCATION_SIZE;
 }
 
 /// Calculates the number of pages needed for a given size.
 /// @param size The size in bytes.
 /// @return Number of pages (rounded up).
-[[nodiscard]] constexpr std::size_t pages_for_size(std::size_t size) noexcept {
+[[nodiscard]] inline constexpr std::size_t pages_for_size(std::size_t size) noexcept {
     return (size + mem_config::PAGE_MASK) >> mem_config::PAGE_SHIFT;
 }
 

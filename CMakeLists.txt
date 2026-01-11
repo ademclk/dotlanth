@@ -6,8 +6,9 @@ project(dotlanth
     LANGUAGES CXX
 )
 
-# C++26 requirement - use Clang 19+ which supports C++26
-set(CMAKE_CXX_STANDARD 26)
+# C++26 preferred - use Clang 19+ for full C++26 support
+# Fallback to C++23 for broader compiler compatibility during development
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
