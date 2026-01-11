@@ -354,7 +354,8 @@ TEST_F(BytecodeHeaderTest, Arch64Accepted) {
 }
 
 TEST_F(BytecodeHeaderTest, InvalidArchRejected) {
-    EXPECT_FALSE(validate_architecture(static_cast<Architecture>(2)));
+    // Now that Arch128=2, Arch256=3, Arch512=4 are valid, only 5+ should be invalid
+    EXPECT_FALSE(validate_architecture(static_cast<Architecture>(5)));
     EXPECT_FALSE(validate_architecture(static_cast<Architecture>(255)));
 }
 
