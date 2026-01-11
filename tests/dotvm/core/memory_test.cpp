@@ -41,6 +41,45 @@ TEST(MemoryConfigTest, AlignToPage) {
     EXPECT_EQ(align_to_page(8192), 8192);
 }
 
+// ============================================================================
+// Security: align_to_page Overflow Protection Tests
+// ============================================================================
+
+TEST(MemoryConfigTest, AlignToPageOverflowProtection) {
+    // SIZE_MAX should return 0 (overflow indicator)
+    // SIZE_MAX + PAGE_MASK would overflow
+    EXPECT_EQ(align_to_page(SIZE_MAX), 0);
+
+    // SIZE_MAX - 1 should also overflow (SIZE_MAX - 1 + 4095 > SIZE_MAX)
+    EXPECT_EQ(align_to_page(SIZE_MAX - 1), 0);
+
+    // SIZE_MAX - PAGE_MASK will NOT overflow because:
+    // (SIZE_MAX - PAGE_MASK) + PAGE_MASK = SIZE_MAX exactly
+    // This is a valid edge case that produces a valid result
+    EXPECT_NE(align_to_page(SIZE_MAX - mem_config::PAGE_MASK), 0);
+
+    // SIZE_MAX - PAGE_MASK + 1 WILL overflow
+    EXPECT_EQ(align_to_page(SIZE_MAX - mem_config::PAGE_MASK + 1), 0);
+
+    // Large values that overflow
+    EXPECT_EQ(align_to_page(SIZE_MAX - 1000), 0);
+    EXPECT_EQ(align_to_page(SIZE_MAX - (mem_config::PAGE_MASK - 1)), 0);
+}
+
+TEST(MemoryConfigTest, AlignToPageOverflowAtBoundary) {
+    // The exact boundary where overflow occurs
+    // When size > SIZE_MAX - PAGE_MASK, overflow happens
+    const std::size_t safe_boundary = SIZE_MAX - mem_config::PAGE_MASK;
+
+    // At safe boundary: should work (SIZE_MAX - 4095 + 4095 = SIZE_MAX, no overflow)
+    EXPECT_NE(align_to_page(safe_boundary), 0);
+    // Result should be SIZE_MAX aligned down to page boundary
+    EXPECT_EQ(align_to_page(safe_boundary), SIZE_MAX & ~mem_config::PAGE_MASK);
+
+    // One past safe boundary: should overflow
+    EXPECT_EQ(align_to_page(safe_boundary + 1), 0);
+}
+
 TEST(MemoryConfigTest, IsPageAligned) {
     EXPECT_TRUE(is_page_aligned(0));
     EXPECT_TRUE(is_page_aligned(4096));

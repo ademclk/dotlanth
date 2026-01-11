@@ -97,9 +97,12 @@ static_assert(align_to_page(0) == 0);
 static_assert(align_to_page(1) == mem_config::PAGE_SIZE);
 static_assert(align_to_page(4096) == 4096);
 static_assert(align_to_page(4097) == 8192);
-// Overflow protection: SIZE_MAX - small value should return 0 (overflow indicator)
-static_assert(align_to_page(SIZE_MAX) == 0);
-static_assert(align_to_page(SIZE_MAX - 1000) == 0);
+// Overflow protection tests
+static_assert(align_to_page(SIZE_MAX) == 0);  // SIZE_MAX + PAGE_MASK overflows
+static_assert(align_to_page(SIZE_MAX - 1000) == 0);  // Still overflows
+// SIZE_MAX - PAGE_MASK is the boundary: (SIZE_MAX - PAGE_MASK) + PAGE_MASK = SIZE_MAX exactly
+static_assert(align_to_page(SIZE_MAX - mem_config::PAGE_MASK) != 0);  // Does NOT overflow
+static_assert(align_to_page(SIZE_MAX - mem_config::PAGE_MASK + 1) == 0);  // DOES overflow
 static_assert(is_page_aligned(0));
 static_assert(is_page_aligned(4096));
 static_assert(!is_page_aligned(4095));
