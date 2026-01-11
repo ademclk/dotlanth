@@ -90,11 +90,19 @@ struct SecurityStats {
                handle_table_exhaustions.load(std::memory_order_relaxed) > 0;
     }
 
-    /// Returns total security violation count.
+    /// Returns total security violation count (saturates at SIZE_MAX on overflow).
     [[nodiscard]] std::size_t total_violations() const noexcept {
-        return bounds_violations.load(std::memory_order_relaxed) +
-               invalid_handle_accesses.load(std::memory_order_relaxed) +
-               cfi_violations.load(std::memory_order_relaxed);
+        std::size_t bv = bounds_violations.load(std::memory_order_relaxed);
+        std::size_t iha = invalid_handle_accesses.load(std::memory_order_relaxed);
+        std::size_t cfi = cfi_violations.load(std::memory_order_relaxed);
+
+        // Saturating addition to prevent overflow
+        std::size_t sum = bv;
+        if (sum > SIZE_MAX - iha) return SIZE_MAX;
+        sum += iha;
+        if (sum > SIZE_MAX - cfi) return SIZE_MAX;
+        sum += cfi;
+        return sum;
     }
 
     // ========== Snapshot for Reporting ==========
@@ -111,7 +119,11 @@ struct SecurityStats {
         std::size_t total_deallocations;
     };
 
-    /// Takes a consistent snapshot of all statistics.
+    /// Takes a snapshot of all statistics.
+    /// @note This snapshot is NOT atomically consistent across all counters.
+    ///       Values are loaded individually, so concurrent updates may result
+    ///       in a snapshot that doesn't represent a single point in time.
+    ///       For accurate monitoring, call when no other threads are active.
     [[nodiscard]] Snapshot snapshot() const noexcept {
         return Snapshot{
             .generation_wraparounds = generation_wraparounds.load(std::memory_order_acquire),
@@ -126,6 +138,8 @@ struct SecurityStats {
     }
 
     /// Resets all counters to zero.
+    /// @warning NOT thread-safe for concurrent recording. Call only when no
+    ///          other threads are recording events, or some events may be lost.
     void reset() noexcept {
         generation_wraparounds.store(0, std::memory_order_relaxed);
         bounds_violations.store(0, std::memory_order_relaxed);

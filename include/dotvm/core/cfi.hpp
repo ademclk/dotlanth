@@ -110,13 +110,15 @@ inline constexpr std::size_t INSTRUCTION_ALIGNMENT = 4;
 class CfiContext {
 public:
     /// Constructs a CFI context with the specified policy.
-    explicit CfiContext(CfiPolicy policy = {}) noexcept
+    /// @note May throw std::bad_alloc if call stack reservation fails.
+    explicit CfiContext(CfiPolicy policy = {})
         : policy_(policy) {
         call_stack_.reserve(policy.max_call_depth);
     }
 
     /// Constructs a CFI context with policy and optional security stats.
-    CfiContext(CfiPolicy policy, SecurityStats* stats) noexcept
+    /// @note May throw std::bad_alloc if call stack reservation fails.
+    CfiContext(CfiPolicy policy, SecurityStats* stats)
         : policy_(policy), stats_(stats) {
         call_stack_.reserve(policy.max_call_depth);
     }
@@ -181,9 +183,12 @@ public:
             return false;
         }
 
-        // Backward jump detection
+        // Backward jump detection (with overflow protection)
         if (policy_.max_backward_jumps > 0 && target_pc < current_pc) {
-            ++backward_jump_count_;
+            // Prevent overflow: cap at UINT32_MAX
+            if (backward_jump_count_ < UINT32_MAX) {
+                ++backward_jump_count_;
+            }
             if (backward_jump_count_ > policy_.max_backward_jumps) {
                 record_violation(CfiViolation::BackwardJumpLimit);
                 return false;

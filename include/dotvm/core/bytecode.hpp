@@ -330,11 +330,17 @@ static_assert(sizeof(ConstantPoolHeader) == 4, "ConstantPoolHeader must be exact
 }
 
 /// Check if two sections overlap
+/// @note Overflow in offset + size is treated as overlap (conservative approach).
 [[nodiscard]] constexpr bool sections_overlap(
     std::uint64_t offset1, std::uint64_t size1,
     std::uint64_t offset2, std::uint64_t size2) noexcept {
     // Empty sections never overlap
     if (size1 == 0 || size2 == 0) return false;
+
+    // Check for overflow in end calculations
+    // If overflow occurs, treat as overlap (conservative/safe)
+    if (offset1 > UINT64_MAX - size1) return true;
+    if (offset2 > UINT64_MAX - size2) return true;
 
     std::uint64_t end1 = offset1 + size1;
     std::uint64_t end2 = offset2 + size2;

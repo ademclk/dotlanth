@@ -226,6 +226,9 @@ MemoryError MemoryManager::validate_bounds(Handle h, std::size_t offset,
 
     // Check for overflow
     if (offset > entry.size || size > entry.size - offset) {
+        // Record bounds violation in security stats
+        // Using const_cast since stats_ is mutable for tracking purposes
+        const_cast<SecurityStats&>(stats_).record_bounds_violation();
         return MemoryError::BoundsViolation;
     }
 

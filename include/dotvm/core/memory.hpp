@@ -154,7 +154,12 @@ public:
     }
 
     /// Returns the number of active entries.
+    /// @note Returns 0 if internal state is corrupted (free_list > entries).
     [[nodiscard]] std::size_t active_count() const noexcept {
+        // Defensive check to prevent underflow in corrupted state
+        if (free_list_.size() > entries_.size()) {
+            return 0;  // Corruption detected
+        }
         return entries_.size() - free_list_.size();
     }
 
