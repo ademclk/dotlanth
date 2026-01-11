@@ -12,8 +12,12 @@
 #include "arch_config.hpp"
 #include "arch_types.hpp"
 #include "alu.hpp"
+#include "cfi.hpp"
 #include "register_file.hpp"
 #include "memory.hpp"
+#include "security_stats.hpp"
+
+#include <optional>
 
 namespace dotvm::core {
 
@@ -44,6 +48,14 @@ struct VmConfig {
     /// Defaults to the global maximum. Can be reduced for sandboxing.
     std::size_t max_memory = mem_config::MAX_ALLOCATION_SIZE;
 
+    /// Whether to enable CFI (Control Flow Integrity) checks
+    ///
+    /// When enabled, jump targets and call/return pairs are validated.
+    bool cfi_enabled = false;
+
+    /// CFI policy configuration (used when cfi_enabled is true)
+    cfi::CfiPolicy cfi_policy{};
+
     /// Creates a default configuration for the given architecture
     [[nodiscard]] static constexpr VmConfig for_arch(Architecture arch) noexcept {
         return VmConfig{.arch = arch};
@@ -57,6 +69,17 @@ struct VmConfig {
     /// Creates a 64-bit mode configuration
     [[nodiscard]] static constexpr VmConfig arch64() noexcept {
         return VmConfig{.arch = Architecture::Arch64};
+    }
+
+    /// Creates a security-hardened configuration
+    [[nodiscard]] static constexpr VmConfig secure() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .strict_overflow = true,
+            .max_memory = mem_config::MAX_ALLOCATION_SIZE,
+            .cfi_enabled = true,
+            .cfi_policy = cfi::CfiPolicy::strict()
+        };
     }
 
     constexpr bool operator==(const VmConfig&) const noexcept = default;
@@ -85,7 +108,12 @@ public:
         : config_{config},
           regs_{config.arch},
           mem_{config.max_memory},
-          alu_{config.arch} {}
+          alu_{config.arch} {
+        // Initialize CFI context if enabled
+        if (config.cfi_enabled) {
+            cfi_.emplace(config.cfi_policy, &mem_.security_stats());
+        }
+    }
 
     /// Construct a context for a specific architecture
     ///
@@ -192,6 +220,49 @@ public:
     [[nodiscard]] const ALU& alu() const noexcept { return alu_; }
 
     // =========================================================================
+    // CFI Access (Control Flow Integrity)
+    // =========================================================================
+
+    /// Check if CFI is enabled
+    [[nodiscard]] bool cfi_enabled() const noexcept {
+        return cfi_.has_value();
+    }
+
+    /// Get mutable reference to CFI context (only valid if cfi_enabled())
+    [[nodiscard]] cfi::CfiContext& cfi() noexcept {
+        return *cfi_;
+    }
+
+    /// Get const reference to CFI context (only valid if cfi_enabled())
+    [[nodiscard]] const cfi::CfiContext& cfi() const noexcept {
+        return *cfi_;
+    }
+
+    /// Get optional CFI context (safe access)
+    [[nodiscard]] std::optional<cfi::CfiContext>& cfi_opt() noexcept {
+        return cfi_;
+    }
+
+    /// Get const optional CFI context (safe access)
+    [[nodiscard]] const std::optional<cfi::CfiContext>& cfi_opt() const noexcept {
+        return cfi_;
+    }
+
+    // =========================================================================
+    // Security Statistics
+    // =========================================================================
+
+    /// Get const reference to security statistics
+    [[nodiscard]] const SecurityStats& security_stats() const noexcept {
+        return mem_.security_stats();
+    }
+
+    /// Get mutable reference to security statistics
+    [[nodiscard]] SecurityStats& security_stats() noexcept {
+        return mem_.security_stats();
+    }
+
+    // =========================================================================
     // State Management
     // =========================================================================
 
@@ -223,6 +294,7 @@ private:
     ArchRegisterFile regs_;
     MemoryManager mem_;
     ALU alu_;
+    std::optional<cfi::CfiContext> cfi_;
 };
 
 }  // namespace dotvm::core
