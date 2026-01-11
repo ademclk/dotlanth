@@ -280,8 +280,8 @@ public:
     /// @param dst Destination buffer.
     /// @param count Number of bytes to copy.
     /// @return Error code.
-    MemoryError read_bytes(Handle h, std::size_t offset,
-                           void* dst, std::size_t count) const noexcept;
+    [[nodiscard]] MemoryError read_bytes(Handle h, std::size_t offset,
+                                          void* dst, std::size_t count) const noexcept;
 
     // ========== Query Operations ==========
 

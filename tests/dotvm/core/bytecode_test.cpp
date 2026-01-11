@@ -624,17 +624,17 @@ TEST_F(ConstantPoolTest, SingleStringEntry) {
     auto pool = make_pool_with_string("Hello, World!");
     auto result = load_constant_pool(pool);
 
-    ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->size(), 1);
-    // Strings currently return nil as placeholder
-    EXPECT_TRUE((*result)[0].is_nil());
+    // Strings now return an explicit error instead of silent nil
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), BytecodeError::StringNotSupported);
 }
 
 TEST_F(ConstantPoolTest, MixedEntries) {
+    // Test mixed entries without strings (strings now return error)
     std::vector<std::uint8_t> pool;
 
-    // Header: 3 entries
-    pool.push_back(3); pool.push_back(0); pool.push_back(0); pool.push_back(0);
+    // Header: 2 entries (i64 and f64 only)
+    pool.push_back(2); pool.push_back(0); pool.push_back(0); pool.push_back(0);
 
     // Entry 1: i64 = 100
     pool.push_back(bytecode::CONST_TYPE_I64);
@@ -652,18 +652,12 @@ TEST_F(ConstantPoolTest, MixedEntries) {
         pool.push_back(static_cast<std::uint8_t>((f64_bits >> (i * 8)) & 0xFF));
     }
 
-    // Entry 3: string "Hi"
-    pool.push_back(bytecode::CONST_TYPE_STRING);
-    pool.push_back(2); pool.push_back(0); pool.push_back(0); pool.push_back(0);
-    pool.push_back('H'); pool.push_back('i');
-
     auto result = load_constant_pool(pool);
 
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->size(), 3);
+    ASSERT_EQ(result->size(), 2);
     EXPECT_EQ((*result)[0].as_integer(), 100);
     EXPECT_DOUBLE_EQ((*result)[1].as_float(), 2.5);
-    EXPECT_TRUE((*result)[2].is_nil());  // String placeholder
 }
 
 TEST_F(ConstantPoolTest, InvalidTypeTagRejected) {
@@ -703,6 +697,7 @@ TEST_F(ConstantPoolTest, TruncatedFloat64Rejected) {
 }
 
 TEST_F(ConstantPoolTest, TruncatedStringRejected) {
+    // String constants now return StringNotSupported error before checking truncation
     std::vector<std::uint8_t> pool = {
         1, 0, 0, 0,     // entry_count = 1
         bytecode::CONST_TYPE_STRING,
@@ -712,10 +707,12 @@ TEST_F(ConstantPoolTest, TruncatedStringRejected) {
 
     auto result = load_constant_pool(pool);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), BytecodeError::ConstPoolTruncated);
+    // Now returns StringNotSupported since strings aren't implemented
+    EXPECT_EQ(result.error(), BytecodeError::StringNotSupported);
 }
 
 TEST_F(ConstantPoolTest, StringTooLongRejected) {
+    // String constants now return StringNotSupported error before checking length
     std::vector<std::uint8_t> pool = {
         1, 0, 0, 0,     // entry_count = 1
         bytecode::CONST_TYPE_STRING,
@@ -724,7 +721,8 @@ TEST_F(ConstantPoolTest, StringTooLongRejected) {
 
     auto result = load_constant_pool(pool);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), BytecodeError::StringTooLong);
+    // Now returns StringNotSupported since strings aren't implemented
+    EXPECT_EQ(result.error(), BytecodeError::StringNotSupported);
 }
 
 TEST_F(ConstantPoolTest, TruncatedHeaderRejected) {
@@ -938,4 +936,202 @@ TEST_F(ConstantPoolTest, IntegrationWithValueType) {
     EXPECT_EQ(v.type(), ValueType::Integer);
     EXPECT_EQ(v.as_integer(), val);
     EXPECT_TRUE(v.is_truthy());  // Non-zero is truthy
+}
+
+// ============================================================================
+// Security Tests: New Error Conditions
+// ============================================================================
+
+class BytecodeSecurityTest : public ConstantPoolTest {
+    // Inherit from ConstantPoolTest to access helper methods
+};
+
+// Test: Integer out of 48-bit range is rejected
+TEST_F(BytecodeSecurityTest, IntegerOutOfRangePositiveRejected) {
+    // MAX_VALUE_INT = (1LL << 47) - 1 = 140737488355327
+    // Values > MAX_VALUE_INT should be rejected
+    std::int64_t too_large = (1LL << 47);  // One past max
+
+    std::vector<std::uint8_t> pool;
+    pool.push_back(1); pool.push_back(0); pool.push_back(0); pool.push_back(0);
+    pool.push_back(bytecode::CONST_TYPE_I64);
+    for (int i = 0; i < 8; ++i) {
+        pool.push_back(static_cast<std::uint8_t>(
+            (static_cast<std::uint64_t>(too_large) >> (i * 8)) & 0xFF));
+    }
+
+    auto result = load_constant_pool(pool);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), BytecodeError::IntegerOutOfRange);
+}
+
+TEST_F(BytecodeSecurityTest, IntegerOutOfRangeNegativeRejected) {
+    // MIN_VALUE_INT = -(1LL << 47) = -140737488355328
+    // Values < MIN_VALUE_INT should be rejected
+    std::int64_t too_small = -(1LL << 47) - 1;  // One past min
+
+    std::vector<std::uint8_t> pool;
+    pool.push_back(1); pool.push_back(0); pool.push_back(0); pool.push_back(0);
+    pool.push_back(bytecode::CONST_TYPE_I64);
+    for (int i = 0; i < 8; ++i) {
+        pool.push_back(static_cast<std::uint8_t>(
+            (static_cast<std::uint64_t>(too_small) >> (i * 8)) & 0xFF));
+    }
+
+    auto result = load_constant_pool(pool);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), BytecodeError::IntegerOutOfRange);
+}
+
+TEST_F(BytecodeSecurityTest, IntegerAtBoundaryAccepted) {
+    // Test min boundary: -(1LL << 47)
+    std::int64_t min_val = -(1LL << 47);
+    auto pool_min = ConstantPoolTest::make_pool_with_i64(min_val);
+    auto result_min = load_constant_pool(pool_min);
+    ASSERT_TRUE(result_min.has_value());
+    EXPECT_EQ((*result_min)[0].as_integer(), min_val);
+
+    // Test max boundary: (1LL << 47) - 1
+    std::int64_t max_val = (1LL << 47) - 1;
+    auto pool_max = ConstantPoolTest::make_pool_with_i64(max_val);
+    auto result_max = load_constant_pool(pool_max);
+    ASSERT_TRUE(result_max.has_value());
+    EXPECT_EQ((*result_max)[0].as_integer(), max_val);
+}
+
+// Test: Entry point alignment validation
+TEST_F(BytecodeSecurityTest, EntryPointAlignedAccepted) {
+    auto header = make_header(Architecture::Arch64, 0,
+                               0,    // entry_point - aligned (0 % 4 == 0)
+                               48, 0, 48, 100);
+    EXPECT_EQ(validate_header(header, 200), BytecodeError::Success);
+
+    auto header2 = make_header(Architecture::Arch64, 0,
+                                4,    // entry_point - aligned (4 % 4 == 0)
+                                48, 0, 48, 100);
+    EXPECT_EQ(validate_header(header2, 200), BytecodeError::Success);
+
+    auto header3 = make_header(Architecture::Arch64, 0,
+                                96,   // entry_point - aligned (96 % 4 == 0)
+                                48, 0, 48, 100);
+    EXPECT_EQ(validate_header(header3, 200), BytecodeError::Success);
+}
+
+TEST_F(BytecodeSecurityTest, EntryPointMisalignedRejected) {
+    // Entry point 1 is not 4-byte aligned
+    auto header1 = make_header(Architecture::Arch64, 0,
+                                1,    // entry_point - NOT aligned
+                                48, 0, 48, 100);
+    EXPECT_EQ(validate_header(header1, 200), BytecodeError::EntryPointNotAligned);
+
+    // Entry point 2 is not 4-byte aligned
+    auto header2 = make_header(Architecture::Arch64, 0,
+                                2,    // entry_point - NOT aligned
+                                48, 0, 48, 100);
+    EXPECT_EQ(validate_header(header2, 200), BytecodeError::EntryPointNotAligned);
+
+    // Entry point 3 is not 4-byte aligned
+    auto header3 = make_header(Architecture::Arch64, 0,
+                                3,    // entry_point - NOT aligned
+                                48, 0, 48, 100);
+    EXPECT_EQ(validate_header(header3, 200), BytecodeError::EntryPointNotAligned);
+
+    // Entry point 5 is not 4-byte aligned
+    auto header5 = make_header(Architecture::Arch64, 0,
+                                5,    // entry_point - NOT aligned
+                                48, 0, 48, 100);
+    EXPECT_EQ(validate_header(header5, 200), BytecodeError::EntryPointNotAligned);
+}
+
+// Test: File size limit
+TEST_F(BytecodeSecurityTest, FileTooLargeRejected) {
+    auto header = make_header(Architecture::Arch64, 0, 0, 48, 0, 48, 0);
+
+    // bytecode::MAX_FILE_SIZE is 2GB
+    std::size_t too_large = bytecode::MAX_FILE_SIZE + 1;
+    EXPECT_EQ(validate_header(header, too_large), BytecodeError::FileTooLarge);
+}
+
+TEST_F(BytecodeSecurityTest, FileSizeAtLimitAccepted) {
+    auto header = make_header(Architecture::Arch64, 0, 0, 48, 0, 48, 0);
+
+    // Exactly at limit should be accepted
+    EXPECT_EQ(validate_header(header, bytecode::MAX_FILE_SIZE), BytecodeError::Success);
+}
+
+// Test: Too many constant pool entries
+TEST_F(BytecodeSecurityTest, TooManyConstantsRejected) {
+    std::vector<std::uint8_t> pool;
+
+    // entry_count > MAX_CONST_POOL_ENTRIES
+    std::uint32_t too_many = bytecode::MAX_CONST_POOL_ENTRIES + 1;
+    pool.push_back(static_cast<std::uint8_t>(too_many & 0xFF));
+    pool.push_back(static_cast<std::uint8_t>((too_many >> 8) & 0xFF));
+    pool.push_back(static_cast<std::uint8_t>((too_many >> 16) & 0xFF));
+    pool.push_back(static_cast<std::uint8_t>((too_many >> 24) & 0xFF));
+
+    auto result = load_constant_pool(pool);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), BytecodeError::TooManyConstants);
+}
+
+TEST_F(BytecodeSecurityTest, EntryCountExceedsDataSizeRejected) {
+    // Claim 1000 entries but only provide space for ~10
+    std::vector<std::uint8_t> pool;
+    pool.push_back(0xE8); pool.push_back(0x03); pool.push_back(0); pool.push_back(0); // 1000 entries
+
+    // Only add data for one entry
+    pool.push_back(bytecode::CONST_TYPE_I64);
+    for (int i = 0; i < 8; ++i) pool.push_back(0);
+
+    auto result = load_constant_pool(pool);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), BytecodeError::ConstPoolCorrupted);
+}
+
+// Test: String constants return explicit error
+TEST_F(BytecodeSecurityTest, StringConstantReturnsNotSupportedError) {
+    auto pool = ConstantPoolTest::make_pool_with_string("test string");
+    auto result = load_constant_pool(pool);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), BytecodeError::StringNotSupported);
+}
+
+// Test: New error messages are present
+TEST_F(BytecodeSecurityTest, NewErrorMessagesExist) {
+    EXPECT_FALSE(to_string(BytecodeError::IntegerOutOfRange).empty());
+    EXPECT_FALSE(to_string(BytecodeError::EntryPointNotAligned).empty());
+    EXPECT_FALSE(to_string(BytecodeError::TooManyConstants).empty());
+    EXPECT_FALSE(to_string(BytecodeError::FileTooLarge).empty());
+    EXPECT_FALSE(to_string(BytecodeError::StringNotSupported).empty());
+}
+
+// Test: New security constants are defined
+TEST_F(BytecodeSecurityTest, SecurityConstantsAreDefined) {
+    EXPECT_GT(bytecode::MAX_CONST_POOL_ENTRIES, 0u);
+    EXPECT_GT(bytecode::MAX_FILE_SIZE, 0u);
+    EXPECT_EQ(bytecode::INSTRUCTION_ALIGNMENT, 4u);
+
+    // MAX_CONST_POOL_ENTRIES should be 1M
+    EXPECT_EQ(bytecode::MAX_CONST_POOL_ENTRIES, 0x00'10'00'00U);
+
+    // MAX_FILE_SIZE should be 2GB
+    EXPECT_EQ(bytecode::MAX_FILE_SIZE, 0x80'00'00'00ULL);
+}
+
+// Test: Integer validation helper function
+TEST_F(BytecodeSecurityTest, IsValidValueIntFunction) {
+    // Within range
+    EXPECT_TRUE(is_valid_value_int(0));
+    EXPECT_TRUE(is_valid_value_int(1));
+    EXPECT_TRUE(is_valid_value_int(-1));
+    EXPECT_TRUE(is_valid_value_int(MIN_VALUE_INT));
+    EXPECT_TRUE(is_valid_value_int(MAX_VALUE_INT));
+
+    // Out of range
+    EXPECT_FALSE(is_valid_value_int(MIN_VALUE_INT - 1));
+    EXPECT_FALSE(is_valid_value_int(MAX_VALUE_INT + 1));
+    EXPECT_FALSE(is_valid_value_int(INT64_MAX));
+    EXPECT_FALSE(is_valid_value_int(INT64_MIN));
 }
