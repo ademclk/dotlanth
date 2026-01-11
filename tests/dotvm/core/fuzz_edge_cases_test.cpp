@@ -1,3 +1,12 @@
+// Disable GCC array-bounds warning for this test file
+// The TruncatedHeaderRejected test intentionally passes truncated buffers
+// to read_header, which triggers a false positive from GCC 14's optimizer
+// even though read_header has proper bounds checking.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
 #include <gtest/gtest.h>
 
 #include <dotvm/core/bytecode.hpp>
@@ -514,3 +523,7 @@ TEST_F(ExecutionConstraintFuzzTest, LargeOffsetJumps) {
     EXPECT_EQ(validate_jump_target(1 << 24, -(1 << 20), LARGE_CODE_SIZE),
               BytecodeError::Success);
 }
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif

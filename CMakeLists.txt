@@ -95,6 +95,7 @@ add_library(dotvm_core STATIC
     src/dotvm/core/instruction.cpp
     src/dotvm/core/bytecode.cpp
     src/dotvm/core/memory.cpp
+    src/dotvm/exec/execution_engine.cpp
 )
 
 target_include_directories(dotvm_core PUBLIC
@@ -103,6 +104,15 @@ target_include_directories(dotvm_core PUBLIC
 )
 
 target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+# Suppress pedantic warning for computed-goto in execution engine
+# Computed-goto is a GCC/Clang extension required for high-performance dispatch
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    set_source_files_properties(
+        src/dotvm/exec/execution_engine.cpp
+        PROPERTIES COMPILE_FLAGS "-Wno-pedantic"
+    )
+endif()
 if(DOTVM_SANITIZER_FLAGS)
     target_link_options(dotvm_core PUBLIC ${DOTVM_SANITIZER_FLAGS})
 endif()
@@ -189,6 +199,7 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/interop_32_64_test.cpp
         tests/dotvm/core/security_hardening_test.cpp
         tests/dotvm/core/fuzz_edge_cases_test.cpp
+        tests/dotvm/exec/execution_engine_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
