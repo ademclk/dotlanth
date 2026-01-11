@@ -134,6 +134,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/arch_register_file_test.cpp
         tests/dotvm/core/vm_context_test.cpp
         tests/dotvm/core/interop_32_64_test.cpp
+        tests/dotvm/core/security_hardening_test.cpp
+        tests/dotvm/core/fuzz_edge_cases_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE

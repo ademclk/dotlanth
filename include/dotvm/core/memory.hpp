@@ -3,8 +3,10 @@
 #include <dotvm/core/memory_config.hpp>
 #include <dotvm/core/value.hpp>
 #include <dotvm/core/arch_config.hpp>
+#include <dotvm/core/security_stats.hpp>
 
 #include <cstring>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -56,6 +58,13 @@ public:
         free_list_.reserve(initial_capacity);
     }
 
+    /// Constructs a handle table with security stats tracking.
+    HandleTable(std::size_t initial_capacity, SecurityStats* stats)
+        : stats_(stats) {
+        entries_.reserve(initial_capacity);
+        free_list_.reserve(initial_capacity);
+    }
+
     // Non-copyable, movable
     HandleTable(const HandleTable&) = delete;
     HandleTable& operator=(const HandleTable&) = delete;
@@ -87,6 +96,7 @@ public:
 
     /// Releases a slot back to the free list.
     /// @param index The slot index to release.
+    /// @note Generation wraparounds are tracked in security stats.
     void release_slot(std::uint32_t index) noexcept {
         if (index >= entries_.size()) return;
 
@@ -98,9 +108,15 @@ public:
         entry.is_active = false;
 
         // Increment generation (with wrap-around)
-        entry.generation = (entry.generation < mem_config::MAX_GENERATION)
-                           ? entry.generation + 1
-                           : mem_config::INITIAL_GENERATION;
+        const bool will_wrap = (entry.generation >= mem_config::MAX_GENERATION);
+        entry.generation = will_wrap
+                           ? mem_config::INITIAL_GENERATION
+                           : entry.generation + 1;
+
+        // Track generation wraparound for security auditing
+        if (will_wrap && stats_) {
+            stats_->record_generation_wraparound();
+        }
 
         free_list_.push_back(index);
     }
@@ -142,9 +158,15 @@ public:
         return entries_.size() - free_list_.size();
     }
 
+    /// Sets the security stats pointer for tracking.
+    void set_stats(SecurityStats* stats) noexcept {
+        stats_ = stats;
+    }
+
 private:
     std::vector<HandleEntry> entries_;
     std::vector<std::uint32_t> free_list_;
+    SecurityStats* stats_{nullptr};
 };
 
 /// Error codes for memory operations.
@@ -174,11 +196,11 @@ public:
 
     /// Constructs a memory manager with default limits.
     MemoryManager() noexcept
-        : table_(mem_config::INITIAL_TABLE_CAPACITY) {}
+        : table_(mem_config::INITIAL_TABLE_CAPACITY, &stats_) {}
 
     /// Constructs a memory manager with custom max allocation size.
     explicit MemoryManager(std::size_t max_allocation_size) noexcept
-        : table_(mem_config::INITIAL_TABLE_CAPACITY),
+        : table_(mem_config::INITIAL_TABLE_CAPACITY, &stats_),
           max_allocation_size_(max_allocation_size) {}
 
     // Non-copyable, movable
@@ -284,6 +306,36 @@ public:
     [[nodiscard]] MemoryError read_bytes(Handle h, std::size_t offset,
                                           void* dst, std::size_t count) const noexcept;
 
+    // ========== Span-Based Operations (Modern C++ API) ==========
+
+    /// Reads data into a span (bounds-checked).
+    /// @tparam T Element type (must be trivially copyable).
+    /// @param h The handle.
+    /// @param offset Byte offset within the allocation.
+    /// @param dst Destination span.
+    /// @return Error code.
+    template<typename T>
+    [[nodiscard]] MemoryError read_into(Handle h, std::size_t offset,
+                                         std::span<T> dst) const noexcept {
+        static_assert(std::is_trivially_copyable_v<T>,
+                      "read_into<T> requires trivially copyable type");
+        return read_bytes(h, offset, dst.data(), dst.size_bytes());
+    }
+
+    /// Writes data from a span (bounds-checked).
+    /// @tparam T Element type (must be trivially copyable).
+    /// @param h The handle.
+    /// @param offset Byte offset within the allocation.
+    /// @param src Source span.
+    /// @return Error code.
+    template<typename T>
+    [[nodiscard]] MemoryError write_from(Handle h, std::size_t offset,
+                                          std::span<const T> src) noexcept {
+        static_assert(std::is_trivially_copyable_v<T>,
+                      "write_from<T> requires trivially copyable type");
+        return write_bytes(h, offset, src.data(), src.size_bytes());
+    }
+
     // ========== Query Operations ==========
 
     /// Gets the allocated size for a handle (page-aligned size, not requested).
@@ -307,6 +359,19 @@ public:
     /// Returns the maximum allocation size.
     [[nodiscard]] std::size_t max_allocation_size() const noexcept {
         return max_allocation_size_;
+    }
+
+    // ========== Security Statistics ==========
+
+    /// Returns a const reference to security statistics.
+    /// Use snapshot() to get a consistent copy of all counters.
+    [[nodiscard]] const SecurityStats& security_stats() const noexcept {
+        return stats_;
+    }
+
+    /// Returns a mutable reference to security statistics (for testing).
+    [[nodiscard]] SecurityStats& security_stats() noexcept {
+        return stats_;
     }
 
     // ========== Constants ==========
@@ -362,6 +427,7 @@ public:
     }
 
 private:
+    SecurityStats stats_;  // Must be declared before table_ for initialization order
     HandleTable table_;
     std::size_t max_allocation_size_{mem_config::MAX_ALLOCATION_SIZE};
     std::size_t total_allocated_{0};

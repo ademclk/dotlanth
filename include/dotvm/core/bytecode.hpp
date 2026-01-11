@@ -696,4 +696,97 @@ write_const_pool_header(const ConstantPoolHeader& header) noexcept {
     return data;
 }
 
+// ============================================================================
+// Execution-Time Validation Functions
+// ============================================================================
+
+/// Constraints extracted from bytecode header for execution validation
+struct ExecutionConstraints {
+    std::uint64_t code_size;       ///< Size of code section in bytes
+    std::uint64_t entry_point;     ///< Initial program counter
+    Architecture arch;              ///< Target architecture
+    bool debug_mode;                ///< Debug mode enabled (strict checks)
+};
+
+/// Extract execution constraints from a validated header
+[[nodiscard]] constexpr ExecutionConstraints
+extract_execution_constraints(const BytecodeHeader& header) noexcept {
+    return ExecutionConstraints{
+        .code_size = header.code_size,
+        .entry_point = header.entry_point,
+        .arch = header.arch,
+        .debug_mode = header.is_debug()
+    };
+}
+
+/// Validate that a program counter is within bounds and properly aligned
+///
+/// @param pc Program counter (byte offset in code section)
+/// @param code_size Total size of code section
+/// @return BytecodeError::Success if valid, appropriate error otherwise
+[[nodiscard]] constexpr BytecodeError validate_pc(
+    std::uint64_t pc,
+    std::uint64_t code_size) noexcept {
+    if (pc >= code_size) {
+        return BytecodeError::EntryPointOutOfBounds;
+    }
+    if (pc % bytecode::INSTRUCTION_ALIGNMENT != 0) {
+        return BytecodeError::EntryPointNotAligned;
+    }
+    return BytecodeError::Success;
+}
+
+/// Validate that a program counter is valid given execution constraints
+///
+/// @param pc Program counter (byte offset in code section)
+/// @param constraints Execution constraints from bytecode header
+/// @return BytecodeError::Success if valid, appropriate error otherwise
+[[nodiscard]] constexpr BytecodeError validate_pc(
+    std::uint64_t pc,
+    const ExecutionConstraints& constraints) noexcept {
+    return validate_pc(pc, constraints.code_size);
+}
+
+/// Validate that a constant pool index is within bounds
+///
+/// @param index Index into the constant pool
+/// @param pool_size Number of entries in the constant pool
+/// @return true if index is valid, false otherwise
+[[nodiscard]] constexpr bool is_valid_const_index(
+    std::uint32_t index,
+    std::uint32_t pool_size) noexcept {
+    return index < pool_size;
+}
+
+/// Validate that a jump offset produces a valid target
+///
+/// @param current_pc Current program counter
+/// @param offset Signed offset to add (may be negative for backward jumps)
+/// @param code_size Total size of code section
+/// @return BytecodeError::Success if valid, appropriate error otherwise
+[[nodiscard]] constexpr BytecodeError validate_jump_target(
+    std::uint64_t current_pc,
+    std::int32_t offset,
+    std::uint64_t code_size) noexcept {
+    // Compute target PC, handling signed offset
+    std::int64_t target = static_cast<std::int64_t>(current_pc) + offset;
+
+    // Check for underflow (negative target)
+    if (target < 0) {
+        return BytecodeError::EntryPointOutOfBounds;
+    }
+
+    // Delegate to standard PC validation
+    return validate_pc(static_cast<std::uint64_t>(target), code_size);
+}
+
+/// Validate that a register index is within valid range
+///
+/// @param reg Register index (0-255)
+/// @return true if valid, false otherwise
+[[nodiscard]] constexpr bool is_valid_register(std::uint8_t reg) noexcept {
+    // All 8-bit values are valid register indices (0-255)
+    return true;
+}
+
 } // namespace dotvm::core
