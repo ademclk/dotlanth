@@ -318,9 +318,9 @@ TEST_F(HelperFunctionTest, SelectOptimalSimdArch_ReturnsValidArchitecture) {
 // Constexpr Validation Tests
 // ============================================================================
 
-class ConstexprTest : public ::testing::Test {};
+class CpuFeaturesConstexprTest : public ::testing::Test {};
 
-TEST_F(ConstexprTest, ArchEnumFunctions_AreConstexpr) {
+TEST_F(CpuFeaturesConstexprTest, ArchEnumFunctions_AreConstexpr) {
     // These should all compile as constexpr
     constexpr bool valid32 = is_valid_architecture(Architecture::Arch32);
     constexpr bool valid512 = is_valid_architecture(Architecture::Arch512);
@@ -346,7 +346,7 @@ TEST_F(ConstexprTest, ArchEnumFunctions_AreConstexpr) {
     EXPECT_EQ(width512, 512u);
 }
 
-TEST_F(ConstexprTest, CpuFeaturesMethods_AreConstexpr) {
+TEST_F(CpuFeaturesConstexprTest, CpuFeaturesMethods_AreConstexpr) {
     constexpr CpuFeatures features{};
 
     constexpr auto width = features.max_vector_width();
