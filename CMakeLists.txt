@@ -72,6 +72,7 @@ add_library(dotvm_core STATIC
     src/dotvm/core/register_file.cpp
     src/dotvm/core/instruction.cpp
     src/dotvm/core/bytecode.cpp
+    src/dotvm/core/memory.cpp
 )
 
 target_include_directories(dotvm_core PUBLIC
@@ -103,7 +104,13 @@ if(DOTVM_BUILD_TESTS)
         GIT_REPOSITORY https://github.com/google/googletest.git
         GIT_TAG v1.14.0
     )
+
+    # Disable strict warnings for GoogleTest (it has some sign-conversion issues)
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-conversion")
     FetchContent_MakeAvailable(googletest)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 
     # Test executable
     add_executable(dotvm_tests
@@ -111,6 +118,7 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/register_file_test.cpp
         tests/dotvm/core/instruction_test.cpp
         tests/dotvm/core/bytecode_test.cpp
+        tests/dotvm/core/memory_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
