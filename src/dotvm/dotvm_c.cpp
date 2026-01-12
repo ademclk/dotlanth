@@ -8,9 +8,10 @@
 
 #include <dotvm/dotvm_c.h>
 
-#include <dotvm/core/vm_context.hpp>
 #include <dotvm/core/bytecode.hpp>
+#include <dotvm/core/executor.hpp>
 #include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
 #include <dotvm/exec/execution_engine.hpp>
 
 #include <cstring>
