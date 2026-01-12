@@ -7,6 +7,7 @@
 /// fetching, decoding, and dispatch. It includes specialized executors
 /// for different opcode categories (arithmetic, bitwise, control flow, etc.)
 
+#include <concepts>
 #include <cstdint>
 #include <span>
 
@@ -243,6 +244,80 @@ private:
 };
 
 // ============================================================================
+// Bitwise Executor
+// ============================================================================
+
+/// Executes bitwise opcodes (AND, OR, XOR, NOT, SHL, SHR, SAR, ROL, ROR)
+/// and their immediate variants (SHLI, SHRI, SARI, ANDI, ORI, XORI)
+///
+/// This class handles bitwise operations with architecture-aware masking:
+/// - Type A (register-register): AND, OR, XOR, NOT, SHL, SHR, SAR, ROL, ROR
+/// - Type S (shift-immediate): SHLI, SHRI, SARI with 6-bit shift amount
+/// - Type B (accumulator-immediate): ANDI, ORI, XORI with zero-extended imm16
+///
+/// All operations are delegated to the ALU which handles proper masking
+/// for Arch32 (32-bit) and Arch64 (48-bit NaN-boxed) modes.
+class BitwiseExecutor {
+public:
+    /// Construct with reference to VM context
+    explicit BitwiseExecutor(VmContext& ctx) noexcept : ctx_{ctx} {}
+
+    /// Execute a Type A bitwise instruction (register-register)
+    ///
+    /// Handles: AND, OR, XOR, NOT, SHL, SHR, SAR, ROL, ROR
+    ///
+    /// @param decoded Decoded Type A instruction
+    /// @return StepResult indicating success or error
+    [[nodiscard]] StepResult execute_type_a(const DecodedTypeA& decoded) noexcept;
+
+    /// Execute a Type S bitwise instruction (shift-immediate)
+    ///
+    /// Handles: SHLI, SHRI, SARI with 6-bit immediate shift amount
+    ///
+    /// @param decoded Decoded Type S instruction
+    /// @return StepResult indicating success or error
+    [[nodiscard]] StepResult execute_type_s(const DecodedTypeS& decoded) noexcept;
+
+    /// Execute a Type B bitwise instruction (accumulator-immediate)
+    ///
+    /// Handles: ANDI, ORI, XORI with zero-extended 16-bit immediate
+    /// Note: These are accumulator-style (Rd = Rd OP imm16)
+    ///
+    /// @param decoded Decoded Type B instruction
+    /// @return StepResult indicating success or error
+    [[nodiscard]] StepResult execute_type_b(const DecodedTypeB& decoded) noexcept;
+
+private:
+    VmContext& ctx_;
+
+    /// Write value to register and return success
+    StepResult write_success(std::uint8_t rd, Value result) noexcept {
+        ctx_.registers().write(rd, result);
+        return StepResult::success();
+    }
+};
+
+// ============================================================================
+// Executor Interface Concepts (C++20)
+// ============================================================================
+
+/// @brief Concept for types that can execute bitwise instructions
+///
+/// This concept validates at compile-time that a type provides the required
+/// interface for executing bitwise operations across all instruction formats.
+template<typename T>
+concept BitwiseExecutorInterface = requires(T exec, const DecodedTypeA& da,
+                                            const DecodedTypeS& ds, const DecodedTypeB& db) {
+    { exec.execute_type_a(da) } -> std::same_as<StepResult>;
+    { exec.execute_type_s(ds) } -> std::same_as<StepResult>;
+    { exec.execute_type_b(db) } -> std::same_as<StepResult>;
+};
+
+/// @brief Verify BitwiseExecutor satisfies BitwiseExecutorInterface at compile time
+static_assert(BitwiseExecutorInterface<BitwiseExecutor>,
+              "BitwiseExecutor must satisfy BitwiseExecutorInterface concept");
+
+// ============================================================================
 // Main Executor
 // ============================================================================
 
@@ -268,7 +343,8 @@ public:
     /// @param ctx VM context with registers, memory, ALU
     /// @param code Code section span (bytecode instructions)
     explicit Executor(VmContext& ctx, std::span<const std::uint8_t> code) noexcept
-        : ctx_{ctx}, code_{code}, state_{}, arith_exec_{ctx}, fp_exec_{ctx, state_} {}
+        : ctx_{ctx}, code_{code}, state_{}, arith_exec_{ctx}, fp_exec_{ctx, state_},
+          bitwise_exec_{ctx} {}
 
     // =========================================================================
     // Execution
@@ -307,6 +383,7 @@ private:
     ExecutionState state_;
     ArithmeticExecutor arith_exec_;
     FloatingPointExecutor fp_exec_;
+    BitwiseExecutor bitwise_exec_;
 
     // -------------------------------------------------------------------------
     // Instruction Fetch and Decode
