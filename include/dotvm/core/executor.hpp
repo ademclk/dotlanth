@@ -7,6 +7,7 @@
 /// fetching, decoding, and dispatch. It includes specialized executors
 /// for different opcode categories (arithmetic, bitwise, control flow, etc.)
 
+#include <concepts>
 #include <cstdint>
 #include <span>
 
@@ -295,6 +296,31 @@ private:
         return StepResult::success();
     }
 };
+
+// ============================================================================
+// Executor Interface Concepts (C++20)
+// ============================================================================
+
+/// @brief Concept for types that can execute bitwise instructions
+///
+/// This concept validates at compile-time that a type provides the required
+/// interface for executing bitwise operations across all instruction formats.
+///
+/// Required operations:
+/// - execute_type_a: Handle register-register bitwise ops (AND, OR, XOR, etc.)
+/// - execute_type_s: Handle shift-immediate ops (SHLI, SHRI, SARI)
+/// - execute_type_b: Handle accumulator-immediate ops (ANDI, ORI, XORI)
+template<typename T>
+concept BitwiseExecutorInterface = requires(T exec, const DecodedTypeA& da,
+                                            const DecodedTypeS& ds, const DecodedTypeB& db) {
+    { exec.execute_type_a(da) } -> std::same_as<StepResult>;
+    { exec.execute_type_s(ds) } -> std::same_as<StepResult>;
+    { exec.execute_type_b(db) } -> std::same_as<StepResult>;
+};
+
+/// @brief Verify BitwiseExecutor satisfies BitwiseExecutorInterface at compile time
+static_assert(BitwiseExecutorInterface<BitwiseExecutor>,
+              "BitwiseExecutor must satisfy BitwiseExecutorInterface concept");
 
 // ============================================================================
 // Main Executor

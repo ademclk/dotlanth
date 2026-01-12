@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <dotvm/core/concepts/concepts.hpp>
+#include <dotvm/core/executor.hpp>
 #include <dotvm/core/value.hpp>
 #include <dotvm/core/memory_config.hpp>
 
@@ -198,4 +199,42 @@ TEST(ConceptsTest, TypeTraits) {
     static_assert(is_memory_manager<MemoryManager>);
 
     SUCCEED() << "All type traits correctly identify conforming types";
+}
+
+// ============================================================================
+// Executor Interface Concept Tests
+// ============================================================================
+
+TEST(ConceptsTest, BitwiseExecutorSatisfiesInterface) {
+    // Compile-time verification that BitwiseExecutor satisfies BitwiseExecutorInterface
+    static_assert(BitwiseExecutorInterface<BitwiseExecutor>,
+                  "BitwiseExecutor must satisfy BitwiseExecutorInterface concept");
+
+    // Runtime verification that we can instantiate and use BitwiseExecutor
+    VmContext ctx{VmConfig::arch64()};
+    BitwiseExecutor exec{ctx};
+
+    // Set up operands
+    ctx.registers().write(1, Value::from_int(0x0F0F));
+    ctx.registers().write(2, Value::from_int(0x00FF));
+
+    // Test execute_type_a (AND operation)
+    auto decoded_a = decode_type_a(encode_type_a(opcode::AND, 3, 1, 2));
+    auto result_a = exec.execute_type_a(decoded_a);
+    EXPECT_EQ(result_a.err, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x000F);
+
+    // Test execute_type_s (SHLI operation)
+    ctx.registers().write(4, Value::from_int(1));
+    auto decoded_s = decode_type_s(encode_type_s(opcode::SHLI, 5, 4, 8));
+    auto result_s = exec.execute_type_s(decoded_s);
+    EXPECT_EQ(result_s.err, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 256);
+
+    // Test execute_type_b (ANDI operation)
+    ctx.registers().write(6, Value::from_int(0xFFFF));
+    auto decoded_b = decode_type_b(encode_type_b(opcode::ANDI, 6, 0x00FF));
+    auto result_b = exec.execute_type_b(decoded_b);
+    EXPECT_EQ(result_b.err, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(6).as_integer(), 0x00FF);
 }
