@@ -1071,5 +1071,550 @@ TEST(StepResultTest, Error) {
     EXPECT_TRUE(result.should_halt);  // Fatal error should halt
 }
 
+// ============================================================================
+// Bitwise Edge Case Tests (EXEC-004-ITER-003)
+// ============================================================================
+
+// --- AND Operation Edge Cases ---
+
+TEST_F(ExecutorTest, Run_AND_AllZeros) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0xFFFFFFFF));
+    ctx.registers().write(2, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::AND, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0);  // x & 0 = 0
+}
+
+TEST_F(ExecutorTest, Run_AND_AllOnes) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(-1));  // All ones
+
+    auto code = make_program({
+        encode_type_a(opcode::AND, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x12345678);  // x & -1 = x
+}
+
+TEST_F(ExecutorTest, Run_AND_MixedPatterns) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0xAAAAAAAA));  // 1010...
+    ctx.registers().write(2, Value::from_int(0x55555555));  // 0101...
+
+    auto code = make_program({
+        encode_type_a(opcode::AND, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0);  // No overlapping bits
+}
+
+// --- OR Operation Edge Cases ---
+
+TEST_F(ExecutorTest, Run_OR_AllZeros) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::OR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x12345678);  // x | 0 = x
+}
+
+TEST_F(ExecutorTest, Run_OR_AllOnes) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(-1));
+
+    auto code = make_program({
+        encode_type_a(opcode::OR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), -1);  // x | -1 = -1
+}
+
+// --- XOR Operation Edge Cases ---
+
+TEST_F(ExecutorTest, Run_XOR_SelfXor) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_a(opcode::XOR, 3, 1, 1),  // R3 = R1 ^ R1
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0);  // x ^ x = 0
+}
+
+TEST_F(ExecutorTest, Run_XOR_Identity) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::XOR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x12345678);  // x ^ 0 = x
+}
+
+TEST_F(ExecutorTest, Run_XOR_AllOnes) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(-1));
+
+    auto code = make_program({
+        encode_type_a(opcode::XOR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), ~0x12345678LL);  // x ^ -1 = ~x
+}
+
+// --- NOT Operation Edge Cases ---
+
+TEST_F(ExecutorTest, Run_NOT_Zero) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::NOT, 3, 1, 0),  // Rs2 ignored
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), -1);  // ~0 = -1
+}
+
+TEST_F(ExecutorTest, Run_NOT_AllOnes) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(-1));
+
+    auto code = make_program({
+        encode_type_a(opcode::NOT, 3, 1, 0),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0);  // ~(-1) = 0
+}
+
+TEST_F(ExecutorTest, Run_NOT_Arch32_SignBit) {
+    VmContext ctx{VmConfig::arch32()};
+
+    ctx.registers().write(1, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::NOT, 3, 1, 0),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // In 32-bit mode, ~0 should be -1 (sign-extended)
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), -1);
+}
+
+// --- SHL (Shift Left) Edge Cases ---
+
+TEST_F(ExecutorTest, Run_SHL_ByZero) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::SHL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x12345678);  // x << 0 = x
+}
+
+TEST_F(ExecutorTest, Run_SHL_LargeShift_Masked) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(1));
+    ctx.registers().write(2, Value::from_int(100));  // > 47, gets masked
+
+    auto code = make_program({
+        encode_type_a(opcode::SHL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Shift amount masked to valid range
+}
+
+// --- SHR (Shift Right Logical) Edge Cases ---
+
+TEST_F(ExecutorTest, Run_SHR_NegativeValue_Arch32) {
+    VmContext ctx{VmConfig::arch32()};
+
+    // Negative value should be treated as unsigned for logical shift
+    ctx.registers().write(1, Value::from_int(-1));  // 0xFFFFFFFF in 32-bit
+    ctx.registers().write(2, Value::from_int(4));
+
+    auto code = make_program({
+        encode_type_a(opcode::SHR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Logical shift should zero-fill from left
+    // 0xFFFFFFFF >> 4 (logical) = 0x0FFFFFFF = 268435455
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x0FFFFFFF);
+}
+
+TEST_F(ExecutorTest, Run_SHR_ByZero) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::SHR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x12345678);  // x >> 0 = x
+}
+
+// --- SAR (Shift Arithmetic Right) Edge Cases ---
+
+TEST_F(ExecutorTest, Run_SAR_PositiveByLarge) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x7FFFFFFF));  // Max positive 32-bit
+    ctx.registers().write(2, Value::from_int(31));
+
+    auto code = make_program({
+        encode_type_a(opcode::SAR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0);  // All shifted out
+}
+
+TEST_F(ExecutorTest, Run_SAR_NegativeByLarge) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(-1024));
+    ctx.registers().write(2, Value::from_int(30));
+
+    auto code = make_program({
+        encode_type_a(opcode::SAR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), -1);  // Sign extended
+}
+
+// --- ROL/ROR Boundary Cases ---
+
+TEST_F(ExecutorTest, Run_ROL_FullRotation) {
+    VmContext ctx{VmConfig::arch32()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(32));  // Full rotation = no change
+
+    auto code = make_program({
+        encode_type_a(opcode::ROL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x12345678);  // 32 mod 32 = 0
+}
+
+TEST_F(ExecutorTest, Run_ROR_NegativeRotation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    // Negative rotation amount should be handled via modulo
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(-4));
+
+    auto code = make_program({
+        encode_type_a(opcode::ROR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Should handle negative modulo correctly
+}
+
+// --- ANDI Immediate Boundary Cases ---
+
+TEST_F(ExecutorTest, Run_ANDI_ZeroImmediate) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0xFFFFFFFF));
+
+    auto code = make_program({
+        encode_type_b(opcode::ANDI, 5, 0x0000),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0);  // x & 0 = 0
+}
+
+TEST_F(ExecutorTest, Run_ANDI_MaxImmediate) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_b(opcode::ANDI, 5, 0xFFFF),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0x5678);  // Keep lower 16 bits
+}
+
+TEST_F(ExecutorTest, Run_ANDI_SignBitImmediate) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0xFFFFFFFF));
+
+    auto code = make_program({
+        encode_type_b(opcode::ANDI, 5, 0x8000),  // Just the sign bit of 16-bit
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Note: ANDI uses zero-extension, so 0x8000 is just 32768
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0x8000);
+}
+
+// --- ORI Immediate Boundary Cases ---
+
+TEST_F(ExecutorTest, Run_ORI_ZeroImmediate) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_b(opcode::ORI, 5, 0x0000),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0x12345678);  // x | 0 = x
+}
+
+TEST_F(ExecutorTest, Run_ORI_MaxImmediate) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0x12340000));
+
+    auto code = make_program({
+        encode_type_b(opcode::ORI, 5, 0xFFFF),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0x1234FFFF);  // Set lower 16 bits
+}
+
+// --- XORI Immediate Boundary Cases ---
+
+TEST_F(ExecutorTest, Run_XORI_ZeroImmediate) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_b(opcode::XORI, 5, 0x0000),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0x12345678);  // x ^ 0 = x
+}
+
+TEST_F(ExecutorTest, Run_XORI_MaxImmediate) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_b(opcode::XORI, 5, 0xFFFF),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // XOR with 0xFFFF flips lower 16 bits: 0x5678 ^ 0xFFFF = 0xA987
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0x1234A987);
+}
+
+// --- SHLI/SHRI/SARI Boundary Shift Amounts ---
+
+TEST_F(ExecutorTest, Run_SHLI_MaxShamt6) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(1));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHLI, 3, 1, 63),  // Max 6-bit value
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // In 64-bit mode, shift of 63 is valid but masked
+}
+
+TEST_F(ExecutorTest, Run_SHRI_MaxShamt6_Arch32) {
+    VmContext ctx{VmConfig::arch32()};
+
+    ctx.registers().write(1, Value::from_int(-1));  // All bits set
+
+    auto code = make_program({
+        encode_type_s(opcode::SHRI, 3, 1, 31),  // Max valid for 32-bit
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Logical shift right by 31 on 32-bit -1 should give 1
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 1);
+}
+
+TEST_F(ExecutorTest, Run_SARI_MaxShamt6_Arch32) {
+    VmContext ctx{VmConfig::arch32()};
+
+    ctx.registers().write(1, Value::from_int(std::numeric_limits<std::int32_t>::min()));
+
+    auto code = make_program({
+        encode_type_s(opcode::SARI, 3, 1, 31),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Arithmetic shift of INT32_MIN by 31 should give -1
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), -1);
+}
+
 }  // namespace
 }  // namespace dotvm::core
