@@ -4,6 +4,10 @@
 #include <dotvm/core/executor.hpp>
 
 #include <bit>
+#include <cmath>
+#include <limits>
+
+#include <dotvm/core/arch_config.hpp>
 
 namespace dotvm::core {
 
@@ -194,6 +198,207 @@ StepResult ArithmeticExecutor::neg_op(std::uint8_t rd, Value a) noexcept {
 }
 
 // ============================================================================
+// FloatingPointExecutor Implementation
+// ============================================================================
+
+StepResult FloatingPointExecutor::execute_type_a(const DecodedTypeA& decoded) noexcept {
+    const auto rs1_val = ctx_.registers().read(decoded.rs1);
+    const auto rs2_val = ctx_.registers().read(decoded.rs2);
+
+    switch (decoded.opcode) {
+        case opcode::FADD:
+            return fadd_op(decoded.rd, rs1_val, rs2_val);
+
+        case opcode::FSUB:
+            return fsub_op(decoded.rd, rs1_val, rs2_val);
+
+        case opcode::FMUL:
+            return fmul_op(decoded.rd, rs1_val, rs2_val);
+
+        case opcode::FDIV:
+            return fdiv_op(decoded.rd, rs1_val, rs2_val);
+
+        case opcode::FNEG:
+            return fneg_op(decoded.rd, rs1_val);
+
+        case opcode::FSQRT:
+            return fsqrt_op(decoded.rd, rs1_val);
+
+        case opcode::FCMP:
+            return fcmp_op(rs1_val, rs2_val);
+
+        case opcode::F2I:
+            return f2i_op(decoded.rd, rs1_val);
+
+        case opcode::I2F:
+            return i2f_op(decoded.rd, rs1_val);
+
+        default:
+            return StepResult::make_error(ExecutionError::InvalidOpcode);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Helper Functions
+// -----------------------------------------------------------------------------
+
+double FloatingPointExecutor::get_float(Value v) const noexcept {
+    if (v.is_float()) [[likely]] {
+        return v.as_float();
+    }
+    if (v.is_integer()) {
+        return static_cast<double>(v.as_integer());
+    }
+    // Non-numeric types return NaN
+    return std::numeric_limits<double>::quiet_NaN();
+}
+
+StepResult FloatingPointExecutor::write_float(std::uint8_t rd, double result) noexcept {
+    ctx_.registers().write(rd, Value::from_float(result));
+    return StepResult::success();
+}
+
+StepResult FloatingPointExecutor::write_fp_invalid(std::uint8_t rd, double result) noexcept {
+    ctx_.registers().write(rd, Value::from_float(result));
+    return StepResult::make_error(ExecutionError::FloatingPointInvalid);
+}
+
+StepResult FloatingPointExecutor::write_conversion_overflow(std::uint8_t rd,
+                                                             std::int64_t result) noexcept {
+    ctx_.registers().write(rd, ctx_.make_int(result));
+    return StepResult::make_error(ExecutionError::ConversionOverflow);
+}
+
+// -----------------------------------------------------------------------------
+// Binary Floating-Point Operations
+// -----------------------------------------------------------------------------
+
+StepResult FloatingPointExecutor::fadd_op(std::uint8_t rd, Value a, Value b) noexcept {
+    const double fa = get_float(a);
+    const double fb = get_float(b);
+    // IEEE 754 semantics: NaN propagation and Inf handling are automatic
+    return write_float(rd, fa + fb);
+}
+
+StepResult FloatingPointExecutor::fsub_op(std::uint8_t rd, Value a, Value b) noexcept {
+    const double fa = get_float(a);
+    const double fb = get_float(b);
+    return write_float(rd, fa - fb);
+}
+
+StepResult FloatingPointExecutor::fmul_op(std::uint8_t rd, Value a, Value b) noexcept {
+    const double fa = get_float(a);
+    const double fb = get_float(b);
+    return write_float(rd, fa * fb);
+}
+
+StepResult FloatingPointExecutor::fdiv_op(std::uint8_t rd, Value a, Value b) noexcept {
+    const double fa = get_float(a);
+    const double fb = get_float(b);
+    // IEEE 754: division by zero produces +/-Inf based on dividend sign
+    // 0/0 produces NaN - this is all handled automatically
+    return write_float(rd, fa / fb);
+}
+
+StepResult FloatingPointExecutor::fcmp_op(Value a, Value b) noexcept {
+    const double fa = get_float(a);
+    const double fb = get_float(b);
+
+    // Use C++20 three-way comparison which correctly handles NaN
+    // Returns std::partial_ordering::unordered if either operand is NaN
+    const auto cmp = fa <=> fb;
+    state_.fp_flags.set_from_ordering(cmp);
+
+    return StepResult::success();
+}
+
+// -----------------------------------------------------------------------------
+// Unary Floating-Point Operations
+// -----------------------------------------------------------------------------
+
+StepResult FloatingPointExecutor::fneg_op(std::uint8_t rd, Value a) noexcept {
+    const double fa = get_float(a);
+    // Negation works correctly for NaN (preserves NaN), Inf (negates), and -0.0
+    return write_float(rd, -fa);
+}
+
+StepResult FloatingPointExecutor::fsqrt_op(std::uint8_t rd, Value a) noexcept {
+    const double fa = get_float(a);
+    const double result = std::sqrt(fa);
+
+    // Check for invalid operation: sqrt of negative number (excluding -0.0)
+    // std::sqrt returns NaN for negative inputs
+    if (std::isnan(result) && !std::isnan(fa) && fa < 0.0) [[unlikely]] {
+        ++state_.fp_invalid_count;
+        if (ctx_.config().strict_overflow) {
+            return write_fp_invalid(rd, result);
+        }
+    }
+
+    return write_float(rd, result);
+}
+
+// -----------------------------------------------------------------------------
+// Type Conversion Operations
+// -----------------------------------------------------------------------------
+
+StepResult FloatingPointExecutor::f2i_op(std::uint8_t rd, Value a) noexcept {
+    const double fa = get_float(a);
+    std::int64_t result;
+
+    // Get architecture-specific integer limits
+    // Arch32: 32-bit signed, Arch64: 48-bit signed (NaN-boxing)
+    const std::int64_t int_max = ctx_.is_arch32()
+        ? static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max())
+        : arch_config::INT48_MAX;
+    const std::int64_t int_min = ctx_.is_arch32()
+        ? static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::min())
+        : arch_config::INT48_MIN;
+
+    // Handle special cases with saturation semantics
+    if (std::isnan(fa)) [[unlikely]] {
+        // NaN converts to 0
+        result = 0;
+    } else if (fa >= static_cast<double>(int_max)) [[unlikely]] {
+        // Positive overflow: saturate to architecture max
+        result = int_max;
+        if (ctx_.config().strict_overflow) {
+            return write_conversion_overflow(rd, result);
+        }
+    } else if (fa <= static_cast<double>(int_min)) [[unlikely]] {
+        // Negative overflow: saturate to architecture min
+        result = int_min;
+        if (ctx_.config().strict_overflow) {
+            return write_conversion_overflow(rd, result);
+        }
+    } else {
+        // Normal truncation toward zero
+        result = static_cast<std::int64_t>(fa);
+    }
+
+    ctx_.registers().write(rd, ctx_.make_int(result));
+    return StepResult::success();
+}
+
+StepResult FloatingPointExecutor::i2f_op(std::uint8_t rd, Value a) noexcept {
+    std::int64_t ia;
+
+    if (a.is_integer()) [[likely]] {
+        ia = a.as_integer();
+    } else if (a.is_float()) {
+        // If given a float, convert to int first then back to float
+        // This provides consistent behavior
+        ia = static_cast<std::int64_t>(a.as_float());
+    } else {
+        // Non-numeric types become 0
+        ia = 0;
+    }
+
+    // Note: Large integers (> 2^53) may lose precision
+    return write_float(rd, static_cast<double>(ia));
+}
+
+// ============================================================================
 // Executor Implementation
 // ============================================================================
 
@@ -297,9 +502,19 @@ StepResult Executor::validate_pc() const noexcept {
 StepResult Executor::dispatch(std::uint32_t instr) noexcept {
     const auto op = extract_opcode(instr);
 
-    // Fast path: arithmetic opcodes (most common in benchmarks)
-    if (is_arithmetic_opcode(op)) [[likely]] {
+    // Fast path: integer arithmetic opcodes (most common in benchmarks)
+    if (is_type_a_arithmetic(op) || is_type_b_arithmetic(op)) [[likely]] {
         return dispatch_arithmetic(instr, op);
+    }
+
+    // Floating-point opcodes
+    if (is_floating_point(op)) {
+        return dispatch_floating_point(instr, op);
+    }
+
+    // Bitwise opcodes
+    if (is_bitwise_opcode(op)) {
+        return dispatch_bitwise(instr, op);
     }
 
     // System opcodes
@@ -327,6 +542,114 @@ StepResult Executor::dispatch_arithmetic(std::uint32_t instr,
     // Type A (register-register) instructions
     const auto decoded = decode_type_a(instr);
     return arith_exec_.execute_type_a(decoded);
+}
+
+StepResult Executor::dispatch_floating_point(std::uint32_t instr,
+                                              std::uint8_t /*op*/) noexcept {
+    // All floating-point instructions use Type A format
+    const auto decoded = decode_type_a(instr);
+    return fp_exec_.execute_type_a(decoded);
+}
+
+StepResult Executor::dispatch_bitwise(std::uint32_t instr,
+                                       std::uint8_t op) noexcept {
+    auto& regs = ctx_.registers();
+    const auto& alu = ctx_.alu();
+
+    // Type S (shift-immediate) instructions
+    if (is_type_s_bitwise(op)) {
+        const auto decoded = decode_type_s(instr);
+        const auto rs1_val = regs.read(decoded.rs1);
+        const auto shamt_val = Value::from_int(decoded.shamt6);
+
+        switch (op) {
+            case opcode::SHLI:
+                regs.write(decoded.rd, alu.shl(rs1_val, shamt_val));
+                return StepResult::success();
+
+            case opcode::SHRI:
+                regs.write(decoded.rd, alu.shr(rs1_val, shamt_val));
+                return StepResult::success();
+
+            case opcode::SARI:
+                regs.write(decoded.rd, alu.sar(rs1_val, shamt_val));
+                return StepResult::success();
+
+            default:
+                return StepResult::make_error(ExecutionError::InvalidOpcode);
+        }
+    }
+
+    // Type B (immediate) instructions
+    if (is_type_b_bitwise(op)) {
+        const auto decoded = decode_type_b(instr);
+        const auto rd_val = regs.read(decoded.rd);
+        // Zero-extend for bitwise operations
+        const auto imm_val = Value::from_int(static_cast<std::int64_t>(decoded.imm16));
+
+        switch (op) {
+            case opcode::ANDI:
+                regs.write(decoded.rd, alu.bit_and(rd_val, imm_val));
+                return StepResult::success();
+
+            case opcode::ORI:
+                regs.write(decoded.rd, alu.bit_or(rd_val, imm_val));
+                return StepResult::success();
+
+            case opcode::XORI:
+                regs.write(decoded.rd, alu.bit_xor(rd_val, imm_val));
+                return StepResult::success();
+
+            default:
+                return StepResult::make_error(ExecutionError::InvalidOpcode);
+        }
+    }
+
+    // Type A (register-register) instructions
+    const auto decoded = decode_type_a(instr);
+    const auto rs1_val = regs.read(decoded.rs1);
+    const auto rs2_val = regs.read(decoded.rs2);
+
+    switch (op) {
+        case opcode::AND:
+            regs.write(decoded.rd, alu.bit_and(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::OR:
+            regs.write(decoded.rd, alu.bit_or(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::XOR:
+            regs.write(decoded.rd, alu.bit_xor(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::NOT:
+            regs.write(decoded.rd, alu.bit_not(rs1_val));
+            return StepResult::success();
+
+        case opcode::SHL:
+            regs.write(decoded.rd, alu.shl(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::SHR:
+            regs.write(decoded.rd, alu.shr(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::SAR:
+            regs.write(decoded.rd, alu.sar(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::ROL:
+            regs.write(decoded.rd, alu.rol(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::ROR:
+            regs.write(decoded.rd, alu.ror(rs1_val, rs2_val));
+            return StepResult::success();
+
+        default:
+            return StepResult::make_error(ExecutionError::InvalidOpcode);
+    }
 }
 
 StepResult Executor::dispatch_system(std::uint32_t /*instr*/,
