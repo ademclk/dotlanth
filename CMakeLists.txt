@@ -95,6 +95,7 @@ add_library(dotvm_core STATIC
     src/dotvm/core/instruction.cpp
     src/dotvm/core/bytecode.cpp
     src/dotvm/core/memory.cpp
+    src/dotvm/core/executor.cpp
     src/dotvm/exec/execution_engine.cpp
     # SIMD subsystem
     src/dotvm/core/simd/cpu_features.cpp
@@ -207,6 +208,7 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/interop_32_64_test.cpp
         tests/dotvm/core/security_hardening_test.cpp
         tests/dotvm/core/fuzz_edge_cases_test.cpp
+        tests/dotvm/core/executor_test.cpp
         tests/dotvm/exec/execution_engine_test.cpp
         # SIMD subsystem tests
         tests/dotvm/core/simd/cpu_features_test.cpp
@@ -322,7 +324,36 @@ install(DIRECTORY include/
 # ============================================================================
 
 if(DOTVM_BUILD_BENCHMARKS)
-    # Benchmark support library
+    # Fetch Google Benchmark
+    FetchContent_Declare(
+        benchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG v1.8.3
+    )
+
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(benchmark)
+
+    # Arithmetic benchmark (uses Google Benchmark)
+    add_executable(arithmetic_bench
+        benchmarks/arithmetic_bench.cpp
+    )
+
+    target_link_libraries(arithmetic_bench PRIVATE
+        dotvm_core
+        benchmark::benchmark
+        benchmark::benchmark_main
+    )
+
+    target_compile_options(arithmetic_bench PRIVATE ${DOTVM_WARNING_FLAGS})
+
+    # Optimize for benchmarking
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        target_compile_options(arithmetic_bench PRIVATE -O3 -DNDEBUG)
+    endif()
+
+    # Custom benchmark support library
     add_library(dotvm_bench STATIC
         src/dotvm/core/bench/benchmark_config.cpp
     )
@@ -371,7 +402,7 @@ if(DOTVM_BUILD_BENCHMARKS)
     target_compile_options(dotvm_crypto_benchmark PRIVATE ${DOTVM_WARNING_FLAGS})
 
     # Install benchmarks
-    install(TARGETS dotvm_simd_benchmark dotvm_bigint_benchmark dotvm_crypto_benchmark
+    install(TARGETS arithmetic_bench dotvm_simd_benchmark dotvm_bigint_benchmark dotvm_crypto_benchmark
         RUNTIME DESTINATION bin
     )
 endif()
