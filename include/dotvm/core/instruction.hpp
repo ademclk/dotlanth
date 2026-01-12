@@ -19,6 +19,7 @@ namespace instr_bits {
     inline constexpr std::uint32_t REG_MASK      = 0xFFU;       // 8 bits
     inline constexpr std::uint32_t IMM16_MASK    = 0xFFFFU;     // 16 bits
     inline constexpr std::uint32_t OFFSET24_MASK = 0xFFFFFFU;   // 24 bits
+    inline constexpr std::uint32_t SHAMT6_MASK   = 0x3FU;       // 6 bits (0-63)
 
     // Sign extension constants for 24-bit offset
     inline constexpr std::uint32_t OFFSET24_SIGN_BIT    = 1U << 23;
@@ -96,7 +97,8 @@ enum class OpcodeCategory : std::uint8_t {
 enum class InstructionType : std::uint8_t {
     TypeA = 0,  // Register-Register: [opcode][Rd][Rs1][Rs2]
     TypeB = 1,  // Register-Immediate: [opcode][Rd][imm16]
-    TypeC = 2   // Offset/Jump: [opcode][offset24]
+    TypeC = 2,  // Offset/Jump: [opcode][offset24]
+    TypeS = 3   // Shift-Immediate: [opcode][Rd][Rs1][shamt6]
 };
 
 // Decoded Type A instruction: Register-Register operations
@@ -129,9 +131,22 @@ struct DecodedTypeC {
     constexpr bool operator==(const DecodedTypeC&) const noexcept = default;
 };
 
+// Decoded Type S instruction: Shift-Immediate operations
+// Layout: [31:24]=opcode [23:16]=Rd [15:8]=Rs1 [5:0]=shamt6
+// Used for SHLI, SHRI, SARI with 6-bit shift amount
+struct DecodedTypeS {
+    std::uint8_t opcode;
+    std::uint8_t rd;      // Destination register
+    std::uint8_t rs1;     // Source register
+    std::uint8_t shamt6;  // 6-bit shift amount (0-63)
+
+    constexpr bool operator==(const DecodedTypeS&) const noexcept = default;
+};
+
 static_assert(sizeof(DecodedTypeA) == 4, "DecodedTypeA must be 4 bytes");
 static_assert(sizeof(DecodedTypeB) == 4, "DecodedTypeB must be 4 bytes");
 static_assert(sizeof(DecodedTypeC) == 8, "DecodedTypeC is 8 bytes due to alignment");
+static_assert(sizeof(DecodedTypeS) == 4, "DecodedTypeS must be 4 bytes");
 
 // --- Decoding Functions ---
 
@@ -189,6 +204,21 @@ static_assert(sizeof(DecodedTypeC) == 8, "DecodedTypeC is 8 bytes due to alignme
     };
 }
 
+// Type S Decoder: [31:24]=opcode, [23:16]=Rd, [15:8]=Rs1, [5:0]=shamt6
+// Used for shift-immediate operations (SHLI, SHRI, SARI)
+[[nodiscard]] constexpr DecodedTypeS decode_type_s(std::uint32_t instr) noexcept {
+    return DecodedTypeS{
+        .opcode = static_cast<std::uint8_t>(
+            (instr >> instr_bits::OPCODE_SHIFT) & instr_bits::OPCODE_MASK),
+        .rd = static_cast<std::uint8_t>(
+            (instr >> instr_bits::RD_SHIFT) & instr_bits::REG_MASK),
+        .rs1 = static_cast<std::uint8_t>(
+            (instr >> instr_bits::RS1_SHIFT) & instr_bits::REG_MASK),
+        .shamt6 = static_cast<std::uint8_t>(
+            instr & instr_bits::SHAMT6_MASK)
+    };
+}
+
 // --- Encoding Functions ---
 
 // Type A Encoder: register-register
@@ -225,6 +255,20 @@ static_assert(sizeof(DecodedTypeC) == 8, "DecodedTypeC is 8 bytes due to alignme
 
     return (static_cast<std::uint32_t>(opcode) << instr_bits::OPCODE_SHIFT) |
            (masked_offset << instr_bits::OFFSET24_SHIFT);
+}
+
+// Type S Encoder: shift-immediate (SHLI, SHRI, SARI)
+// Layout: [31:24]=opcode [23:16]=Rd [15:8]=Rs1 [5:0]=shamt6
+// Note: shamt6 is masked to 6 bits (0-63)
+[[nodiscard]] constexpr std::uint32_t encode_type_s(
+    std::uint8_t opcode,
+    std::uint8_t rd,
+    std::uint8_t rs1,
+    std::uint8_t shamt6) noexcept {
+    return (static_cast<std::uint32_t>(opcode) << instr_bits::OPCODE_SHIFT) |
+           (static_cast<std::uint32_t>(rd) << instr_bits::RD_SHIFT) |
+           (static_cast<std::uint32_t>(rs1) << instr_bits::RS1_SHIFT) |
+           (static_cast<std::uint32_t>(shamt6) & instr_bits::SHAMT6_MASK);
 }
 
 // --- Opcode Classification Functions ---

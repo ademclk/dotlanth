@@ -333,6 +333,10 @@ private:
     [[nodiscard]] StepResult dispatch_floating_point(std::uint32_t instr,
                                                       std::uint8_t opcode) noexcept;
 
+    /// Dispatch bitwise opcode (0x20-0x2F)
+    [[nodiscard]] StepResult dispatch_bitwise(std::uint32_t instr,
+                                               std::uint8_t opcode) noexcept;
+
     /// Handle system opcodes (NOP, HALT, etc.)
     [[nodiscard]] StepResult dispatch_system(std::uint32_t instr,
                                               std::uint8_t opcode) noexcept;

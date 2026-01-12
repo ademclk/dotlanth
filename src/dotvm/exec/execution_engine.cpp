@@ -162,6 +162,31 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             regs.write(d.rd, alu.sar(regs.read(d.rs1), regs.read(d.rs2)));
             return true;
         }
+        case opcode::ROL: {
+            auto d = core::decode_type_a(instr);
+            regs.write(d.rd, alu.rol(regs.read(d.rs1), regs.read(d.rs2)));
+            return true;
+        }
+        case opcode::ROR: {
+            auto d = core::decode_type_a(instr);
+            regs.write(d.rd, alu.ror(regs.read(d.rs1), regs.read(d.rs2)));
+            return true;
+        }
+        case opcode::SHLI: {
+            auto d = core::decode_type_s(instr);
+            regs.write(d.rd, alu.shl(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
+            return true;
+        }
+        case opcode::SHRI: {
+            auto d = core::decode_type_s(instr);
+            regs.write(d.rd, alu.shr(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
+            return true;
+        }
+        case opcode::SARI: {
+            auto d = core::decode_type_s(instr);
+            regs.write(d.rd, alu.sar(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
+            return true;
+        }
         case opcode::ANDI: {
             auto d = core::decode_type_b(instr);
             auto imm = core::Value::from_int(d.imm16);  // Zero-extend for bitwise
@@ -405,6 +430,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         op_ADDI, op_SUBI, op_MULI,
         // Bitwise (0x20-0x2F)
         op_AND, op_OR, op_XOR, op_NOT, op_SHL, op_SHR, op_SAR,
+        op_ROL, op_ROR, op_SHLI, op_SHRI, op_SARI,
         op_ANDI, op_ORI, op_XORI,
         // Comparison (0x30-0x3F)
         op_EQ, op_NE, op_LT, op_LE, op_GT, op_GE,
@@ -463,6 +489,11 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::SHL]  = &&op_SHL;
         dispatch_table[opcode::SHR]  = &&op_SHR;
         dispatch_table[opcode::SAR]  = &&op_SAR;
+        dispatch_table[opcode::ROL]  = &&op_ROL;
+        dispatch_table[opcode::ROR]  = &&op_ROR;
+        dispatch_table[opcode::SHLI] = &&op_SHLI;
+        dispatch_table[opcode::SHRI] = &&op_SHRI;
+        dispatch_table[opcode::SARI] = &&op_SARI;
         dispatch_table[opcode::ANDI] = &&op_ANDI;
         dispatch_table[opcode::ORI]  = &&op_ORI;
         dispatch_table[opcode::XORI] = &&op_XORI;
@@ -644,6 +675,36 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     op_SAR: {
         auto d = core::decode_type_a(instr);
         regs.write(d.rd, alu.sar(regs.read(d.rs1), regs.read(d.rs2)));
+        DOTVM_NEXT();
+    }
+
+    op_ROL: {
+        auto d = core::decode_type_a(instr);
+        regs.write(d.rd, alu.rol(regs.read(d.rs1), regs.read(d.rs2)));
+        DOTVM_NEXT();
+    }
+
+    op_ROR: {
+        auto d = core::decode_type_a(instr);
+        regs.write(d.rd, alu.ror(regs.read(d.rs1), regs.read(d.rs2)));
+        DOTVM_NEXT();
+    }
+
+    op_SHLI: {
+        auto d = core::decode_type_s(instr);
+        regs.write(d.rd, alu.shl(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
+        DOTVM_NEXT();
+    }
+
+    op_SHRI: {
+        auto d = core::decode_type_s(instr);
+        regs.write(d.rd, alu.shr(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
+        DOTVM_NEXT();
+    }
+
+    op_SARI: {
+        auto d = core::decode_type_s(instr);
+        regs.write(d.rd, alu.sar(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
         DOTVM_NEXT();
     }
 

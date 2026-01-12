@@ -235,6 +235,80 @@ public:
     }
 
     // =========================================================================
+    // Rotate Operations
+    // =========================================================================
+
+    /// Rotate left
+    ///
+    /// Rotates bits left by the specified amount. Bits shifted out from the
+    /// left are wrapped around to the right. Rotate amount is taken modulo
+    /// the architecture width (32 for Arch32, 64 for Arch64).
+    ///
+    /// @param a Value to rotate (integer)
+    /// @param b Rotate amount (integer)
+    /// @return Rotated result, masked to architecture width
+    [[nodiscard]] constexpr Value rol(Value a, Value b) const noexcept {
+        std::uint64_t val = static_cast<std::uint64_t>(a.as_integer());
+
+        if (arch_config::is_arch32(arch_)) {
+            val &= arch_config::UINT32_MASK;
+            // Use unsigned modulo for positive result
+            auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 32U);
+            if (rotate == 0) {
+                return Value::from_int(arch_config::mask_int(
+                    static_cast<std::int64_t>(val), arch_));
+            }
+            auto result = ((val << rotate) | (val >> (32 - rotate))) &
+                          arch_config::UINT32_MASK;
+            return Value::from_int(arch_config::mask_int(
+                static_cast<std::int64_t>(result), arch_));
+        } else {
+            // Use unsigned modulo for positive result
+            auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 64U);
+            if (rotate == 0) {
+                return Value::from_int(static_cast<std::int64_t>(val));
+            }
+            auto result = (val << rotate) | (val >> (64 - rotate));
+            return Value::from_int(static_cast<std::int64_t>(result));
+        }
+    }
+
+    /// Rotate right
+    ///
+    /// Rotates bits right by the specified amount. Bits shifted out from the
+    /// right are wrapped around to the left. Rotate amount is taken modulo
+    /// the architecture width (32 for Arch32, 64 for Arch64).
+    ///
+    /// @param a Value to rotate (integer)
+    /// @param b Rotate amount (integer)
+    /// @return Rotated result, masked to architecture width
+    [[nodiscard]] constexpr Value ror(Value a, Value b) const noexcept {
+        std::uint64_t val = static_cast<std::uint64_t>(a.as_integer());
+
+        if (arch_config::is_arch32(arch_)) {
+            val &= arch_config::UINT32_MASK;
+            // Use unsigned modulo for positive result
+            auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 32U);
+            if (rotate == 0) {
+                return Value::from_int(arch_config::mask_int(
+                    static_cast<std::int64_t>(val), arch_));
+            }
+            auto result = ((val >> rotate) | (val << (32 - rotate))) &
+                          arch_config::UINT32_MASK;
+            return Value::from_int(arch_config::mask_int(
+                static_cast<std::int64_t>(result), arch_));
+        } else {
+            // Use unsigned modulo for positive result
+            auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 64U);
+            if (rotate == 0) {
+                return Value::from_int(static_cast<std::int64_t>(val));
+            }
+            auto result = (val >> rotate) | (val << (64 - rotate));
+            return Value::from_int(static_cast<std::int64_t>(result));
+        }
+    }
+
+    // =========================================================================
     // Comparison Operations
     // =========================================================================
 
