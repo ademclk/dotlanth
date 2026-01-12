@@ -223,11 +223,17 @@ if(DOTVM_BUILD_TESTS)
         # Crypto subsystem tests
         tests/dotvm/core/crypto/sha256_test.cpp
         tests/dotvm/core/crypto/aes_test.cpp
+        # Test utilities and mock tests
+        tests/dotvm/test_utils/mock_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
         dotvm_core
         GTest::gtest_main
+    )
+
+    target_include_directories(dotvm_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/tests/dotvm/test_utils
     )
 
     target_compile_options(dotvm_tests PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
