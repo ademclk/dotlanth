@@ -139,6 +139,110 @@ private:
 };
 
 // ============================================================================
+// Floating Point Executor
+// ============================================================================
+
+/// Executes floating-point opcodes (FADD through I2F)
+///
+/// This class handles IEEE 754 compliant floating-point operations:
+/// - Binary operations: FADD, FSUB, FMUL, FDIV, FCMP
+/// - Unary operations: FNEG, FSQRT
+/// - Type conversions: F2I, I2F
+///
+/// Features:
+/// - NaN propagation: if either operand is NaN, result is NaN
+/// - Infinity handling per IEEE 754 semantics
+/// - FDIV by zero produces +/-Inf based on dividend sign
+/// - FCMP sets comparison flags (LT, EQ, GT, UNORD)
+/// - F2I uses saturation semantics (NaN->0, overflow->clamp)
+class FloatingPointExecutor {
+public:
+    /// Construct with references to VM context and execution state
+    ///
+    /// @param ctx VM context with registers, memory, configuration
+    /// @param state Execution state for setting FP flags and error counts
+    explicit FloatingPointExecutor(VmContext& ctx, ExecutionState& state) noexcept
+        : ctx_{ctx}, state_{state} {}
+
+    /// Execute a Type A floating-point instruction
+    ///
+    /// @param decoded Decoded Type A instruction (FADD through I2F)
+    /// @return StepResult indicating success or error
+    [[nodiscard]] StepResult execute_type_a(const DecodedTypeA& decoded) noexcept;
+
+private:
+    VmContext& ctx_;
+    ExecutionState& state_;
+
+    // -------------------------------------------------------------------------
+    // Binary Floating-Point Operations
+    // -------------------------------------------------------------------------
+
+    /// FADD: Rd = Rs1 + Rs2 (IEEE 754 double addition)
+    [[nodiscard]] StepResult fadd_op(std::uint8_t rd, Value a, Value b) noexcept;
+
+    /// FSUB: Rd = Rs1 - Rs2 (IEEE 754 double subtraction)
+    [[nodiscard]] StepResult fsub_op(std::uint8_t rd, Value a, Value b) noexcept;
+
+    /// FMUL: Rd = Rs1 * Rs2 (IEEE 754 double multiplication)
+    [[nodiscard]] StepResult fmul_op(std::uint8_t rd, Value a, Value b) noexcept;
+
+    /// FDIV: Rd = Rs1 / Rs2 (IEEE 754 double division)
+    /// Division by zero returns +/-Inf based on dividend sign
+    [[nodiscard]] StepResult fdiv_op(std::uint8_t rd, Value a, Value b) noexcept;
+
+    /// FCMP: Compare Rs1 and Rs2, set FP flags in ExecutionState
+    /// Sets LT, EQ, GT, or UNORD (unordered if NaN involved)
+    [[nodiscard]] StepResult fcmp_op(Value a, Value b) noexcept;
+
+    // -------------------------------------------------------------------------
+    // Unary Floating-Point Operations
+    // -------------------------------------------------------------------------
+
+    /// FNEG: Rd = -Rs1 (IEEE 754 negation)
+    /// Works correctly for NaN, Inf, and -0.0
+    [[nodiscard]] StepResult fneg_op(std::uint8_t rd, Value a) noexcept;
+
+    /// FSQRT: Rd = sqrt(Rs1) (IEEE 754 square root)
+    /// sqrt(-0.0) = -0.0, sqrt(+Inf) = +Inf, sqrt(NaN) = NaN
+    /// sqrt(negative) = NaN (signals FloatingPointInvalid in strict mode)
+    [[nodiscard]] StepResult fsqrt_op(std::uint8_t rd, Value a) noexcept;
+
+    // -------------------------------------------------------------------------
+    // Type Conversion Operations
+    // -------------------------------------------------------------------------
+
+    /// F2I: Rd = int64(Rs1) (float to integer conversion)
+    /// Uses saturation semantics:
+    /// - NaN -> 0
+    /// - +Inf or value > INT64_MAX -> INT64_MAX
+    /// - -Inf or value < INT64_MIN -> INT64_MIN
+    /// In strict mode, signals ConversionOverflow on saturation
+    [[nodiscard]] StepResult f2i_op(std::uint8_t rd, Value a) noexcept;
+
+    /// I2F: Rd = double(Rs1) (integer to float conversion)
+    /// May lose precision for large integers (> 2^53)
+    [[nodiscard]] StepResult i2f_op(std::uint8_t rd, Value a) noexcept;
+
+    // -------------------------------------------------------------------------
+    // Helper Functions
+    // -------------------------------------------------------------------------
+
+    /// Extract double value from Value, converting integer if needed
+    /// Returns NaN for non-numeric types
+    [[nodiscard]] double get_float(Value v) const noexcept;
+
+    /// Write double result to register and return success
+    StepResult write_float(std::uint8_t rd, double result) noexcept;
+
+    /// Write double result and return FP invalid error
+    StepResult write_fp_invalid(std::uint8_t rd, double result) noexcept;
+
+    /// Write integer result and return conversion overflow error
+    StepResult write_conversion_overflow(std::uint8_t rd, std::int64_t result) noexcept;
+};
+
+// ============================================================================
 // Main Executor
 // ============================================================================
 
@@ -164,7 +268,7 @@ public:
     /// @param ctx VM context with registers, memory, ALU
     /// @param code Code section span (bytecode instructions)
     explicit Executor(VmContext& ctx, std::span<const std::uint8_t> code) noexcept
-        : ctx_{ctx}, code_{code}, arith_exec_{ctx} {}
+        : ctx_{ctx}, code_{code}, state_{}, arith_exec_{ctx}, fp_exec_{ctx, state_} {}
 
     // =========================================================================
     // Execution
@@ -202,6 +306,7 @@ private:
     std::span<const std::uint8_t> code_;
     ExecutionState state_;
     ArithmeticExecutor arith_exec_;
+    FloatingPointExecutor fp_exec_;
 
     // -------------------------------------------------------------------------
     // Instruction Fetch and Decode
@@ -220,9 +325,13 @@ private:
     /// Dispatch instruction to appropriate executor
     [[nodiscard]] StepResult dispatch(std::uint32_t instr) noexcept;
 
-    /// Dispatch arithmetic opcode (0x00-0x1F)
+    /// Dispatch arithmetic opcode (0x00-0x08)
     [[nodiscard]] StepResult dispatch_arithmetic(std::uint32_t instr,
                                                    std::uint8_t opcode) noexcept;
+
+    /// Dispatch floating-point opcode (0x10-0x18)
+    [[nodiscard]] StepResult dispatch_floating_point(std::uint32_t instr,
+                                                      std::uint8_t opcode) noexcept;
 
     /// Handle system opcodes (NOP, HALT, etc.)
     [[nodiscard]] StepResult dispatch_system(std::uint32_t instr,
