@@ -414,7 +414,11 @@ private:
     [[nodiscard]] StepResult dispatch_bitwise(std::uint32_t instr,
                                                std::uint8_t opcode) noexcept;
 
-    /// Handle system opcodes (NOP, HALT, etc.)
+    /// Dispatch control flow opcode (0x40-0x5F) - HALT, JMP, branches, etc.
+    [[nodiscard]] StepResult dispatch_control_flow(std::uint32_t instr,
+                                                    std::uint8_t opcode) noexcept;
+
+    /// Handle system opcodes (NOP, etc.) at 0xF0-0xFF
     [[nodiscard]] StepResult dispatch_system(std::uint32_t instr,
                                               std::uint8_t opcode) noexcept;
 };

@@ -143,10 +143,22 @@ struct DecodedTypeS {
     constexpr bool operator==(const DecodedTypeS&) const noexcept = default;
 };
 
+// Decoded Type D instruction: JZ/JNZ operations (EXEC-005)
+// Layout: [31:24]=opcode [23:16]=Rs [15:0]=offset16 (signed)
+// Used for JZ and JNZ instructions that test a single register against zero
+struct DecodedTypeD {
+    std::uint8_t opcode;
+    std::uint8_t rs;        // Register to test against zero
+    std::int16_t offset16;  // Sign-extended 16-bit offset
+
+    constexpr bool operator==(const DecodedTypeD&) const noexcept = default;
+};
+
 static_assert(sizeof(DecodedTypeA) == 4, "DecodedTypeA must be 4 bytes");
 static_assert(sizeof(DecodedTypeB) == 4, "DecodedTypeB must be 4 bytes");
 static_assert(sizeof(DecodedTypeC) == 8, "DecodedTypeC is 8 bytes due to alignment");
 static_assert(sizeof(DecodedTypeS) == 4, "DecodedTypeS must be 4 bytes");
+static_assert(sizeof(DecodedTypeD) == 4, "DecodedTypeD must be 4 bytes");
 
 // --- Decoding Functions ---
 
@@ -219,6 +231,19 @@ static_assert(sizeof(DecodedTypeS) == 4, "DecodedTypeS must be 4 bytes");
     };
 }
 
+// Type D Decoder: [31:24]=opcode, [23:16]=Rs, [15:0]=offset16 (signed)
+// Used for JZ/JNZ instructions (EXEC-005)
+[[nodiscard]] constexpr DecodedTypeD decode_type_d(std::uint32_t instr) noexcept {
+    return DecodedTypeD{
+        .opcode = static_cast<std::uint8_t>(
+            (instr >> instr_bits::OPCODE_SHIFT) & instr_bits::OPCODE_MASK),
+        .rs = static_cast<std::uint8_t>(
+            (instr >> instr_bits::RD_SHIFT) & instr_bits::REG_MASK),
+        .offset16 = static_cast<std::int16_t>(
+            instr & instr_bits::IMM16_MASK)
+    };
+}
+
 // --- Encoding Functions ---
 
 // Type A Encoder: register-register
@@ -269,6 +294,17 @@ static_assert(sizeof(DecodedTypeS) == 4, "DecodedTypeS must be 4 bytes");
            (static_cast<std::uint32_t>(rd) << instr_bits::RD_SHIFT) |
            (static_cast<std::uint32_t>(rs1) << instr_bits::RS1_SHIFT) |
            (static_cast<std::uint32_t>(shamt6) & instr_bits::SHAMT6_MASK);
+}
+
+// Type D Encoder: JZ/JNZ (EXEC-005)
+// Layout: [31:24]=opcode [23:16]=Rs [15:0]=offset16 (signed)
+[[nodiscard]] constexpr std::uint32_t encode_type_d(
+    std::uint8_t opcode,
+    std::uint8_t rs,
+    std::int16_t offset16) noexcept {
+    return (static_cast<std::uint32_t>(opcode) << instr_bits::OPCODE_SHIFT) |
+           (static_cast<std::uint32_t>(rs) << instr_bits::RD_SHIFT) |
+           (static_cast<std::uint32_t>(static_cast<std::uint16_t>(offset16)) & instr_bits::IMM16_MASK);
 }
 
 // --- Opcode Classification Functions ---

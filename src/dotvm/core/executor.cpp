@@ -517,7 +517,12 @@ StepResult Executor::dispatch(std::uint32_t instr) noexcept {
         return dispatch_bitwise(instr, op);
     }
 
-    // System opcodes
+    // Control flow opcodes (includes HALT at 0x5F)
+    if (is_control_flow_opcode(op)) {
+        return dispatch_control_flow(instr, op);
+    }
+
+    // System opcodes (NOP at 0xF0, etc.)
     if (is_system_opcode(op)) {
         return dispatch_system(instr, op);
     }
@@ -657,12 +662,22 @@ StepResult Executor::dispatch_bitwise(std::uint32_t instr,
     return bitwise_exec_.execute_type_a(decoded);
 }
 
-StepResult Executor::dispatch_system(std::uint32_t /*instr*/,
-                                      std::uint8_t op) noexcept {
+StepResult Executor::dispatch_control_flow(std::uint32_t /*instr*/,
+                                            std::uint8_t op) noexcept {
     switch (op) {
         case opcode::HALT:
             return StepResult::halt();
 
+        default:
+            // Other control flow instructions (JMP, branches, CALL, RET)
+            // are not implemented in this basic executor
+            return StepResult::make_error(ExecutionError::NotImplemented);
+    }
+}
+
+StepResult Executor::dispatch_system(std::uint32_t /*instr*/,
+                                      std::uint8_t op) noexcept {
+    switch (op) {
         case opcode::NOP:
             return StepResult::success();
 

@@ -167,11 +167,48 @@ inline constexpr std::uint8_t XORI = 0x2E;
 inline constexpr std::uint8_t BITWISE_RESERVED = 0x2F;
 
 // ============================================================================
-// System opcodes (0xF0-0xFF) - Essential for execution
+// Control Flow (0x40-0x5F) - EXEC-005
 // ============================================================================
 
-/// HALT: Stop execution
-inline constexpr std::uint8_t HALT = 0xFF;
+/// JMP: PC = PC + sign_extend(offset24) - Unconditional jump (Type C)
+inline constexpr std::uint8_t JMP = 0x40;
+
+/// JZ: if (Rs == 0) PC = PC + sign_extend(offset16) - Jump if zero (Type B)
+inline constexpr std::uint8_t JZ = 0x41;
+
+/// JNZ: if (Rs != 0) PC = PC + sign_extend(offset16) - Jump if not zero (Type B)
+inline constexpr std::uint8_t JNZ = 0x42;
+
+/// BEQ: if (Rs1 == Rs2) PC = PC + sign_extend(offset8) - Branch if equal (Type A)
+inline constexpr std::uint8_t BEQ = 0x43;
+
+/// BNE: if (Rs1 != Rs2) PC = PC + sign_extend(offset8) - Branch if not equal (Type A)
+inline constexpr std::uint8_t BNE = 0x44;
+
+/// BLT: if (Rs1 < Rs2) PC = PC + sign_extend(offset8) - Branch if less than, signed (Type A)
+inline constexpr std::uint8_t BLT = 0x45;
+
+/// BLE: if (Rs1 <= Rs2) PC = PC + sign_extend(offset8) - Branch if less or equal, signed (Type A)
+inline constexpr std::uint8_t BLE = 0x46;
+
+/// BGT: if (Rs1 > Rs2) PC = PC + sign_extend(offset8) - Branch if greater than, signed (Type A)
+inline constexpr std::uint8_t BGT = 0x47;
+
+/// BGE: if (Rs1 >= Rs2) PC = PC + sign_extend(offset8) - Branch if greater or equal, signed (Type A)
+inline constexpr std::uint8_t BGE = 0x48;
+
+/// CALL: push return address to CFI stack, PC = PC + sign_extend(offset24) (Type C)
+inline constexpr std::uint8_t CALL = 0x50;
+
+/// RET: pop return address from CFI stack, PC = return_addr
+inline constexpr std::uint8_t RET = 0x51;
+
+/// HALT: Stop execution (moved to control flow range per EXEC-005)
+inline constexpr std::uint8_t HALT = 0x5F;
+
+// ============================================================================
+// System opcodes (0xF0-0xFF) - Essential for execution
+// ============================================================================
 
 /// NOP: No operation
 inline constexpr std::uint8_t NOP = 0xF0;
