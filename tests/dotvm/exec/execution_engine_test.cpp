@@ -44,6 +44,11 @@ protected:
         return encode_type_c(op, offset);
     }
 
+    // Helper to create Type D instruction (JZ/JNZ - EXEC-005)
+    static std::uint32_t make_type_d(std::uint8_t op, std::uint8_t rs, std::int16_t offset) {
+        return encode_type_d(op, rs, offset);
+    }
+
     // Helper to run code
     ExecResult run(const std::vector<std::uint32_t>& code,
                    const std::vector<Value>& const_pool = {}) {
@@ -552,6 +557,172 @@ TEST_F(ExecutionEngineTest, SimpleCounterLoop) {
 
     EXPECT_EQ(result, ExecResult::Success);
     EXPECT_EQ(ctx_.registers().read(1).as_integer(), 5);
+}
+
+// ============================================================================
+// EXEC-005: New Control Flow Instructions Tests
+// ============================================================================
+
+TEST_F(ExecutionEngineTest, JumpIfZero_Taken) {
+    ctx_.registers().write(1, Value::from_int(0));  // R1 = 0
+
+    std::vector<std::uint32_t> code = {
+        make_type_d(opcode::JZ, 1, 2),   // 0: JZ R1, +2 (taken, R1 is 0)
+        make_type_b(opcode::MOVI, 2, 999),    // 1: MOVI R2, 999 (skipped)
+        make_type_c(opcode::HALT, 0)          // 2: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(2).as_integer(), 0);  // Skipped
+}
+
+TEST_F(ExecutionEngineTest, JumpIfZero_NotTaken) {
+    ctx_.registers().write(1, Value::from_int(42));  // R1 = 42 (non-zero)
+
+    std::vector<std::uint32_t> code = {
+        make_type_d(opcode::JZ, 1, 2),   // 0: JZ R1, +2 (not taken)
+        make_type_b(opcode::MOVI, 2, 999),    // 1: MOVI R2, 999 (executed)
+        make_type_c(opcode::HALT, 0)          // 2: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(2).as_integer(), 999);  // Executed
+}
+
+TEST_F(ExecutionEngineTest, JumpIfNotZero_Taken) {
+    ctx_.registers().write(1, Value::from_int(42));  // R1 = 42 (non-zero)
+
+    std::vector<std::uint32_t> code = {
+        make_type_d(opcode::JNZ, 1, 2),  // 0: JNZ R1, +2 (taken)
+        make_type_b(opcode::MOVI, 2, 999),    // 1: MOVI R2, 999 (skipped)
+        make_type_c(opcode::HALT, 0)          // 2: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(2).as_integer(), 0);  // Skipped
+}
+
+TEST_F(ExecutionEngineTest, JumpIfNotZero_NotTaken) {
+    ctx_.registers().write(1, Value::from_int(0));  // R1 = 0
+
+    std::vector<std::uint32_t> code = {
+        make_type_d(opcode::JNZ, 1, 2),  // 0: JNZ R1, +2 (not taken)
+        make_type_b(opcode::MOVI, 2, 999),    // 1: MOVI R2, 999 (executed)
+        make_type_c(opcode::HALT, 0)          // 2: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(2).as_integer(), 999);  // Executed
+}
+
+TEST_F(ExecutionEngineTest, BranchLessOrEqual_Taken) {
+    ctx_.registers().write(1, Value::from_int(5));
+    ctx_.registers().write(2, Value::from_int(5));  // Equal
+
+    std::vector<std::uint32_t> code = {
+        make_type_a(opcode::BLE, 1, 2, 2),    // 0: BLE R1, R2, +2 (taken)
+        make_type_b(opcode::MOVI, 3, 999),    // 1: MOVI R3, 999 (skipped)
+        make_type_c(opcode::HALT, 0)          // 2: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(3).as_integer(), 0);  // Skipped
+}
+
+TEST_F(ExecutionEngineTest, BranchLessOrEqual_NotTaken) {
+    ctx_.registers().write(1, Value::from_int(10));
+    ctx_.registers().write(2, Value::from_int(5));  // R1 > R2
+
+    std::vector<std::uint32_t> code = {
+        make_type_a(opcode::BLE, 1, 2, 2),    // 0: BLE R1, R2, +2 (not taken)
+        make_type_b(opcode::MOVI, 3, 999),    // 1: MOVI R3, 999 (executed)
+        make_type_c(opcode::HALT, 0)          // 2: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(3).as_integer(), 999);  // Executed
+}
+
+TEST_F(ExecutionEngineTest, BranchGreaterThan_Taken) {
+    ctx_.registers().write(1, Value::from_int(10));
+    ctx_.registers().write(2, Value::from_int(5));  // R1 > R2
+
+    std::vector<std::uint32_t> code = {
+        make_type_a(opcode::BGT, 1, 2, 2),    // 0: BGT R1, R2, +2 (taken)
+        make_type_b(opcode::MOVI, 3, 999),    // 1: MOVI R3, 999 (skipped)
+        make_type_c(opcode::HALT, 0)          // 2: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(3).as_integer(), 0);  // Skipped
+}
+
+TEST_F(ExecutionEngineTest, BranchGreaterThan_NotTaken) {
+    ctx_.registers().write(1, Value::from_int(5));
+    ctx_.registers().write(2, Value::from_int(5));  // Equal, not greater
+
+    std::vector<std::uint32_t> code = {
+        make_type_a(opcode::BGT, 1, 2, 2),    // 0: BGT R1, R2, +2 (not taken)
+        make_type_b(opcode::MOVI, 3, 999),    // 1: MOVI R3, 999 (executed)
+        make_type_c(opcode::HALT, 0)          // 2: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(3).as_integer(), 999);  // Executed
+}
+
+TEST_F(ExecutionEngineTest, CallAndReturn_NoCFI) {
+    // Test CALL/RET using R1 link register (CFI disabled by default)
+    std::vector<std::uint32_t> code = {
+        make_type_b(opcode::MOVI, 2, 100),    // 0: MOVI R2, 100
+        make_type_c(opcode::CALL, 3),         // 1: CALL +3 (to instruction 4)
+        make_type_b(opcode::MOVI, 3, 200),    // 2: MOVI R3, 200 (after return)
+        make_type_c(opcode::HALT, 0),         // 3: HALT
+        // Subroutine at instruction 4:
+        make_type_b(opcode::MOVI, 4, 300),    // 4: MOVI R4, 300
+        make_type_c(opcode::RET, 0)           // 5: RET (returns to instruction 2)
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(2).as_integer(), 100);  // Set before call
+    EXPECT_EQ(ctx_.registers().read(3).as_integer(), 200);  // Set after return
+    EXPECT_EQ(ctx_.registers().read(4).as_integer(), 300);  // Set in subroutine
+}
+
+TEST_F(ExecutionEngineTest, JZ_NegativeOffset_Loop) {
+    // Simple loop using JNZ with negative offset
+    // Count down from 3 to 0
+    std::vector<std::uint32_t> code = {
+        make_type_b(opcode::MOVI, 1, 3),      // 0: MOVI R1, 3  (counter)
+        make_type_b(opcode::MOVI, 2, 1),      // 1: MOVI R2, 1  (decrement)
+        // loop (instruction 2):
+        make_type_a(opcode::SUB, 1, 1, 2),    // 2: SUB R1, R1, R2 (R1 = R1 - 1)
+        make_type_d(opcode::JNZ, 1, -1), // 3: JNZ R1, -1 (back to instruction 2)
+        make_type_c(opcode::HALT, 0)          // 4: HALT
+    };
+
+    auto result = run(code);
+
+    EXPECT_EQ(result, ExecResult::Success);
+    EXPECT_EQ(ctx_.registers().read(1).as_integer(), 0);  // Counted down to 0
 }
 
 // ============================================================================

@@ -188,18 +188,19 @@ namespace opcode {
     inline constexpr std::uint8_t GTU   = 0x38;
     inline constexpr std::uint8_t GEU   = 0x39;
 
-    // Control Flow (0x40-0x5F)
-    inline constexpr std::uint8_t JMP   = 0x40;
-    inline constexpr std::uint8_t JMPR  = 0x41;
-    inline constexpr std::uint8_t BEQ   = 0x42;
-    inline constexpr std::uint8_t BNE   = 0x43;
-    inline constexpr std::uint8_t BLT   = 0x44;
-    inline constexpr std::uint8_t BGE   = 0x45;
-    inline constexpr std::uint8_t BLTU  = 0x46;
-    inline constexpr std::uint8_t BGEU  = 0x47;
-    inline constexpr std::uint8_t CALL  = 0x48;
-    inline constexpr std::uint8_t RET   = 0x49;
-    inline constexpr std::uint8_t JMPI  = 0x4A;
+    // Control Flow (0x40-0x5F) - EXEC-005
+    inline constexpr std::uint8_t JMP   = 0x40;  // Unconditional jump (Type C, 24-bit offset)
+    inline constexpr std::uint8_t JZ    = 0x41;  // Jump if zero (Type B, rs + 16-bit offset)
+    inline constexpr std::uint8_t JNZ   = 0x42;  // Jump if not zero (Type B, rs + 16-bit offset)
+    inline constexpr std::uint8_t BEQ   = 0x43;  // Branch if equal (Type A, rs1 == rs2)
+    inline constexpr std::uint8_t BNE   = 0x44;  // Branch if not equal (Type A, rs1 != rs2)
+    inline constexpr std::uint8_t BLT   = 0x45;  // Branch if less than (Type A, rs1 < rs2, signed)
+    inline constexpr std::uint8_t BLE   = 0x46;  // Branch if less or equal (Type A, rs1 <= rs2, signed)
+    inline constexpr std::uint8_t BGT   = 0x47;  // Branch if greater than (Type A, rs1 > rs2, signed)
+    inline constexpr std::uint8_t BGE   = 0x48;  // Branch if greater or equal (Type A, rs1 >= rs2, signed)
+    inline constexpr std::uint8_t CALL  = 0x50;  // Call subroutine (Type C, CFI push + 24-bit offset)
+    inline constexpr std::uint8_t RET   = 0x51;  // Return from subroutine (CFI pop)
+    inline constexpr std::uint8_t HALT  = 0x5F;  // Halt execution
 
     // Memory (0x60-0x7F)
     inline constexpr std::uint8_t LOAD  = 0x60;
@@ -227,7 +228,7 @@ namespace opcode {
     inline constexpr std::uint8_t NOP   = 0xF0;
     inline constexpr std::uint8_t BREAK = 0xF1;
     inline constexpr std::uint8_t SYSCALL = 0xFE;
-    inline constexpr std::uint8_t HALT  = 0xFF;
+    // Note: HALT moved to Control Flow section (0x5F) per EXEC-005
 }  // namespace opcode
 
 }  // namespace dotvm::exec

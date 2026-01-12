@@ -91,17 +91,25 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         DOTVM_TYPE_B_BITWISE_IMM_OPS(DOTVM_SWITCH_TYPE_B_BITWISE_IMM)
 
         // =====================================================================
-        // CONTROL FLOW (0x40-0x5F)
+        // CONTROL FLOW (0x40-0x5F) - EXEC-005
         // =====================================================================
         case opcode::JMP: {
             auto d = core::decode_type_c(instr);
             exec_ctx_.jump_relative(d.offset24 - 1);  // -1 because pc already advanced
             return true;
         }
-        case opcode::JMPR: {
-            auto d = core::decode_type_a(instr);
-            auto target = static_cast<std::size_t>(regs.read(d.rs1).as_integer());
-            exec_ctx_.jump_to(target);
+        case opcode::JZ: {
+            auto d = core::decode_type_d(instr);
+            if (regs.read(d.rs).as_integer() == 0) {
+                exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
+            }
+            return true;
+        }
+        case opcode::JNZ: {
+            auto d = core::decode_type_d(instr);
+            if (regs.read(d.rs).as_integer() != 0) {
+                exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
+            }
             return true;
         }
         case opcode::BEQ: {
@@ -128,6 +136,22 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             }
             return true;
         }
+        case opcode::BLE: {
+            auto d = core::decode_type_a(instr);
+            if (regs.read(d.rd).as_integer() <= regs.read(d.rs1).as_integer()) {
+                auto offset = static_cast<std::int8_t>(d.rs2);
+                exec_ctx_.jump_relative(offset - 1);
+            }
+            return true;
+        }
+        case opcode::BGT: {
+            auto d = core::decode_type_a(instr);
+            if (regs.read(d.rd).as_integer() > regs.read(d.rs1).as_integer()) {
+                auto offset = static_cast<std::int8_t>(d.rs2);
+                exec_ctx_.jump_relative(offset - 1);
+            }
+            return true;
+        }
         case opcode::BGE: {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() >= regs.read(d.rs1).as_integer()) {
@@ -138,16 +162,38 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         }
         case opcode::CALL: {
             auto d = core::decode_type_c(instr);
-            // Save return address in link register (R1)
+            // Always save return address in link register (R1) for compatibility
             regs.write(1, core::Value::from_int(static_cast<std::int64_t>(exec_ctx_.pc)));
+            // CFI integration: push to call stack if enabled
+            if (vm_ctx_.cfi_enabled()) {
+                if (!vm_ctx_.cfi().push_call(static_cast<std::uint32_t>(exec_ctx_.pc))) {
+                    exec_ctx_.halt_with_error(ExecResult::CfiViolation);
+                    return false;
+                }
+            }
             exec_ctx_.jump_relative(d.offset24 - 1);
             return true;
         }
         case opcode::RET: {
-            // Jump to address in link register (R1)
-            auto ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
+            std::size_t ret_addr;
+            // CFI integration: pop from call stack if enabled
+            if (vm_ctx_.cfi_enabled()) {
+                auto addr_opt = vm_ctx_.cfi().pop_call();
+                if (!addr_opt.has_value()) {
+                    exec_ctx_.halt_with_error(ExecResult::CfiViolation);
+                    return false;
+                }
+                ret_addr = static_cast<std::size_t>(*addr_opt);
+            } else {
+                // Fall back to link register (R1)
+                ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
+            }
             exec_ctx_.jump_to(ret_addr);
             return true;
+        }
+        case opcode::HALT: {
+            exec_ctx_.halt();
+            return false;
         }
 
         // =====================================================================
@@ -228,10 +274,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         case opcode::NOP: {
             return true;
         }
-        case opcode::HALT: {
-            exec_ctx_.halt();
-            return false;
-        }
+        // Note: HALT moved to Control Flow section (0x5F) per EXEC-005
 
         default: {
             // Check for reserved opcodes
@@ -264,9 +307,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // Comparison (0x30-0x3F)
         op_EQ, op_NE, op_LT, op_LE, op_GT, op_GE,
         op_LTU, op_LEU, op_GTU, op_GEU,
-        // Control Flow (0x40-0x5F)
-        op_JMP, op_JMPR, op_BEQ, op_BNE, op_BLT, op_BGE, op_BLTU, op_BGEU,
-        op_CALL, op_RET, op_JMPI,
+        // Control Flow (0x40-0x5F) - EXEC-005
+        op_JMP, op_JZ, op_JNZ, op_BEQ, op_BNE, op_BLT, op_BLE, op_BGT, op_BGE,
+        op_CALL, op_RET, op_HALT,
         // Memory (0x60-0x7F)
         op_LOAD, op_STORE, op_LOADB, op_STOREB,
         op_LOADH, op_STOREH, op_LOADW, op_STOREW,
@@ -274,7 +317,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // Data Move (0x80-0x8F)
         op_MOV, op_MOVI, op_LOADK, op_MOVHI, op_MOVLO, op_XCHG,
         // System (0xF0-0xFF)
-        op_NOP, op_BREAK, op_SYSCALL, op_HALT,
+        op_NOP, op_BREAK, op_SYSCALL,
         // Error handlers
         op_INVALID, op_RESERVED, op_OUT_OF_BOUNDS;
 
@@ -334,18 +377,19 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::GTU] = &&op_GTU;
         dispatch_table[opcode::GEU] = &&op_GEU;
 
-        // Control flow handlers (0x40-0x5F)
+        // Control flow handlers (0x40-0x5F) - EXEC-005
         dispatch_table[opcode::JMP]  = &&op_JMP;
-        dispatch_table[opcode::JMPR] = &&op_JMPR;
+        dispatch_table[opcode::JZ]   = &&op_JZ;
+        dispatch_table[opcode::JNZ]  = &&op_JNZ;
         dispatch_table[opcode::BEQ]  = &&op_BEQ;
         dispatch_table[opcode::BNE]  = &&op_BNE;
         dispatch_table[opcode::BLT]  = &&op_BLT;
+        dispatch_table[opcode::BLE]  = &&op_BLE;
+        dispatch_table[opcode::BGT]  = &&op_BGT;
         dispatch_table[opcode::BGE]  = &&op_BGE;
-        dispatch_table[opcode::BLTU] = &&op_BLTU;
-        dispatch_table[opcode::BGEU] = &&op_BGEU;
         dispatch_table[opcode::CALL] = &&op_CALL;
         dispatch_table[opcode::RET]  = &&op_RET;
-        dispatch_table[opcode::JMPI] = &&op_JMPI;
+        dispatch_table[opcode::HALT] = &&op_HALT;
 
         // Memory handlers (0x60-0x7F)
         dispatch_table[opcode::LOAD]   = &&op_LOAD;
@@ -373,7 +417,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::NOP]     = &&op_NOP;
         dispatch_table[opcode::BREAK]   = &&op_BREAK;
         dispatch_table[opcode::SYSCALL] = &&op_SYSCALL;
-        dispatch_table[opcode::HALT]    = &&op_HALT;
+        // Note: HALT now in control flow section (0x5F) per EXEC-005
 
         // Mark reserved ranges
         for (std::size_t i = 0x90; i <= 0x9F; ++i) {
@@ -588,7 +632,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     }
 
     // =========================================================================
-    // CONTROL FLOW HANDLERS (0x40-0x5F)
+    // CONTROL FLOW HANDLERS (0x40-0x5F) - EXEC-005
     // =========================================================================
 
     op_JMP: {
@@ -597,10 +641,19 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         DOTVM_NEXT();
     }
 
-    op_JMPR: {
-        auto d = core::decode_type_a(instr);
-        auto target = static_cast<std::size_t>(regs.read(d.rs1).as_integer());
-        exec_ctx_.jump_to(target);
+    op_JZ: {
+        auto d = core::decode_type_d(instr);
+        if (regs.read(d.rs).as_integer() == 0) {
+            exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
+        }
+        DOTVM_NEXT();
+    }
+
+    op_JNZ: {
+        auto d = core::decode_type_d(instr);
+        if (regs.read(d.rs).as_integer() != 0) {
+            exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
+        }
         DOTVM_NEXT();
     }
 
@@ -631,6 +684,24 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         DOTVM_NEXT();
     }
 
+    op_BLE: {
+        auto d = core::decode_type_a(instr);
+        if (regs.read(d.rd).as_integer() <= regs.read(d.rs1).as_integer()) {
+            auto offset = static_cast<std::int8_t>(d.rs2);
+            exec_ctx_.jump_relative(offset - 1);
+        }
+        DOTVM_NEXT();
+    }
+
+    op_BGT: {
+        auto d = core::decode_type_a(instr);
+        if (regs.read(d.rd).as_integer() > regs.read(d.rs1).as_integer()) {
+            auto offset = static_cast<std::int8_t>(d.rs2);
+            exec_ctx_.jump_relative(offset - 1);
+        }
+        DOTVM_NEXT();
+    }
+
     op_BGE: {
         auto d = core::decode_type_a(instr);
         if (regs.read(d.rd).as_integer() >= regs.read(d.rs1).as_integer()) {
@@ -640,48 +711,40 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         DOTVM_NEXT();
     }
 
-    op_BLTU: {
-        auto d = core::decode_type_a(instr);
-        auto v1 = static_cast<std::uint64_t>(regs.read(d.rd).as_integer());
-        auto v2 = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
-        if (v1 < v2) {
-            auto offset = static_cast<std::int8_t>(d.rs2);
-            exec_ctx_.jump_relative(offset - 1);
-        }
-        DOTVM_NEXT();
-    }
-
-    op_BGEU: {
-        auto d = core::decode_type_a(instr);
-        auto v1 = static_cast<std::uint64_t>(regs.read(d.rd).as_integer());
-        auto v2 = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
-        if (v1 >= v2) {
-            auto offset = static_cast<std::int8_t>(d.rs2);
-            exec_ctx_.jump_relative(offset - 1);
-        }
-        DOTVM_NEXT();
-    }
-
     op_CALL: {
         auto d = core::decode_type_c(instr);
-        // Push return address to link register (R1)
+        // Always save return address in link register (R1) for compatibility
         regs.write(1, core::Value::from_int(static_cast<std::int64_t>(exec_ctx_.pc)));
+        // CFI integration: push to call stack if enabled
+        if (vm_ctx_.cfi_enabled()) {
+            if (!vm_ctx_.cfi().push_call(static_cast<std::uint32_t>(exec_ctx_.pc))) {
+                DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
+            }
+        }
         exec_ctx_.jump_relative(d.offset24 - 1);
         DOTVM_NEXT();
     }
 
     op_RET: {
-        // Return to address in link register (R1)
-        auto ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
+        std::size_t ret_addr;
+        // CFI integration: pop from call stack if enabled
+        if (vm_ctx_.cfi_enabled()) {
+            auto addr_opt = vm_ctx_.cfi().pop_call();
+            if (!addr_opt.has_value()) {
+                DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
+            }
+            ret_addr = static_cast<std::size_t>(*addr_opt);
+        } else {
+            // Fall back to link register (R1)
+            ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
+        }
         exec_ctx_.jump_to(ret_addr);
         DOTVM_NEXT();
     }
 
-    op_JMPI: {
-        auto d = core::decode_type_c(instr);
-        // Indirect jump (treated as regular jump for now)
-        exec_ctx_.jump_relative(d.offset24 - 1);
-        DOTVM_NEXT();
+    op_HALT: {
+        exec_ctx_.halt();
+        return ExecResult::Success;
     }
 
     // =========================================================================
@@ -876,10 +939,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         DOTVM_NEXT();
     }
 
-    op_HALT: {
-        exec_ctx_.halt();
-        return ExecResult::Success;
-    }
+    // Note: op_HALT moved to control flow section (0x5F) per EXEC-005
 
     // =========================================================================
     // ERROR HANDLERS
