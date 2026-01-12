@@ -324,38 +324,41 @@ protected:
 };
 
 TEST_F(MemoryFuzzTest, AllocationAtExactLimit) {
-    auto [handle, err] = mem.allocate(mem_config::MAX_ALLOCATION_SIZE);
-    EXPECT_EQ(err, MemoryError::Success);
-    if (err == MemoryError::Success) {
-        [[maybe_unused]] auto dealloc_err = mem.deallocate(handle);
+    auto result = mem.allocate(mem_config::MAX_ALLOCATION_SIZE);
+    EXPECT_TRUE(result.has_value());
+    if (result.has_value()) {
+        [[maybe_unused]] auto dealloc_err = mem.deallocate(*result);
     }
 }
 
 TEST_F(MemoryFuzzTest, AllocationOneByteOverLimit) {
     // Note: PAGE_SIZE rounding might affect this
-    auto [handle, err] = mem.allocate(mem_config::MAX_ALLOCATION_SIZE + 1);
-    EXPECT_EQ(err, MemoryError::InvalidSize);
+    auto result = mem.allocate(mem_config::MAX_ALLOCATION_SIZE + 1);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), MemoryError::InvalidSize);
 }
 
 TEST_F(MemoryFuzzTest, ZeroSizeAllocationRejected) {
-    auto [handle, err] = mem.allocate(0);
-    EXPECT_EQ(err, MemoryError::InvalidSize);
+    auto result = mem.allocate(0);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), MemoryError::InvalidSize);
 }
 
 TEST_F(MemoryFuzzTest, RapidAllocDeallocCycles) {
     // Stress test: rapid allocation/deallocation
     for (int cycle = 0; cycle < 100; ++cycle) {
-        auto [handle, err] = mem.allocate(mem_config::PAGE_SIZE);
-        ASSERT_EQ(err, MemoryError::Success) << "Failed at cycle " << cycle;
+        auto result = mem.allocate(mem_config::PAGE_SIZE);
+        ASSERT_TRUE(result.has_value()) << "Failed at cycle " << cycle;
+        Handle handle = *result;
 
         // Write some data
         ASSERT_EQ(mem.write<std::uint64_t>(handle, 0, static_cast<std::uint64_t>(cycle)),
                   MemoryError::Success);
 
         // Read it back
-        auto [val, read_err] = mem.read<std::uint64_t>(handle, 0);
-        ASSERT_EQ(read_err, MemoryError::Success);
-        EXPECT_EQ(val, static_cast<std::uint64_t>(cycle));
+        auto read_result = mem.read<std::uint64_t>(handle, 0);
+        ASSERT_TRUE(read_result.has_value());
+        EXPECT_EQ(*read_result, static_cast<std::uint64_t>(cycle));
 
         // Deallocate
         ASSERT_EQ(mem.deallocate(handle), MemoryError::Success);
@@ -368,10 +371,10 @@ TEST_F(MemoryFuzzTest, AlternatingHandleReuse) {
 
     // Allocate all
     for (int i = 0; i < 10; ++i) {
-        auto [h, err] = mem.allocate(mem_config::PAGE_SIZE);
-        ASSERT_EQ(err, MemoryError::Success);
-        handles[i] = h;
-        generations[i] = h.generation;
+        auto result = mem.allocate(mem_config::PAGE_SIZE);
+        ASSERT_TRUE(result.has_value());
+        handles[i] = *result;
+        generations[i] = result->generation;
     }
 
     // Deallocate and reallocate alternating
@@ -381,12 +384,12 @@ TEST_F(MemoryFuzzTest, AlternatingHandleReuse) {
         }
 
         for (int i = 0; i < 10; i += 2) {
-            auto [h, err] = mem.allocate(mem_config::PAGE_SIZE);
-            ASSERT_EQ(err, MemoryError::Success);
+            auto result = mem.allocate(mem_config::PAGE_SIZE);
+            ASSERT_TRUE(result.has_value());
             // Generation should have increased
-            EXPECT_GT(h.generation, generations[i]) << "Generation should increase after realloc";
-            handles[i] = h;
-            generations[i] = h.generation;
+            EXPECT_GT(result->generation, generations[i]) << "Generation should increase after realloc";
+            handles[i] = *result;
+            generations[i] = result->generation;
         }
     }
 

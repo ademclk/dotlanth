@@ -3,8 +3,12 @@
 ///
 /// This file contains the core dispatch loop implementation using GCC/Clang's
 /// computed-goto extension for high-performance instruction dispatch.
+///
+/// Uses X-macros from opcode_handlers.hpp to eliminate duplication between
+/// switch-based and computed-goto dispatch implementations.
 
 #include <dotvm/exec/execution_engine.hpp>
+#include <dotvm/exec/opcode_handlers.hpp>
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/value.hpp>
 
@@ -64,201 +68,27 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
     auto& alu = vm_ctx_.alu();
     auto& mem = vm_ctx_.memory();
 
-    std::uint8_t opcode = static_cast<std::uint8_t>(instr >> 24);
+    std::uint8_t opcode_val = static_cast<std::uint8_t>(instr >> 24);
 
-    switch (opcode) {
+    switch (opcode_val) {
         // =====================================================================
-        // ARITHMETIC (0x00-0x1F)
+        // ARITHMETIC & BITWISE - Generated via X-macros
         // =====================================================================
-        case opcode::ADD: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.add(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::SUB: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.sub(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::MUL: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.mul(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::DIV: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.div(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::MOD: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.mod(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::NEG: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.neg(regs.read(d.rs1)));
-            return true;
-        }
-        case opcode::ABS: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.abs(regs.read(d.rs1)));
-            return true;
-        }
-        case opcode::ADDI: {
-            auto d = core::decode_type_b(instr);
-            auto imm = core::Value::from_int(static_cast<std::int16_t>(d.imm16));
-            regs.write(d.rd, alu.add(regs.read(d.rd), imm));
-            return true;
-        }
-        case opcode::SUBI: {
-            auto d = core::decode_type_b(instr);
-            auto imm = core::Value::from_int(static_cast<std::int16_t>(d.imm16));
-            regs.write(d.rd, alu.sub(regs.read(d.rd), imm));
-            return true;
-        }
-        case opcode::MULI: {
-            auto d = core::decode_type_b(instr);
-            auto imm = core::Value::from_int(static_cast<std::int16_t>(d.imm16));
-            regs.write(d.rd, alu.mul(regs.read(d.rd), imm));
-            return true;
-        }
 
-        // =====================================================================
-        // BITWISE (0x20-0x2F)
-        // =====================================================================
-        case opcode::AND: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.bit_and(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::OR: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.bit_or(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::XOR: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.bit_xor(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::NOT: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.bit_not(regs.read(d.rs1)));
-            return true;
-        }
-        case opcode::SHL: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.shl(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::SHR: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.shr(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::SAR: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.sar(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::ROL: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.rol(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::ROR: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.ror(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::SHLI: {
-            auto d = core::decode_type_s(instr);
-            regs.write(d.rd, alu.shl(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
-            return true;
-        }
-        case opcode::SHRI: {
-            auto d = core::decode_type_s(instr);
-            regs.write(d.rd, alu.shr(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
-            return true;
-        }
-        case opcode::SARI: {
-            auto d = core::decode_type_s(instr);
-            regs.write(d.rd, alu.sar(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
-            return true;
-        }
-        case opcode::ANDI: {
-            auto d = core::decode_type_b(instr);
-            auto imm = core::Value::from_int(d.imm16);  // Zero-extend for bitwise
-            regs.write(d.rd, alu.bit_and(regs.read(d.rd), imm));
-            return true;
-        }
-        case opcode::ORI: {
-            auto d = core::decode_type_b(instr);
-            auto imm = core::Value::from_int(d.imm16);
-            regs.write(d.rd, alu.bit_or(regs.read(d.rd), imm));
-            return true;
-        }
-        case opcode::XORI: {
-            auto d = core::decode_type_b(instr);
-            auto imm = core::Value::from_int(d.imm16);
-            regs.write(d.rd, alu.bit_xor(regs.read(d.rd), imm));
-            return true;
-        }
+        // Type A Binary Operations (rd = op(rs1, rs2))
+        DOTVM_TYPE_A_BINARY_OPS(DOTVM_SWITCH_TYPE_A_BINARY)
 
-        // =====================================================================
-        // COMPARISON (0x30-0x3F)
-        // =====================================================================
-        case opcode::EQ: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_eq(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::NE: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_ne(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::LT: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_lt(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::LE: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_le(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::GT: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_gt(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::GE: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_ge(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::LTU: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_ltu(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::LEU: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_leu(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::GTU: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_gtu(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
-        case opcode::GEU: {
-            auto d = core::decode_type_a(instr);
-            regs.write(d.rd, alu.cmp_geu(regs.read(d.rs1), regs.read(d.rs2)));
-            return true;
-        }
+        // Type A Unary Operations (rd = op(rs1))
+        DOTVM_TYPE_A_UNARY_OPS(DOTVM_SWITCH_TYPE_A_UNARY)
+
+        // Type A Comparison Operations (rd = cmp_op(rs1, rs2))
+        DOTVM_TYPE_A_COMPARISON_OPS(DOTVM_SWITCH_TYPE_A_BINARY)
+
+        // Type B Immediate Arithmetic (rd = op(rd, sign_extend(imm16)))
+        DOTVM_TYPE_B_ARITH_IMM_OPS(DOTVM_SWITCH_TYPE_B_ARITH_IMM)
+
+        // Type B Immediate Bitwise (rd = op(rd, zero_extend(imm16)))
+        DOTVM_TYPE_B_BITWISE_IMM_OPS(DOTVM_SWITCH_TYPE_B_BITWISE_IMM)
 
         // =====================================================================
         // CONTROL FLOW (0x40-0x5F)
@@ -327,9 +157,9 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             auto handle = regs.read(d.rs1).as_handle();
             auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-            auto [value, err] = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
-            if (err == core::MemoryError::Success) {
-                regs.write(d.rd, core::Value::from_raw(value));
+            auto result = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
+            if (result) {
+                regs.write(d.rd, core::Value::from_raw(*result));
             } else {
                 regs.write(d.rd, core::Value::nil());
             }
@@ -346,9 +176,9 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         case opcode::ALLOC: {
             auto d = core::decode_type_a(instr);
             auto size = static_cast<std::size_t>(regs.read(d.rs1).as_integer());
-            auto [handle, err] = mem.allocate(size);
-            if (err == core::MemoryError::Success) {
-                regs.write(d.rd, core::Value::from_handle(handle));
+            auto result = mem.allocate(size);
+            if (result) {
+                regs.write(d.rd, core::Value::from_handle(*result));
             } else {
                 regs.write(d.rd, core::Value::nil());
             }
@@ -405,7 +235,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
 
         default: {
             // Check for reserved opcodes
-            if (core::is_reserved_opcode(opcode)) {
+            if (core::is_reserved_opcode(opcode_val)) {
                 exec_ctx_.halt_with_error(ExecResult::CfiViolation);
             } else {
                 exec_ctx_.halt_with_error(ExecResult::InvalidOpcode);
@@ -430,7 +260,6 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         op_ADDI, op_SUBI, op_MULI,
         // Bitwise (0x20-0x2F)
         op_AND, op_OR, op_XOR, op_NOT, op_SHL, op_SHR, op_SAR,
-        op_ROL, op_ROR, op_SHLI, op_SHRI, op_SARI,
         op_ANDI, op_ORI, op_XORI,
         // Comparison (0x30-0x3F)
         op_EQ, op_NE, op_LT, op_LE, op_GT, op_GE,
@@ -489,11 +318,6 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::SHL]  = &&op_SHL;
         dispatch_table[opcode::SHR]  = &&op_SHR;
         dispatch_table[opcode::SAR]  = &&op_SAR;
-        dispatch_table[opcode::ROL]  = &&op_ROL;
-        dispatch_table[opcode::ROR]  = &&op_ROR;
-        dispatch_table[opcode::SHLI] = &&op_SHLI;
-        dispatch_table[opcode::SHRI] = &&op_SHRI;
-        dispatch_table[opcode::SARI] = &&op_SARI;
         dispatch_table[opcode::ANDI] = &&op_ANDI;
         dispatch_table[opcode::ORI]  = &&op_ORI;
         dispatch_table[opcode::XORI] = &&op_XORI;
@@ -675,36 +499,6 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     op_SAR: {
         auto d = core::decode_type_a(instr);
         regs.write(d.rd, alu.sar(regs.read(d.rs1), regs.read(d.rs2)));
-        DOTVM_NEXT();
-    }
-
-    op_ROL: {
-        auto d = core::decode_type_a(instr);
-        regs.write(d.rd, alu.rol(regs.read(d.rs1), regs.read(d.rs2)));
-        DOTVM_NEXT();
-    }
-
-    op_ROR: {
-        auto d = core::decode_type_a(instr);
-        regs.write(d.rd, alu.ror(regs.read(d.rs1), regs.read(d.rs2)));
-        DOTVM_NEXT();
-    }
-
-    op_SHLI: {
-        auto d = core::decode_type_s(instr);
-        regs.write(d.rd, alu.shl(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
-        DOTVM_NEXT();
-    }
-
-    op_SHRI: {
-        auto d = core::decode_type_s(instr);
-        regs.write(d.rd, alu.shr(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
-        DOTVM_NEXT();
-    }
-
-    op_SARI: {
-        auto d = core::decode_type_s(instr);
-        regs.write(d.rd, alu.sar(regs.read(d.rs1), core::Value::from_int(d.shamt6)));
         DOTVM_NEXT();
     }
 
@@ -898,9 +692,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         auto handle = regs.read(d.rs1).as_handle();
         auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto [value, err] = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_raw(value));
+        auto result = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
+        if (result) {
+            regs.write(d.rd, core::Value::from_raw(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }
@@ -920,9 +714,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         auto handle = regs.read(d.rs1).as_handle();
         auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto [value, err] = mem.read<std::uint8_t>(handle, offset);
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_int(value));
+        auto result = mem.read<std::uint8_t>(handle, offset);
+        if (result) {
+            regs.write(d.rd, core::Value::from_int(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }
@@ -942,9 +736,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         auto handle = regs.read(d.rs1).as_handle();
         auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto [value, err] = mem.read<std::uint16_t>(handle, offset * sizeof(std::uint16_t));
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_int(value));
+        auto result = mem.read<std::uint16_t>(handle, offset * sizeof(std::uint16_t));
+        if (result) {
+            regs.write(d.rd, core::Value::from_int(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }
@@ -964,9 +758,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         auto handle = regs.read(d.rs1).as_handle();
         auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto [value, err] = mem.read<std::uint32_t>(handle, offset * sizeof(std::uint32_t));
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_int(value));
+        auto result = mem.read<std::uint32_t>(handle, offset * sizeof(std::uint32_t));
+        if (result) {
+            regs.write(d.rd, core::Value::from_int(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }
@@ -985,9 +779,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     op_ALLOC: {
         auto d = core::decode_type_a(instr);
         auto size = static_cast<std::size_t>(regs.read(d.rs1).as_integer());
-        auto [handle, err] = mem.allocate(size);
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_handle(handle));
+        auto result = mem.allocate(size);
+        if (result) {
+            regs.write(d.rd, core::Value::from_handle(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }

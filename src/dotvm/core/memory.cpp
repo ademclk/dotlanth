@@ -1,7 +1,5 @@
 #include <dotvm/core/memory.hpp>
 
-#include <cassert>
-
 // Platform detection for memory allocation
 #if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
     #include <sys/mman.h>
@@ -36,39 +34,53 @@ void* MemoryManager::os_allocate(std::size_t size) noexcept {
 #endif
 }
 
-void MemoryManager::os_deallocate(void* ptr, std::size_t size) noexcept {
-    if (!ptr) return;
+MemoryError MemoryManager::os_deallocate(void* ptr, std::size_t size) noexcept {
+    if (!ptr) [[likely]] {
+        return MemoryError::Success;  // nullptr deallocation is a valid no-op
+    }
 
-    // Validate size is reasonable (not 0, which would indicate corruption)
-    assert(size > 0 && "os_deallocate called with size 0 - possible corruption");
-    assert(size <= mem_config::MAX_ALLOCATION_SIZE && "os_deallocate size exceeds max - possible corruption");
+    // Validate size is reasonable - detect corruption in release builds
+    if (size == 0 || size > mem_config::MAX_ALLOCATION_SIZE) [[unlikely]] {
+        stats_.record_invalid_deallocation();
+        return MemoryError::InvalidSize;
+    }
 
 #if DOTVM_USE_MMAP
-    [[maybe_unused]] int result = munmap(ptr, size);
+    int result = munmap(ptr, size);
     // munmap returns 0 on success, -1 on error
-    assert(result == 0 && "munmap failed - possible memory corruption or invalid pointer");
+    if (result != 0) [[unlikely]] {
+        stats_.record_deallocation_failure();
+        return MemoryError::DeallocationFailed;
+    }
 
 #elif DOTVM_USE_VIRTUALALLOC
     (void)size;  // VirtualFree doesn't need size
-    [[maybe_unused]] BOOL result = VirtualFree(ptr, 0, MEM_RELEASE);
+    BOOL result = VirtualFree(ptr, 0, MEM_RELEASE);
     // VirtualFree returns non-zero on success, 0 on failure
-    assert(result != 0 && "VirtualFree failed - possible memory corruption or invalid pointer");
+    if (result == 0) [[unlikely]] {
+        stats_.record_deallocation_failure();
+        return MemoryError::DeallocationFailed;
+    }
 
 #else
     (void)size;  // std::free doesn't need size
     std::free(ptr);
     // std::free has no return value, cannot detect errors
 #endif
+
+    return MemoryError::Success;
 }
 
 // ========== MemoryManager implementation ==========
 
 MemoryManager::~MemoryManager() {
     // Free all active allocations
+    // Note: In destructor, we can't propagate errors, so just attempt cleanup
     for (std::uint32_t i = 0; i < table_.capacity(); ++i) {
         const auto& entry = table_[i];
         if (entry.is_active && entry.ptr) {
-            os_deallocate(entry.ptr, entry.size);
+            [[maybe_unused]] auto err = os_deallocate(entry.ptr, entry.size);
+            // Error already recorded in stats_ if deallocation failed
         }
     }
 }
@@ -76,27 +88,27 @@ MemoryManager::~MemoryManager() {
 MemoryManager::Result<Handle> MemoryManager::allocate(std::size_t size) noexcept {
     // Validate size
     if (size == 0 || size > max_allocation_size_) {
-        return {invalid_handle(), MemoryError::InvalidSize};
+        return std::unexpected{MemoryError::InvalidSize};
     }
 
     // Round up to page boundary (returns 0 on overflow)
     std::size_t aligned_size = align_to_page(size);
     if (aligned_size == 0) {
         // Overflow occurred in page alignment - size too large
-        return {invalid_handle(), MemoryError::InvalidSize};
+        return std::unexpected{MemoryError::InvalidSize};
     }
 
     // Allocate a slot in the handle table
     std::uint32_t index = table_.allocate_slot();
     if (index == mem_config::INVALID_INDEX) {
-        return {invalid_handle(), MemoryError::HandleTableFull};
+        return std::unexpected{MemoryError::HandleTableFull};
     }
 
     // Allocate memory from OS
     void* ptr = os_allocate(aligned_size);
     if (!ptr) {
         table_.release_slot(index);
-        return {invalid_handle(), MemoryError::AllocationFailed};
+        return std::unexpected{MemoryError::AllocationFailed};
     }
 
     // Set up the entry
@@ -107,12 +119,10 @@ MemoryManager::Result<Handle> MemoryManager::allocate(std::size_t size) noexcept
 
     total_allocated_ += aligned_size;
 
-    Handle h{
+    return Handle{
         .index = index,
         .generation = entry.generation
     };
-
-    return {h, MemoryError::Success};
 }
 
 MemoryError MemoryManager::deallocate(Handle h) noexcept {
@@ -125,14 +135,23 @@ MemoryError MemoryManager::deallocate(Handle h) noexcept {
 
     // Free the memory
     if (entry.ptr) {
-        os_deallocate(entry.ptr, entry.size);
-        // Prevent underflow in total_allocated_ accounting
-        assert(entry.size <= total_allocated_ && "total_allocated_ underflow - accounting error");
+        auto dealloc_err = os_deallocate(entry.ptr, entry.size);
+        if (dealloc_err != MemoryError::Success) [[unlikely]] {
+            // Don't release the slot if deallocation failed - memory may still be in use
+            return dealloc_err;
+        }
+
+        // Prevent underflow in total_allocated_ accounting (detect corruption)
+        if (entry.size > total_allocated_) [[unlikely]] {
+            stats_.record_deallocation_failure();
+            return MemoryError::AccountingError;
+        }
         total_allocated_ -= entry.size;
     }
 
     // Release the slot (increments generation)
     table_.release_slot(h.index);
+    stats_.record_deallocation();
 
     return MemoryError::Success;
 }
@@ -140,19 +159,19 @@ MemoryError MemoryManager::deallocate(Handle h) noexcept {
 MemoryManager::Result<void*> MemoryManager::get_ptr(Handle h) noexcept {
     auto err = validate_handle(h);
     if (err != MemoryError::Success) {
-        return {nullptr, err};
+        return std::unexpected{err};
     }
 
-    return {table_[h.index].ptr, MemoryError::Success};
+    return table_[h.index].ptr;
 }
 
 MemoryManager::Result<const void*> MemoryManager::get_ptr(Handle h) const noexcept {
     auto err = validate_handle(h);
     if (err != MemoryError::Success) {
-        return {nullptr, err};
+        return std::unexpected{err};
     }
 
-    return {table_[h.index].ptr, MemoryError::Success};
+    return table_[h.index].ptr;
 }
 
 MemoryError MemoryManager::write_bytes(Handle h, std::size_t offset,
@@ -166,12 +185,12 @@ MemoryError MemoryManager::write_bytes(Handle h, std::size_t offset,
         return err;
     }
 
-    auto [ptr, ptr_err] = get_ptr(h);
-    if (ptr_err != MemoryError::Success) {
-        return ptr_err;
+    auto ptr_result = get_ptr(h);
+    if (!ptr_result) {
+        return ptr_result.error();
     }
 
-    std::memcpy(static_cast<char*>(ptr) + offset, src, count);
+    std::memcpy(static_cast<char*>(*ptr_result) + offset, src, count);
     return MemoryError::Success;
 }
 
@@ -186,22 +205,22 @@ MemoryError MemoryManager::read_bytes(Handle h, std::size_t offset,
         return err;
     }
 
-    auto [ptr, ptr_err] = get_ptr(h);
-    if (ptr_err != MemoryError::Success) {
-        return ptr_err;
+    auto ptr_result = get_ptr(h);
+    if (!ptr_result) {
+        return ptr_result.error();
     }
 
-    std::memcpy(dst, static_cast<const char*>(ptr) + offset, count);
+    std::memcpy(dst, static_cast<const char*>(*ptr_result) + offset, count);
     return MemoryError::Success;
 }
 
 MemoryManager::Result<std::size_t> MemoryManager::get_size(Handle h) const noexcept {
     auto err = validate_handle(h);
     if (err != MemoryError::Success) {
-        return {0, err};
+        return std::unexpected{err};
     }
 
-    return {table_[h.index].size, MemoryError::Success};
+    return table_[h.index].size;
 }
 
 bool MemoryManager::is_valid(Handle h) const noexcept {

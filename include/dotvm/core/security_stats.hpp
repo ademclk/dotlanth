@@ -102,6 +102,12 @@ struct SecurityStats {
     /// Total successful deallocations (for reference).
     std::atomic<std::size_t> total_deallocations{0};
 
+    /// Number of deallocation failures (OS-level failures).
+    std::atomic<std::size_t> deallocation_failures{0};
+
+    /// Number of invalid deallocation attempts (bad size).
+    std::atomic<std::size_t> invalid_deallocations{0};
+
     // ========== Increment Methods (relaxed ordering for performance) ==========
 
     void record_generation_wraparound() noexcept {
@@ -134,6 +140,14 @@ struct SecurityStats {
 
     void record_deallocation() noexcept {
         total_deallocations.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void record_deallocation_failure() noexcept {
+        deallocation_failures.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void record_invalid_deallocation() noexcept {
+        invalid_deallocations.fetch_add(1, std::memory_order_relaxed);
     }
 
     // ========== Query Methods ==========
@@ -178,6 +192,8 @@ struct SecurityStats {
         std::size_t handle_table_exhaustions;
         std::size_t total_allocations;
         std::size_t total_deallocations;
+        std::size_t deallocation_failures;
+        std::size_t invalid_deallocations;
     };
 
     /// Takes a snapshot of all statistics.
@@ -194,7 +210,9 @@ struct SecurityStats {
             .allocation_limit_hits = allocation_limit_hits.load(std::memory_order_acquire),
             .handle_table_exhaustions = handle_table_exhaustions.load(std::memory_order_acquire),
             .total_allocations = total_allocations.load(std::memory_order_acquire),
-            .total_deallocations = total_deallocations.load(std::memory_order_acquire)
+            .total_deallocations = total_deallocations.load(std::memory_order_acquire),
+            .deallocation_failures = deallocation_failures.load(std::memory_order_acquire),
+            .invalid_deallocations = invalid_deallocations.load(std::memory_order_acquire)
         };
     }
 
@@ -210,6 +228,8 @@ struct SecurityStats {
         handle_table_exhaustions.store(0, std::memory_order_relaxed);
         total_allocations.store(0, std::memory_order_relaxed);
         total_deallocations.store(0, std::memory_order_relaxed);
+        deallocation_failures.store(0, std::memory_order_relaxed);
+        invalid_deallocations.store(0, std::memory_order_relaxed);
     }
 
     // ========== Event Callback ==========
