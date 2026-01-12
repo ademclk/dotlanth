@@ -209,6 +209,7 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/security_hardening_test.cpp
         tests/dotvm/core/fuzz_edge_cases_test.cpp
         tests/dotvm/core/executor_test.cpp
+        tests/dotvm/core/fp_executor_test.cpp
         tests/dotvm/exec/execution_engine_test.cpp
         # SIMD subsystem tests
         tests/dotvm/core/simd/cpu_features_test.cpp
