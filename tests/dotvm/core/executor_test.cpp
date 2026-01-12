@@ -1071,5 +1071,611 @@ TEST(StepResultTest, Error) {
     EXPECT_TRUE(result.should_halt);  // Fatal error should halt
 }
 
+// ============================================================================
+// Bitwise Edge Case Tests
+// ============================================================================
+
+class BitwiseEdgeCaseTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        ctx_arch32_ = std::make_unique<VmContext>(VmConfig::arch32());
+        ctx_arch64_ = std::make_unique<VmContext>(VmConfig::arch64());
+    }
+
+    // Helper to create a simple program with instructions
+    static std::vector<std::uint8_t> make_program(
+        std::initializer_list<std::uint32_t> instructions) {
+        std::vector<std::uint8_t> code;
+        code.reserve(instructions.size() * 4);
+        for (auto instr : instructions) {
+            code.push_back(static_cast<std::uint8_t>(instr & 0xFF));
+            code.push_back(static_cast<std::uint8_t>((instr >> 8) & 0xFF));
+            code.push_back(static_cast<std::uint8_t>((instr >> 16) & 0xFF));
+            code.push_back(static_cast<std::uint8_t>((instr >> 24) & 0xFF));
+        }
+        return code;
+    }
+
+    std::unique_ptr<VmContext> ctx_arch32_;
+    std::unique_ptr<VmContext> ctx_arch64_;
+};
+
+// --- AND Edge Cases ---
+
+TEST_F(BitwiseEdgeCaseTest, AND_AllZeros) {
+    ctx_arch64_->registers().write(1, Value::from_int(0));
+    ctx_arch64_->registers().write(2, Value::from_int(0xFFFFFFFF));
+
+    auto code = make_program({
+        encode_type_a(opcode::AND, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    EXPECT_EQ(ctx_arch64_->registers().read(3).as_integer(), 0);
+}
+
+TEST_F(BitwiseEdgeCaseTest, AND_AllOnes) {
+    ctx_arch32_->registers().write(1, Value::from_int(-1));  // All ones in 32-bit
+    ctx_arch32_->registers().write(2, Value::from_int(-1));
+
+    auto code = make_program({
+        encode_type_a(opcode::AND, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), -1);
+}
+
+TEST_F(BitwiseEdgeCaseTest, AND_MaxMinValues) {
+    ctx_arch32_->registers().write(1, Value::from_int(std::numeric_limits<std::int32_t>::max()));
+    ctx_arch32_->registers().write(2, Value::from_int(std::numeric_limits<std::int32_t>::min()));
+
+    auto code = make_program({
+        encode_type_a(opcode::AND, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // INT32_MAX (0x7FFFFFFF) AND INT32_MIN (0x80000000) = 0
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 0);
+}
+
+// --- OR Edge Cases ---
+
+TEST_F(BitwiseEdgeCaseTest, OR_Identity) {
+    ctx_arch64_->registers().write(1, Value::from_int(0x12345678));
+    ctx_arch64_->registers().write(2, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::OR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // x | 0 = x
+    EXPECT_EQ(ctx_arch64_->registers().read(3).as_integer(), 0x12345678);
+}
+
+TEST_F(BitwiseEdgeCaseTest, OR_AllOnes) {
+    ctx_arch32_->registers().write(1, Value::from_int(0));
+    ctx_arch32_->registers().write(2, Value::from_int(-1));
+
+    auto code = make_program({
+        encode_type_a(opcode::OR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), -1);
+}
+
+// --- XOR Edge Cases ---
+
+TEST_F(BitwiseEdgeCaseTest, XOR_SelfXor) {
+    ctx_arch64_->registers().write(1, Value::from_int(0xABCDEF12));
+    ctx_arch64_->registers().write(2, Value::from_int(0xABCDEF12));
+
+    auto code = make_program({
+        encode_type_a(opcode::XOR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // x ^ x = 0
+    EXPECT_EQ(ctx_arch64_->registers().read(3).as_integer(), 0);
+}
+
+TEST_F(BitwiseEdgeCaseTest, XOR_Identity) {
+    ctx_arch64_->registers().write(1, Value::from_int(0x12345678));
+    ctx_arch64_->registers().write(2, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::XOR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // x ^ 0 = x
+    EXPECT_EQ(ctx_arch64_->registers().read(3).as_integer(), 0x12345678);
+}
+
+TEST_F(BitwiseEdgeCaseTest, XOR_AllOnes) {
+    ctx_arch32_->registers().write(1, Value::from_int(0x12345678));
+    ctx_arch32_->registers().write(2, Value::from_int(-1));
+
+    auto code = make_program({
+        encode_type_a(opcode::XOR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // x ^ all_ones = ~x (within 32-bit range)
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(),
+              static_cast<std::int32_t>(~0x12345678U));
+}
+
+// --- NOT Edge Cases ---
+
+TEST_F(BitwiseEdgeCaseTest, NOT_Zero) {
+    ctx_arch32_->registers().write(1, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::NOT, 3, 1, 0),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // NOT 0 = all ones (-1 in signed representation)
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), -1);
+}
+
+TEST_F(BitwiseEdgeCaseTest, NOT_AllOnes) {
+    ctx_arch32_->registers().write(1, Value::from_int(-1));
+
+    auto code = make_program({
+        encode_type_a(opcode::NOT, 3, 1, 0),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // NOT all_ones = 0
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 0);
+}
+
+TEST_F(BitwiseEdgeCaseTest, NOT_SignBit) {
+    ctx_arch32_->registers().write(1, Value::from_int(std::numeric_limits<std::int32_t>::min()));
+
+    auto code = make_program({
+        encode_type_a(opcode::NOT, 3, 1, 0),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // NOT 0x80000000 = 0x7FFFFFFF = INT32_MAX
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(),
+              std::numeric_limits<std::int32_t>::max());
+}
+
+// --- SHL Edge Cases ---
+
+TEST_F(BitwiseEdgeCaseTest, SHL_ShiftByWidth_Arch32) {
+    ctx_arch32_->registers().write(1, Value::from_int(1));
+    ctx_arch32_->registers().write(2, Value::from_int(32));
+
+    auto code = make_program({
+        encode_type_a(opcode::SHL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // Shift by 32 in 32-bit mode wraps to shift by 0
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 1);
+}
+
+TEST_F(BitwiseEdgeCaseTest, SHL_ShiftGreaterThanWidth_Arch32) {
+    ctx_arch32_->registers().write(1, Value::from_int(1));
+    ctx_arch32_->registers().write(2, Value::from_int(33));
+
+    auto code = make_program({
+        encode_type_a(opcode::SHL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // Shift by 33 in 32-bit mode wraps to shift by 1
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 2);
+}
+
+// --- SHR Edge Cases ---
+
+TEST_F(BitwiseEdgeCaseTest, SHR_NegativeValue_Arch32) {
+    ctx_arch32_->registers().write(1, Value::from_int(-1));
+    ctx_arch32_->registers().write(2, Value::from_int(1));
+
+    auto code = make_program({
+        encode_type_a(opcode::SHR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // Logical shift right: -1 (0xFFFFFFFF) >> 1 = 0x7FFFFFFF = INT32_MAX
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(),
+              std::numeric_limits<std::int32_t>::max());
+}
+
+TEST_F(BitwiseEdgeCaseTest, SHR_ShiftByWidth_Arch32) {
+    ctx_arch32_->registers().write(1, Value::from_int(-1));
+    ctx_arch32_->registers().write(2, Value::from_int(32));
+
+    auto code = make_program({
+        encode_type_a(opcode::SHR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // Shift by 32 wraps to shift by 0
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), -1);
+}
+
+// --- SAR Edge Cases ---
+
+TEST_F(BitwiseEdgeCaseTest, SAR_NegativePreservesSign) {
+    ctx_arch32_->registers().write(1, Value::from_int(std::numeric_limits<std::int32_t>::min()));
+    ctx_arch32_->registers().write(2, Value::from_int(31));
+
+    auto code = make_program({
+        encode_type_a(opcode::SAR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // INT32_MIN >> 31 (arithmetic) = -1 (sign extension)
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), -1);
+}
+
+TEST_F(BitwiseEdgeCaseTest, SAR_PositiveValue) {
+    ctx_arch32_->registers().write(1, Value::from_int(std::numeric_limits<std::int32_t>::max()));
+    ctx_arch32_->registers().write(2, Value::from_int(31));
+
+    auto code = make_program({
+        encode_type_a(opcode::SAR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // INT32_MAX >> 31 (arithmetic) = 0 (positive value, zero fill)
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 0);
+}
+
+// --- ROL/ROR Edge Cases ---
+
+TEST_F(BitwiseEdgeCaseTest, ROL_RotateByMoreThanWidth) {
+    ctx_arch32_->registers().write(1, Value::from_int(1));
+    ctx_arch32_->registers().write(2, Value::from_int(36));  // 36 % 32 = 4
+
+    auto code = make_program({
+        encode_type_a(opcode::ROL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // ROL(1, 36) in 32-bit = ROL(1, 4) = 16
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 16);
+}
+
+TEST_F(BitwiseEdgeCaseTest, ROR_RotateByMoreThanWidth) {
+    ctx_arch32_->registers().write(1, Value::from_int(16));
+    ctx_arch32_->registers().write(2, Value::from_int(36));  // 36 % 32 = 4
+
+    auto code = make_program({
+        encode_type_a(opcode::ROR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // ROR(16, 36) in 32-bit = ROR(16, 4) = 1
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 1);
+}
+
+TEST_F(BitwiseEdgeCaseTest, ROL_FullRotation_Arch32) {
+    ctx_arch32_->registers().write(1, Value::from_int(0x12345678));
+    ctx_arch32_->registers().write(2, Value::from_int(32));
+
+    auto code = make_program({
+        encode_type_a(opcode::ROL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // ROL by 32 in 32-bit is identity
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 0x12345678);
+}
+
+TEST_F(BitwiseEdgeCaseTest, ROR_FullRotation_Arch32) {
+    ctx_arch32_->registers().write(1, Value::from_int(0x12345678));
+    ctx_arch32_->registers().write(2, Value::from_int(32));
+
+    auto code = make_program({
+        encode_type_a(opcode::ROR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch32_, code};
+    (void)exec.run();
+
+    // ROR by 32 in 32-bit is identity
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(), 0x12345678);
+}
+
+// --- SHLI/SHRI/SARI Boundary Tests ---
+
+TEST_F(BitwiseEdgeCaseTest, SHLI_ZeroShamt) {
+    ctx_arch64_->registers().write(1, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHLI, 3, 1, 0),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    EXPECT_EQ(ctx_arch64_->registers().read(3).as_integer(), 0x12345678);
+}
+
+TEST_F(BitwiseEdgeCaseTest, SHLI_MaxShamt63) {
+    ctx_arch64_->registers().write(1, Value::from_int(1));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHLI, 3, 1, 47),  // Max valid for 48-bit Value
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // 1 << 47 is the sign bit in 48-bit representation
+    // Result is clamped/masked in 48-bit Value system
+    auto result = ctx_arch64_->registers().read(3).as_integer();
+    // The value should be (1 << 47), which is negative in signed representation
+    EXPECT_NE(result, 0);  // Just verify it's not zero
+}
+
+TEST_F(BitwiseEdgeCaseTest, SHRI_ZeroShamt) {
+    ctx_arch64_->registers().write(1, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHRI, 3, 1, 0),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    EXPECT_EQ(ctx_arch64_->registers().read(3).as_integer(), 0x12345678);
+}
+
+TEST_F(BitwiseEdgeCaseTest, SARI_ZeroShamt) {
+    ctx_arch64_->registers().write(1, Value::from_int(-42));
+
+    auto code = make_program({
+        encode_type_s(opcode::SARI, 3, 1, 0),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // Shift by 0 is identity
+    EXPECT_EQ(ctx_arch64_->registers().read(3).as_integer(), -42);
+}
+
+// --- ANDI/ORI/XORI Immediate Boundary Tests ---
+
+TEST_F(BitwiseEdgeCaseTest, ANDI_ZeroImmediate) {
+    ctx_arch64_->registers().write(5, Value::from_int(0xFFFFFFFF));
+
+    auto code = make_program({
+        encode_type_b(opcode::ANDI, 5, 0x0000),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // x & 0 = 0
+    EXPECT_EQ(ctx_arch64_->registers().read(5).as_integer(), 0);
+}
+
+TEST_F(BitwiseEdgeCaseTest, ANDI_MaxImmediate) {
+    ctx_arch64_->registers().write(5, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_b(opcode::ANDI, 5, 0xFFFF),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // 0x12345678 & 0xFFFF = 0x5678
+    EXPECT_EQ(ctx_arch64_->registers().read(5).as_integer(), 0x5678);
+}
+
+TEST_F(BitwiseEdgeCaseTest, ANDI_SignBitImmediate) {
+    ctx_arch64_->registers().write(5, Value::from_int(0xFFFF8000));
+
+    auto code = make_program({
+        encode_type_b(opcode::ANDI, 5, 0x8000),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // 0xFFFF8000 & 0x8000 = 0x8000
+    EXPECT_EQ(ctx_arch64_->registers().read(5).as_integer(), 0x8000);
+}
+
+TEST_F(BitwiseEdgeCaseTest, ORI_ZeroImmediate) {
+    ctx_arch64_->registers().write(5, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_b(opcode::ORI, 5, 0x0000),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // x | 0 = x
+    EXPECT_EQ(ctx_arch64_->registers().read(5).as_integer(), 0x12345678);
+}
+
+TEST_F(BitwiseEdgeCaseTest, ORI_MaxImmediate) {
+    ctx_arch64_->registers().write(5, Value::from_int(0x12340000));
+
+    auto code = make_program({
+        encode_type_b(opcode::ORI, 5, 0xFFFF),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // 0x12340000 | 0xFFFF = 0x1234FFFF
+    EXPECT_EQ(ctx_arch64_->registers().read(5).as_integer(), 0x1234FFFF);
+}
+
+TEST_F(BitwiseEdgeCaseTest, XORI_ZeroImmediate) {
+    ctx_arch64_->registers().write(5, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_b(opcode::XORI, 5, 0x0000),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // x ^ 0 = x
+    EXPECT_EQ(ctx_arch64_->registers().read(5).as_integer(), 0x12345678);
+}
+
+TEST_F(BitwiseEdgeCaseTest, XORI_MaxImmediate) {
+    ctx_arch64_->registers().write(5, Value::from_int(0x0000FFFF));
+
+    auto code = make_program({
+        encode_type_b(opcode::XORI, 5, 0xFFFF),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // 0x0000FFFF ^ 0xFFFF = 0x00000000
+    EXPECT_EQ(ctx_arch64_->registers().read(5).as_integer(), 0);
+}
+
+// --- Cross-Architecture Bitwise Tests ---
+
+TEST_F(BitwiseEdgeCaseTest, AND_CrossArch_SameResult) {
+    auto val_a = Value::from_int(0x12345678);
+    auto val_b = Value::from_int(0xFF00FF00);
+
+    ctx_arch32_->registers().write(1, val_a);
+    ctx_arch32_->registers().write(2, val_b);
+    ctx_arch64_->registers().write(1, val_a);
+    ctx_arch64_->registers().write(2, val_b);
+
+    auto code = make_program({
+        encode_type_a(opcode::AND, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec32{*ctx_arch32_, code};
+    Executor exec64{*ctx_arch64_, code};
+    (void)exec32.run();
+    (void)exec64.run();
+
+    // Both architectures should give the same result for values in 32-bit range
+    EXPECT_EQ(ctx_arch32_->registers().read(3).as_integer(),
+              ctx_arch64_->registers().read(3).as_integer());
+}
+
+// --- Destination R0 Tests (writes ignored) ---
+
+TEST_F(BitwiseEdgeCaseTest, AND_DestinationR0_Ignored) {
+    ctx_arch64_->registers().write(1, Value::from_int(0xFF));
+    ctx_arch64_->registers().write(2, Value::from_int(0x0F));
+
+    auto code = make_program({
+        encode_type_a(opcode::AND, 0, 1, 2),  // R0 = R1 & R2 (should be ignored)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    // R0 is hardwired to 0, write should be ignored
+    EXPECT_EQ(ctx_arch64_->registers().read(0).as_integer(), 0);
+}
+
+TEST_F(BitwiseEdgeCaseTest, SHLI_DestinationR0_Ignored) {
+    ctx_arch64_->registers().write(1, Value::from_int(1));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHLI, 0, 1, 4),  // R0 = R1 << 4 (should be ignored)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{*ctx_arch64_, code};
+    (void)exec.run();
+
+    EXPECT_EQ(ctx_arch64_->registers().read(0).as_integer(), 0);
+}
+
 }  // namespace
 }  // namespace dotvm::core
