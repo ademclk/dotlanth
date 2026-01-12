@@ -559,6 +559,372 @@ TEST_F(ArithmeticExecutorTest, ADD_Arch64_NoWrap) {
 }
 
 // ============================================================================
+// Bitwise Operation Tests (ROL, ROR, SHLI, SHRI, SARI)
+// ============================================================================
+
+TEST_F(ExecutorTest, Run_ROL_BasicOperation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    // R1 = 0x1 (bit 0 set)
+    ctx.registers().write(1, Value::from_int(1));
+    ctx.registers().write(2, Value::from_int(4));  // Rotate by 4
+
+    auto code = make_program({
+        encode_type_a(opcode::ROL, 3, 1, 2),  // R3 = ROL(R1, R2)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // After ROL by 4: 0x1 -> 0x10
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x10);
+}
+
+TEST_F(ExecutorTest, Run_ROL_ZeroRotation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(0));  // Rotate by 0
+
+    auto code = make_program({
+        encode_type_a(opcode::ROL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Rotating by 0 should give same value
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x12345678);
+}
+
+TEST_F(ExecutorTest, Run_ROL_Arch32) {
+    VmContext ctx{VmConfig::arch32()};
+
+    // R1 = 0x80000001 (high bit and low bit set for 32-bit)
+    ctx.registers().write(1, Value::from_int(0x80000001));
+    ctx.registers().write(2, Value::from_int(1));  // Rotate by 1
+
+    auto code = make_program({
+        encode_type_a(opcode::ROL, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // After ROL by 1: high bit wraps to bit 0
+    // 0x80000001 -> 0x00000003
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x00000003);
+}
+
+TEST_F(ExecutorTest, Run_ROR_BasicOperation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    // R1 = 0x10 (bit 4 set)
+    ctx.registers().write(1, Value::from_int(0x10));
+    ctx.registers().write(2, Value::from_int(4));  // Rotate by 4
+
+    auto code = make_program({
+        encode_type_a(opcode::ROR, 3, 1, 2),  // R3 = ROR(R1, R2)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // After ROR by 4: 0x10 -> 0x1
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x1);
+}
+
+TEST_F(ExecutorTest, Run_ROR_ZeroRotation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0xABCDEF));
+    ctx.registers().write(2, Value::from_int(0));
+
+    auto code = make_program({
+        encode_type_a(opcode::ROR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0xABCDEF);
+}
+
+TEST_F(ExecutorTest, Run_ROR_Arch32) {
+    VmContext ctx{VmConfig::arch32()};
+
+    ctx.registers().write(1, Value::from_int(0x00000003));  // Low 2 bits set
+    ctx.registers().write(2, Value::from_int(1));
+
+    auto code = make_program({
+        encode_type_a(opcode::ROR, 3, 1, 2),
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Bit 0 wraps to high bit: 0x00000003 -> 0x80000001
+    // In 32-bit signed representation, this is -2147483647
+    EXPECT_EQ(ctx.registers().read(3).as_integer(),
+              static_cast<std::int32_t>(0x80000001U));
+}
+
+TEST_F(ExecutorTest, Run_ROL_ROR_Inverse) {
+    VmContext ctx{VmConfig::arch32()};
+
+    // Use 32-bit mode for cleaner inverse property testing
+    ctx.registers().write(1, Value::from_int(0x12345678));
+    ctx.registers().write(2, Value::from_int(7));
+
+    auto code = make_program({
+        encode_type_a(opcode::ROL, 3, 1, 2),  // R3 = ROL(R1, 7)
+        encode_type_a(opcode::ROR, 4, 3, 2),  // R4 = ROR(R3, 7)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // ROL then ROR by same amount should give original value
+    EXPECT_EQ(ctx.registers().read(4).as_integer(), 0x12345678);
+}
+
+// ============================================================================
+// Shift-Immediate Tests (SHLI, SHRI, SARI)
+// ============================================================================
+
+TEST_F(ExecutorTest, Run_SHLI_BasicOperation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(1));  // R1 = 1
+
+    auto code = make_program({
+        encode_type_s(opcode::SHLI, 3, 1, 4),  // R3 = R1 << 4
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 16);  // 1 << 4 = 16
+}
+
+TEST_F(ExecutorTest, Run_SHLI_ZeroShift) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x12345678));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHLI, 3, 1, 0),  // R3 = R1 << 0
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x12345678);
+}
+
+TEST_F(ExecutorTest, Run_SHLI_MaxShift) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(1));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHLI, 3, 1, 40),  // R3 = R1 << 40 (large but safe shift)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // 1 << 40 = 0x10000000000 (well within 48-bit range)
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 1LL << 40);
+}
+
+TEST_F(ExecutorTest, Run_SHRI_BasicOperation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(0x100));  // R1 = 256
+
+    auto code = make_program({
+        encode_type_s(opcode::SHRI, 3, 1, 4),  // R3 = R1 >> 4 (logical)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 16);  // 256 >> 4 = 16
+}
+
+TEST_F(ExecutorTest, Run_SHRI_ZeroFill) {
+    VmContext ctx{VmConfig::arch64()};
+
+    // Use a positive value with upper bits set (within 48-bit range)
+    // 0x0000F00000000000 (bits 44-47 set, but below sign bit 47)
+    ctx.registers().write(1, Value::from_int(0x700000000000LL));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHRI, 3, 1, 4),  // R3 = R1 >> 4 (logical)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // 0x700000000000 >> 4 = 0x070000000000
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 0x070000000000LL);
+}
+
+TEST_F(ExecutorTest, Run_SARI_BasicOperation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(-64));  // Negative number
+
+    auto code = make_program({
+        encode_type_s(opcode::SARI, 3, 1, 2),  // R3 = R1 >> 2 (arithmetic)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Arithmetic shift should sign-extend: -64 >> 2 = -16
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), -16);
+}
+
+TEST_F(ExecutorTest, Run_SARI_SignPreservation) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(-1));  // All bits set
+
+    auto code = make_program({
+        encode_type_s(opcode::SARI, 3, 1, 10),  // R3 = R1 >> 10 (arithmetic)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // Arithmetic shift of -1 should stay -1 (all ones)
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), -1);
+}
+
+TEST_F(ExecutorTest, Run_SARI_PositiveNumber) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(1, Value::from_int(128));
+
+    auto code = make_program({
+        encode_type_s(opcode::SARI, 3, 1, 3),  // R3 = 128 >> 3
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // For positive numbers, SAR == SHR: 128 >> 3 = 16
+    EXPECT_EQ(ctx.registers().read(3).as_integer(), 16);
+}
+
+TEST_F(ExecutorTest, Run_SHLI_Arch32) {
+    VmContext ctx{VmConfig::arch32()};
+
+    ctx.registers().write(1, Value::from_int(1));
+
+    auto code = make_program({
+        encode_type_s(opcode::SHLI, 3, 1, 31),  // R3 = 1 << 31 (max for 32-bit)
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // 1 << 31 = 0x80000000 = INT32_MIN in signed representation
+    EXPECT_EQ(ctx.registers().read(3).as_integer(),
+              std::numeric_limits<std::int32_t>::min());
+}
+
+// ============================================================================
+// ANDI/ORI/XORI Tests (verify reassigned opcodes still work)
+// ============================================================================
+
+TEST_F(ExecutorTest, Run_ANDI_WithNewOpcode) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0xFF00FF00));
+
+    auto code = make_program({
+        encode_type_b(opcode::ANDI, 5, 0x00FF),  // R5 = R5 & 0x00FF
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    // 0xFF00FF00 & 0x00FF = 0x00000000
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0);
+}
+
+TEST_F(ExecutorTest, Run_ORI_WithNewOpcode) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0xFF00));
+
+    auto code = make_program({
+        encode_type_b(opcode::ORI, 5, 0x00FF),  // R5 = R5 | 0x00FF
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0xFFFF);
+}
+
+TEST_F(ExecutorTest, Run_XORI_WithNewOpcode) {
+    VmContext ctx{VmConfig::arch64()};
+
+    ctx.registers().write(5, Value::from_int(0xFFFF));
+
+    auto code = make_program({
+        encode_type_b(opcode::XORI, 5, 0x0F0F),  // R5 = R5 ^ 0x0F0F
+        encode_type_c(opcode::HALT, 0)
+    });
+
+    Executor exec{ctx, code};
+    auto result = exec.run();
+
+    EXPECT_EQ(result, ExecutionError::Success);
+    EXPECT_EQ(ctx.registers().read(5).as_integer(), 0xF0F0);
+}
+
+// ============================================================================
 // Opcode Classification Tests
 // ============================================================================
 
@@ -577,6 +943,68 @@ TEST(OpcodeTest, IsTypeB_Arithmetic) {
     EXPECT_TRUE(is_type_b_arithmetic(opcode::SUBI));
     EXPECT_TRUE(is_type_b_arithmetic(opcode::MULI));
     EXPECT_FALSE(is_type_b_arithmetic(opcode::ADD));
+}
+
+// ============================================================================
+// Bitwise Opcode Classification Tests
+// ============================================================================
+
+TEST(OpcodeTest, IsTypeA_Bitwise) {
+    // Type A bitwise: AND, OR, XOR, NOT, SHL, SHR, SAR, ROL, ROR
+    EXPECT_TRUE(is_type_a_bitwise(opcode::AND));
+    EXPECT_TRUE(is_type_a_bitwise(opcode::OR));
+    EXPECT_TRUE(is_type_a_bitwise(opcode::XOR));
+    EXPECT_TRUE(is_type_a_bitwise(opcode::NOT));
+    EXPECT_TRUE(is_type_a_bitwise(opcode::SHL));
+    EXPECT_TRUE(is_type_a_bitwise(opcode::SHR));
+    EXPECT_TRUE(is_type_a_bitwise(opcode::SAR));
+    EXPECT_TRUE(is_type_a_bitwise(opcode::ROL));
+    EXPECT_TRUE(is_type_a_bitwise(opcode::ROR));
+    // Should not match Type S or Type B
+    EXPECT_FALSE(is_type_a_bitwise(opcode::SHLI));
+    EXPECT_FALSE(is_type_a_bitwise(opcode::ANDI));
+}
+
+TEST(OpcodeTest, IsTypeS_Bitwise) {
+    // Type S bitwise: SHLI, SHRI, SARI
+    EXPECT_TRUE(is_type_s_bitwise(opcode::SHLI));
+    EXPECT_TRUE(is_type_s_bitwise(opcode::SHRI));
+    EXPECT_TRUE(is_type_s_bitwise(opcode::SARI));
+    // Should not match Type A or Type B
+    EXPECT_FALSE(is_type_s_bitwise(opcode::SHL));
+    EXPECT_FALSE(is_type_s_bitwise(opcode::ANDI));
+}
+
+TEST(OpcodeTest, IsTypeB_Bitwise) {
+    // Type B bitwise: ANDI, ORI, XORI
+    EXPECT_TRUE(is_type_b_bitwise(opcode::ANDI));
+    EXPECT_TRUE(is_type_b_bitwise(opcode::ORI));
+    EXPECT_TRUE(is_type_b_bitwise(opcode::XORI));
+    // Should not match Type A or Type S
+    EXPECT_FALSE(is_type_b_bitwise(opcode::AND));
+    EXPECT_FALSE(is_type_b_bitwise(opcode::SHLI));
+}
+
+TEST(OpcodeTest, IsBitwise_All) {
+    // All bitwise opcodes should return true
+    EXPECT_TRUE(is_bitwise(opcode::AND));
+    EXPECT_TRUE(is_bitwise(opcode::OR));
+    EXPECT_TRUE(is_bitwise(opcode::XOR));
+    EXPECT_TRUE(is_bitwise(opcode::NOT));
+    EXPECT_TRUE(is_bitwise(opcode::SHL));
+    EXPECT_TRUE(is_bitwise(opcode::SHR));
+    EXPECT_TRUE(is_bitwise(opcode::SAR));
+    EXPECT_TRUE(is_bitwise(opcode::ROL));
+    EXPECT_TRUE(is_bitwise(opcode::ROR));
+    EXPECT_TRUE(is_bitwise(opcode::SHLI));
+    EXPECT_TRUE(is_bitwise(opcode::SHRI));
+    EXPECT_TRUE(is_bitwise(opcode::SARI));
+    EXPECT_TRUE(is_bitwise(opcode::ANDI));
+    EXPECT_TRUE(is_bitwise(opcode::ORI));
+    EXPECT_TRUE(is_bitwise(opcode::XORI));
+    // Arithmetic opcodes should return false
+    EXPECT_FALSE(is_bitwise(opcode::ADD));
+    EXPECT_FALSE(is_bitwise(opcode::SUB));
 }
 
 TEST(OpcodeTest, SignExtendImm16) {

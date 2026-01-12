@@ -107,6 +107,66 @@ inline constexpr std::uint8_t FP_RESERVED_START = 0x19;
 inline constexpr std::uint8_t FP_RESERVED_END = 0x1F;
 
 // ============================================================================
+// Bitwise - Register-Register (Type A)
+// ============================================================================
+
+/// AND: Rd = Rs1 & Rs2
+inline constexpr std::uint8_t AND = 0x20;
+
+/// OR: Rd = Rs1 | Rs2
+inline constexpr std::uint8_t OR = 0x21;
+
+/// XOR: Rd = Rs1 ^ Rs2
+inline constexpr std::uint8_t XOR = 0x22;
+
+/// NOT: Rd = ~Rs1 (unary, Rs2 ignored)
+inline constexpr std::uint8_t NOT = 0x23;
+
+/// SHL: Rd = Rs1 << (Rs2 & mask) - logical shift left
+inline constexpr std::uint8_t SHL = 0x24;
+
+/// SHR: Rd = Rs1 >> (Rs2 & mask) - logical shift right (zero-fill)
+inline constexpr std::uint8_t SHR = 0x25;
+
+/// SAR: Rd = Rs1 >> (Rs2 & mask) - arithmetic shift right (sign-fill)
+inline constexpr std::uint8_t SAR = 0x26;
+
+/// ROL: Rd = rotate_left(Rs1, Rs2 % width)
+inline constexpr std::uint8_t ROL = 0x27;
+
+/// ROR: Rd = rotate_right(Rs1, Rs2 % width)
+inline constexpr std::uint8_t ROR = 0x28;
+
+// ============================================================================
+// Bitwise - Shift-Immediate (Type S)
+// ============================================================================
+
+/// SHLI: Rd = Rs1 << shamt6 - shift left immediate
+inline constexpr std::uint8_t SHLI = 0x29;
+
+/// SHRI: Rd = Rs1 >> shamt6 - logical shift right immediate
+inline constexpr std::uint8_t SHRI = 0x2A;
+
+/// SARI: Rd = Rs1 >> shamt6 - arithmetic shift right immediate
+inline constexpr std::uint8_t SARI = 0x2B;
+
+// ============================================================================
+// Bitwise - Register-Immediate (Type B, Accumulator Style)
+// ============================================================================
+
+/// ANDI: Rd = Rd & zero_extend(imm16)
+inline constexpr std::uint8_t ANDI = 0x2C;
+
+/// ORI: Rd = Rd | zero_extend(imm16)
+inline constexpr std::uint8_t ORI = 0x2D;
+
+/// XORI: Rd = Rd ^ zero_extend(imm16)
+inline constexpr std::uint8_t XORI = 0x2E;
+
+/// Reserved bitwise opcode
+inline constexpr std::uint8_t BITWISE_RESERVED = 0x2F;
+
+// ============================================================================
 // System opcodes (0xF0-0xFF) - Essential for execution
 // ============================================================================
 
@@ -142,6 +202,29 @@ inline constexpr std::uint8_t NOP = 0xF0;
 [[nodiscard]] constexpr bool is_arithmetic_reserved(std::uint8_t op) noexcept {
     return (op >= opcode::ARITHMETIC_RESERVED_START && op <= opcode::ARITHMETIC_RESERVED_END) ||
            (op >= opcode::FP_RESERVED_START && op <= opcode::FP_RESERVED_END);
+}
+
+/// Check if opcode is a Type A bitwise instruction (register-register)
+/// Includes: AND, OR, XOR, NOT, SHL, SHR, SAR, ROL, ROR
+[[nodiscard]] constexpr bool is_type_a_bitwise(std::uint8_t op) noexcept {
+    return op >= opcode::AND && op <= opcode::ROR;
+}
+
+/// Check if opcode is a Type S bitwise instruction (shift-immediate)
+/// Includes: SHLI, SHRI, SARI
+[[nodiscard]] constexpr bool is_type_s_bitwise(std::uint8_t op) noexcept {
+    return op >= opcode::SHLI && op <= opcode::SARI;
+}
+
+/// Check if opcode is a Type B bitwise instruction (immediate)
+/// Includes: ANDI, ORI, XORI
+[[nodiscard]] constexpr bool is_type_b_bitwise(std::uint8_t op) noexcept {
+    return op >= opcode::ANDI && op <= opcode::XORI;
+}
+
+/// Check if opcode is any bitwise instruction
+[[nodiscard]] constexpr bool is_bitwise(std::uint8_t op) noexcept {
+    return is_type_a_bitwise(op) || is_type_s_bitwise(op) || is_type_b_bitwise(op);
 }
 
 /// Sign-extend a 16-bit immediate to 64-bit

@@ -478,5 +478,198 @@ TEST_F(ALUConstexprTest, AllOperationsAreConstexpr) {
     EXPECT_EQ(mod_result.as_integer(), 1);
 }
 
+// ============================================================================
+// Rotate Left (ROL) Tests
+// ============================================================================
+
+class ALURolTest : public ::testing::Test {};
+
+TEST_F(ALURolTest, Rol_Arch32_Basic) {
+    ALU alu32{Architecture::Arch32};
+
+    // ROL(0x80000001, 1) should give 0x00000003
+    auto a = Value::from_int(static_cast<std::int32_t>(0x80000001));
+    auto shift = Value::from_int(1);
+
+    auto result = alu32.rol(a, shift);
+    EXPECT_EQ(result.as_integer(), 0x00000003);
+}
+
+TEST_F(ALURolTest, Rol_Arch32_ZeroRotation) {
+    ALU alu32{Architecture::Arch32};
+
+    auto a = Value::from_int(0x12345678);
+    auto shift = Value::from_int(0);
+
+    auto result = alu32.rol(a, shift);
+    EXPECT_EQ(result.as_integer(), 0x12345678);
+}
+
+TEST_F(ALURolTest, Rol_Arch32_FullRotation) {
+    ALU alu32{Architecture::Arch32};
+
+    // Rotating by 32 should give same result (identity)
+    auto a = Value::from_int(0x12345678);
+    auto shift = Value::from_int(32);
+
+    auto result = alu32.rol(a, shift);
+    EXPECT_EQ(result.as_integer(), 0x12345678);
+}
+
+TEST_F(ALURolTest, Rol_Arch32_HalfRotation) {
+    ALU alu32{Architecture::Arch32};
+
+    // ROL(0x0000FFFF, 16) should give 0xFFFF0000
+    auto a = Value::from_int(0x0000FFFF);
+    auto shift = Value::from_int(16);
+
+    auto result = alu32.rol(a, shift);
+    EXPECT_EQ(result.as_integer(), static_cast<std::int32_t>(0xFFFF0000));
+}
+
+TEST_F(ALURolTest, Rol_Arch64_Basic) {
+    ALU alu64{Architecture::Arch64};
+
+    // Simple test: ROL(0x0000000000000001, 4) should give 0x0000000000000010
+    // This tests basic left rotation without worrying about wrap-around
+    auto a = Value::from_int(1);
+    auto shift = Value::from_int(4);
+
+    auto result = alu64.rol(a, shift);
+    EXPECT_EQ(result.as_integer(), 0x10);
+}
+
+TEST_F(ALURolTest, Rol_Arch64_FullRotation) {
+    ALU alu64{Architecture::Arch64};
+
+    // Rotating by 64 should give same result (identity)
+    // Use a value that fits in 48-bit range
+    auto a = Value::from_int(0x123456789ABCLL);  // 48-bit compatible value
+    auto shift = Value::from_int(64);
+
+    auto result = alu64.rol(a, shift);
+    // rotate % 64 = 0, so should return same value
+    EXPECT_EQ(result.as_integer(), 0x123456789ABCLL);
+}
+
+TEST_F(ALURolTest, Rol_NegativeShift_WrapsCorrectly) {
+    ALU alu32{Architecture::Arch32};
+
+    auto a = Value::from_int(0x12345678);
+    // -1 mod 32 = 31
+    auto shift_neg = Value::from_int(-1);
+    auto shift_31 = Value::from_int(31);
+
+    auto result_neg = alu32.rol(a, shift_neg);
+    auto result_31 = alu32.rol(a, shift_31);
+
+    EXPECT_EQ(result_neg.as_integer(), result_31.as_integer());
+}
+
+// ============================================================================
+// Rotate Right (ROR) Tests
+// ============================================================================
+
+class ALURorTest : public ::testing::Test {};
+
+TEST_F(ALURorTest, Ror_Arch32_Basic) {
+    ALU alu32{Architecture::Arch32};
+
+    // ROR(0x00000003, 1) should give 0x80000001
+    auto a = Value::from_int(0x00000003);
+    auto shift = Value::from_int(1);
+
+    auto result = alu32.ror(a, shift);
+    EXPECT_EQ(result.as_integer(), static_cast<std::int32_t>(0x80000001));
+}
+
+TEST_F(ALURorTest, Ror_Arch32_ZeroRotation) {
+    ALU alu32{Architecture::Arch32};
+
+    auto a = Value::from_int(0x12345678);
+    auto shift = Value::from_int(0);
+
+    auto result = alu32.ror(a, shift);
+    EXPECT_EQ(result.as_integer(), 0x12345678);
+}
+
+TEST_F(ALURorTest, Ror_Arch32_FullRotation) {
+    ALU alu32{Architecture::Arch32};
+
+    // Rotating by 32 should give same result (identity)
+    auto a = Value::from_int(0x12345678);
+    auto shift = Value::from_int(32);
+
+    auto result = alu32.ror(a, shift);
+    EXPECT_EQ(result.as_integer(), 0x12345678);
+}
+
+TEST_F(ALURorTest, Ror_Arch32_HalfRotation) {
+    ALU alu32{Architecture::Arch32};
+
+    // ROR(0xFFFF0000, 16) should give 0x0000FFFF
+    auto a = Value::from_int(static_cast<std::int32_t>(0xFFFF0000));
+    auto shift = Value::from_int(16);
+
+    auto result = alu32.ror(a, shift);
+    EXPECT_EQ(result.as_integer(), 0x0000FFFF);
+}
+
+TEST_F(ALURorTest, Ror_Arch64_Basic) {
+    ALU alu64{Architecture::Arch64};
+
+    // Simple test: ROR(0x10, 4) should give 0x1
+    // This tests basic right rotation without worrying about wrap-around
+    auto a = Value::from_int(0x10LL);
+    auto shift = Value::from_int(4);
+
+    auto result = alu64.ror(a, shift);
+    EXPECT_EQ(result.as_integer(), 0x1LL);
+}
+
+TEST_F(ALURorTest, Ror_Arch64_FullRotation) {
+    ALU alu64{Architecture::Arch64};
+
+    // Rotating by 64 should give same result (identity)
+    // Use a value that fits in 48-bit range
+    auto a = Value::from_int(0x123456789ABCLL);  // 48-bit compatible value
+    auto shift = Value::from_int(64);
+
+    auto result = alu64.ror(a, shift);
+    // rotate % 64 = 0, so should return same value
+    EXPECT_EQ(result.as_integer(), 0x123456789ABCLL);
+}
+
+TEST_F(ALURorTest, Ror_Inverse_Of_Rol) {
+    ALU alu32{Architecture::Arch32};
+
+    auto original = Value::from_int(0x12345678);
+    auto shift = Value::from_int(7);
+
+    // ROL then ROR by same amount should give original
+    auto rotated = alu32.rol(original, shift);
+    auto back = alu32.ror(rotated, shift);
+
+    EXPECT_EQ(back.as_integer(), original.as_integer());
+}
+
+// ============================================================================
+// Rotate Constexpr Tests
+// ============================================================================
+
+class ALURotateConstexprTest : public ::testing::Test {};
+
+TEST_F(ALURotateConstexprTest, RotateOperationsAreConstexpr) {
+    constexpr ALU alu{Architecture::Arch32};
+    constexpr auto a = Value::from_int(0x80000001);
+    constexpr auto shift = Value::from_int(1);
+
+    constexpr auto rol_result = alu.rol(a, shift);
+    constexpr auto ror_result = alu.ror(a, shift);
+
+    EXPECT_EQ(rol_result.as_integer(), 0x00000003);
+    EXPECT_EQ(ror_result.as_integer(), static_cast<std::int32_t>(0xC0000000));
+}
+
 }  // namespace
 }  // namespace dotvm::core

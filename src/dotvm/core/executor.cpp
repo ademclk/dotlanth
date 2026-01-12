@@ -512,6 +512,11 @@ StepResult Executor::dispatch(std::uint32_t instr) noexcept {
         return dispatch_floating_point(instr, op);
     }
 
+    // Bitwise opcodes
+    if (is_bitwise_opcode(op)) {
+        return dispatch_bitwise(instr, op);
+    }
+
     // System opcodes
     if (is_system_opcode(op)) {
         return dispatch_system(instr, op);
@@ -544,6 +549,107 @@ StepResult Executor::dispatch_floating_point(std::uint32_t instr,
     // All floating-point instructions use Type A format
     const auto decoded = decode_type_a(instr);
     return fp_exec_.execute_type_a(decoded);
+}
+
+StepResult Executor::dispatch_bitwise(std::uint32_t instr,
+                                       std::uint8_t op) noexcept {
+    auto& regs = ctx_.registers();
+    const auto& alu = ctx_.alu();
+
+    // Type S (shift-immediate) instructions
+    if (is_type_s_bitwise(op)) {
+        const auto decoded = decode_type_s(instr);
+        const auto rs1_val = regs.read(decoded.rs1);
+        const auto shamt_val = Value::from_int(decoded.shamt6);
+
+        switch (op) {
+            case opcode::SHLI:
+                regs.write(decoded.rd, alu.shl(rs1_val, shamt_val));
+                return StepResult::success();
+
+            case opcode::SHRI:
+                regs.write(decoded.rd, alu.shr(rs1_val, shamt_val));
+                return StepResult::success();
+
+            case opcode::SARI:
+                regs.write(decoded.rd, alu.sar(rs1_val, shamt_val));
+                return StepResult::success();
+
+            default:
+                return StepResult::make_error(ExecutionError::InvalidOpcode);
+        }
+    }
+
+    // Type B (immediate) instructions
+    if (is_type_b_bitwise(op)) {
+        const auto decoded = decode_type_b(instr);
+        const auto rd_val = regs.read(decoded.rd);
+        // Zero-extend for bitwise operations
+        const auto imm_val = Value::from_int(static_cast<std::int64_t>(decoded.imm16));
+
+        switch (op) {
+            case opcode::ANDI:
+                regs.write(decoded.rd, alu.bit_and(rd_val, imm_val));
+                return StepResult::success();
+
+            case opcode::ORI:
+                regs.write(decoded.rd, alu.bit_or(rd_val, imm_val));
+                return StepResult::success();
+
+            case opcode::XORI:
+                regs.write(decoded.rd, alu.bit_xor(rd_val, imm_val));
+                return StepResult::success();
+
+            default:
+                return StepResult::make_error(ExecutionError::InvalidOpcode);
+        }
+    }
+
+    // Type A (register-register) instructions
+    const auto decoded = decode_type_a(instr);
+    const auto rs1_val = regs.read(decoded.rs1);
+    const auto rs2_val = regs.read(decoded.rs2);
+
+    switch (op) {
+        case opcode::AND:
+            regs.write(decoded.rd, alu.bit_and(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::OR:
+            regs.write(decoded.rd, alu.bit_or(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::XOR:
+            regs.write(decoded.rd, alu.bit_xor(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::NOT:
+            regs.write(decoded.rd, alu.bit_not(rs1_val));
+            return StepResult::success();
+
+        case opcode::SHL:
+            regs.write(decoded.rd, alu.shl(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::SHR:
+            regs.write(decoded.rd, alu.shr(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::SAR:
+            regs.write(decoded.rd, alu.sar(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::ROL:
+            regs.write(decoded.rd, alu.rol(rs1_val, rs2_val));
+            return StepResult::success();
+
+        case opcode::ROR:
+            regs.write(decoded.rd, alu.ror(rs1_val, rs2_val));
+            return StepResult::success();
+
+        default:
+            return StepResult::make_error(ExecutionError::InvalidOpcode);
+    }
 }
 
 StepResult Executor::dispatch_system(std::uint32_t /*instr*/,

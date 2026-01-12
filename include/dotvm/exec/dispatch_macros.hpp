@@ -167,9 +167,14 @@ namespace opcode {
     inline constexpr std::uint8_t SHL   = 0x24;
     inline constexpr std::uint8_t SHR   = 0x25;
     inline constexpr std::uint8_t SAR   = 0x26;
-    inline constexpr std::uint8_t ANDI  = 0x28;
-    inline constexpr std::uint8_t ORI   = 0x29;
-    inline constexpr std::uint8_t XORI  = 0x2A;
+    inline constexpr std::uint8_t ROL   = 0x27;  // NEW: Rotate left
+    inline constexpr std::uint8_t ROR   = 0x28;  // NEW: Rotate right
+    inline constexpr std::uint8_t SHLI  = 0x29;  // NEW: Shift left immediate
+    inline constexpr std::uint8_t SHRI  = 0x2A;  // NEW: Shift right immediate (logical)
+    inline constexpr std::uint8_t SARI  = 0x2B;  // NEW: Shift right immediate (arithmetic)
+    inline constexpr std::uint8_t ANDI  = 0x2C;  // MOVED from 0x28
+    inline constexpr std::uint8_t ORI   = 0x2D;  // MOVED from 0x29
+    inline constexpr std::uint8_t XORI  = 0x2E;  // MOVED from 0x2A
 
     // Comparison (0x30-0x3F)
     inline constexpr std::uint8_t EQ    = 0x30;
