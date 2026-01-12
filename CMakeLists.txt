@@ -361,6 +361,24 @@ if(DOTVM_BUILD_BENCHMARKS)
         target_compile_options(arithmetic_bench PRIVATE -O3 -DNDEBUG)
     endif()
 
+    # Bitwise benchmark (uses Google Benchmark)
+    add_executable(bitwise_bench
+        benchmarks/bitwise_bench.cpp
+    )
+
+    target_link_libraries(bitwise_bench PRIVATE
+        dotvm_core
+        benchmark::benchmark
+        benchmark::benchmark_main
+    )
+
+    target_compile_options(bitwise_bench PRIVATE ${DOTVM_WARNING_FLAGS})
+
+    # Optimize for benchmarking
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        target_compile_options(bitwise_bench PRIVATE -O3 -DNDEBUG)
+    endif()
+
     # Custom benchmark support library
     add_library(dotvm_bench STATIC
         src/dotvm/core/bench/benchmark_config.cpp
@@ -410,7 +428,7 @@ if(DOTVM_BUILD_BENCHMARKS)
     target_compile_options(dotvm_crypto_benchmark PRIVATE ${DOTVM_WARNING_FLAGS})
 
     # Install benchmarks
-    install(TARGETS arithmetic_bench dotvm_simd_benchmark dotvm_bigint_benchmark dotvm_crypto_benchmark
+    install(TARGETS arithmetic_bench bitwise_bench dotvm_simd_benchmark dotvm_bigint_benchmark dotvm_crypto_benchmark
         RUNTIME DESTINATION bin
     )
 endif()
