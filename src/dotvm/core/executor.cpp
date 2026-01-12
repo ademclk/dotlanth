@@ -399,6 +399,98 @@ StepResult FloatingPointExecutor::i2f_op(std::uint8_t rd, Value a) noexcept {
 }
 
 // ============================================================================
+// BitwiseExecutor Implementation
+// ============================================================================
+
+StepResult BitwiseExecutor::execute_type_a(const DecodedTypeA& decoded) noexcept {
+    auto& regs = ctx_.registers();
+    const auto& alu = ctx_.alu();
+
+    const auto rs1_val = regs.read(decoded.rs1);
+    const auto rs2_val = regs.read(decoded.rs2);
+
+    switch (decoded.opcode) {
+        case opcode::AND:
+            return write_success(decoded.rd, alu.bit_and(rs1_val, rs2_val));
+
+        case opcode::OR:
+            return write_success(decoded.rd, alu.bit_or(rs1_val, rs2_val));
+
+        case opcode::XOR:
+            return write_success(decoded.rd, alu.bit_xor(rs1_val, rs2_val));
+
+        case opcode::NOT:
+            // Unary operation: Rd = ~Rs1 (Rs2 ignored)
+            return write_success(decoded.rd, alu.bit_not(rs1_val));
+
+        case opcode::SHL:
+            return write_success(decoded.rd, alu.shl(rs1_val, rs2_val));
+
+        case opcode::SHR:
+            return write_success(decoded.rd, alu.shr(rs1_val, rs2_val));
+
+        case opcode::SAR:
+            return write_success(decoded.rd, alu.sar(rs1_val, rs2_val));
+
+        case opcode::ROL:
+            return write_success(decoded.rd, alu.rol(rs1_val, rs2_val));
+
+        case opcode::ROR:
+            return write_success(decoded.rd, alu.ror(rs1_val, rs2_val));
+
+        default:
+            return StepResult::make_error(ExecutionError::InvalidOpcode);
+    }
+}
+
+StepResult BitwiseExecutor::execute_type_s(const DecodedTypeS& decoded) noexcept {
+    auto& regs = ctx_.registers();
+    const auto& alu = ctx_.alu();
+
+    const auto rs1_val = regs.read(decoded.rs1);
+    // Convert 6-bit shift amount to Value
+    const auto shamt_val = Value::from_int(decoded.shamt6);
+
+    switch (decoded.opcode) {
+        case opcode::SHLI:
+            return write_success(decoded.rd, alu.shl(rs1_val, shamt_val));
+
+        case opcode::SHRI:
+            return write_success(decoded.rd, alu.shr(rs1_val, shamt_val));
+
+        case opcode::SARI:
+            return write_success(decoded.rd, alu.sar(rs1_val, shamt_val));
+
+        default:
+            return StepResult::make_error(ExecutionError::InvalidOpcode);
+    }
+}
+
+StepResult BitwiseExecutor::execute_type_b(const DecodedTypeB& decoded) noexcept {
+    auto& regs = ctx_.registers();
+    const auto& alu = ctx_.alu();
+
+    // Accumulator style: Rd = Rd OP imm16
+    const auto rd_val = regs.read(decoded.rd);
+    // Zero-extend 16-bit immediate for bitwise operations
+    const auto imm_val = Value::from_int(static_cast<std::int64_t>(decoded.imm16));
+
+    switch (decoded.opcode) {
+        case opcode::ANDI:
+            return write_success(decoded.rd, alu.bit_and(rd_val, imm_val));
+
+        case opcode::ORI:
+            return write_success(decoded.rd, alu.bit_or(rd_val, imm_val));
+
+        case opcode::XORI:
+            return write_success(decoded.rd, alu.bit_xor(rd_val, imm_val));
+
+        default:
+            return StepResult::make_error(ExecutionError::InvalidOpcode);
+    }
+}
+
+// ============================================================================
 // Executor Implementation
 // ============================================================================
 
@@ -553,103 +645,21 @@ StepResult Executor::dispatch_floating_point(std::uint32_t instr,
 
 StepResult Executor::dispatch_bitwise(std::uint32_t instr,
                                        std::uint8_t op) noexcept {
-    auto& regs = ctx_.registers();
-    const auto& alu = ctx_.alu();
-
-    // Type S (shift-immediate) instructions
+    // Type S (shift-immediate) instructions: SHLI, SHRI, SARI
     if (is_type_s_bitwise(op)) {
         const auto decoded = decode_type_s(instr);
-        const auto rs1_val = regs.read(decoded.rs1);
-        const auto shamt_val = Value::from_int(decoded.shamt6);
-
-        switch (op) {
-            case opcode::SHLI:
-                regs.write(decoded.rd, alu.shl(rs1_val, shamt_val));
-                return StepResult::success();
-
-            case opcode::SHRI:
-                regs.write(decoded.rd, alu.shr(rs1_val, shamt_val));
-                return StepResult::success();
-
-            case opcode::SARI:
-                regs.write(decoded.rd, alu.sar(rs1_val, shamt_val));
-                return StepResult::success();
-
-            default:
-                return StepResult::make_error(ExecutionError::InvalidOpcode);
-        }
+        return bitwise_exec_.execute_type_s(decoded);
     }
 
-    // Type B (immediate) instructions
+    // Type B (immediate) instructions: ANDI, ORI, XORI
     if (is_type_b_bitwise(op)) {
         const auto decoded = decode_type_b(instr);
-        const auto rd_val = regs.read(decoded.rd);
-        // Zero-extend for bitwise operations
-        const auto imm_val = Value::from_int(static_cast<std::int64_t>(decoded.imm16));
-
-        switch (op) {
-            case opcode::ANDI:
-                regs.write(decoded.rd, alu.bit_and(rd_val, imm_val));
-                return StepResult::success();
-
-            case opcode::ORI:
-                regs.write(decoded.rd, alu.bit_or(rd_val, imm_val));
-                return StepResult::success();
-
-            case opcode::XORI:
-                regs.write(decoded.rd, alu.bit_xor(rd_val, imm_val));
-                return StepResult::success();
-
-            default:
-                return StepResult::make_error(ExecutionError::InvalidOpcode);
-        }
+        return bitwise_exec_.execute_type_b(decoded);
     }
 
-    // Type A (register-register) instructions
+    // Type A (register-register) instructions: AND, OR, XOR, NOT, SHL, SHR, SAR, ROL, ROR
     const auto decoded = decode_type_a(instr);
-    const auto rs1_val = regs.read(decoded.rs1);
-    const auto rs2_val = regs.read(decoded.rs2);
-
-    switch (op) {
-        case opcode::AND:
-            regs.write(decoded.rd, alu.bit_and(rs1_val, rs2_val));
-            return StepResult::success();
-
-        case opcode::OR:
-            regs.write(decoded.rd, alu.bit_or(rs1_val, rs2_val));
-            return StepResult::success();
-
-        case opcode::XOR:
-            regs.write(decoded.rd, alu.bit_xor(rs1_val, rs2_val));
-            return StepResult::success();
-
-        case opcode::NOT:
-            regs.write(decoded.rd, alu.bit_not(rs1_val));
-            return StepResult::success();
-
-        case opcode::SHL:
-            regs.write(decoded.rd, alu.shl(rs1_val, rs2_val));
-            return StepResult::success();
-
-        case opcode::SHR:
-            regs.write(decoded.rd, alu.shr(rs1_val, rs2_val));
-            return StepResult::success();
-
-        case opcode::SAR:
-            regs.write(decoded.rd, alu.sar(rs1_val, rs2_val));
-            return StepResult::success();
-
-        case opcode::ROL:
-            regs.write(decoded.rd, alu.rol(rs1_val, rs2_val));
-            return StepResult::success();
-
-        case opcode::ROR:
-            regs.write(decoded.rd, alu.ror(rs1_val, rs2_val));
-            return StepResult::success();
-
-        default:
-            return StepResult::make_error(ExecutionError::InvalidOpcode);
-    }
+    return bitwise_exec_.execute_type_a(decoded);
 }
 
 StepResult Executor::dispatch_system(std::uint32_t /*instr*/,
