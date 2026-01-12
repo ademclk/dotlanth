@@ -157,9 +157,9 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             auto handle = regs.read(d.rs1).as_handle();
             auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-            auto [value, err] = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
-            if (err == core::MemoryError::Success) {
-                regs.write(d.rd, core::Value::from_raw(value));
+            auto result = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
+            if (result) {
+                regs.write(d.rd, core::Value::from_raw(*result));
             } else {
                 regs.write(d.rd, core::Value::nil());
             }
@@ -176,9 +176,9 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         case opcode::ALLOC: {
             auto d = core::decode_type_a(instr);
             auto size = static_cast<std::size_t>(regs.read(d.rs1).as_integer());
-            auto [handle, err] = mem.allocate(size);
-            if (err == core::MemoryError::Success) {
-                regs.write(d.rd, core::Value::from_handle(handle));
+            auto result = mem.allocate(size);
+            if (result) {
+                regs.write(d.rd, core::Value::from_handle(*result));
             } else {
                 regs.write(d.rd, core::Value::nil());
             }
@@ -692,9 +692,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         auto handle = regs.read(d.rs1).as_handle();
         auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto [value, err] = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_raw(value));
+        auto result = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
+        if (result) {
+            regs.write(d.rd, core::Value::from_raw(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }
@@ -714,9 +714,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         auto handle = regs.read(d.rs1).as_handle();
         auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto [value, err] = mem.read<std::uint8_t>(handle, offset);
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_int(value));
+        auto result = mem.read<std::uint8_t>(handle, offset);
+        if (result) {
+            regs.write(d.rd, core::Value::from_int(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }
@@ -736,9 +736,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         auto handle = regs.read(d.rs1).as_handle();
         auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto [value, err] = mem.read<std::uint16_t>(handle, offset * sizeof(std::uint16_t));
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_int(value));
+        auto result = mem.read<std::uint16_t>(handle, offset * sizeof(std::uint16_t));
+        if (result) {
+            regs.write(d.rd, core::Value::from_int(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }
@@ -758,9 +758,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         auto handle = regs.read(d.rs1).as_handle();
         auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto [value, err] = mem.read<std::uint32_t>(handle, offset * sizeof(std::uint32_t));
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_int(value));
+        auto result = mem.read<std::uint32_t>(handle, offset * sizeof(std::uint32_t));
+        if (result) {
+            regs.write(d.rd, core::Value::from_int(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }
@@ -779,9 +779,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     op_ALLOC: {
         auto d = core::decode_type_a(instr);
         auto size = static_cast<std::size_t>(regs.read(d.rs1).as_integer());
-        auto [handle, err] = mem.allocate(size);
-        if (err == core::MemoryError::Success) {
-            regs.write(d.rd, core::Value::from_handle(handle));
+        auto result = mem.allocate(size);
+        if (result) {
+            regs.write(d.rd, core::Value::from_handle(*result));
         } else {
             regs.write(d.rd, core::Value::nil());
         }

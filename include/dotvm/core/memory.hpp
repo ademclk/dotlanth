@@ -6,9 +6,9 @@
 #include <dotvm/core/security_stats.hpp>
 
 #include <cstring>
+#include <expected>
 #include <span>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 namespace dotvm::core {
@@ -198,8 +198,9 @@ enum class MemoryError : std::uint8_t {
 class MemoryManager {
 public:
     /// Result type for operations that can fail.
+    /// Uses std::expected (C++23) for modern error handling with monadic operations.
     template<typename T>
-    using Result = std::pair<T, MemoryError>;
+    using Result = std::expected<T, MemoryError>;
 
     /// Constructs a memory manager with default limits.
     MemoryManager() noexcept
@@ -255,17 +256,17 @@ public:
 
         auto err = validate_bounds(h, offset, sizeof(T));
         if (err != MemoryError::Success) {
-            return {T{}, err};
+            return std::unexpected{err};
         }
 
-        auto [ptr, ptr_err] = get_ptr(h);
-        if (ptr_err != MemoryError::Success) {
-            return {T{}, ptr_err};
+        auto ptr_result = get_ptr(h);
+        if (!ptr_result) {
+            return std::unexpected{ptr_result.error()};
         }
 
         T result;
-        std::memcpy(&result, static_cast<const char*>(ptr) + offset, sizeof(T));
-        return {result, MemoryError::Success};
+        std::memcpy(&result, static_cast<const char*>(*ptr_result) + offset, sizeof(T));
+        return result;
     }
 
     /// Writes a value at the given offset (bounds-checked).
@@ -284,12 +285,12 @@ public:
             return err;
         }
 
-        auto [ptr, ptr_err] = get_ptr(h);
-        if (ptr_err != MemoryError::Success) {
-            return ptr_err;
+        auto ptr_result = get_ptr(h);
+        if (!ptr_result) {
+            return ptr_result.error();
         }
 
-        std::memcpy(static_cast<char*>(ptr) + offset, &value, sizeof(T));
+        std::memcpy(static_cast<char*>(*ptr_result) + offset, &value, sizeof(T));
         return MemoryError::Success;
     }
 

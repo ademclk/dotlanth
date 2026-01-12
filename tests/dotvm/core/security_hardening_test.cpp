@@ -76,25 +76,29 @@ protected:
 };
 
 TEST_F(MemoryBoundsTest, ReadPastAllocationBoundary) {
-    auto [handle, err] = mem.allocate(mem_config::PAGE_SIZE);
-    ASSERT_EQ(err, MemoryError::Success);
+    auto result = mem.allocate(mem_config::PAGE_SIZE);
+    ASSERT_TRUE(result.has_value());
+    Handle handle = *result;
 
     // Read at valid offset
-    auto [val1, err1] = mem.read<std::uint64_t>(handle, 0);
-    EXPECT_EQ(err1, MemoryError::Success);
+    auto read1 = mem.read<std::uint64_t>(handle, 0);
+    EXPECT_TRUE(read1.has_value());
 
     // Read past end
-    auto [val2, err2] = mem.read<std::uint64_t>(handle, mem_config::PAGE_SIZE);
-    EXPECT_EQ(err2, MemoryError::BoundsViolation);
+    auto read2 = mem.read<std::uint64_t>(handle, mem_config::PAGE_SIZE);
+    EXPECT_FALSE(read2.has_value());
+    EXPECT_EQ(read2.error(), MemoryError::BoundsViolation);
 
     // Read where offset + size exceeds allocation
-    auto [val3, err3] = mem.read<std::uint64_t>(handle, mem_config::PAGE_SIZE - 4);
-    EXPECT_EQ(err3, MemoryError::BoundsViolation);
+    auto read3 = mem.read<std::uint64_t>(handle, mem_config::PAGE_SIZE - 4);
+    EXPECT_FALSE(read3.has_value());
+    EXPECT_EQ(read3.error(), MemoryError::BoundsViolation);
 }
 
 TEST_F(MemoryBoundsTest, WritePastAllocationBoundary) {
-    auto [handle, err] = mem.allocate(mem_config::PAGE_SIZE);
-    ASSERT_EQ(err, MemoryError::Success);
+    auto result = mem.allocate(mem_config::PAGE_SIZE);
+    ASSERT_TRUE(result.has_value());
+    Handle handle = *result;
 
     // Write at valid offset
     auto err1 = mem.write<std::uint64_t>(handle, 0, 42);
@@ -106,8 +110,9 @@ TEST_F(MemoryBoundsTest, WritePastAllocationBoundary) {
 }
 
 TEST_F(MemoryBoundsTest, SpanReadBoundsCheck) {
-    auto [handle, err] = mem.allocate(mem_config::PAGE_SIZE);
-    ASSERT_EQ(err, MemoryError::Success);
+    auto result = mem.allocate(mem_config::PAGE_SIZE);
+    ASSERT_TRUE(result.has_value());
+    Handle handle = *result;
 
     std::array<std::uint8_t, 16> buffer{};
 
@@ -121,8 +126,9 @@ TEST_F(MemoryBoundsTest, SpanReadBoundsCheck) {
 }
 
 TEST_F(MemoryBoundsTest, SpanWriteBoundsCheck) {
-    auto [handle, err] = mem.allocate(mem_config::PAGE_SIZE);
-    ASSERT_EQ(err, MemoryError::Success);
+    auto result = mem.allocate(mem_config::PAGE_SIZE);
+    ASSERT_TRUE(result.has_value());
+    Handle handle = *result;
 
     std::array<std::uint8_t, 16> buffer{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
@@ -145,22 +151,25 @@ protected:
 };
 
 TEST_F(UseAfterFreeTest, AccessAfterDeallocate) {
-    auto [handle, err] = mem.allocate(mem_config::PAGE_SIZE);
-    ASSERT_EQ(err, MemoryError::Success);
+    auto result = mem.allocate(mem_config::PAGE_SIZE);
+    ASSERT_TRUE(result.has_value());
+    Handle handle = *result;
 
     // Deallocate
     auto dealloc_err = mem.deallocate(handle);
     EXPECT_EQ(dealloc_err, MemoryError::Success);
 
     // Try to access - should fail with InvalidHandle
-    auto [val, read_err] = mem.read<std::uint64_t>(handle, 0);
-    EXPECT_EQ(read_err, MemoryError::InvalidHandle);
+    auto read_result = mem.read<std::uint64_t>(handle, 0);
+    EXPECT_FALSE(read_result.has_value());
+    EXPECT_EQ(read_result.error(), MemoryError::InvalidHandle);
 }
 
 TEST_F(UseAfterFreeTest, GenerationMismatchDetection) {
     // Allocate and get handle
-    auto [handle1, err1] = mem.allocate(mem_config::PAGE_SIZE);
-    ASSERT_EQ(err1, MemoryError::Success);
+    auto result1 = mem.allocate(mem_config::PAGE_SIZE);
+    ASSERT_TRUE(result1.has_value());
+    Handle handle1 = *result1;
 
     // Store the original handle
     Handle old_handle = handle1;
@@ -169,8 +178,9 @@ TEST_F(UseAfterFreeTest, GenerationMismatchDetection) {
     ASSERT_EQ(mem.deallocate(handle1), MemoryError::Success);
 
     // Reallocate - should reuse the slot with incremented generation
-    auto [handle2, err2] = mem.allocate(mem_config::PAGE_SIZE);
-    ASSERT_EQ(err2, MemoryError::Success);
+    auto result2 = mem.allocate(mem_config::PAGE_SIZE);
+    ASSERT_TRUE(result2.has_value());
+    Handle handle2 = *result2;
 
     // New handle should have same index but different generation
     EXPECT_EQ(handle2.index, old_handle.index);
@@ -182,8 +192,9 @@ TEST_F(UseAfterFreeTest, GenerationMismatchDetection) {
 }
 
 TEST_F(UseAfterFreeTest, DoubleDeallocateFails) {
-    auto [handle, err] = mem.allocate(mem_config::PAGE_SIZE);
-    ASSERT_EQ(err, MemoryError::Success);
+    auto result = mem.allocate(mem_config::PAGE_SIZE);
+    ASSERT_TRUE(result.has_value());
+    Handle handle = *result;
 
     // First deallocation succeeds
     auto err1 = mem.deallocate(handle);
@@ -458,14 +469,15 @@ TEST_F(DoSResistanceTest, HandleTableExhaustionGraceful) {
     // Allocate until we can't anymore (or hit a reasonable limit)
     constexpr std::size_t MAX_TEST_ALLOCATIONS = 10000;
     for (std::size_t i = 0; i < MAX_TEST_ALLOCATIONS; ++i) {
-        auto [handle, err] = mem.allocate(mem_config::PAGE_SIZE);
-        if (err != MemoryError::Success) {
+        auto result = mem.allocate(mem_config::PAGE_SIZE);
+        if (!result.has_value()) {
             // Expected: either AllocationFailed or HandleTableFull
+            auto err = result.error();
             EXPECT_TRUE(err == MemoryError::AllocationFailed ||
                        err == MemoryError::HandleTableFull);
             break;
         }
-        handles.push_back(handle);
+        handles.push_back(*result);
     }
 
     // Clean up

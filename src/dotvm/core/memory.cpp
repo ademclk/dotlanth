@@ -88,27 +88,27 @@ MemoryManager::~MemoryManager() {
 MemoryManager::Result<Handle> MemoryManager::allocate(std::size_t size) noexcept {
     // Validate size
     if (size == 0 || size > max_allocation_size_) {
-        return {invalid_handle(), MemoryError::InvalidSize};
+        return std::unexpected{MemoryError::InvalidSize};
     }
 
     // Round up to page boundary (returns 0 on overflow)
     std::size_t aligned_size = align_to_page(size);
     if (aligned_size == 0) {
         // Overflow occurred in page alignment - size too large
-        return {invalid_handle(), MemoryError::InvalidSize};
+        return std::unexpected{MemoryError::InvalidSize};
     }
 
     // Allocate a slot in the handle table
     std::uint32_t index = table_.allocate_slot();
     if (index == mem_config::INVALID_INDEX) {
-        return {invalid_handle(), MemoryError::HandleTableFull};
+        return std::unexpected{MemoryError::HandleTableFull};
     }
 
     // Allocate memory from OS
     void* ptr = os_allocate(aligned_size);
     if (!ptr) {
         table_.release_slot(index);
-        return {invalid_handle(), MemoryError::AllocationFailed};
+        return std::unexpected{MemoryError::AllocationFailed};
     }
 
     // Set up the entry
@@ -119,12 +119,10 @@ MemoryManager::Result<Handle> MemoryManager::allocate(std::size_t size) noexcept
 
     total_allocated_ += aligned_size;
 
-    Handle h{
+    return Handle{
         .index = index,
         .generation = entry.generation
     };
-
-    return {h, MemoryError::Success};
 }
 
 MemoryError MemoryManager::deallocate(Handle h) noexcept {
@@ -161,19 +159,19 @@ MemoryError MemoryManager::deallocate(Handle h) noexcept {
 MemoryManager::Result<void*> MemoryManager::get_ptr(Handle h) noexcept {
     auto err = validate_handle(h);
     if (err != MemoryError::Success) {
-        return {nullptr, err};
+        return std::unexpected{err};
     }
 
-    return {table_[h.index].ptr, MemoryError::Success};
+    return table_[h.index].ptr;
 }
 
 MemoryManager::Result<const void*> MemoryManager::get_ptr(Handle h) const noexcept {
     auto err = validate_handle(h);
     if (err != MemoryError::Success) {
-        return {nullptr, err};
+        return std::unexpected{err};
     }
 
-    return {table_[h.index].ptr, MemoryError::Success};
+    return table_[h.index].ptr;
 }
 
 MemoryError MemoryManager::write_bytes(Handle h, std::size_t offset,
@@ -187,12 +185,12 @@ MemoryError MemoryManager::write_bytes(Handle h, std::size_t offset,
         return err;
     }
 
-    auto [ptr, ptr_err] = get_ptr(h);
-    if (ptr_err != MemoryError::Success) {
-        return ptr_err;
+    auto ptr_result = get_ptr(h);
+    if (!ptr_result) {
+        return ptr_result.error();
     }
 
-    std::memcpy(static_cast<char*>(ptr) + offset, src, count);
+    std::memcpy(static_cast<char*>(*ptr_result) + offset, src, count);
     return MemoryError::Success;
 }
 
@@ -207,22 +205,22 @@ MemoryError MemoryManager::read_bytes(Handle h, std::size_t offset,
         return err;
     }
 
-    auto [ptr, ptr_err] = get_ptr(h);
-    if (ptr_err != MemoryError::Success) {
-        return ptr_err;
+    auto ptr_result = get_ptr(h);
+    if (!ptr_result) {
+        return ptr_result.error();
     }
 
-    std::memcpy(dst, static_cast<const char*>(ptr) + offset, count);
+    std::memcpy(dst, static_cast<const char*>(*ptr_result) + offset, count);
     return MemoryError::Success;
 }
 
 MemoryManager::Result<std::size_t> MemoryManager::get_size(Handle h) const noexcept {
     auto err = validate_handle(h);
     if (err != MemoryError::Success) {
-        return {0, err};
+        return std::unexpected{err};
     }
 
-    return {table_[h.index].size, MemoryError::Success};
+    return table_[h.index].size;
 }
 
 bool MemoryManager::is_valid(Handle h) const noexcept {

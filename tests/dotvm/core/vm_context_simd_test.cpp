@@ -541,9 +541,9 @@ TEST_F(VmContextSimdIntegrationTest, BackwardCompatibility_NoSimd) {
     EXPECT_EQ(ctx.registers().read(1).as_integer(), 42);
 
     auto result = ctx.memory().allocate(4096);
-    EXPECT_EQ(result.second, MemoryError::Success);
+    EXPECT_TRUE(result.has_value());
 
-    [[maybe_unused]] auto err = ctx.memory().deallocate(result.first);
+    [[maybe_unused]] auto err = ctx.memory().deallocate(*result);
 }
 
 TEST_F(VmContextSimdIntegrationTest, Reset_ClearsBothRegisterFiles) {

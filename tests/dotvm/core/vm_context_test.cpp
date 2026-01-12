@@ -200,11 +200,11 @@ TEST_F(VmContextComponentsTest, Memory_Allocate) {
     VmContext ctx;
 
     auto result = ctx.memory().allocate(4096);
-    EXPECT_EQ(result.second, MemoryError::Success);
-    EXPECT_NE(result.first.index, mem_config::INVALID_INDEX);
+    EXPECT_TRUE(result.has_value());
+    EXPECT_NE(result->index, mem_config::INVALID_INDEX);
 
     // Clean up
-    [[maybe_unused]] auto err = ctx.memory().deallocate(result.first);
+    [[maybe_unused]] auto err = ctx.memory().deallocate(*result);
 }
 
 TEST_F(VmContextComponentsTest, ALU_UsesContextArch) {
@@ -271,13 +271,13 @@ TEST_F(VmContextStatsTest, Stats_AfterAllocation) {
     VmContext ctx;
 
     auto result = ctx.memory().allocate(4096);
-    EXPECT_EQ(result.second, MemoryError::Success);
+    EXPECT_TRUE(result.has_value());
 
     auto stats = ctx.stats();
     EXPECT_EQ(stats.active_allocations, 1u);
     EXPECT_GE(stats.total_allocated_bytes, 4096u);
 
-    [[maybe_unused]] auto dealloc_err = ctx.memory().deallocate(result.first);
+    [[maybe_unused]] auto dealloc_err = ctx.memory().deallocate(*result);
 }
 
 // ============================================================================
