@@ -8,6 +8,7 @@
 /// architecture. In 32-bit mode (Arch32), all results are masked to 32 bits
 /// with proper sign extension, implementing standard 32-bit wrap-around semantics.
 
+#include <bit>
 #include <cstdint>
 
 #include "arch_config.hpp"
@@ -248,27 +249,17 @@ public:
     /// @param b Rotate amount (integer)
     /// @return Rotated result, masked to architecture width
     [[nodiscard]] constexpr Value rol(Value a, Value b) const noexcept {
-        std::uint64_t val = static_cast<std::uint64_t>(a.as_integer());
-
         if (arch_config::is_arch32(arch_)) {
-            val &= arch_config::UINT32_MASK;
-            // Use unsigned modulo for positive result
+            auto val = static_cast<std::uint32_t>(a.as_integer());
+            // Use unsigned modulo for positive rotation amount
             auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 32U);
-            if (rotate == 0) {
-                return Value::from_int(arch_config::mask_int(
-                    static_cast<std::int64_t>(val), arch_));
-            }
-            auto result = ((val << rotate) | (val >> (32 - rotate))) &
-                          arch_config::UINT32_MASK;
+            auto result = std::rotl(val, rotate);
             return Value::from_int(arch_config::mask_int(
                 static_cast<std::int64_t>(result), arch_));
         } else {
-            // Use unsigned modulo for positive result
+            auto val = static_cast<std::uint64_t>(a.as_integer());
             auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 64U);
-            if (rotate == 0) {
-                return Value::from_int(static_cast<std::int64_t>(val));
-            }
-            auto result = (val << rotate) | (val >> (64 - rotate));
+            auto result = std::rotl(val, rotate);
             return Value::from_int(static_cast<std::int64_t>(result));
         }
     }
@@ -283,27 +274,17 @@ public:
     /// @param b Rotate amount (integer)
     /// @return Rotated result, masked to architecture width
     [[nodiscard]] constexpr Value ror(Value a, Value b) const noexcept {
-        std::uint64_t val = static_cast<std::uint64_t>(a.as_integer());
-
         if (arch_config::is_arch32(arch_)) {
-            val &= arch_config::UINT32_MASK;
-            // Use unsigned modulo for positive result
+            auto val = static_cast<std::uint32_t>(a.as_integer());
+            // Use unsigned modulo for positive rotation amount
             auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 32U);
-            if (rotate == 0) {
-                return Value::from_int(arch_config::mask_int(
-                    static_cast<std::int64_t>(val), arch_));
-            }
-            auto result = ((val >> rotate) | (val << (32 - rotate))) &
-                          arch_config::UINT32_MASK;
+            auto result = std::rotr(val, rotate);
             return Value::from_int(arch_config::mask_int(
                 static_cast<std::int64_t>(result), arch_));
         } else {
-            // Use unsigned modulo for positive result
+            auto val = static_cast<std::uint64_t>(a.as_integer());
             auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 64U);
-            if (rotate == 0) {
-                return Value::from_int(static_cast<std::int64_t>(val));
-            }
-            auto result = (val >> rotate) | (val << (64 - rotate));
+            auto result = std::rotr(val, rotate);
             return Value::from_int(static_cast<std::int64_t>(result));
         }
     }
