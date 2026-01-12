@@ -176,12 +176,14 @@ private:
 
 /// Error codes for memory operations.
 enum class MemoryError : std::uint8_t {
-    Success = 0,        ///< Operation completed successfully.
-    InvalidSize,        ///< Size is 0 or exceeds MAX_ALLOCATION_SIZE.
-    AllocationFailed,   ///< OS allocation failed (out of memory).
-    InvalidHandle,      ///< Handle not found or generation mismatch.
-    BoundsViolation,    ///< Read/write offset + size exceeds allocation.
-    HandleTableFull     ///< Cannot allocate more handles.
+    Success = 0,          ///< Operation completed successfully.
+    InvalidSize,          ///< Size is 0 or exceeds MAX_ALLOCATION_SIZE.
+    AllocationFailed,     ///< OS allocation failed (out of memory).
+    InvalidHandle,        ///< Handle not found or generation mismatch.
+    BoundsViolation,      ///< Read/write offset + size exceeds allocation.
+    HandleTableFull,      ///< Cannot allocate more handles.
+    DeallocationFailed,   ///< OS deallocation failed (corruption likely).
+    AccountingError       ///< Internal accounting inconsistency detected.
 };
 
 /// Memory manager providing safe, generation-based memory allocation.
@@ -439,7 +441,7 @@ private:
 
     // Platform-specific allocation (implemented in memory.cpp)
     [[nodiscard]] void* os_allocate(std::size_t size) noexcept;
-    void os_deallocate(void* ptr, std::size_t size) noexcept;
+    [[nodiscard]] MemoryError os_deallocate(void* ptr, std::size_t size) noexcept;
 
     // Internal validation
     [[nodiscard]] MemoryError validate_handle(Handle h) const noexcept;

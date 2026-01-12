@@ -1,7 +1,5 @@
 #include <dotvm/core/memory.hpp>
 
-#include <cassert>
-
 // Platform detection for memory allocation
 #if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
     #include <sys/mman.h>
@@ -36,39 +34,53 @@ void* MemoryManager::os_allocate(std::size_t size) noexcept {
 #endif
 }
 
-void MemoryManager::os_deallocate(void* ptr, std::size_t size) noexcept {
-    if (!ptr) return;
+MemoryError MemoryManager::os_deallocate(void* ptr, std::size_t size) noexcept {
+    if (!ptr) [[likely]] {
+        return MemoryError::Success;  // nullptr deallocation is a valid no-op
+    }
 
-    // Validate size is reasonable (not 0, which would indicate corruption)
-    assert(size > 0 && "os_deallocate called with size 0 - possible corruption");
-    assert(size <= mem_config::MAX_ALLOCATION_SIZE && "os_deallocate size exceeds max - possible corruption");
+    // Validate size is reasonable - detect corruption in release builds
+    if (size == 0 || size > mem_config::MAX_ALLOCATION_SIZE) [[unlikely]] {
+        stats_.record_invalid_deallocation();
+        return MemoryError::InvalidSize;
+    }
 
 #if DOTVM_USE_MMAP
-    [[maybe_unused]] int result = munmap(ptr, size);
+    int result = munmap(ptr, size);
     // munmap returns 0 on success, -1 on error
-    assert(result == 0 && "munmap failed - possible memory corruption or invalid pointer");
+    if (result != 0) [[unlikely]] {
+        stats_.record_deallocation_failure();
+        return MemoryError::DeallocationFailed;
+    }
 
 #elif DOTVM_USE_VIRTUALALLOC
     (void)size;  // VirtualFree doesn't need size
-    [[maybe_unused]] BOOL result = VirtualFree(ptr, 0, MEM_RELEASE);
+    BOOL result = VirtualFree(ptr, 0, MEM_RELEASE);
     // VirtualFree returns non-zero on success, 0 on failure
-    assert(result != 0 && "VirtualFree failed - possible memory corruption or invalid pointer");
+    if (result == 0) [[unlikely]] {
+        stats_.record_deallocation_failure();
+        return MemoryError::DeallocationFailed;
+    }
 
 #else
     (void)size;  // std::free doesn't need size
     std::free(ptr);
     // std::free has no return value, cannot detect errors
 #endif
+
+    return MemoryError::Success;
 }
 
 // ========== MemoryManager implementation ==========
 
 MemoryManager::~MemoryManager() {
     // Free all active allocations
+    // Note: In destructor, we can't propagate errors, so just attempt cleanup
     for (std::uint32_t i = 0; i < table_.capacity(); ++i) {
         const auto& entry = table_[i];
         if (entry.is_active && entry.ptr) {
-            os_deallocate(entry.ptr, entry.size);
+            [[maybe_unused]] auto err = os_deallocate(entry.ptr, entry.size);
+            // Error already recorded in stats_ if deallocation failed
         }
     }
 }
@@ -125,14 +137,23 @@ MemoryError MemoryManager::deallocate(Handle h) noexcept {
 
     // Free the memory
     if (entry.ptr) {
-        os_deallocate(entry.ptr, entry.size);
-        // Prevent underflow in total_allocated_ accounting
-        assert(entry.size <= total_allocated_ && "total_allocated_ underflow - accounting error");
+        auto dealloc_err = os_deallocate(entry.ptr, entry.size);
+        if (dealloc_err != MemoryError::Success) [[unlikely]] {
+            // Don't release the slot if deallocation failed - memory may still be in use
+            return dealloc_err;
+        }
+
+        // Prevent underflow in total_allocated_ accounting (detect corruption)
+        if (entry.size > total_allocated_) [[unlikely]] {
+            stats_.record_deallocation_failure();
+            return MemoryError::AccountingError;
+        }
         total_allocated_ -= entry.size;
     }
 
     // Release the slot (increments generation)
     table_.release_slot(h.index);
+    stats_.record_deallocation();
 
     return MemoryError::Success;
 }
