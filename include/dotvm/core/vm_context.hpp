@@ -13,6 +13,7 @@
 #include "arch_config.hpp"
 #include "arch_types.hpp"
 #include "alu.hpp"
+#include "call_stack.hpp"
 #include "cfi.hpp"
 #include "register_file.hpp"
 #include "memory.hpp"
@@ -267,6 +268,7 @@ public:
           regs_{config.arch},
           mem_{config.max_memory},
           alu_{config.arch},
+          call_stack_{determine_max_call_depth(config)},
           simd_enabled_{config.simd_enabled} {
         // Initialize CFI context if enabled
         if (config.cfi_enabled) {
@@ -413,6 +415,23 @@ public:
     }
 
     // =========================================================================
+    // Call Stack Access (EXEC-007)
+    // =========================================================================
+
+    /// Get mutable reference to the call stack
+    ///
+    /// The call stack manages function call frames including saved
+    /// callee-saved registers (R16-R31) and return addresses.
+    [[nodiscard]] CallStack& call_stack() noexcept {
+        return call_stack_;
+    }
+
+    /// Get const reference to the call stack
+    [[nodiscard]] const CallStack& call_stack() const noexcept {
+        return call_stack_;
+    }
+
+    // =========================================================================
     // SIMD Access
     // =========================================================================
 
@@ -467,13 +486,16 @@ public:
 
     /// Reset the context to initial state
     ///
-    /// Clears all registers (scalar and vector) and deallocates all memory.
+    /// Clears all registers (scalar and vector), call stack, and CFI state.
+    /// Memory allocations persist until deallocated individually.
     /// Configuration is preserved.
     void reset() noexcept {
         regs_.clear();
         vec_regs_.clear();
-        // Note: Memory manager doesn't have a clear() method
-        // Allocations persist until deallocated individually
+        call_stack_.clear();
+        if (cfi_) {
+            cfi_->reset();
+        }
     }
 
     /// Get statistics about the context state
@@ -490,6 +512,20 @@ public:
     }
 
 private:
+    /// Determine the maximum call depth from configuration
+    ///
+    /// Priority: ResourceLimits > CfiPolicy > Default (1024)
+    [[nodiscard]] static constexpr std::size_t determine_max_call_depth(
+        const VmConfig& config) noexcept {
+        if (config.resource_limits.max_call_depth > 0) {
+            return config.resource_limits.max_call_depth;
+        }
+        if (config.cfi_policy.max_call_depth > 0) {
+            return config.cfi_policy.max_call_depth;
+        }
+        return DEFAULT_MAX_CALL_DEPTH;
+    }
+
     /// Initialize SIMD subsystem
     ///
     /// @param width Requested SIMD width (0 = auto-detect)
@@ -520,6 +556,7 @@ private:
     MemoryManager mem_;
     ALU alu_;
     std::optional<cfi::CfiContext> cfi_;
+    CallStack call_stack_;  // EXEC-007: Call stack for frame management
 
     // SIMD support
     simd::VectorRegisterFile vec_regs_;
