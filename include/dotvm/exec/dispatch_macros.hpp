@@ -54,6 +54,10 @@ inline constexpr int OPCODE_SHIFT = 24;
 #define DOTVM_NEXT() do {                                          \
     if (exec_ctx_.pc >= exec_ctx_.code_size) [[unlikely]]          \
         goto op_OUT_OF_BOUNDS;                                     \
+    /* Check instruction limit (0 = unlimited) - EXEC-008 */       \
+    if (exec_ctx_.max_instructions > 0 &&                          \
+        exec_ctx_.instructions_executed >= exec_ctx_.max_instructions) [[unlikely]] \
+        goto op_EXECUTION_LIMIT;                                   \
     instr = exec_ctx_.code[exec_ctx_.pc++];                        \
     ++exec_ctx_.instructions_executed;                             \
     DOTVM_DISPATCH(instr >> 24);                                   \
