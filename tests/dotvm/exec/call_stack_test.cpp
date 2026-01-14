@@ -375,3 +375,66 @@ TEST(CallFrameTest, SizeVerification) {
     // CallFrame should be 144 bytes: 8 + 1 + 1 + 6 + 128
     EXPECT_EQ(sizeof(CallFrame), 144);
 }
+
+// ============================================================================
+// Quality Improvement Tests (CFI atomicity & overflow protection)
+// ============================================================================
+
+TEST_F(CallStackTest, RegisterClearingOverflowProtection) {
+    // Test that base_reg + local_count > 255 doesn't cause issues
+    // The CallStack should accept these values, but the clearing loop
+    // in execution_engine should handle them safely
+    auto saved = make_saved_regs(42);
+
+    // Push a frame with edge case values that could overflow uint8_t
+    // base_reg=250, local_count=10 -> 250+10=260 > 255
+    EXPECT_TRUE(stack_.push(100, saved, 250, 10));
+
+    auto frame_opt = stack_.pop();
+    ASSERT_TRUE(frame_opt.has_value());
+
+    // Verify the frame stored the values correctly
+    const auto& frame = *frame_opt;
+    EXPECT_EQ(frame.base_reg, 250);
+    EXPECT_EQ(frame.local_count, 10);
+
+    // The execution engine should NOT attempt to clear registers
+    // in invalid range (250-259, since max register is 255)
+    // This is validated in the execution engine, not the data structure
+}
+
+TEST_F(CallStackTest, TopDoesNotModifyStack) {
+    auto saved = make_saved_regs(42);
+
+    EXPECT_TRUE(stack_.push(100, saved, 0, 5));
+    EXPECT_EQ(stack_.depth(), 1);
+
+    // Multiple top() calls should not change the stack
+    const auto* frame1 = stack_.top();
+    ASSERT_NE(frame1, nullptr);
+    EXPECT_EQ(frame1->return_pc, 100);
+    EXPECT_EQ(stack_.depth(), 1);
+
+    const auto* frame2 = stack_.top();
+    ASSERT_NE(frame2, nullptr);
+    EXPECT_EQ(frame2->return_pc, 100);
+    EXPECT_EQ(stack_.depth(), 1);
+
+    // frame1 and frame2 should point to the same frame
+    EXPECT_EQ(frame1, frame2);
+}
+
+TEST_F(CallStackTest, TopReturnsNullptrWhenEmpty) {
+    EXPECT_TRUE(stack_.empty());
+    EXPECT_EQ(stack_.top(), nullptr);
+
+    // Push and pop to make empty again
+    auto saved = make_saved_regs(0);
+    EXPECT_TRUE(stack_.push(1, saved));
+    EXPECT_NE(stack_.top(), nullptr);
+
+    auto frame = stack_.pop();
+    EXPECT_TRUE(frame.has_value());
+    EXPECT_TRUE(stack_.empty());
+    EXPECT_EQ(stack_.top(), nullptr);
+}

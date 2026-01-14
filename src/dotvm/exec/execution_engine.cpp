@@ -191,15 +191,35 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         }
         case opcode::RET: {
             // EXEC-007: Pop call frame and restore callee-saved registers
-            auto frame_opt = vm_ctx_.call_stack().pop();
+            // IMPORTANT: Validate CFI BEFORE any state changes for atomicity
 
-            if (!frame_opt.has_value()) {
+            // First, peek at call stack to check if empty
+            const auto* top_frame = vm_ctx_.call_stack().top();
+
+            if (top_frame == nullptr) {
                 // Stack underflow - fall back to R1 for backward compatibility
                 auto ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
                 exec_ctx_.jump_to(ret_addr);
                 return true;
             }
 
+            // CFI validation BEFORE any state changes (atomicity guarantee)
+            if (vm_ctx_.cfi_enabled()) {
+                auto addr_opt = vm_ctx_.cfi().pop_call();
+                if (!addr_opt.has_value()) {
+                    exec_ctx_.halt_with_error(ExecResult::CfiViolation);
+                    return false;
+                }
+                // Verify CFI return address matches call stack's return address
+                if (static_cast<std::size_t>(*addr_opt) != top_frame->return_pc) {
+                    exec_ctx_.halt_with_error(ExecResult::CfiViolation);
+                    return false;
+                }
+            }
+
+            // CFI validated (or disabled) - now safe to pop and modify state
+            auto frame_opt = vm_ctx_.call_stack().pop();
+            // We already verified non-empty via top(), so this must succeed
             const auto& frame = *frame_opt;
 
             // Restore callee-saved registers R16-R31
@@ -208,22 +228,14 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             };
             regs.raw().restore_callee_saved(saved_span);
 
-            // Clear local registers if specified
-            for (std::uint8_t i = 0; i < frame.local_count; ++i) {
-                regs.write(static_cast<std::uint8_t>(frame.base_reg + i), core::Value::zero());
-            }
-
-            // CFI integration: pop from CFI call stack if enabled
-            if (vm_ctx_.cfi_enabled()) {
-                auto addr_opt = vm_ctx_.cfi().pop_call();
-                if (!addr_opt.has_value()) {
-                    exec_ctx_.halt_with_error(ExecResult::CfiViolation);
-                    return false;
-                }
-                // Verify CFI return address matches frame return address
-                if (static_cast<std::size_t>(*addr_opt) != frame.return_pc) {
-                    exec_ctx_.halt_with_error(ExecResult::CfiViolation);
-                    return false;
+            // Clear local registers if specified (with overflow protection)
+            // Use unsigned arithmetic to prevent uint8_t overflow
+            const auto end_reg = static_cast<unsigned>(frame.base_reg) +
+                                 static_cast<unsigned>(frame.local_count);
+            if (end_reg <= 256) {  // Valid register range (0-255)
+                for (unsigned i = 0; i < frame.local_count; ++i) {
+                    regs.write(static_cast<std::uint8_t>(frame.base_reg + i),
+                               core::Value::zero());
                 }
             }
 
@@ -877,15 +889,33 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
 
     op_RET: {
         // EXEC-007: Pop call frame and restore callee-saved registers
-        auto frame_opt = vm_ctx_.call_stack().pop();
+        // IMPORTANT: Validate CFI BEFORE any state changes for atomicity
 
-        if (!frame_opt.has_value()) {
+        // First, peek at call stack to check if empty
+        const auto* top_frame = vm_ctx_.call_stack().top();
+
+        if (top_frame == nullptr) {
             // Stack underflow - fall back to R1 for backward compatibility
             auto ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
             exec_ctx_.jump_to(ret_addr);
             DOTVM_NEXT();
         }
 
+        // CFI validation BEFORE any state changes (atomicity guarantee)
+        if (vm_ctx_.cfi_enabled()) {
+            auto addr_opt = vm_ctx_.cfi().pop_call();
+            if (!addr_opt.has_value()) {
+                DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
+            }
+            // Verify CFI return address matches call stack's return address
+            if (static_cast<std::size_t>(*addr_opt) != top_frame->return_pc) {
+                DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
+            }
+        }
+
+        // CFI validated (or disabled) - now safe to pop and modify state
+        auto frame_opt = vm_ctx_.call_stack().pop();
+        // We already verified non-empty via top(), so this must succeed
         const auto& frame = *frame_opt;
 
         // Restore callee-saved registers R16-R31
@@ -894,20 +924,14 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         };
         regs.raw().restore_callee_saved(saved_span);
 
-        // Clear local registers if specified
-        for (std::uint8_t i = 0; i < frame.local_count; ++i) {
-            regs.write(static_cast<std::uint8_t>(frame.base_reg + i), core::Value::zero());
-        }
-
-        // CFI integration: pop from CFI call stack if enabled
-        if (vm_ctx_.cfi_enabled()) {
-            auto addr_opt = vm_ctx_.cfi().pop_call();
-            if (!addr_opt.has_value()) {
-                DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
-            }
-            // Verify CFI return address matches frame return address
-            if (static_cast<std::size_t>(*addr_opt) != frame.return_pc) {
-                DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
+        // Clear local registers if specified (with overflow protection)
+        // Use unsigned arithmetic to prevent uint8_t overflow
+        const auto end_reg = static_cast<unsigned>(frame.base_reg) +
+                             static_cast<unsigned>(frame.local_count);
+        if (end_reg <= 256) {  // Valid register range (0-255)
+            for (unsigned i = 0; i < frame.local_count; ++i) {
+                regs.write(static_cast<std::uint8_t>(frame.base_reg + i),
+                           core::Value::zero());
             }
         }
 
