@@ -26,7 +26,8 @@ enum class ExecResult : std::uint8_t {
     DivisionByZero = 6, ///< Division by zero (if strict mode enabled)
     MemoryError = 7,     ///< Memory access error (bounds violation, invalid handle)
     UnalignedAccess = 8, ///< Misaligned memory access (EXEC-006)
-    StackOverflow = 9    ///< Call stack overflow (EXEC-007)
+    StackOverflow = 9,   ///< Call stack overflow (EXEC-007)
+    ExecutionLimit = 10  ///< Instruction limit exceeded (EXEC-008)
 };
 
 /// Convert ExecResult to string representation
@@ -42,6 +43,7 @@ enum class ExecResult : std::uint8_t {
         case ExecResult::MemoryError:    return "MemoryError";
         case ExecResult::UnalignedAccess: return "UnalignedAccess";
         case ExecResult::StackOverflow:  return "StackOverflow";
+        case ExecResult::ExecutionLimit: return "ExecutionLimit";
     }
     return "Unknown";
 }
@@ -77,6 +79,9 @@ struct alignas(CACHE_LINE_SIZE) ExecutionContext {
     /// Instructions executed counter (for profiling)
     std::uint64_t instructions_executed{0};
 
+    /// Maximum instruction limit (0 = unlimited) - EXEC-008
+    std::uint64_t max_instructions{0};
+
     /// Padding to ensure cache line alignment
     /// Layout on 64-bit:
     ///   code:                 8 bytes (offset 0)
@@ -86,8 +91,9 @@ struct alignas(CACHE_LINE_SIZE) ExecutionContext {
     ///   error:                1 byte  (offset 25)
     ///   [padding]:            6 bytes (offset 26-31, align for uint64)
     ///   instructions_executed:8 bytes (offset 32)
-    /// Subtotal: 40 bytes, need 24 bytes padding for 64
-    std::uint8_t _reserved[24]{};
+    ///   max_instructions:     8 bytes (offset 40)
+    /// Subtotal: 48 bytes, need 16 bytes padding for 64
+    std::uint8_t _reserved[16]{};
 
     /// Check if execution should continue
     [[nodiscard]] constexpr bool should_continue() const noexcept {
@@ -130,15 +136,18 @@ struct alignas(CACHE_LINE_SIZE) ExecutionContext {
     /// @param new_code Pointer to code section
     /// @param new_size Size in instructions
     /// @param entry_point Starting instruction index
+    /// @param max_instr Maximum instruction limit (0 = unlimited)
     constexpr void reset(const std::uint32_t* new_code,
                          std::size_t new_size,
-                         std::size_t entry_point = 0) noexcept {
+                         std::size_t entry_point = 0,
+                         std::uint64_t max_instr = 0) noexcept {
         code = new_code;
         code_size = new_size;
         pc = entry_point;
         halted = false;
         error = ExecResult::Success;
         instructions_executed = 0;
+        max_instructions = max_instr;
     }
 };
 

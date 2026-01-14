@@ -34,8 +34,11 @@ ExecResult ExecutionEngine::execute(
     std::size_t entry_point,
     std::span<const core::Value> const_pool) noexcept {
 
-    // Initialize execution context
-    exec_ctx_.reset(code, code_size, entry_point);
+    // Extract max_instructions from VmConfig (EXEC-008)
+    std::uint64_t max_instr = vm_ctx_.config().resource_limits.max_instructions;
+
+    // Initialize execution context with limit
+    exec_ctx_.reset(code, code_size, entry_point, max_instr);
     const_pool_ = const_pool;
 
     // Run the dispatch loop
@@ -50,6 +53,13 @@ ExecResult ExecutionEngine::step() noexcept {
     if (exec_ctx_.pc >= exec_ctx_.code_size) {
         exec_ctx_.halt_with_error(ExecResult::OutOfBounds);
         return ExecResult::OutOfBounds;
+    }
+
+    // Check instruction limit (EXEC-008)
+    if (exec_ctx_.max_instructions > 0 &&
+        exec_ctx_.instructions_executed >= exec_ctx_.max_instructions) {
+        exec_ctx_.halt_with_error(ExecResult::ExecutionLimit);
+        return ExecResult::ExecutionLimit;
     }
 
     std::uint32_t instr = exec_ctx_.code[exec_ctx_.pc++];
@@ -470,7 +480,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // System (0xF0-0xFF)
         op_NOP, op_BREAK, op_SYSCALL,
         // Error handlers
-        op_INVALID, op_RESERVED, op_OUT_OF_BOUNDS;
+        op_INVALID, op_RESERVED, op_OUT_OF_BOUNDS, op_EXECUTION_LIMIT;
 
     // Local references for hot path (avoid repeated member access)
     auto& regs = vm_ctx_.registers();
@@ -1186,6 +1196,11 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         exec_ctx_.halt_with_error(ExecResult::OutOfBounds);
         return ExecResult::OutOfBounds;
     }
+
+    op_EXECUTION_LIMIT: {
+        exec_ctx_.halt_with_error(ExecResult::ExecutionLimit);
+        return ExecResult::ExecutionLimit;
+    }
 }
 
 #else // !DOTVM_HAS_COMPUTED_GOTO
@@ -1193,6 +1208,13 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
 // Fallback switch-based dispatch for non-GCC/Clang compilers
 ExecResult ExecutionEngine::dispatch_loop() noexcept {
     while (exec_ctx_.should_continue()) {
+        // Check instruction limit before fetching (EXEC-008)
+        if (exec_ctx_.max_instructions > 0 &&
+            exec_ctx_.instructions_executed >= exec_ctx_.max_instructions) {
+            exec_ctx_.halt_with_error(ExecResult::ExecutionLimit);
+            return ExecResult::ExecutionLimit;
+        }
+
         std::uint32_t instr = exec_ctx_.code[exec_ctx_.pc++];
         ++exec_ctx_.instructions_executed;
 

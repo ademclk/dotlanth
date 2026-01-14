@@ -214,6 +214,7 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/exec/execution_engine_test.cpp
         tests/dotvm/exec/memory_load_store_test.cpp
         tests/dotvm/exec/call_stack_test.cpp
+        tests/dotvm/exec/execution_limits_test.cpp
         # SIMD subsystem tests
         tests/dotvm/core/simd/cpu_features_test.cpp
         tests/dotvm/core/simd/vector_types_test.cpp
