@@ -162,33 +162,72 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         }
         case opcode::CALL: {
             auto d = core::decode_type_c(instr);
-            // Always save return address in link register (R1) for compatibility
+
+            // EXEC-007: Save callee-saved registers R16-R31
+            std::array<core::Value, core::reg_range::CALLEE_SAVED_COUNT> saved_regs;
+            regs.raw().save_callee_saved(saved_regs);
+
+            // Push call frame with return address and saved registers
+            if (!vm_ctx_.call_stack().push(exec_ctx_.pc, saved_regs)) {
+                exec_ctx_.halt_with_error(ExecResult::StackOverflow);
+                return false;
+            }
+
+            // Backward compatibility: save return address in link register (R1)
             regs.write(1, core::Value::from_int(static_cast<std::int64_t>(exec_ctx_.pc)));
-            // CFI integration: push to call stack if enabled
+
+            // CFI integration: push to CFI call stack if enabled
             if (vm_ctx_.cfi_enabled()) {
                 if (!vm_ctx_.cfi().push_call(static_cast<std::uint32_t>(exec_ctx_.pc))) {
+                    // Roll back call stack push on CFI failure
+                    (void)vm_ctx_.call_stack().pop();
                     exec_ctx_.halt_with_error(ExecResult::CfiViolation);
                     return false;
                 }
             }
+
             exec_ctx_.jump_relative(d.offset24 - 1);
             return true;
         }
         case opcode::RET: {
-            std::size_t ret_addr;
-            // CFI integration: pop from call stack if enabled
+            // EXEC-007: Pop call frame and restore callee-saved registers
+            auto frame_opt = vm_ctx_.call_stack().pop();
+
+            if (!frame_opt.has_value()) {
+                // Stack underflow - fall back to R1 for backward compatibility
+                auto ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
+                exec_ctx_.jump_to(ret_addr);
+                return true;
+            }
+
+            const auto& frame = *frame_opt;
+
+            // Restore callee-saved registers R16-R31
+            std::span<const core::Value, core::reg_range::CALLEE_SAVED_COUNT> saved_span{
+                frame.saved_regs.data(), frame.saved_regs.size()
+            };
+            regs.raw().restore_callee_saved(saved_span);
+
+            // Clear local registers if specified
+            for (std::uint8_t i = 0; i < frame.local_count; ++i) {
+                regs.write(static_cast<std::uint8_t>(frame.base_reg + i), core::Value::zero());
+            }
+
+            // CFI integration: pop from CFI call stack if enabled
             if (vm_ctx_.cfi_enabled()) {
                 auto addr_opt = vm_ctx_.cfi().pop_call();
                 if (!addr_opt.has_value()) {
                     exec_ctx_.halt_with_error(ExecResult::CfiViolation);
                     return false;
                 }
-                ret_addr = static_cast<std::size_t>(*addr_opt);
-            } else {
-                // Fall back to link register (R1)
-                ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
+                // Verify CFI return address matches frame return address
+                if (static_cast<std::size_t>(*addr_opt) != frame.return_pc) {
+                    exec_ctx_.halt_with_error(ExecResult::CfiViolation);
+                    return false;
+                }
             }
-            exec_ctx_.jump_to(ret_addr);
+
+            exec_ctx_.jump_to(frame.return_pc);
             return true;
         }
         case opcode::HALT: {
@@ -810,32 +849,69 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
 
     op_CALL: {
         auto d = core::decode_type_c(instr);
-        // Always save return address in link register (R1) for compatibility
+
+        // EXEC-007: Save callee-saved registers R16-R31
+        std::array<core::Value, core::reg_range::CALLEE_SAVED_COUNT> saved_regs;
+        regs.raw().save_callee_saved(saved_regs);
+
+        // Push call frame with return address and saved registers
+        if (!vm_ctx_.call_stack().push(exec_ctx_.pc, saved_regs)) {
+            DOTVM_RETURN_ERROR(ExecResult::StackOverflow);
+        }
+
+        // Backward compatibility: save return address in link register (R1)
         regs.write(1, core::Value::from_int(static_cast<std::int64_t>(exec_ctx_.pc)));
-        // CFI integration: push to call stack if enabled
+
+        // CFI integration: push to CFI call stack if enabled
         if (vm_ctx_.cfi_enabled()) {
             if (!vm_ctx_.cfi().push_call(static_cast<std::uint32_t>(exec_ctx_.pc))) {
+                // Roll back call stack push on CFI failure
+                (void)vm_ctx_.call_stack().pop();
                 DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
             }
         }
+
         exec_ctx_.jump_relative(d.offset24 - 1);
         DOTVM_NEXT();
     }
 
     op_RET: {
-        std::size_t ret_addr;
-        // CFI integration: pop from call stack if enabled
+        // EXEC-007: Pop call frame and restore callee-saved registers
+        auto frame_opt = vm_ctx_.call_stack().pop();
+
+        if (!frame_opt.has_value()) {
+            // Stack underflow - fall back to R1 for backward compatibility
+            auto ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
+            exec_ctx_.jump_to(ret_addr);
+            DOTVM_NEXT();
+        }
+
+        const auto& frame = *frame_opt;
+
+        // Restore callee-saved registers R16-R31
+        std::span<const core::Value, core::reg_range::CALLEE_SAVED_COUNT> saved_span{
+            frame.saved_regs.data(), frame.saved_regs.size()
+        };
+        regs.raw().restore_callee_saved(saved_span);
+
+        // Clear local registers if specified
+        for (std::uint8_t i = 0; i < frame.local_count; ++i) {
+            regs.write(static_cast<std::uint8_t>(frame.base_reg + i), core::Value::zero());
+        }
+
+        // CFI integration: pop from CFI call stack if enabled
         if (vm_ctx_.cfi_enabled()) {
             auto addr_opt = vm_ctx_.cfi().pop_call();
             if (!addr_opt.has_value()) {
                 DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
             }
-            ret_addr = static_cast<std::size_t>(*addr_opt);
-        } else {
-            // Fall back to link register (R1)
-            ret_addr = static_cast<std::size_t>(regs.read(1).as_integer());
+            // Verify CFI return address matches frame return address
+            if (static_cast<std::size_t>(*addr_opt) != frame.return_pc) {
+                DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
+            }
         }
-        exec_ctx_.jump_to(ret_addr);
+
+        exec_ctx_.jump_to(frame.return_pc);
         DOTVM_NEXT();
     }
 
