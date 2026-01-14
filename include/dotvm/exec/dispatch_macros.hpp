@@ -202,19 +202,17 @@ namespace opcode {
     inline constexpr std::uint8_t RET   = 0x51;  // Return from subroutine (CFI pop)
     inline constexpr std::uint8_t HALT  = 0x5F;  // Halt execution
 
-    // Memory (0x60-0x7F)
-    inline constexpr std::uint8_t LOAD  = 0x60;
-    inline constexpr std::uint8_t STORE = 0x61;
-    inline constexpr std::uint8_t LOADB = 0x62;
-    inline constexpr std::uint8_t STOREB = 0x63;
-    inline constexpr std::uint8_t LOADH = 0x64;
-    inline constexpr std::uint8_t STOREH = 0x65;
-    inline constexpr std::uint8_t LOADW = 0x66;
-    inline constexpr std::uint8_t STOREW = 0x67;
-    inline constexpr std::uint8_t ALLOC = 0x68;
-    inline constexpr std::uint8_t FREE  = 0x69;
-    inline constexpr std::uint8_t MEMCPY = 0x6A;
-    inline constexpr std::uint8_t MEMSET = 0x6B;
+    // Memory Load/Store - EXEC-006 (Type M format)
+    // Format: [opcode(8)][Rd/Rs2(8)][Rs1(8)][offset8(8)]
+    inline constexpr std::uint8_t LOAD8   = 0x60;  // Load byte (zero-extend)
+    inline constexpr std::uint8_t LOAD16  = 0x61;  // Load halfword (2-byte aligned)
+    inline constexpr std::uint8_t LOAD32  = 0x62;  // Load word (4-byte aligned)
+    inline constexpr std::uint8_t LOAD64  = 0x63;  // Load doubleword (8-byte aligned)
+    inline constexpr std::uint8_t STORE8  = 0x64;  // Store byte
+    inline constexpr std::uint8_t STORE16 = 0x65;  // Store halfword (2-byte aligned)
+    inline constexpr std::uint8_t STORE32 = 0x66;  // Store word (4-byte aligned)
+    inline constexpr std::uint8_t STORE64 = 0x67;  // Store doubleword (8-byte aligned)
+    inline constexpr std::uint8_t LEA     = 0x68;  // Load Effective Address
 
     // Data Move (0x80-0x8F)
     inline constexpr std::uint8_t MOV   = 0x80;
