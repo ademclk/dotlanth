@@ -197,43 +197,143 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         }
 
         // =====================================================================
-        // MEMORY (0x60-0x7F)
+        // MEMORY LOAD/STORE (0x60-0x68) - EXEC-006
         // =====================================================================
-        case opcode::LOAD: {
-            auto d = core::decode_type_a(instr);
+        case opcode::LOAD8: {
+            auto d = core::decode_type_m(instr);
             auto handle = regs.read(d.rs1).as_handle();
-            auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-            auto result = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
+            auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+            auto result = mem.read<std::uint8_t>(handle, offset);
             if (result) {
-                regs.write(d.rd, core::Value::from_raw(*result));
+                regs.write(d.rd_rs2, core::Value::from_int(static_cast<std::int64_t>(*result)));
             } else {
-                regs.write(d.rd, core::Value::nil());
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
             }
             return true;
         }
-        case opcode::STORE: {
-            auto d = core::decode_type_a(instr);
-            auto handle = regs.read(d.rd).as_handle();
-            auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-            auto value = regs.read(d.rs1).raw_bits();
-            (void)mem.write<std::uint64_t>(handle, offset * sizeof(std::uint64_t), value);
-            return true;
-        }
-        case opcode::ALLOC: {
-            auto d = core::decode_type_a(instr);
-            auto size = static_cast<std::size_t>(regs.read(d.rs1).as_integer());
-            auto result = mem.allocate(size);
+        case opcode::LOAD16: {
+            auto d = core::decode_type_m(instr);
+            auto handle = regs.read(d.rs1).as_handle();
+            auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+            if ((offset & 1) != 0) {
+                exec_ctx_.halt_with_error(ExecResult::UnalignedAccess);
+                return false;
+            }
+            auto result = mem.read<std::uint16_t>(handle, offset);
             if (result) {
-                regs.write(d.rd, core::Value::from_handle(*result));
+                regs.write(d.rd_rs2, core::Value::from_int(static_cast<std::int64_t>(*result)));
             } else {
-                regs.write(d.rd, core::Value::nil());
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
             }
             return true;
         }
-        case opcode::FREE: {
-            auto d = core::decode_type_a(instr);
+        case opcode::LOAD32: {
+            auto d = core::decode_type_m(instr);
             auto handle = regs.read(d.rs1).as_handle();
-            (void)mem.deallocate(handle);
+            auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+            if ((offset & 3) != 0) {
+                exec_ctx_.halt_with_error(ExecResult::UnalignedAccess);
+                return false;
+            }
+            auto result = mem.read<std::uint32_t>(handle, offset);
+            if (result) {
+                regs.write(d.rd_rs2, core::Value::from_int(static_cast<std::int64_t>(*result)));
+            } else {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            return true;
+        }
+        case opcode::LOAD64: {
+            auto d = core::decode_type_m(instr);
+            auto handle = regs.read(d.rs1).as_handle();
+            auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+            if ((offset & 7) != 0) {
+                exec_ctx_.halt_with_error(ExecResult::UnalignedAccess);
+                return false;
+            }
+            auto result = mem.read<std::uint64_t>(handle, offset);
+            if (result) {
+                regs.write(d.rd_rs2, core::Value::from_raw(*result));
+            } else {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            return true;
+        }
+        case opcode::STORE8: {
+            auto d = core::decode_type_m(instr);
+            auto handle = regs.read(d.rs1).as_handle();
+            auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+            auto value = static_cast<std::uint8_t>(regs.read(d.rd_rs2).as_integer());
+            auto err = mem.write<std::uint8_t>(handle, offset, value);
+            if (err != core::MemoryError::Success) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            return true;
+        }
+        case opcode::STORE16: {
+            auto d = core::decode_type_m(instr);
+            auto handle = regs.read(d.rs1).as_handle();
+            auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+            if ((offset & 1) != 0) {
+                exec_ctx_.halt_with_error(ExecResult::UnalignedAccess);
+                return false;
+            }
+            auto value = static_cast<std::uint16_t>(regs.read(d.rd_rs2).as_integer());
+            auto err = mem.write<std::uint16_t>(handle, offset, value);
+            if (err != core::MemoryError::Success) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            return true;
+        }
+        case opcode::STORE32: {
+            auto d = core::decode_type_m(instr);
+            auto handle = regs.read(d.rs1).as_handle();
+            auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+            if ((offset & 3) != 0) {
+                exec_ctx_.halt_with_error(ExecResult::UnalignedAccess);
+                return false;
+            }
+            auto value = static_cast<std::uint32_t>(regs.read(d.rd_rs2).as_integer());
+            auto err = mem.write<std::uint32_t>(handle, offset, value);
+            if (err != core::MemoryError::Success) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            return true;
+        }
+        case opcode::STORE64: {
+            auto d = core::decode_type_m(instr);
+            auto handle = regs.read(d.rs1).as_handle();
+            auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+            if ((offset & 7) != 0) {
+                exec_ctx_.halt_with_error(ExecResult::UnalignedAccess);
+                return false;
+            }
+            auto value = regs.read(d.rd_rs2).raw_bits();
+            auto err = mem.write<std::uint64_t>(handle, offset, value);
+            if (err != core::MemoryError::Success) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            return true;
+        }
+        case opcode::LEA: {
+            auto d = core::decode_type_m(instr);
+            auto handle = regs.read(d.rs1).as_handle();
+            auto ptr_result = mem.get_ptr(handle);
+            if (!ptr_result) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            auto base_addr = static_cast<std::int64_t>(reinterpret_cast<std::uintptr_t>(*ptr_result));
+            auto effective_addr = base_addr + static_cast<std::int64_t>(d.offset8);
+            regs.write(d.rd_rs2, core::Value::from_int(effective_addr));
             return true;
         }
 
@@ -310,10 +410,10 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // Control Flow (0x40-0x5F) - EXEC-005
         op_JMP, op_JZ, op_JNZ, op_BEQ, op_BNE, op_BLT, op_BLE, op_BGT, op_BGE,
         op_CALL, op_RET, op_HALT,
-        // Memory (0x60-0x7F)
-        op_LOAD, op_STORE, op_LOADB, op_STOREB,
-        op_LOADH, op_STOREH, op_LOADW, op_STOREW,
-        op_ALLOC, op_FREE, op_MEMCPY, op_MEMSET,
+        // Memory Load/Store (0x60-0x68) - EXEC-006
+        op_LOAD8, op_LOAD16, op_LOAD32, op_LOAD64,
+        op_STORE8, op_STORE16, op_STORE32, op_STORE64,
+        op_LEA,
         // Data Move (0x80-0x8F)
         op_MOV, op_MOVI, op_LOADK, op_MOVHI, op_MOVLO, op_XCHG,
         // System (0xF0-0xFF)
@@ -391,19 +491,16 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::RET]  = &&op_RET;
         dispatch_table[opcode::HALT] = &&op_HALT;
 
-        // Memory handlers (0x60-0x7F)
-        dispatch_table[opcode::LOAD]   = &&op_LOAD;
-        dispatch_table[opcode::STORE]  = &&op_STORE;
-        dispatch_table[opcode::LOADB]  = &&op_LOADB;
-        dispatch_table[opcode::STOREB] = &&op_STOREB;
-        dispatch_table[opcode::LOADH]  = &&op_LOADH;
-        dispatch_table[opcode::STOREH] = &&op_STOREH;
-        dispatch_table[opcode::LOADW]  = &&op_LOADW;
-        dispatch_table[opcode::STOREW] = &&op_STOREW;
-        dispatch_table[opcode::ALLOC]  = &&op_ALLOC;
-        dispatch_table[opcode::FREE]   = &&op_FREE;
-        dispatch_table[opcode::MEMCPY] = &&op_MEMCPY;
-        dispatch_table[opcode::MEMSET] = &&op_MEMSET;
+        // Memory Load/Store handlers (0x60-0x68) - EXEC-006
+        dispatch_table[opcode::LOAD8]   = &&op_LOAD8;
+        dispatch_table[opcode::LOAD16]  = &&op_LOAD16;
+        dispatch_table[opcode::LOAD32]  = &&op_LOAD32;
+        dispatch_table[opcode::LOAD64]  = &&op_LOAD64;
+        dispatch_table[opcode::STORE8]  = &&op_STORE8;
+        dispatch_table[opcode::STORE16] = &&op_STORE16;
+        dispatch_table[opcode::STORE32] = &&op_STORE32;
+        dispatch_table[opcode::STORE64] = &&op_STORE64;
+        dispatch_table[opcode::LEA]     = &&op_LEA;
 
         // Data move handlers (0x80-0x8F)
         dispatch_table[opcode::MOV]   = &&op_MOV;
@@ -748,125 +845,155 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     }
 
     // =========================================================================
-    // MEMORY HANDLERS (0x60-0x7F)
+    // MEMORY LOAD/STORE HANDLERS (0x60-0x68) - EXEC-006
+    // Type M format: [opcode(8)][Rd/Rs2(8)][Rs1(8)][offset8(8)]
     // =========================================================================
 
-    op_LOAD: {
-        auto d = core::decode_type_a(instr);
+    op_LOAD8: {
+        auto d = core::decode_type_m(instr);
         auto handle = regs.read(d.rs1).as_handle();
-        auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto result = mem.read<std::uint64_t>(handle, offset * sizeof(std::uint64_t));
-        if (result) {
-            regs.write(d.rd, core::Value::from_raw(*result));
-        } else {
-            regs.write(d.rd, core::Value::nil());
-        }
-        DOTVM_NEXT();
-    }
-
-    op_STORE: {
-        auto d = core::decode_type_a(instr);
-        auto handle = regs.read(d.rd).as_handle();
-        auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto val = regs.read(d.rs1).raw_bits();
-        (void)mem.write<std::uint64_t>(handle, offset * sizeof(std::uint64_t), val);
-        DOTVM_NEXT();
-    }
-
-    op_LOADB: {
-        auto d = core::decode_type_a(instr);
-        auto handle = regs.read(d.rs1).as_handle();
-        auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
+        auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
         auto result = mem.read<std::uint8_t>(handle, offset);
-        if (result) {
-            regs.write(d.rd, core::Value::from_int(*result));
+        if (result) [[likely]] {
+            regs.write(d.rd_rs2, core::Value::from_int(static_cast<std::int64_t>(*result)));
         } else {
-            regs.write(d.rd, core::Value::nil());
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
         }
         DOTVM_NEXT();
     }
 
-    op_STOREB: {
-        auto d = core::decode_type_a(instr);
-        auto handle = regs.read(d.rd).as_handle();
-        auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto val = static_cast<std::uint8_t>(regs.read(d.rs1).as_integer());
-        (void)mem.write<std::uint8_t>(handle, offset, val);
-        DOTVM_NEXT();
-    }
-
-    op_LOADH: {
-        auto d = core::decode_type_a(instr);
+    op_LOAD16: {
+        auto d = core::decode_type_m(instr);
         auto handle = regs.read(d.rs1).as_handle();
-        auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto result = mem.read<std::uint16_t>(handle, offset * sizeof(std::uint16_t));
-        if (result) {
-            regs.write(d.rd, core::Value::from_int(*result));
+        auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+        // Alignment check: 2-byte boundary
+        if ((offset & 1) != 0) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::UnalignedAccess);
+        }
+        auto result = mem.read<std::uint16_t>(handle, offset);
+        if (result) [[likely]] {
+            regs.write(d.rd_rs2, core::Value::from_int(static_cast<std::int64_t>(*result)));
         } else {
-            regs.write(d.rd, core::Value::nil());
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
         }
         DOTVM_NEXT();
     }
 
-    op_STOREH: {
-        auto d = core::decode_type_a(instr);
-        auto handle = regs.read(d.rd).as_handle();
-        auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto val = static_cast<std::uint16_t>(regs.read(d.rs1).as_integer());
-        (void)mem.write<std::uint16_t>(handle, offset * sizeof(std::uint16_t), val);
-        DOTVM_NEXT();
-    }
-
-    op_LOADW: {
-        auto d = core::decode_type_a(instr);
+    op_LOAD32: {
+        auto d = core::decode_type_m(instr);
         auto handle = regs.read(d.rs1).as_handle();
-        auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto result = mem.read<std::uint32_t>(handle, offset * sizeof(std::uint32_t));
-        if (result) {
-            regs.write(d.rd, core::Value::from_int(*result));
+        auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+        // Alignment check: 4-byte boundary
+        if ((offset & 3) != 0) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::UnalignedAccess);
+        }
+        auto result = mem.read<std::uint32_t>(handle, offset);
+        if (result) [[likely]] {
+            regs.write(d.rd_rs2, core::Value::from_int(static_cast<std::int64_t>(*result)));
         } else {
-            regs.write(d.rd, core::Value::nil());
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
         }
         DOTVM_NEXT();
     }
 
-    op_STOREW: {
-        auto d = core::decode_type_a(instr);
-        auto handle = regs.read(d.rd).as_handle();
-        auto offset = static_cast<std::size_t>(regs.read(d.rs2).as_integer());
-        auto val = static_cast<std::uint32_t>(regs.read(d.rs1).as_integer());
-        (void)mem.write<std::uint32_t>(handle, offset * sizeof(std::uint32_t), val);
-        DOTVM_NEXT();
-    }
-
-    op_ALLOC: {
-        auto d = core::decode_type_a(instr);
-        auto size = static_cast<std::size_t>(regs.read(d.rs1).as_integer());
-        auto result = mem.allocate(size);
-        if (result) {
-            regs.write(d.rd, core::Value::from_handle(*result));
-        } else {
-            regs.write(d.rd, core::Value::nil());
-        }
-        DOTVM_NEXT();
-    }
-
-    op_FREE: {
-        auto d = core::decode_type_a(instr);
+    op_LOAD64: {
+        auto d = core::decode_type_m(instr);
         auto handle = regs.read(d.rs1).as_handle();
-        (void)mem.deallocate(handle);
+        auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+        // Alignment check: 8-byte boundary
+        if ((offset & 7) != 0) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::UnalignedAccess);
+        }
+        auto result = mem.read<std::uint64_t>(handle, offset);
+        if (result) [[likely]] {
+            // Store as integer (lower 48 bits due to Value's NaN boxing)
+            regs.write(d.rd_rs2, core::Value::from_int(static_cast<std::int64_t>(*result)));
+        } else {
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+        }
         DOTVM_NEXT();
     }
 
-    op_MEMCPY: {
-        // MEMCPY rd(dest), rs1(src), rs2(size)
-        // For now, this is a stub
+    op_STORE8: {
+        auto d = core::decode_type_m(instr);
+        auto handle = regs.read(d.rs1).as_handle();
+        auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+        auto value = static_cast<std::uint8_t>(regs.read(d.rd_rs2).as_integer());
+        auto err = mem.write<std::uint8_t>(handle, offset, value);
+        if (err != core::MemoryError::Success) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+        }
         DOTVM_NEXT();
     }
 
-    op_MEMSET: {
-        // MEMSET rd(dest), rs1(value), rs2(size)
-        // For now, this is a stub
+    op_STORE16: {
+        auto d = core::decode_type_m(instr);
+        auto handle = regs.read(d.rs1).as_handle();
+        auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+        // Alignment check: 2-byte boundary
+        if ((offset & 1) != 0) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::UnalignedAccess);
+        }
+        auto value = static_cast<std::uint16_t>(regs.read(d.rd_rs2).as_integer());
+        auto err = mem.write<std::uint16_t>(handle, offset, value);
+        if (err != core::MemoryError::Success) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+        }
+        DOTVM_NEXT();
+    }
+
+    op_STORE32: {
+        auto d = core::decode_type_m(instr);
+        auto handle = regs.read(d.rs1).as_handle();
+        auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+        // Alignment check: 4-byte boundary
+        if ((offset & 3) != 0) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::UnalignedAccess);
+        }
+        auto value = static_cast<std::uint32_t>(regs.read(d.rd_rs2).as_integer());
+        auto err = mem.write<std::uint32_t>(handle, offset, value);
+        if (err != core::MemoryError::Success) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+        }
+        DOTVM_NEXT();
+    }
+
+    op_STORE64: {
+        auto d = core::decode_type_m(instr);
+        auto handle = regs.read(d.rs1).as_handle();
+        auto offset = static_cast<std::size_t>(static_cast<std::int32_t>(d.offset8));
+        // Alignment check: 8-byte boundary
+        if ((offset & 7) != 0) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::UnalignedAccess);
+        }
+        // Use as_integer() to get the value, then cast to uint64_t
+        // This sign-extends 48-bit integers properly
+        auto value = static_cast<std::uint64_t>(regs.read(d.rd_rs2).as_integer());
+        auto err = mem.write<std::uint64_t>(handle, offset, value);
+        if (err != core::MemoryError::Success) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+        }
+        DOTVM_NEXT();
+    }
+
+    op_LEA: {
+        // LEA: Rd = base_address + sign_extend(offset8)
+        // Computes effective address without memory access
+        auto d = core::decode_type_m(instr);
+        auto handle = regs.read(d.rs1).as_handle();
+
+        // Get the base address for the handle
+        auto ptr_result = mem.get_ptr(handle);
+        if (!ptr_result) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+        }
+
+        // Compute effective address (use signed arithmetic for proper offset handling)
+        auto base_addr = static_cast<std::int64_t>(reinterpret_cast<std::uintptr_t>(*ptr_result));
+        auto effective_addr = base_addr + static_cast<std::int64_t>(d.offset8);
+
+        // Store as integer (pointer address)
+        regs.write(d.rd_rs2, core::Value::from_int(effective_addr));
         DOTVM_NEXT();
     }
 

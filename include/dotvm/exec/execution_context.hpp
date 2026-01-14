@@ -24,7 +24,8 @@ enum class ExecResult : std::uint8_t {
     OutOfBounds = 4,    ///< PC out of code section bounds
     Interrupted = 5,    ///< Execution was interrupted
     DivisionByZero = 6, ///< Division by zero (if strict mode enabled)
-    MemoryError = 7     ///< Memory access error
+    MemoryError = 7,    ///< Memory access error (bounds violation, invalid handle)
+    UnalignedAccess = 8 ///< Misaligned memory access (EXEC-006)
 };
 
 /// Convert ExecResult to string representation
@@ -38,6 +39,7 @@ enum class ExecResult : std::uint8_t {
         case ExecResult::Interrupted:    return "Interrupted";
         case ExecResult::DivisionByZero: return "DivisionByZero";
         case ExecResult::MemoryError:    return "MemoryError";
+        case ExecResult::UnalignedAccess: return "UnalignedAccess";
     }
     return "Unknown";
 }

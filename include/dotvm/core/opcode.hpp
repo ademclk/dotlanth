@@ -207,6 +207,45 @@ inline constexpr std::uint8_t RET = 0x51;
 inline constexpr std::uint8_t HALT = 0x5F;
 
 // ============================================================================
+// Memory Load/Store Operations (0x60-0x68) - EXEC-006
+// Type M format: [opcode(8)][Rd/Rs2(8)][Rs1(8)][offset8(8)]
+// - LOAD: Rd = mem[Rs1 + offset8]; Rs1 holds memory handle
+// - STORE: mem[Rs1 + offset8] = Rs2; Rs1 holds memory handle
+// - Alignment: 2-byte for 16-bit, 4-byte for 32-bit, 8-byte for 64-bit
+// - Misaligned access results in UnalignedAccess error
+// ============================================================================
+
+/// LOAD8: Rd = zero_extend(mem[handle + offset8]); loads 1 byte
+inline constexpr std::uint8_t LOAD8 = 0x60;
+
+/// LOAD16: Rd = zero_extend(mem[handle + offset8]); loads 2 bytes (2-byte aligned)
+inline constexpr std::uint8_t LOAD16 = 0x61;
+
+/// LOAD32: Rd = zero_extend(mem[handle + offset8]); loads 4 bytes (4-byte aligned)
+inline constexpr std::uint8_t LOAD32 = 0x62;
+
+/// LOAD64: Rd = mem[handle + offset8]; loads 8 bytes (8-byte aligned)
+inline constexpr std::uint8_t LOAD64 = 0x63;
+
+/// STORE8: mem[handle + offset8] = Rs2[7:0]; stores 1 byte
+inline constexpr std::uint8_t STORE8 = 0x64;
+
+/// STORE16: mem[handle + offset8] = Rs2[15:0]; stores 2 bytes (2-byte aligned)
+inline constexpr std::uint8_t STORE16 = 0x65;
+
+/// STORE32: mem[handle + offset8] = Rs2[31:0]; stores 4 bytes (4-byte aligned)
+inline constexpr std::uint8_t STORE32 = 0x66;
+
+/// STORE64: mem[handle + offset8] = Rs2; stores 8 bytes (8-byte aligned)
+inline constexpr std::uint8_t STORE64 = 0x67;
+
+/// LEA: Rd = effective_address(handle, offset8); Load Effective Address
+inline constexpr std::uint8_t LEA = 0x68;
+
+/// First reserved memory opcode (after EXEC-006 opcodes)
+inline constexpr std::uint8_t MEMORY_RESERVED_START = 0x69;
+
+// ============================================================================
 // System opcodes (0xF0-0xFF) - Essential for execution
 // ============================================================================
 
@@ -267,6 +306,24 @@ inline constexpr std::uint8_t NOP = 0xF0;
 /// Sign-extend a 16-bit immediate to 64-bit
 [[nodiscard]] constexpr std::int64_t sign_extend_imm16(std::uint16_t imm) noexcept {
     return static_cast<std::int64_t>(static_cast<std::int16_t>(imm));
+}
+
+/// Check if opcode is a EXEC-006 typed memory load/store operation (Type M)
+/// Includes: LOAD8, LOAD16, LOAD32, LOAD64, STORE8, STORE16, STORE32, STORE64, LEA
+[[nodiscard]] constexpr bool is_typed_memory_op(std::uint8_t op) noexcept {
+    return op >= opcode::LOAD8 && op <= opcode::LEA;
+}
+
+/// Check if opcode is a LOAD operation (Type M)
+/// Includes: LOAD8, LOAD16, LOAD32, LOAD64
+[[nodiscard]] constexpr bool is_load_op(std::uint8_t op) noexcept {
+    return op >= opcode::LOAD8 && op <= opcode::LOAD64;
+}
+
+/// Check if opcode is a STORE operation (Type M)
+/// Includes: STORE8, STORE16, STORE32, STORE64
+[[nodiscard]] constexpr bool is_store_op(std::uint8_t op) noexcept {
+    return op >= opcode::STORE8 && op <= opcode::STORE64;
 }
 
 }  // namespace dotvm::core

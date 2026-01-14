@@ -98,7 +98,9 @@ enum class InstructionType : std::uint8_t {
     TypeA = 0,  // Register-Register: [opcode][Rd][Rs1][Rs2]
     TypeB = 1,  // Register-Immediate: [opcode][Rd][imm16]
     TypeC = 2,  // Offset/Jump: [opcode][offset24]
-    TypeS = 3   // Shift-Immediate: [opcode][Rd][Rs1][shamt6]
+    TypeS = 3,  // Shift-Immediate: [opcode][Rd][Rs1][shamt6]
+    TypeD = 4,  // Jump with test: [opcode][Rs][offset16] (EXEC-005)
+    TypeM = 5   // Memory Load/Store: [opcode][Rd/Rs2][Rs1][offset8] (EXEC-006)
 };
 
 // Decoded Type A instruction: Register-Register operations
@@ -154,11 +156,25 @@ struct DecodedTypeD {
     constexpr bool operator==(const DecodedTypeD&) const noexcept = default;
 };
 
+// Decoded Type M instruction: Memory Load/Store operations (EXEC-006)
+// Layout: [31:24]=opcode [23:16]=Rd/Rs2 [15:8]=Rs1 [7:0]=offset8 (signed)
+// - For LOAD/LEA: Rd = destination register, Rs1 = base handle, offset8 = signed offset
+// - For STORE: Rs2 = source value register, Rs1 = base handle, offset8 = signed offset
+struct DecodedTypeM {
+    std::uint8_t opcode;
+    std::uint8_t rd_rs2;   // Destination (LOAD/LEA) or Source value (STORE)
+    std::uint8_t rs1;      // Base handle register
+    std::int8_t offset8;   // Signed 8-bit offset (-128 to +127)
+
+    constexpr bool operator==(const DecodedTypeM&) const noexcept = default;
+};
+
 static_assert(sizeof(DecodedTypeA) == 4, "DecodedTypeA must be 4 bytes");
 static_assert(sizeof(DecodedTypeB) == 4, "DecodedTypeB must be 4 bytes");
 static_assert(sizeof(DecodedTypeC) == 8, "DecodedTypeC is 8 bytes due to alignment");
 static_assert(sizeof(DecodedTypeS) == 4, "DecodedTypeS must be 4 bytes");
 static_assert(sizeof(DecodedTypeD) == 4, "DecodedTypeD must be 4 bytes");
+static_assert(sizeof(DecodedTypeM) == 4, "DecodedTypeM must be 4 bytes");
 
 // --- Decoding Functions ---
 
@@ -244,6 +260,20 @@ static_assert(sizeof(DecodedTypeD) == 4, "DecodedTypeD must be 4 bytes");
     };
 }
 
+// Type M Decoder: [31:24]=opcode, [23:16]=Rd/Rs2, [15:8]=Rs1, [7:0]=offset8 (signed)
+// Used for memory load/store operations (EXEC-006)
+[[nodiscard]] constexpr DecodedTypeM decode_type_m(std::uint32_t instr) noexcept {
+    return DecodedTypeM{
+        .opcode = static_cast<std::uint8_t>(
+            (instr >> instr_bits::OPCODE_SHIFT) & instr_bits::OPCODE_MASK),
+        .rd_rs2 = static_cast<std::uint8_t>(
+            (instr >> instr_bits::RD_SHIFT) & instr_bits::REG_MASK),
+        .rs1 = static_cast<std::uint8_t>(
+            (instr >> instr_bits::RS1_SHIFT) & instr_bits::REG_MASK),
+        .offset8 = static_cast<std::int8_t>(instr & 0xFFU)
+    };
+}
+
 // --- Encoding Functions ---
 
 // Type A Encoder: register-register
@@ -305,6 +335,19 @@ static_assert(sizeof(DecodedTypeD) == 4, "DecodedTypeD must be 4 bytes");
     return (static_cast<std::uint32_t>(opcode) << instr_bits::OPCODE_SHIFT) |
            (static_cast<std::uint32_t>(rs) << instr_bits::RD_SHIFT) |
            (static_cast<std::uint32_t>(static_cast<std::uint16_t>(offset16)) & instr_bits::IMM16_MASK);
+}
+
+// Type M Encoder: memory load/store (EXEC-006)
+// Layout: [31:24]=opcode [23:16]=Rd/Rs2 [15:8]=Rs1 [7:0]=offset8
+[[nodiscard]] constexpr std::uint32_t encode_type_m(
+    std::uint8_t opcode,
+    std::uint8_t rd_rs2,
+    std::uint8_t rs1,
+    std::int8_t offset8) noexcept {
+    return (static_cast<std::uint32_t>(opcode) << instr_bits::OPCODE_SHIFT) |
+           (static_cast<std::uint32_t>(rd_rs2) << instr_bits::RD_SHIFT) |
+           (static_cast<std::uint32_t>(rs1) << instr_bits::RS1_SHIFT) |
+           (static_cast<std::uint32_t>(static_cast<std::uint8_t>(offset8)));
 }
 
 // --- Opcode Classification Functions ---
