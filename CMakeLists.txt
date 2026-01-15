@@ -105,6 +105,8 @@ add_library(dotvm_core STATIC
     # Crypto subsystem
     src/dotvm/core/crypto/sha256.cpp
     src/dotvm/core/crypto/aes.cpp
+    # JIT subsystem (EXEC-012)
+    src/dotvm/jit/copy_patch_templates_x86_64.cpp
 )
 
 target_include_directories(dotvm_core PUBLIC
@@ -232,6 +234,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/crypto/aes_test.cpp
         # Test utilities and mock tests
         tests/dotvm/test_utils/mock_test.cpp
+        # JIT subsystem tests (EXEC-012)
+        tests/dotvm/jit/jit_cache_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE
