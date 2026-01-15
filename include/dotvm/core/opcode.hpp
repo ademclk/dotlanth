@@ -167,6 +167,61 @@ inline constexpr std::uint8_t XORI = 0x2E;
 inline constexpr std::uint8_t BITWISE_RESERVED = 0x2F;
 
 // ============================================================================
+// Comparison Operations (0x30-0x3F) - EXEC-009
+// Type A (register-register): [opcode][Rd][Rs1][Rs2]
+// Type B (immediate): [opcode][Rd][imm16] - accumulator style
+// Result: 1 if condition true, 0 if false
+// ============================================================================
+
+/// EQ: Rd = (Rs1 == Rs2) ? 1 : 0 (Type A)
+inline constexpr std::uint8_t EQ = 0x30;
+
+/// NE: Rd = (Rs1 != Rs2) ? 1 : 0 (Type A)
+inline constexpr std::uint8_t NE = 0x31;
+
+/// LT: Rd = (Rs1 < Rs2) ? 1 : 0 (signed, Type A)
+inline constexpr std::uint8_t LT = 0x32;
+
+/// LE: Rd = (Rs1 <= Rs2) ? 1 : 0 (signed, Type A)
+inline constexpr std::uint8_t LE = 0x33;
+
+/// GT: Rd = (Rs1 > Rs2) ? 1 : 0 (signed, Type A)
+inline constexpr std::uint8_t GT = 0x34;
+
+/// GE: Rd = (Rs1 >= Rs2) ? 1 : 0 (signed, Type A)
+inline constexpr std::uint8_t GE = 0x35;
+
+/// LTU: Rd = (Rs1 < Rs2) ? 1 : 0 (unsigned, Type A)
+inline constexpr std::uint8_t LTU = 0x36;
+
+/// LEU: Rd = (Rs1 <= Rs2) ? 1 : 0 (unsigned, Type A)
+inline constexpr std::uint8_t LEU = 0x37;
+
+/// GTU: Rd = (Rs1 > Rs2) ? 1 : 0 (unsigned, Type A)
+inline constexpr std::uint8_t GTU = 0x38;
+
+/// GEU: Rd = (Rs1 >= Rs2) ? 1 : 0 (unsigned, Type A)
+inline constexpr std::uint8_t GEU = 0x39;
+
+/// TEST: Rd = ((Rs1 & Rs2) != 0) ? 1 : 0 (Type A)
+inline constexpr std::uint8_t TEST = 0x3A;
+
+/// CMPI_EQ: Rd = (Rd == sign_extend(imm16)) ? 1 : 0 (Type B)
+inline constexpr std::uint8_t CMPI_EQ = 0x3B;
+
+/// CMPI_NE: Rd = (Rd != sign_extend(imm16)) ? 1 : 0 (Type B)
+inline constexpr std::uint8_t CMPI_NE = 0x3C;
+
+/// CMPI_LT: Rd = (Rd < sign_extend(imm16)) ? 1 : 0 (signed, Type B)
+inline constexpr std::uint8_t CMPI_LT = 0x3D;
+
+/// CMPI_GE: Rd = (Rd >= sign_extend(imm16)) ? 1 : 0 (signed, Type B)
+inline constexpr std::uint8_t CMPI_GE = 0x3E;
+
+/// Reserved comparison opcode
+inline constexpr std::uint8_t COMPARISON_RESERVED = 0x3F;
+
+// ============================================================================
 // Control Flow (0x40-0x5F) - EXEC-005
 // ============================================================================
 
@@ -324,6 +379,24 @@ inline constexpr std::uint8_t NOP = 0xF0;
 /// Includes: STORE8, STORE16, STORE32, STORE64
 [[nodiscard]] constexpr bool is_store_op(std::uint8_t op) noexcept {
     return op >= opcode::STORE8 && op <= opcode::STORE64;
+}
+
+/// Check if opcode is a comparison instruction (0x30-0x3E) - EXEC-009
+/// Includes: EQ, NE, LT, LE, GT, GE, LTU, LEU, GTU, GEU, TEST, CMPI_*
+[[nodiscard]] constexpr bool is_comparison_op(std::uint8_t op) noexcept {
+    return op >= opcode::EQ && op <= opcode::CMPI_GE;
+}
+
+/// Check if opcode is a Type A comparison instruction (register-register)
+/// Includes: EQ, NE, LT, LE, GT, GE, LTU, LEU, GTU, GEU, TEST
+[[nodiscard]] constexpr bool is_type_a_comparison(std::uint8_t op) noexcept {
+    return op >= opcode::EQ && op <= opcode::TEST;
+}
+
+/// Check if opcode is a Type B comparison instruction (immediate)
+/// Includes: CMPI_EQ, CMPI_NE, CMPI_LT, CMPI_GE
+[[nodiscard]] constexpr bool is_comparison_imm_op(std::uint8_t op) noexcept {
+    return op >= opcode::CMPI_EQ && op <= opcode::CMPI_GE;
 }
 
 }  // namespace dotvm::core
