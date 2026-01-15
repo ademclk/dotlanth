@@ -411,6 +411,24 @@ public:
         return Value::from_int(au >= bu ? 1 : 0);
     }
 
+    // =========================================================================
+    // Bitwise Test Operation - EXEC-009
+    // =========================================================================
+
+    /// Test if bitwise AND is non-zero
+    ///
+    /// Performs bitwise AND of two values and checks if the result is non-zero.
+    /// Useful for testing if specific bits are set in a register.
+    ///
+    /// @param a First operand (integer)
+    /// @param b Second operand (integer)
+    /// @return 1 if (a & b) != 0, 0 otherwise
+    [[nodiscard]] constexpr Value test(Value a, Value b) const noexcept {
+        auto result = a.as_integer() & b.as_integer();
+        result = arch_config::mask_int(result, arch_);
+        return Value::from_int(result != 0 ? 1 : 0);
+    }
+
 private:
     Architecture arch_;
 };

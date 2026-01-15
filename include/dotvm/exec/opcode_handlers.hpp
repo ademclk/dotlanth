@@ -42,7 +42,7 @@ namespace dotvm::exec {
     X(ABS, abs)     \
     X(NOT, bit_not)
 
-/// Type A Comparison Operations (rd = cmp_op(rs1, rs2))
+/// Type A Comparison Operations (rd = cmp_op(rs1, rs2)) - EXEC-009
 /// Format: X(OPCODE_NAME, alu_method)
 #define DOTVM_TYPE_A_COMPARISON_OPS(X) \
     X(EQ,  cmp_eq)  \
@@ -54,7 +54,16 @@ namespace dotvm::exec {
     X(LTU, cmp_ltu) \
     X(LEU, cmp_leu) \
     X(GTU, cmp_gtu) \
-    X(GEU, cmp_geu)
+    X(GEU, cmp_geu) \
+    X(TEST, test)
+
+/// Type B Immediate Comparison (rd = cmp_op(rd, sign_extend(imm16))) - EXEC-009
+/// Format: X(OPCODE_NAME, alu_method)
+#define DOTVM_TYPE_B_CMP_IMM_OPS(X) \
+    X(CMPI_EQ, cmp_eq) \
+    X(CMPI_NE, cmp_ne) \
+    X(CMPI_LT, cmp_lt) \
+    X(CMPI_GE, cmp_ge)
 
 /// Type B Immediate Arithmetic (rd = op(rd, sign_extend(imm16)))
 /// Format: X(OPCODE_NAME, alu_method)
@@ -159,6 +168,15 @@ namespace dotvm::exec {
         auto imm = core::Value::from_int(d.imm16);   \
         regs.write(d.rd, alu.ALU_OP(regs.read(d.rd), imm)); \
         return true;                                 \
+    }
+
+/// Generate a switch case for Type B immediate comparison (sign-extend imm16) - EXEC-009
+#define DOTVM_SWITCH_TYPE_B_CMP_IMM(NAME, ALU_OP) \
+    case opcode::NAME: {                           \
+        auto d = core::decode_type_b(instr);       \
+        auto imm = core::Value::from_int(static_cast<std::int16_t>(d.imm16)); \
+        regs.write(d.rd, alu.ALU_OP(regs.read(d.rd), imm)); \
+        return true;                               \
     }
 
 }  // namespace dotvm::exec

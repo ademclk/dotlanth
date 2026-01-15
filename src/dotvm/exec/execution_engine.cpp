@@ -100,6 +100,9 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         // Type B Immediate Bitwise (rd = op(rd, zero_extend(imm16)))
         DOTVM_TYPE_B_BITWISE_IMM_OPS(DOTVM_SWITCH_TYPE_B_BITWISE_IMM)
 
+        // Type B Immediate Comparison (rd = cmp_op(rd, sign_extend(imm16))) - EXEC-009
+        DOTVM_TYPE_B_CMP_IMM_OPS(DOTVM_SWITCH_TYPE_B_CMP_IMM)
+
         // =====================================================================
         // CONTROL FLOW (0x40-0x5F) - EXEC-005
         // =====================================================================
@@ -465,9 +468,10 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // Bitwise (0x20-0x2F)
         op_AND, op_OR, op_XOR, op_NOT, op_SHL, op_SHR, op_SAR,
         op_ANDI, op_ORI, op_XORI,
-        // Comparison (0x30-0x3F)
+        // Comparison (0x30-0x3F) - EXEC-009
         op_EQ, op_NE, op_LT, op_LE, op_GT, op_GE,
         op_LTU, op_LEU, op_GTU, op_GEU,
+        op_TEST, op_CMPI_EQ, op_CMPI_NE, op_CMPI_LT, op_CMPI_GE,
         // Control Flow (0x40-0x5F) - EXEC-005
         op_JMP, op_JZ, op_JNZ, op_BEQ, op_BNE, op_BLT, op_BLE, op_BGT, op_BGE,
         op_CALL, op_RET, op_HALT,
@@ -526,7 +530,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::ORI]  = &&op_ORI;
         dispatch_table[opcode::XORI] = &&op_XORI;
 
-        // Comparison handlers (0x30-0x3F)
+        // Comparison handlers (0x30-0x3F) - EXEC-009
         dispatch_table[opcode::EQ]  = &&op_EQ;
         dispatch_table[opcode::NE]  = &&op_NE;
         dispatch_table[opcode::LT]  = &&op_LT;
@@ -537,6 +541,11 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::LEU] = &&op_LEU;
         dispatch_table[opcode::GTU] = &&op_GTU;
         dispatch_table[opcode::GEU] = &&op_GEU;
+        dispatch_table[opcode::TEST]    = &&op_TEST;
+        dispatch_table[opcode::CMPI_EQ] = &&op_CMPI_EQ;
+        dispatch_table[opcode::CMPI_NE] = &&op_CMPI_NE;
+        dispatch_table[opcode::CMPI_LT] = &&op_CMPI_LT;
+        dispatch_table[opcode::CMPI_GE] = &&op_CMPI_GE;
 
         // Control flow handlers (0x40-0x5F) - EXEC-005
         dispatch_table[opcode::JMP]  = &&op_JMP;
@@ -786,6 +795,40 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     op_GEU: {
         auto d = core::decode_type_a(instr);
         regs.write(d.rd, alu.cmp_geu(regs.read(d.rs1), regs.read(d.rs2)));
+        DOTVM_NEXT();
+    }
+
+    op_TEST: {
+        auto d = core::decode_type_a(instr);
+        regs.write(d.rd, alu.test(regs.read(d.rs1), regs.read(d.rs2)));
+        DOTVM_NEXT();
+    }
+
+    op_CMPI_EQ: {
+        auto d = core::decode_type_b(instr);
+        auto imm = core::Value::from_int(static_cast<std::int16_t>(d.imm16));
+        regs.write(d.rd, alu.cmp_eq(regs.read(d.rd), imm));
+        DOTVM_NEXT();
+    }
+
+    op_CMPI_NE: {
+        auto d = core::decode_type_b(instr);
+        auto imm = core::Value::from_int(static_cast<std::int16_t>(d.imm16));
+        regs.write(d.rd, alu.cmp_ne(regs.read(d.rd), imm));
+        DOTVM_NEXT();
+    }
+
+    op_CMPI_LT: {
+        auto d = core::decode_type_b(instr);
+        auto imm = core::Value::from_int(static_cast<std::int16_t>(d.imm16));
+        regs.write(d.rd, alu.cmp_lt(regs.read(d.rd), imm));
+        DOTVM_NEXT();
+    }
+
+    op_CMPI_GE: {
+        auto d = core::decode_type_b(instr);
+        auto imm = core::Value::from_int(static_cast<std::int16_t>(d.imm16));
+        regs.write(d.rd, alu.cmp_ge(regs.read(d.rd), imm));
         DOTVM_NEXT();
     }
 

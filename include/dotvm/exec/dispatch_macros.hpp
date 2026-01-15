@@ -180,7 +180,7 @@ namespace opcode {
     inline constexpr std::uint8_t ORI   = 0x2D;  // MOVED from 0x29
     inline constexpr std::uint8_t XORI  = 0x2E;  // MOVED from 0x2A
 
-    // Comparison (0x30-0x3F)
+    // Comparison (0x30-0x3F) - EXEC-009
     inline constexpr std::uint8_t EQ    = 0x30;
     inline constexpr std::uint8_t NE    = 0x31;
     inline constexpr std::uint8_t LT    = 0x32;
@@ -191,6 +191,11 @@ namespace opcode {
     inline constexpr std::uint8_t LEU   = 0x37;
     inline constexpr std::uint8_t GTU   = 0x38;
     inline constexpr std::uint8_t GEU   = 0x39;
+    inline constexpr std::uint8_t TEST    = 0x3A;  // Bitwise test: (Rs1 & Rs2) != 0
+    inline constexpr std::uint8_t CMPI_EQ = 0x3B;  // Compare immediate equal
+    inline constexpr std::uint8_t CMPI_NE = 0x3C;  // Compare immediate not equal
+    inline constexpr std::uint8_t CMPI_LT = 0x3D;  // Compare immediate less than (signed)
+    inline constexpr std::uint8_t CMPI_GE = 0x3E;  // Compare immediate greater or equal (signed)
 
     // Control Flow (0x40-0x5F) - EXEC-005
     inline constexpr std::uint8_t JMP   = 0x40;  // Unconditional jump (Type C, 24-bit offset)
