@@ -114,6 +114,9 @@ target_include_directories(dotvm_core PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+# Enable position-independent code for dotvm_core since it's linked into shared library
+set_property(TARGET dotvm_core PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
 # Suppress pedantic warning for computed-goto in execution engine
@@ -236,6 +239,7 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/test_utils/mock_test.cpp
         # JIT subsystem tests (EXEC-012)
         tests/dotvm/jit/jit_cache_test.cpp
+        tests/dotvm/jit/profiling_context_test.cpp
     )
 
     target_link_libraries(dotvm_tests PRIVATE

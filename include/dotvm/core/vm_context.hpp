@@ -22,6 +22,8 @@
 #include "simd/vector_register_file.hpp"
 #include "simd/simd_alu.hpp"
 #include "simd/cpu_features.hpp"
+#include "../jit/jit_types.hpp"
+#include "../jit/profiling_context.hpp"
 
 #include <optional>
 
@@ -140,6 +142,16 @@ struct VmConfig {
     /// When false (default), SIMD operations are disabled and vector
     /// registers/ALU are not initialized.
     bool simd_enabled = false;
+
+    // =========================================================================
+    // JIT Configuration (EXEC-012)
+    // =========================================================================
+
+    /// JIT configuration
+    ///
+    /// When jit_enabled is true, the profiling context tracks function calls
+    /// and loop iterations to identify hot code paths for JIT compilation.
+    jit::JITConfig jit_config{};
 
     /// Creates a default configuration for the given architecture
     [[nodiscard]] static constexpr VmConfig for_arch(Architecture arch) noexcept {
@@ -279,6 +291,11 @@ public:
         // Initialize SIMD if enabled
         if (config.simd_enabled) {
             initialize_simd(config.simd_width);
+        }
+
+        // Initialize JIT profiling if enabled (EXEC-012)
+        if (config.jit_config.enabled) {
+            profiling_ctx_.set_enabled(true);
         }
     }
 
@@ -506,19 +523,56 @@ public:
     }
 
     // =========================================================================
+    // JIT Profiling Access (EXEC-012)
+    // =========================================================================
+
+    /// Check if JIT profiling is enabled
+    ///
+    /// @return true if JIT profiling is active and tracking hot code paths
+    [[nodiscard]] bool jit_profiling_enabled() const noexcept {
+        return profiling_ctx_.is_enabled();
+    }
+
+    /// Enable or disable JIT profiling
+    ///
+    /// @param enabled Whether to enable profiling
+    void set_jit_profiling(bool enabled) noexcept {
+        profiling_ctx_.set_enabled(enabled);
+    }
+
+    /// Get mutable reference to the profiling context
+    ///
+    /// The profiling context tracks function call counts and loop iterations
+    /// to identify hot code paths that should be JIT compiled.
+    [[nodiscard]] jit::ProfilingContext& profiling() noexcept {
+        return profiling_ctx_;
+    }
+
+    /// Get const reference to the profiling context
+    [[nodiscard]] const jit::ProfilingContext& profiling() const noexcept {
+        return profiling_ctx_;
+    }
+
+    /// Get the JIT configuration
+    [[nodiscard]] const jit::JITConfig& jit_config() const noexcept {
+        return config_.jit_config;
+    }
+
+    // =========================================================================
     // State Management
     // =========================================================================
 
     /// Reset the context to initial state
     ///
     /// Clears all registers (scalar and vector), call stack, exception context,
-    /// and CFI state. Memory allocations persist until deallocated individually.
-    /// Configuration is preserved.
+    /// CFI state, and profiling data. Memory allocations persist until
+    /// deallocated individually. Configuration is preserved.
     void reset() noexcept {
         regs_.clear();
         vec_regs_.clear();
         call_stack_.clear();
         exception_ctx_.clear();
+        profiling_ctx_.reset();
         if (cfi_) {
             cfi_->reset();
         }
@@ -590,6 +644,9 @@ private:
     std::unique_ptr<simd::SimdAlu> simd_alu_;
     bool simd_enabled_ = false;
     Architecture simd_arch_ = Architecture::Arch64;
+
+    // JIT support (EXEC-012)
+    jit::ProfilingContext profiling_ctx_;
 };
 
 }  // namespace dotvm::core

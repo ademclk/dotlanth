@@ -120,6 +120,9 @@ struct JITConfig {
 
     /// Target architecture (auto-detected by default)
     TargetArch target_arch{current_target_arch()};
+
+    /// Equality comparison (for VmConfig equality)
+    constexpr bool operator==(const JITConfig&) const noexcept = default;
 };
 
 /// Result of a JIT compilation attempt

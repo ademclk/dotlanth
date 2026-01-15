@@ -115,20 +115,43 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         // =====================================================================
         case opcode::JMP: {
             auto d = core::decode_type_c(instr);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (d.offset24 < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + d.offset24);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
             exec_ctx_.jump_relative(d.offset24 - 1);  // -1 because pc already advanced
             return true;
         }
         case opcode::JZ: {
             auto d = core::decode_type_d(instr);
             if (regs.read(d.rs).as_integer() == 0) {
-                exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
+                auto offset = static_cast<std::int32_t>(d.offset16);
+                // EXEC-012: Record backward branch for JIT profiling
+                if (offset < 0) {
+                    auto branch_pc = exec_ctx_.pc - 1;
+                    auto target_pc = static_cast<std::size_t>(
+                        static_cast<std::int64_t>(branch_pc) + offset);
+                    (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+                }
+                exec_ctx_.jump_relative(offset - 1);
             }
             return true;
         }
         case opcode::JNZ: {
             auto d = core::decode_type_d(instr);
             if (regs.read(d.rs).as_integer() != 0) {
-                exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
+                auto offset = static_cast<std::int32_t>(d.offset16);
+                // EXEC-012: Record backward branch for JIT profiling
+                if (offset < 0) {
+                    auto branch_pc = exec_ctx_.pc - 1;
+                    auto target_pc = static_cast<std::size_t>(
+                        static_cast<std::int64_t>(branch_pc) + offset);
+                    (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+                }
+                exec_ctx_.jump_relative(offset - 1);
             }
             return true;
         }
@@ -136,6 +159,13 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() == regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: Record backward branch for JIT profiling
+                if (offset < 0) {
+                    auto branch_pc = exec_ctx_.pc - 1;
+                    auto target_pc = static_cast<std::size_t>(
+                        static_cast<std::int64_t>(branch_pc) + offset);
+                    (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -144,6 +174,13 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() != regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: Record backward branch for JIT profiling
+                if (offset < 0) {
+                    auto branch_pc = exec_ctx_.pc - 1;
+                    auto target_pc = static_cast<std::size_t>(
+                        static_cast<std::int64_t>(branch_pc) + offset);
+                    (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -152,6 +189,13 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() < regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: Record backward branch for JIT profiling
+                if (offset < 0) {
+                    auto branch_pc = exec_ctx_.pc - 1;
+                    auto target_pc = static_cast<std::size_t>(
+                        static_cast<std::int64_t>(branch_pc) + offset);
+                    (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -160,6 +204,13 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() <= regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: Record backward branch for JIT profiling
+                if (offset < 0) {
+                    auto branch_pc = exec_ctx_.pc - 1;
+                    auto target_pc = static_cast<std::size_t>(
+                        static_cast<std::int64_t>(branch_pc) + offset);
+                    (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -168,6 +219,13 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() > regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: Record backward branch for JIT profiling
+                if (offset < 0) {
+                    auto branch_pc = exec_ctx_.pc - 1;
+                    auto target_pc = static_cast<std::size_t>(
+                        static_cast<std::int64_t>(branch_pc) + offset);
+                    (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -176,12 +234,24 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() >= regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: Record backward branch for JIT profiling
+                if (offset < 0) {
+                    auto branch_pc = exec_ctx_.pc - 1;
+                    auto target_pc = static_cast<std::size_t>(
+                        static_cast<std::int64_t>(branch_pc) + offset);
+                    (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
         }
         case opcode::CALL: {
             auto d = core::decode_type_c(instr);
+
+            // EXEC-012: Record function call for JIT profiling
+            auto target_pc = static_cast<std::size_t>(
+                static_cast<std::int64_t>(exec_ctx_.pc - 1) + d.offset24);
+            (void)vm_ctx_.profiling().record_call(target_pc);
 
             // EXEC-007: Save callee-saved registers R16-R31
             std::array<core::Value, core::reg_range::CALLEE_SAVED_COUNT> saved_regs;
@@ -963,6 +1033,13 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
 
     op_JMP: {
         auto d = core::decode_type_c(instr);
+        // EXEC-012: Record backward branch for JIT profiling (potential loop)
+        if (d.offset24 < 0) {
+            auto branch_pc = exec_ctx_.pc - 1;  // PC of the JMP instruction
+            auto target_pc = static_cast<std::size_t>(
+                static_cast<std::int64_t>(branch_pc) + d.offset24);
+            (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+        }
         exec_ctx_.jump_relative(d.offset24 - 1);
         DOTVM_NEXT();
     }
@@ -970,7 +1047,15 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     op_JZ: {
         auto d = core::decode_type_d(instr);
         if (regs.read(d.rs).as_integer() == 0) {
-            exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
+            auto offset = static_cast<std::int32_t>(d.offset16);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (offset < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + offset);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
+            exec_ctx_.jump_relative(offset - 1);
         }
         DOTVM_NEXT();
     }
@@ -978,7 +1063,15 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     op_JNZ: {
         auto d = core::decode_type_d(instr);
         if (regs.read(d.rs).as_integer() != 0) {
-            exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
+            auto offset = static_cast<std::int32_t>(d.offset16);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (offset < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + offset);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
+            exec_ctx_.jump_relative(offset - 1);
         }
         DOTVM_NEXT();
     }
@@ -987,6 +1080,13 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         if (regs.read(d.rd).as_integer() == regs.read(d.rs1).as_integer()) {
             auto offset = static_cast<std::int8_t>(d.rs2);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (offset < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + offset);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
             exec_ctx_.jump_relative(offset - 1);
         }
         DOTVM_NEXT();
@@ -996,6 +1096,13 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         if (regs.read(d.rd).as_integer() != regs.read(d.rs1).as_integer()) {
             auto offset = static_cast<std::int8_t>(d.rs2);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (offset < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + offset);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
             exec_ctx_.jump_relative(offset - 1);
         }
         DOTVM_NEXT();
@@ -1005,6 +1112,13 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         if (regs.read(d.rd).as_integer() < regs.read(d.rs1).as_integer()) {
             auto offset = static_cast<std::int8_t>(d.rs2);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (offset < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + offset);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
             exec_ctx_.jump_relative(offset - 1);
         }
         DOTVM_NEXT();
@@ -1014,6 +1128,13 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         if (regs.read(d.rd).as_integer() <= regs.read(d.rs1).as_integer()) {
             auto offset = static_cast<std::int8_t>(d.rs2);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (offset < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + offset);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
             exec_ctx_.jump_relative(offset - 1);
         }
         DOTVM_NEXT();
@@ -1023,6 +1144,13 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         if (regs.read(d.rd).as_integer() > regs.read(d.rs1).as_integer()) {
             auto offset = static_cast<std::int8_t>(d.rs2);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (offset < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + offset);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
             exec_ctx_.jump_relative(offset - 1);
         }
         DOTVM_NEXT();
@@ -1032,6 +1160,13 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         auto d = core::decode_type_a(instr);
         if (regs.read(d.rd).as_integer() >= regs.read(d.rs1).as_integer()) {
             auto offset = static_cast<std::int8_t>(d.rs2);
+            // EXEC-012: Record backward branch for JIT profiling
+            if (offset < 0) {
+                auto branch_pc = exec_ctx_.pc - 1;
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(branch_pc) + offset);
+                (void)vm_ctx_.profiling().record_backward_branch(branch_pc, target_pc);
+            }
             exec_ctx_.jump_relative(offset - 1);
         }
         DOTVM_NEXT();
@@ -1039,6 +1174,12 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
 
     op_CALL: {
         auto d = core::decode_type_c(instr);
+
+        // EXEC-012: Record function call for JIT profiling
+        // Calculate target PC (current PC + offset, where PC was already advanced)
+        auto target_pc = static_cast<std::size_t>(
+            static_cast<std::int64_t>(exec_ctx_.pc - 1) + d.offset24);
+        (void)vm_ctx_.profiling().record_call(target_pc);
 
         // EXEC-007: Save callee-saved registers R16-R31
         std::array<core::Value, core::reg_range::CALLEE_SAVED_COUNT> saved_regs;
