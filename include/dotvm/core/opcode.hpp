@@ -258,6 +258,45 @@ inline constexpr std::uint8_t CALL = 0x50;
 /// RET: pop return address from CFI stack, PC = return_addr
 inline constexpr std::uint8_t RET = 0x51;
 
+// ============================================================================
+// Exception Handling (0x52-0x55) - EXEC-011
+// TRY/CATCH/THROW/ENDTRY for structured exception handling
+// ============================================================================
+
+/// TRY: Push exception handler frame (Type B)
+/// Format: [TRY][handler_offset16][catch_types8]
+/// - handler_offset16: Signed offset to CATCH handler from current PC
+/// - catch_types8: Bitmask of exception types to catch (see catch_mask)
+/// Pushes an ExceptionFrame with handler_pc = pc + offset, current call stack depth
+inline constexpr std::uint8_t TRY = 0x52;
+
+/// CATCH: Exception handler entry marker (Type C)
+/// Format: [CATCH][24-bit reserved]
+/// Marks the start of an exception handler block. During normal execution,
+/// this is a NOP. The handler code follows immediately after this instruction.
+/// When an exception is caught, execution jumps here and the exception
+/// data is available via the exception context.
+inline constexpr std::uint8_t CATCH = 0x53;
+
+/// THROW: Raise an exception (Type A)
+/// Format: [THROW][Rtype][Rpayload][unused]
+/// - Rtype: Register containing ErrorCode (uint32_t)
+/// - Rpayload: Register containing payload value (uint64_t)
+/// Sets the current exception and searches for a matching handler.
+/// If found, unwinds stack and jumps to handler. If not found, halts
+/// with UnhandledException error.
+inline constexpr std::uint8_t THROW = 0x54;
+
+/// ENDTRY: Normal exit from try block (Type C)
+/// Format: [ENDTRY][24-bit reserved]
+/// Pops the current exception frame without triggering the handler.
+/// Used at the end of successful try block execution.
+inline constexpr std::uint8_t ENDTRY = 0x55;
+
+/// Reserved exception opcodes (0x56-0x5E)
+inline constexpr std::uint8_t EXCEPTION_RESERVED_START = 0x56;
+inline constexpr std::uint8_t EXCEPTION_RESERVED_END = 0x5E;
+
 /// HALT: Stop execution (moved to control flow range per EXEC-005)
 inline constexpr std::uint8_t HALT = 0x5F;
 
@@ -413,6 +452,18 @@ inline constexpr std::uint8_t SYSCALL = 0xFE;
 /// Includes: CMPI_EQ, CMPI_NE, CMPI_LT, CMPI_GE
 [[nodiscard]] constexpr bool is_comparison_imm_op(std::uint8_t op) noexcept {
     return op >= opcode::CMPI_EQ && op <= opcode::CMPI_GE;
+}
+
+/// Check if opcode is an exception handling instruction (0x52-0x55) - EXEC-011
+/// Includes: TRY, CATCH, THROW, ENDTRY
+[[nodiscard]] constexpr bool is_exception_op(std::uint8_t op) noexcept {
+    return op >= opcode::TRY && op <= opcode::ENDTRY;
+}
+
+/// Check if opcode is a control flow instruction (0x40-0x5F)
+/// Includes: jumps, branches, CALL, RET, exception handling, HALT
+[[nodiscard]] constexpr bool is_control_flow_op(std::uint8_t op) noexcept {
+    return op >= opcode::JMP && op <= opcode::HALT;
 }
 
 }  // namespace dotvm::core

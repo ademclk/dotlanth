@@ -207,9 +207,13 @@ namespace opcode {
     inline constexpr std::uint8_t BLE   = 0x46;  // Branch if less or equal (Type A, rs1 <= rs2, signed)
     inline constexpr std::uint8_t BGT   = 0x47;  // Branch if greater than (Type A, rs1 > rs2, signed)
     inline constexpr std::uint8_t BGE   = 0x48;  // Branch if greater or equal (Type A, rs1 >= rs2, signed)
-    inline constexpr std::uint8_t CALL  = 0x50;  // Call subroutine (Type C, CFI push + 24-bit offset)
-    inline constexpr std::uint8_t RET   = 0x51;  // Return from subroutine (CFI pop)
-    inline constexpr std::uint8_t HALT  = 0x5F;  // Halt execution
+    inline constexpr std::uint8_t CALL   = 0x50;  // Call subroutine (Type C, CFI push + 24-bit offset)
+    inline constexpr std::uint8_t RET    = 0x51;  // Return from subroutine (CFI pop)
+    inline constexpr std::uint8_t TRY    = 0x52;  // Push exception handler frame (EXEC-011)
+    inline constexpr std::uint8_t CATCH  = 0x53;  // Exception handler entry marker (EXEC-011)
+    inline constexpr std::uint8_t THROW  = 0x54;  // Raise exception (EXEC-011)
+    inline constexpr std::uint8_t ENDTRY = 0x55;  // Pop exception frame, normal exit (EXEC-011)
+    inline constexpr std::uint8_t HALT   = 0x5F;  // Halt execution
 
     // Memory Load/Store - EXEC-006 (Type M format)
     // Format: [opcode(8)][Rd/Rs2(8)][Rs1(8)][offset8(8)]

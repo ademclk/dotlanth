@@ -15,6 +15,7 @@
 #include "alu.hpp"
 #include "call_stack.hpp"
 #include "cfi.hpp"
+#include "exception_context.hpp"
 #include "register_file.hpp"
 #include "memory.hpp"
 #include "security_stats.hpp"
@@ -432,6 +433,30 @@ public:
     }
 
     // =========================================================================
+    // Exception Context Access (EXEC-011)
+    // =========================================================================
+
+    /// Get mutable reference to the exception context
+    ///
+    /// The exception context manages exception frames for TRY/CATCH blocks
+    /// and tracks the current exception state during execution.
+    [[nodiscard]] ExceptionContext& exception_context() noexcept {
+        return exception_ctx_;
+    }
+
+    /// Get const reference to the exception context
+    [[nodiscard]] const ExceptionContext& exception_context() const noexcept {
+        return exception_ctx_;
+    }
+
+    /// Check if an exception is currently pending
+    ///
+    /// @return true if there is an active exception waiting to be handled
+    [[nodiscard]] bool has_pending_exception() const noexcept {
+        return exception_ctx_.has_pending_exception();
+    }
+
+    // =========================================================================
     // SIMD Access
     // =========================================================================
 
@@ -486,13 +511,14 @@ public:
 
     /// Reset the context to initial state
     ///
-    /// Clears all registers (scalar and vector), call stack, and CFI state.
-    /// Memory allocations persist until deallocated individually.
+    /// Clears all registers (scalar and vector), call stack, exception context,
+    /// and CFI state. Memory allocations persist until deallocated individually.
     /// Configuration is preserved.
     void reset() noexcept {
         regs_.clear();
         vec_regs_.clear();
         call_stack_.clear();
+        exception_ctx_.clear();
         if (cfi_) {
             cfi_->reset();
         }
@@ -556,7 +582,8 @@ private:
     MemoryManager mem_;
     ALU alu_;
     std::optional<cfi::CfiContext> cfi_;
-    CallStack call_stack_;  // EXEC-007: Call stack for frame management
+    CallStack call_stack_;       // EXEC-007: Call stack for frame management
+    ExceptionContext exception_ctx_;  // EXEC-011: Exception handling context
 
     // SIMD support
     simd::VectorRegisterFile vec_regs_;

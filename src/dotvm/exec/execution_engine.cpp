@@ -11,6 +11,8 @@
 #include <dotvm/exec/opcode_handlers.hpp>
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/value.hpp>
+#include <dotvm/core/exception_types.hpp>
+#include <dotvm/core/exception_context.hpp>
 
 namespace dotvm::exec {
 
@@ -266,6 +268,106 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         }
 
         // =====================================================================
+        // EXCEPTION HANDLING (0x52-0x55) - EXEC-011
+        // =====================================================================
+        case opcode::TRY: {
+            // TRY: Push exception handler frame
+            // Format: [TRY][handler_offset16][catch_types8]
+            auto d = core::decode_type_b(instr);
+            auto handler_offset = static_cast<std::int16_t>(d.imm16);
+            auto catch_types = d.rd;  // Using rd field as catch_types
+
+            // Compute handler PC (relative to current PC, which is already advanced)
+            auto handler_pc = static_cast<std::size_t>(
+                static_cast<std::int64_t>(exec_ctx_.pc - 1) + handler_offset);
+
+            // Create and push exception frame
+            auto frame = core::ExceptionFrame::make(
+                handler_pc,
+                exec_ctx_.pc - 1,  // TRY instruction location
+                vm_ctx_.call_stack().depth(),
+                catch_types);
+
+            auto& exc_ctx = vm_ctx_.exception_context();
+            if (!exc_ctx.push_frame(frame)) {
+                exec_ctx_.halt_with_error(ExecResult::StackOverflow);
+                return false;
+            }
+            return true;
+        }
+        case opcode::CATCH: {
+            // CATCH: Handler entry marker (NOP during normal execution)
+            // When jumped to by THROW, the exception is available via exception_context
+            return true;
+        }
+        case opcode::THROW: {
+            // THROW: Raise an exception
+            // Format: [THROW][Rtype][Rpayload][unused]
+            auto d = core::decode_type_a(instr);
+            auto type_val = static_cast<std::uint32_t>(regs.read(d.rd).as_integer());
+            auto payload_val = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
+            auto error_code = static_cast<core::ErrorCode>(type_val);
+
+            // Create exception
+            auto exc = core::Exception::make(error_code, payload_val, exec_ctx_.pc - 1);
+
+            auto& exc_ctx = vm_ctx_.exception_context();
+            exc_ctx.set_exception(std::move(exc));
+
+            // Invoke debug callback if enabled
+            if (debug_ctx_.enabled) [[unlikely]] {
+                debug_ctx_.invoke_callback(DebugEvent::Exception, exec_ctx_);
+            }
+
+            // Search for matching handler
+            auto handler_idx = exc_ctx.find_handler_index(error_code);
+
+            if (!handler_idx.has_value()) {
+                // No handler found - unhandled exception
+                exec_ctx_.halt_with_error(ExecResult::UnhandledException);
+                return false;
+            }
+
+            // Get the handler frame
+            const auto* handler_frame = exc_ctx.frame_at(*handler_idx);
+            if (!handler_frame) {
+                exec_ctx_.halt_with_error(ExecResult::Error);
+                return false;
+            }
+
+            // Unwind call stack to the handler's depth
+            auto& call_stack = vm_ctx_.call_stack();
+            while (call_stack.depth() > handler_frame->stack_depth) {
+                auto frame_opt = call_stack.pop();
+                if (!frame_opt) break;
+                // Restore callee-saved registers from the popped frame
+                std::span<const core::Value, core::reg_range::CALLEE_SAVED_COUNT> saved_span{
+                    frame_opt->saved_regs.data(), frame_opt->saved_regs.size()
+                };
+                regs.raw().restore_callee_saved(saved_span);
+            }
+
+            // Pop exception frames above the handler frame, then pop the handler itself
+            exc_ctx.unwind_to(*handler_idx + 1);  // Keep frames 0..handler_idx
+            (void)exc_ctx.pop_frame();  // Pop the handler frame itself
+
+            // Jump to handler
+            exec_ctx_.jump_to(handler_frame->handler_pc);
+            return true;
+        }
+        case opcode::ENDTRY: {
+            // ENDTRY: Normal exit from try block - pop exception frame
+            auto& exc_ctx = vm_ctx_.exception_context();
+            if (exc_ctx.empty()) {
+                // Malformed bytecode - ENDTRY without TRY
+                exec_ctx_.halt_with_error(ExecResult::Error);
+                return false;
+            }
+            (void)exc_ctx.pop_frame();
+            return true;
+        }
+
+        // =====================================================================
         // MEMORY LOAD/STORE (0x60-0x68) - EXEC-006
         // =====================================================================
         case opcode::LOAD8: {
@@ -489,6 +591,8 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // Control Flow (0x40-0x5F) - EXEC-005
         op_JMP, op_JZ, op_JNZ, op_BEQ, op_BNE, op_BLT, op_BLE, op_BGT, op_BGE,
         op_CALL, op_RET, op_HALT,
+        // Exception Handling (0x52-0x55) - EXEC-011
+        op_TRY, op_CATCH, op_THROW, op_ENDTRY,
         // Memory Load/Store (0x60-0x68) - EXEC-006
         op_LOAD8, op_LOAD16, op_LOAD32, op_LOAD64,
         op_STORE8, op_STORE16, op_STORE32, op_STORE64,
@@ -574,6 +678,12 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::CALL] = &&op_CALL;
         dispatch_table[opcode::RET]  = &&op_RET;
         dispatch_table[opcode::HALT] = &&op_HALT;
+
+        // Exception handling handlers (0x52-0x55) - EXEC-011
+        dispatch_table[opcode::TRY]    = &&op_TRY;
+        dispatch_table[opcode::CATCH]  = &&op_CATCH;
+        dispatch_table[opcode::THROW]  = &&op_THROW;
+        dispatch_table[opcode::ENDTRY] = &&op_ENDTRY;
 
         // Memory Load/Store handlers (0x60-0x68) - EXEC-006
         dispatch_table[opcode::LOAD8]   = &&op_LOAD8;
@@ -1010,6 +1120,112 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
     op_HALT: {
         exec_ctx_.halt();
         return ExecResult::Success;
+    }
+
+    // =========================================================================
+    // EXCEPTION HANDLING HANDLERS (0x52-0x55) - EXEC-011
+    // =========================================================================
+
+    op_TRY: {
+        // TRY: Push exception handler frame
+        // Format: [TRY][handler_offset16][catch_types8]
+        auto d = core::decode_type_b(instr);
+        auto handler_offset = static_cast<std::int16_t>(d.imm16);
+        auto catch_types = d.rd;  // Using rd field as catch_types
+
+        // Compute handler PC (relative to current PC, which is already advanced)
+        auto handler_pc = static_cast<std::size_t>(
+            static_cast<std::int64_t>(exec_ctx_.pc - 1) + handler_offset);
+
+        // Create and push exception frame
+        auto frame = core::ExceptionFrame::make(
+            handler_pc,
+            exec_ctx_.pc - 1,  // TRY instruction location
+            vm_ctx_.call_stack().depth(),
+            catch_types);
+
+        auto& exc_ctx = vm_ctx_.exception_context();
+        if (!exc_ctx.push_frame(frame)) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::StackOverflow);
+        }
+        DOTVM_NEXT();
+    }
+
+    op_CATCH: {
+        // CATCH: Handler entry marker (NOP during normal execution)
+        // When jumped to by THROW, the exception is available via exception_context
+        DOTVM_NEXT();
+    }
+
+    op_THROW: {
+        // THROW: Raise an exception
+        // Format: [THROW][Rtype][Rpayload][unused]
+        auto d = core::decode_type_a(instr);
+        auto type_val = static_cast<std::uint32_t>(regs.read(d.rd).as_integer());
+        auto payload_val = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
+        auto error_code = static_cast<core::ErrorCode>(type_val);
+
+        // Set exception directly (avoid local string object that can't cross goto)
+        auto& exc_ctx = vm_ctx_.exception_context();
+        exc_ctx.current_exception().type_id = error_code;
+        exc_ctx.current_exception().payload = payload_val;
+        exc_ctx.current_exception().throw_pc = exec_ctx_.pc - 1;
+        exc_ctx.current_exception().message.clear();
+
+        // Invoke debug callback if enabled
+        if (debug_ctx_.enabled) [[unlikely]] {
+            debug_ctx_.invoke_callback(DebugEvent::Exception, exec_ctx_);
+        }
+
+        // Search for matching handler
+        auto handler_idx = exc_ctx.find_handler_index(error_code);
+
+        if (!handler_idx.has_value()) [[unlikely]] {
+            // No handler found - unhandled exception
+            DOTVM_RETURN_ERROR(ExecResult::UnhandledException);
+        }
+
+        // Get the handler frame
+        const auto* handler_frame = exc_ctx.frame_at(*handler_idx);
+        if (!handler_frame) [[unlikely]] {
+            DOTVM_RETURN_ERROR(ExecResult::Error);
+        }
+
+        // Store handler PC before unwinding (handler_frame may become invalid)
+        std::size_t target_handler_pc = handler_frame->handler_pc;
+        std::size_t target_stack_depth = handler_frame->stack_depth;
+        std::size_t target_frame_idx = *handler_idx;
+
+        // Unwind call stack to the handler's depth
+        auto& call_stack = vm_ctx_.call_stack();
+        while (call_stack.depth() > target_stack_depth) {
+            auto frame_opt = call_stack.pop();
+            if (!frame_opt) break;
+            // Restore callee-saved registers from the popped frame
+            std::span<const core::Value, core::reg_range::CALLEE_SAVED_COUNT> saved_span{
+                frame_opt->saved_regs.data(), frame_opt->saved_regs.size()
+            };
+            regs.raw().restore_callee_saved(saved_span);
+        }
+
+        // Pop exception frames above the handler frame, then pop the handler itself
+        exc_ctx.unwind_to(target_frame_idx + 1);  // Keep frames 0..target_frame_idx
+        (void)exc_ctx.pop_frame();  // Pop the handler frame itself
+
+        // Jump to handler
+        exec_ctx_.jump_to(target_handler_pc);
+        DOTVM_NEXT();
+    }
+
+    op_ENDTRY: {
+        // ENDTRY: Normal exit from try block - pop exception frame
+        auto& exc_ctx = vm_ctx_.exception_context();
+        if (exc_ctx.empty()) [[unlikely]] {
+            // Malformed bytecode - ENDTRY without TRY
+            DOTVM_RETURN_ERROR(ExecResult::Error);
+        }
+        (void)exc_ctx.pop_frame();
+        DOTVM_NEXT();
     }
 
     // =========================================================================
