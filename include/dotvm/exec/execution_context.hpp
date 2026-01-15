@@ -17,33 +17,35 @@ inline constexpr std::size_t CACHE_LINE_SIZE = 64;
 
 /// Execution result codes
 enum class ExecResult : std::uint8_t {
-    Success = 0,        ///< Execution completed normally (HALT)
-    Error = 1,          ///< Execution error occurred
-    InvalidOpcode = 2,  ///< Unknown or reserved opcode
-    CfiViolation = 3,   ///< Control flow integrity violation
-    OutOfBounds = 4,    ///< PC out of code section bounds
-    Interrupted = 5,    ///< Execution was interrupted
-    DivisionByZero = 6, ///< Division by zero (if strict mode enabled)
-    MemoryError = 7,     ///< Memory access error (bounds violation, invalid handle)
-    UnalignedAccess = 8, ///< Misaligned memory access (EXEC-006)
-    StackOverflow = 9,   ///< Call stack overflow (EXEC-007)
-    ExecutionLimit = 10  ///< Instruction limit exceeded (EXEC-008)
+    Success = 0,            ///< Execution completed normally (HALT)
+    Error = 1,              ///< Execution error occurred
+    InvalidOpcode = 2,      ///< Unknown or reserved opcode
+    CfiViolation = 3,       ///< Control flow integrity violation
+    OutOfBounds = 4,        ///< PC out of code section bounds
+    Interrupted = 5,        ///< Execution was interrupted
+    DivisionByZero = 6,     ///< Division by zero (if strict mode enabled)
+    MemoryError = 7,        ///< Memory access error (bounds violation, invalid handle)
+    UnalignedAccess = 8,    ///< Misaligned memory access (EXEC-006)
+    StackOverflow = 9,      ///< Call stack overflow (EXEC-007)
+    ExecutionLimit = 10,    ///< Instruction limit exceeded (EXEC-008)
+    UnhandledException = 11 ///< Unhandled exception (EXEC-011)
 };
 
 /// Convert ExecResult to string representation
 [[nodiscard]] constexpr const char* to_string(ExecResult result) noexcept {
     switch (result) {
-        case ExecResult::Success:        return "Success";
-        case ExecResult::Error:          return "Error";
-        case ExecResult::InvalidOpcode:  return "InvalidOpcode";
-        case ExecResult::CfiViolation:   return "CfiViolation";
-        case ExecResult::OutOfBounds:    return "OutOfBounds";
-        case ExecResult::Interrupted:    return "Interrupted";
-        case ExecResult::DivisionByZero: return "DivisionByZero";
-        case ExecResult::MemoryError:    return "MemoryError";
-        case ExecResult::UnalignedAccess: return "UnalignedAccess";
-        case ExecResult::StackOverflow:  return "StackOverflow";
-        case ExecResult::ExecutionLimit: return "ExecutionLimit";
+        case ExecResult::Success:            return "Success";
+        case ExecResult::Error:              return "Error";
+        case ExecResult::InvalidOpcode:      return "InvalidOpcode";
+        case ExecResult::CfiViolation:       return "CfiViolation";
+        case ExecResult::OutOfBounds:        return "OutOfBounds";
+        case ExecResult::Interrupted:        return "Interrupted";
+        case ExecResult::DivisionByZero:     return "DivisionByZero";
+        case ExecResult::MemoryError:        return "MemoryError";
+        case ExecResult::UnalignedAccess:    return "UnalignedAccess";
+        case ExecResult::StackOverflow:      return "StackOverflow";
+        case ExecResult::ExecutionLimit:     return "ExecutionLimit";
+        case ExecResult::UnhandledException: return "UnhandledException";
     }
     return "Unknown";
 }
