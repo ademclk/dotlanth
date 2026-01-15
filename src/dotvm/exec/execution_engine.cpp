@@ -21,10 +21,12 @@ namespace dotvm::exec {
 ExecutionEngine::ExecutionEngine(core::VmContext& ctx) noexcept
     : vm_ctx_{ctx}
     , exec_ctx_{}
+    , debug_ctx_{}
     , const_pool_{} {}
 
 void ExecutionEngine::reset() noexcept {
     exec_ctx_ = ExecutionContext{};
+    debug_ctx_.clear();  // EXEC-010: Clear debug state on reset
     const_pool_ = {};
 }
 
@@ -41,7 +43,10 @@ ExecResult ExecutionEngine::execute(
     exec_ctx_.reset(code, code_size, entry_point, max_instr);
     const_pool_ = const_pool;
 
-    // Run the dispatch loop
+    // Run the dispatch loop (EXEC-010: use debug-aware loop if debug enabled)
+    if (debug_ctx_.enabled) [[unlikely]] {
+        return dispatch_loop_debug();
+    }
     return dispatch_loop();
 }
 
@@ -438,6 +443,15 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         case opcode::NOP: {
             return true;
         }
+        case opcode::DEBUG: {
+            // EXEC-010: Debug mode breakpoint
+            if (debug_ctx_.enabled) [[unlikely]] {
+                debug_ctx_.invoke_callback(DebugEvent::Break, exec_ctx_);
+                exec_ctx_.halt_with_error(ExecResult::Interrupted);
+                return false;
+            }
+            return true;  // Behaves like NOP when debug disabled
+        }
         // Note: HALT moved to Control Flow section (0x5F) per EXEC-005
 
         default: {
@@ -482,7 +496,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // Data Move (0x80-0x8F)
         op_MOV, op_MOVI, op_LOADK, op_MOVHI, op_MOVLO, op_XCHG,
         // System (0xF0-0xFF)
-        op_NOP, op_BREAK, op_SYSCALL,
+        op_NOP, op_BREAK, op_DEBUG, op_SYSCALL,
         // Error handlers
         op_INVALID, op_RESERVED, op_OUT_OF_BOUNDS, op_EXECUTION_LIMIT;
 
@@ -583,6 +597,7 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // System handlers (0xF0-0xFF)
         dispatch_table[opcode::NOP]     = &&op_NOP;
         dispatch_table[opcode::BREAK]   = &&op_BREAK;
+        dispatch_table[opcode::DEBUG]   = &&op_DEBUG;   // EXEC-010
         dispatch_table[opcode::SYSCALL] = &&op_SYSCALL;
         // Note: HALT now in control flow section (0x5F) per EXEC-005
 
@@ -1219,6 +1234,17 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         DOTVM_NEXT();
     }
 
+    op_DEBUG: {
+        // EXEC-010: Debug mode breakpoint
+        // When debug mode is enabled, triggers Break callback
+        // When disabled, behaves like NOP
+        if (debug_ctx_.enabled) [[unlikely]] {
+            debug_ctx_.invoke_callback(DebugEvent::Break, exec_ctx_);
+            return ExecResult::Interrupted;
+        }
+        DOTVM_NEXT();
+    }
+
     // Note: op_HALT moved to control flow section (0x5F) per EXEC-005
 
     // =========================================================================
@@ -1262,6 +1288,180 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         ++exec_ctx_.instructions_executed;
 
         if (!execute_instruction(instr)) {
+            return exec_ctx_.error;
+        }
+    }
+
+    if (exec_ctx_.pc >= exec_ctx_.code_size && !exec_ctx_.halted) {
+        exec_ctx_.halt_with_error(ExecResult::OutOfBounds);
+        return ExecResult::OutOfBounds;
+    }
+
+    return exec_ctx_.error;
+}
+
+#endif // DOTVM_HAS_COMPUTED_GOTO
+
+// ============================================================================
+// Debug API Implementation (EXEC-010)
+// ============================================================================
+
+ExecResult ExecutionEngine::step_into() noexcept {
+    if (exec_ctx_.halted) {
+        return exec_ctx_.error;
+    }
+
+    if (exec_ctx_.pc >= exec_ctx_.code_size) {
+        exec_ctx_.halt_with_error(ExecResult::OutOfBounds);
+        return ExecResult::OutOfBounds;
+    }
+
+    // Check instruction limit (EXEC-008)
+    if (exec_ctx_.max_instructions > 0 &&
+        exec_ctx_.instructions_executed >= exec_ctx_.max_instructions) {
+        exec_ctx_.halt_with_error(ExecResult::ExecutionLimit);
+        return ExecResult::ExecutionLimit;
+    }
+
+    // Execute one instruction
+    std::uint32_t instr = exec_ctx_.code[exec_ctx_.pc++];
+    ++exec_ctx_.instructions_executed;
+
+    if (!execute_instruction(instr)) {
+        // Invoke callback on exception
+        if (debug_ctx_.enabled) {
+            debug_ctx_.invoke_callback(DebugEvent::Exception, exec_ctx_);
+        }
+        return exec_ctx_.error;
+    }
+
+    // Invoke step callback
+    if (debug_ctx_.enabled) {
+        debug_ctx_.invoke_callback(DebugEvent::Step, exec_ctx_);
+    }
+
+    return ExecResult::Interrupted;
+}
+
+ExecResult ExecutionEngine::continue_execution() noexcept {
+    if (exec_ctx_.halted) {
+        return exec_ctx_.error;
+    }
+
+    // Use debug-aware dispatch if debug mode is enabled
+    if (debug_ctx_.enabled) {
+        return dispatch_loop_debug();
+    }
+
+    // Normal execution
+    return dispatch_loop();
+}
+
+core::Value ExecutionEngine::inspect_register(std::uint8_t idx) const {
+    return vm_ctx_.registers().read(idx);
+}
+
+std::vector<std::uint8_t> ExecutionEngine::inspect_memory(
+    core::Handle handle,
+    std::size_t offset,
+    std::size_t size) const {
+
+    std::vector<std::uint8_t> result;
+    result.reserve(size);
+
+    for (std::size_t i = 0; i < size; ++i) {
+        auto byte_result = vm_ctx_.memory().read<std::uint8_t>(handle, offset + i);
+        if (byte_result) {
+            result.push_back(*byte_result);
+        } else {
+            break;  // Stop on memory error
+        }
+    }
+
+    return result;
+}
+
+// ============================================================================
+// Debug-Aware Dispatch Loop (EXEC-010)
+// ============================================================================
+
+#if DOTVM_HAS_COMPUTED_GOTO
+
+ExecResult ExecutionEngine::dispatch_loop_debug() noexcept {
+    // This is a simplified debug-aware loop that checks breakpoints
+    // at each instruction. It trades some performance for flexibility.
+
+    while (!exec_ctx_.halted && exec_ctx_.pc < exec_ctx_.code_size) {
+        // Check instruction limit (EXEC-008)
+        if (exec_ctx_.max_instructions > 0 &&
+            exec_ctx_.instructions_executed >= exec_ctx_.max_instructions) {
+            exec_ctx_.halt_with_error(ExecResult::ExecutionLimit);
+            return ExecResult::ExecutionLimit;
+        }
+
+        // Check for breakpoint at current PC (before fetch)
+        if (debug_ctx_.has_breakpoint(exec_ctx_.pc)) {
+            debug_ctx_.invoke_callback(DebugEvent::Break, exec_ctx_);
+            return ExecResult::Interrupted;
+        }
+
+        // Check for stepping mode
+        if (debug_ctx_.stepping) {
+            debug_ctx_.invoke_callback(DebugEvent::Step, exec_ctx_);
+            debug_ctx_.stepping = false;
+            return ExecResult::Interrupted;
+        }
+
+        // Fetch and execute
+        std::uint32_t instr = exec_ctx_.code[exec_ctx_.pc++];
+        ++exec_ctx_.instructions_executed;
+
+        if (!execute_instruction(instr)) {
+            // Invoke callback on exception
+            debug_ctx_.invoke_callback(DebugEvent::Exception, exec_ctx_);
+            return exec_ctx_.error;
+        }
+    }
+
+    if (exec_ctx_.pc >= exec_ctx_.code_size && !exec_ctx_.halted) {
+        exec_ctx_.halt_with_error(ExecResult::OutOfBounds);
+        return ExecResult::OutOfBounds;
+    }
+
+    return exec_ctx_.error;
+}
+
+#else // !DOTVM_HAS_COMPUTED_GOTO
+
+ExecResult ExecutionEngine::dispatch_loop_debug() noexcept {
+    while (!exec_ctx_.halted && exec_ctx_.pc < exec_ctx_.code_size) {
+        // Check instruction limit (EXEC-008)
+        if (exec_ctx_.max_instructions > 0 &&
+            exec_ctx_.instructions_executed >= exec_ctx_.max_instructions) {
+            exec_ctx_.halt_with_error(ExecResult::ExecutionLimit);
+            return ExecResult::ExecutionLimit;
+        }
+
+        // Check for breakpoint at current PC (before fetch)
+        if (debug_ctx_.has_breakpoint(exec_ctx_.pc)) {
+            debug_ctx_.invoke_callback(DebugEvent::Break, exec_ctx_);
+            return ExecResult::Interrupted;
+        }
+
+        // Check for stepping mode
+        if (debug_ctx_.stepping) {
+            debug_ctx_.invoke_callback(DebugEvent::Step, exec_ctx_);
+            debug_ctx_.stepping = false;
+            return ExecResult::Interrupted;
+        }
+
+        // Fetch and execute
+        std::uint32_t instr = exec_ctx_.code[exec_ctx_.pc++];
+        ++exec_ctx_.instructions_executed;
+
+        if (!execute_instruction(instr)) {
+            // Invoke callback on exception
+            debug_ctx_.invoke_callback(DebugEvent::Exception, exec_ctx_);
             return exec_ctx_.error;
         }
     }

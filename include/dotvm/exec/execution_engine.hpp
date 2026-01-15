@@ -12,11 +12,13 @@
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/value.hpp>
 #include <dotvm/exec/execution_context.hpp>
+#include <dotvm/exec/debug_context.hpp>
 #include <dotvm/exec/dispatch_macros.hpp>
 
 #include <cstdint>
 #include <cstddef>
 #include <span>
+#include <vector>
 
 namespace dotvm::exec {
 
@@ -125,12 +127,113 @@ public:
         return vm_ctx_;
     }
 
+    // =========================================================================
+    // Debug API (EXEC-010)
+    // =========================================================================
+
+    /// Enable or disable debug mode
+    ///
+    /// When debug mode is enabled, the execution engine will check for
+    /// breakpoints and invoke callbacks on debug events. This adds some
+    /// overhead to execution but targets <5x slower than non-debug mode.
+    ///
+    /// @param enable True to enable debug mode, false to disable
+    void enable_debug(bool enable = true) noexcept {
+        debug_ctx_.enabled = enable;
+    }
+
+    /// Check if debug mode is enabled
+    [[nodiscard]] bool debug_enabled() const noexcept {
+        return debug_ctx_.enabled;
+    }
+
+    /// Set a breakpoint at the given program counter
+    ///
+    /// @param pc Program counter value where execution should pause
+    void set_breakpoint(std::size_t pc) {
+        debug_ctx_.set_breakpoint(pc);
+    }
+
+    /// Remove a breakpoint at the given program counter
+    ///
+    /// @param pc Program counter value to remove breakpoint from
+    void remove_breakpoint(std::size_t pc) {
+        debug_ctx_.remove_breakpoint(pc);
+    }
+
+    /// Clear all breakpoints
+    void clear_breakpoints() {
+        debug_ctx_.clear_breakpoints();
+    }
+
+    /// Check if a breakpoint exists at the given program counter
+    [[nodiscard]] bool has_breakpoint(std::size_t pc) const noexcept {
+        return debug_ctx_.has_breakpoint(pc);
+    }
+
+    /// Get reference to the breakpoints set
+    [[nodiscard]] const std::unordered_set<std::size_t>& breakpoints() const noexcept {
+        return debug_ctx_.breakpoints;
+    }
+
+    /// Set the debug callback function
+    ///
+    /// The callback is invoked when a debug event occurs (breakpoint hit,
+    /// step completed, exception, etc.).
+    ///
+    /// @param callback Function to call on debug events (nullptr to clear)
+    void set_debug_callback(DebugCallback callback) {
+        debug_ctx_.callback = std::move(callback);
+    }
+
+    /// Execute a single instruction in stepping mode
+    ///
+    /// Executes one instruction and invokes the debug callback with
+    /// DebugEvent::Step. Returns Interrupted to indicate pause.
+    ///
+    /// @return ExecResult::Interrupted after successful step,
+    ///         error code on error
+    [[nodiscard]] ExecResult step_into() noexcept;
+
+    /// Continue execution until next breakpoint or halt
+    ///
+    /// Resumes execution from current PC until a breakpoint is hit,
+    /// HALT instruction is encountered, or an error occurs.
+    ///
+    /// @return Execution result code
+    [[nodiscard]] ExecResult continue_execution() noexcept;
+
+    /// Inspect a register value
+    ///
+    /// @param idx Register index (0-255)
+    /// @return Current value in the register
+    [[nodiscard]] core::Value inspect_register(std::uint8_t idx) const;
+
+    /// Inspect memory contents
+    ///
+    /// @param handle Memory handle from allocation
+    /// @param offset Byte offset within the allocation
+    /// @param size Number of bytes to read
+    /// @return Vector containing the memory bytes
+    [[nodiscard]] std::vector<std::uint8_t> inspect_memory(
+        core::Handle handle,
+        std::size_t offset,
+        std::size_t size) const;
+
+    /// Get the debug context (readonly)
+    [[nodiscard]] const DebugContext& debug_context() const noexcept {
+        return debug_ctx_;
+    }
+
 private:
     /// Reference to VM context (registers, memory, ALU, CFI)
     core::VmContext& vm_ctx_;
 
     /// Lightweight execution state (code ptr, pc, halted)
     ExecutionContext exec_ctx_;
+
+    /// Debug mode state (EXEC-010)
+    DebugContext debug_ctx_;
 
     /// Constant pool for LOADK instructions
     std::span<const core::Value> const_pool_;
@@ -143,6 +246,14 @@ private:
     ///
     /// @return Execution result code
     [[nodiscard]] ExecResult dispatch_loop() noexcept;
+
+    /// Debug-aware dispatch loop implementation
+    ///
+    /// Similar to dispatch_loop() but includes breakpoint checking.
+    /// Used when debug mode is enabled.
+    ///
+    /// @return Execution result code
+    [[nodiscard]] ExecResult dispatch_loop_debug() noexcept;
 
     /// Execute a single instruction (internal)
     ///
