@@ -307,7 +307,23 @@ inline constexpr std::uint8_t MEMORY_RESERVED_START = 0x69;
 /// NOP: No operation
 inline constexpr std::uint8_t NOP = 0xF0;
 
+/// BREAK: Software breakpoint (halts with ExecResult::Interrupted)
+inline constexpr std::uint8_t BREAK = 0xF1;
+
+/// DEBUG: Debug mode breakpoint (EXEC-010)
+/// When debug mode is enabled, triggers DebugEvent::Break callback.
+/// When debug mode is disabled, behaves like NOP.
+inline constexpr std::uint8_t DEBUG = 0xFD;
+
+/// SYSCALL: System call (reserved for future use)
+inline constexpr std::uint8_t SYSCALL = 0xFE;
+
 }  // namespace opcode
+
+/// Check if opcode is a debug/system instruction
+[[nodiscard]] constexpr bool is_system_op(std::uint8_t op) noexcept {
+    return op >= opcode::NOP;  // 0xF0-0xFF range
+}
 
 /// Check if opcode is a Type A arithmetic instruction (register-register)
 [[nodiscard]] constexpr bool is_type_a_arithmetic(std::uint8_t op) noexcept {

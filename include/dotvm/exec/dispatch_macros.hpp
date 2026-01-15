@@ -232,8 +232,9 @@ namespace opcode {
     inline constexpr std::uint8_t XCHG  = 0x85;
 
     // System (0xF0-0xFF)
-    inline constexpr std::uint8_t NOP   = 0xF0;
-    inline constexpr std::uint8_t BREAK = 0xF1;
+    inline constexpr std::uint8_t NOP     = 0xF0;
+    inline constexpr std::uint8_t BREAK   = 0xF1;
+    inline constexpr std::uint8_t DEBUG   = 0xFD;  // Debug mode breakpoint (EXEC-010)
     inline constexpr std::uint8_t SYSCALL = 0xFE;
     // Note: HALT moved to Control Flow section (0x5F) per EXEC-005
 }  // namespace opcode
