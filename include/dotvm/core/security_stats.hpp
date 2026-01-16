@@ -22,7 +22,9 @@ enum class SecurityEvent : std::uint8_t {
     AllocationLimitHit = 4,     ///< Allocation size limit exceeded
     HandleTableExhaustion = 5,  ///< No more handles available
     InstructionLimitHit = 6,    ///< Instruction execution limit exceeded
-    MemoryLimitHit = 7          ///< Total memory limit exceeded
+    MemoryLimitHit = 7,         ///< Total memory limit exceeded
+    StackDepthLimitHit = 8,     ///< Call stack depth limit exceeded (SEC-004)
+    ExecutionTimeExpired = 9    ///< Execution time limit exceeded (SEC-004)
 };
 
 /// Returns a human-readable name for a security event
@@ -44,6 +46,10 @@ enum class SecurityEvent : std::uint8_t {
             return "InstructionLimitHit";
         case SecurityEvent::MemoryLimitHit:
             return "MemoryLimitHit";
+        case SecurityEvent::StackDepthLimitHit:
+            return "StackDepthLimitHit";
+        case SecurityEvent::ExecutionTimeExpired:
+            return "ExecutionTimeExpired";
     }
     return "Unknown";
 }
@@ -125,6 +131,14 @@ struct SecurityStats {
     /// Number of resource limit violations.
     std::atomic<std::size_t> limit_violations{0};
 
+    // ========== Resource Limiter Counters (SEC-004) ==========
+
+    /// Number of stack depth limit hits.
+    std::atomic<std::size_t> stack_depth_limit_hits{0};
+
+    /// Number of execution time expirations.
+    std::atomic<std::size_t> execution_time_expirations{0};
+
     // ========== Increment Methods (relaxed ordering for performance) ==========
 
     void record_generation_wraparound() noexcept {
@@ -189,6 +203,16 @@ struct SecurityStats {
         limit_violations.fetch_add(1, std::memory_order_relaxed);
     }
 
+    // ========== Resource Limiter Recording Methods (SEC-004) ==========
+
+    void record_stack_depth_limit_hit() noexcept {
+        stack_depth_limit_hits.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void record_execution_time_expiration() noexcept {
+        execution_time_expirations.fetch_add(1, std::memory_order_relaxed);
+    }
+
     // ========== Query Methods ==========
 
     /// Returns true if any security violation has been recorded.
@@ -240,6 +264,9 @@ struct SecurityStats {
         std::size_t capability_revocations;
         std::size_t permission_violations;
         std::size_t limit_violations;
+        // Resource limiter counters (SEC-004)
+        std::size_t stack_depth_limit_hits;
+        std::size_t execution_time_expirations;
     };
 
     /// Takes a snapshot of all statistics.
@@ -264,7 +291,10 @@ struct SecurityStats {
             .capability_derivations = capability_derivations.load(std::memory_order_acquire),
             .capability_revocations = capability_revocations.load(std::memory_order_acquire),
             .permission_violations = permission_violations.load(std::memory_order_acquire),
-            .limit_violations = limit_violations.load(std::memory_order_acquire)
+            .limit_violations = limit_violations.load(std::memory_order_acquire),
+            // Resource limiter counters (SEC-004)
+            .stack_depth_limit_hits = stack_depth_limit_hits.load(std::memory_order_acquire),
+            .execution_time_expirations = execution_time_expirations.load(std::memory_order_acquire)
         };
     }
 
@@ -288,6 +318,9 @@ struct SecurityStats {
         capability_revocations.store(0, std::memory_order_relaxed);
         permission_violations.store(0, std::memory_order_relaxed);
         limit_violations.store(0, std::memory_order_relaxed);
+        // Resource limiter counters (SEC-004)
+        stack_depth_limit_hits.store(0, std::memory_order_relaxed);
+        execution_time_expirations.store(0, std::memory_order_relaxed);
     }
 
     // ========== Event Callback ==========
