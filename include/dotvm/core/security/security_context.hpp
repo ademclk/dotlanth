@@ -8,6 +8,17 @@
 /// with resource tracking and audit logging.
 ///
 /// Performance Target: <100 microseconds for security check latency.
+///
+/// @note SEC-006 Enhanced Audit Logging
+/// For enhanced audit logging with severity levels, query/export capabilities,
+/// and async high-throughput logging, include the following headers:
+/// - dotvm/core/security/audit_event.hpp - Enhanced AuditEvent with severity
+/// - dotvm/core/security/audit_logger.hpp - Enhanced AuditLogger interface
+/// - dotvm/core/security/async_audit_logger.hpp - High-throughput async logger
+///
+/// The types defined in this file (AuditEvent, AuditEventType, AuditLogger,
+/// BufferedAuditLogger, CallbackAuditLogger) are maintained for backward
+/// compatibility. New code should prefer the SEC-006 enhanced types.
 
 #include <chrono>
 #include <cstdint>
@@ -133,12 +144,16 @@ to_string(SecurityContextError error) noexcept {
 // ============================================================================
 
 /// @brief Types of security audit events
+///
+/// Event types are grouped by category with reserved ranges for future
+/// expansion. SEC-006 adds Dot lifecycle (30-39), capability lifecycle (40-49),
+/// and resource violation (50-59) events.
 enum class AuditEventType : std::uint8_t {
-    // Permission events
+    // Permission events (0-9)
     PermissionGranted = 0,  ///< Permission check passed
     PermissionDenied,       ///< Permission check failed
 
-    // Resource events
+    // Resource events (10-19)
     AllocationAttempt,      ///< Memory allocation attempted
     AllocationDenied,       ///< Allocation exceeded limits
     DeallocationAttempt,    ///< Memory deallocation attempted
@@ -146,13 +161,26 @@ enum class AuditEventType : std::uint8_t {
     StackDepthLimitHit,     ///< Stack depth exceeded
     TimeLimitHit,           ///< Execution time exceeded
 
-    // Context lifecycle
+    // Context lifecycle (8-11)
     ContextCreated,         ///< SecurityContext instantiated
     ContextDestroyed,       ///< SecurityContext destroyed
     ContextReset,           ///< SecurityContext usage reset
 
     // Opcode authorization (SEC-005)
     OpcodeDenied = 20,      ///< Opcode permission denied
+
+    // SEC-006: Dot lifecycle (30-39)
+    DotStarted = 30,    ///< Dot execution started
+    DotCompleted = 31,  ///< Dot execution completed normally
+    DotFailed = 32,     ///< Dot execution failed with error
+
+    // SEC-006: Capability lifecycle (40-49)
+    CapabilityCreated = 40,  ///< New capability created
+    CapabilityRevoked = 41,  ///< Capability revoked/invalidated
+
+    // SEC-006: Resource violations (50-59)
+    MemoryLimitExceeded = 50,  ///< Memory limit exceeded (explicit)
+    SecurityViolation = 51,    ///< Generic security violation
 };
 
 /// @brief Convert AuditEventType to human-readable string
@@ -182,6 +210,23 @@ enum class AuditEventType : std::uint8_t {
             return "ContextReset";
         case AuditEventType::OpcodeDenied:
             return "OpcodeDenied";
+        // SEC-006: Dot lifecycle
+        case AuditEventType::DotStarted:
+            return "DotStarted";
+        case AuditEventType::DotCompleted:
+            return "DotCompleted";
+        case AuditEventType::DotFailed:
+            return "DotFailed";
+        // SEC-006: Capability lifecycle
+        case AuditEventType::CapabilityCreated:
+            return "CapabilityCreated";
+        case AuditEventType::CapabilityRevoked:
+            return "CapabilityRevoked";
+        // SEC-006: Resource violations
+        case AuditEventType::MemoryLimitExceeded:
+            return "MemoryLimitExceeded";
+        case AuditEventType::SecurityViolation:
+            return "SecurityViolation";
     }
     return "Unknown";
 }
