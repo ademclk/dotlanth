@@ -106,6 +106,8 @@ add_library(dotvm_core STATIC
     # Crypto subsystem
     src/dotvm/core/crypto/sha256.cpp
     src/dotvm/core/crypto/aes.cpp
+    # Capability system (SEC-001)
+    src/dotvm/core/capabilities.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -254,6 +256,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/crypto/aes_test.cpp
         # Test utilities and mock tests
         tests/dotvm/test_utils/mock_test.cpp
+        # Capability system tests (SEC-001)
+        tests/dotvm/core/capability_test.cpp
     )
 
     # JIT tests (EXEC-012)

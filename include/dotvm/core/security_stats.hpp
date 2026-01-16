@@ -108,6 +108,23 @@ struct SecurityStats {
     /// Number of invalid deallocation attempts (bad size).
     std::atomic<std::size_t> invalid_deallocations{0};
 
+    // ========== Capability System Counters (SEC-001) ==========
+
+    /// Number of capabilities created (root capabilities).
+    std::atomic<std::size_t> capability_creations{0};
+
+    /// Number of capabilities derived from parents.
+    std::atomic<std::size_t> capability_derivations{0};
+
+    /// Number of capabilities revoked.
+    std::atomic<std::size_t> capability_revocations{0};
+
+    /// Number of permission check failures.
+    std::atomic<std::size_t> permission_violations{0};
+
+    /// Number of resource limit violations.
+    std::atomic<std::size_t> limit_violations{0};
+
     // ========== Increment Methods (relaxed ordering for performance) ==========
 
     void record_generation_wraparound() noexcept {
@@ -150,13 +167,36 @@ struct SecurityStats {
         invalid_deallocations.fetch_add(1, std::memory_order_relaxed);
     }
 
+    // ========== Capability System Recording Methods (SEC-001) ==========
+
+    void record_capability_creation() noexcept {
+        capability_creations.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void record_capability_derivation() noexcept {
+        capability_derivations.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void record_capability_revocation() noexcept {
+        capability_revocations.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void record_permission_violation() noexcept {
+        permission_violations.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void record_limit_violation() noexcept {
+        limit_violations.fetch_add(1, std::memory_order_relaxed);
+    }
+
     // ========== Query Methods ==========
 
     /// Returns true if any security violation has been recorded.
     [[nodiscard]] bool has_violations() const noexcept {
         return bounds_violations.load(std::memory_order_relaxed) > 0 ||
                invalid_handle_accesses.load(std::memory_order_relaxed) > 0 ||
-               cfi_violations.load(std::memory_order_relaxed) > 0;
+               cfi_violations.load(std::memory_order_relaxed) > 0 ||
+               permission_violations.load(std::memory_order_relaxed) > 0;
     }
 
     /// Returns true if any resource exhaustion event has occurred.
@@ -194,6 +234,12 @@ struct SecurityStats {
         std::size_t total_deallocations;
         std::size_t deallocation_failures;
         std::size_t invalid_deallocations;
+        // Capability system counters (SEC-001)
+        std::size_t capability_creations;
+        std::size_t capability_derivations;
+        std::size_t capability_revocations;
+        std::size_t permission_violations;
+        std::size_t limit_violations;
     };
 
     /// Takes a snapshot of all statistics.
@@ -212,7 +258,13 @@ struct SecurityStats {
             .total_allocations = total_allocations.load(std::memory_order_acquire),
             .total_deallocations = total_deallocations.load(std::memory_order_acquire),
             .deallocation_failures = deallocation_failures.load(std::memory_order_acquire),
-            .invalid_deallocations = invalid_deallocations.load(std::memory_order_acquire)
+            .invalid_deallocations = invalid_deallocations.load(std::memory_order_acquire),
+            // Capability system counters (SEC-001)
+            .capability_creations = capability_creations.load(std::memory_order_acquire),
+            .capability_derivations = capability_derivations.load(std::memory_order_acquire),
+            .capability_revocations = capability_revocations.load(std::memory_order_acquire),
+            .permission_violations = permission_violations.load(std::memory_order_acquire),
+            .limit_violations = limit_violations.load(std::memory_order_acquire)
         };
     }
 
@@ -230,6 +282,12 @@ struct SecurityStats {
         total_deallocations.store(0, std::memory_order_relaxed);
         deallocation_failures.store(0, std::memory_order_relaxed);
         invalid_deallocations.store(0, std::memory_order_relaxed);
+        // Capability system counters (SEC-001)
+        capability_creations.store(0, std::memory_order_relaxed);
+        capability_derivations.store(0, std::memory_order_relaxed);
+        capability_revocations.store(0, std::memory_order_relaxed);
+        permission_violations.store(0, std::memory_order_relaxed);
+        limit_violations.store(0, std::memory_order_relaxed);
     }
 
     // ========== Event Callback ==========
