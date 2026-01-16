@@ -29,7 +29,8 @@ enum class ExecResult : std::uint8_t {
     StackOverflow = 9,      ///< Call stack overflow (EXEC-007)
     ExecutionLimit = 10,    ///< Instruction limit exceeded (EXEC-008)
     UnhandledException = 11, ///< Unhandled exception (EXEC-011)
-    JitFallback = 12        ///< JIT compilation not available, use interpreter (EXEC-012)
+    JitFallback = 12,       ///< JIT compilation not available, use interpreter (EXEC-012)
+    CapabilityDenied = 13   ///< Opcode permission denied (SEC-005)
 };
 
 /// Convert ExecResult to string representation
@@ -48,6 +49,7 @@ enum class ExecResult : std::uint8_t {
         case ExecResult::ExecutionLimit:     return "ExecutionLimit";
         case ExecResult::UnhandledException: return "UnhandledException";
         case ExecResult::JitFallback:        return "JitFallback";
+        case ExecResult::CapabilityDenied:   return "CapabilityDenied";
     }
     return "Unknown";
 }

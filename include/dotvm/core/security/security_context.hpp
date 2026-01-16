@@ -150,6 +150,9 @@ enum class AuditEventType : std::uint8_t {
     ContextCreated,         ///< SecurityContext instantiated
     ContextDestroyed,       ///< SecurityContext destroyed
     ContextReset,           ///< SecurityContext usage reset
+
+    // Opcode authorization (SEC-005)
+    OpcodeDenied = 20,      ///< Opcode permission denied
 };
 
 /// @brief Convert AuditEventType to human-readable string
@@ -177,6 +180,8 @@ enum class AuditEventType : std::uint8_t {
             return "ContextDestroyed";
         case AuditEventType::ContextReset:
             return "ContextReset";
+        case AuditEventType::OpcodeDenied:
+            return "OpcodeDenied";
     }
     return "Unknown";
 }

@@ -268,6 +268,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/permission_test.cpp
         # Security context tests (SEC-003)
         tests/dotvm/core/security/security_context_test.cpp
+        # Opcode permission tests (SEC-005)
+        tests/dotvm/core/security/opcode_permission_test.cpp
         # Resource limiter tests (SEC-004)
         tests/dotvm/core/resource_limiter_test.cpp
     )
