@@ -25,6 +25,12 @@
 
 #include <optional>
 
+// Forward declaration for JIT support
+namespace dotvm::jit {
+class JitContext;
+struct JitConfig;
+}  // namespace dotvm::jit
+
 namespace dotvm::core {
 
 // ============================================================================
@@ -141,6 +147,24 @@ struct VmConfig {
     /// registers/ALU are not initialized.
     bool simd_enabled = false;
 
+    /// Enable JIT compilation (EXEC-012)
+    ///
+    /// When true, hot functions are compiled to native code.
+    /// Requires x86-64 platform.
+    bool jit_enabled = false;
+
+    /// JIT compilation threshold (calls before JIT)
+    ///
+    /// Default is 10,000 calls. Lower values mean faster compilation
+    /// but more compilation overhead.
+    std::uint32_t jit_call_threshold = 10'000;
+
+    /// JIT OSR (On-Stack Replacement) threshold
+    ///
+    /// Number of loop iterations before OSR triggers.
+    /// Default is 100,000. Set to 0 to disable OSR.
+    std::uint32_t jit_loop_threshold = 100'000;
+
     /// Creates a default configuration for the given architecture
     [[nodiscard]] static constexpr VmConfig for_arch(Architecture arch) noexcept {
         return VmConfig{.arch = arch};
@@ -241,6 +265,30 @@ struct VmConfig {
         };
     }
 
+    /// Creates a JIT-enabled configuration (EXEC-012)
+    ///
+    /// Enables JIT compilation with default thresholds.
+    [[nodiscard]] static constexpr VmConfig with_jit() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .jit_enabled = true,
+            .jit_call_threshold = 10'000,
+            .jit_loop_threshold = 100'000
+        };
+    }
+
+    /// Creates an aggressive JIT configuration
+    ///
+    /// Lower thresholds for faster compilation, useful for benchmarks.
+    [[nodiscard]] static constexpr VmConfig with_jit_aggressive() noexcept {
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .jit_enabled = true,
+            .jit_call_threshold = 1'000,
+            .jit_loop_threshold = 10'000
+        };
+    }
+
     constexpr bool operator==(const VmConfig&) const noexcept = default;
 };
 
@@ -264,29 +312,25 @@ public:
     /// Construct a context with the given configuration
     ///
     /// @param config VM configuration
-    explicit VmContext(VmConfig config = {}) noexcept
-        : config_{config},
-          regs_{config.arch},
-          mem_{config.max_memory},
-          alu_{config.arch},
-          call_stack_{determine_max_call_depth(config)},
-          simd_enabled_{config.simd_enabled} {
-        // Initialize CFI context if enabled
-        if (config.cfi_enabled) {
-            cfi_.emplace(config.cfi_policy, &mem_.security_stats());
-        }
-
-        // Initialize SIMD if enabled
-        if (config.simd_enabled) {
-            initialize_simd(config.simd_width);
-        }
-    }
+    /// @note Defined in vm_context_jit.cpp to keep JitContext an incomplete type
+    explicit VmContext(VmConfig config = {}) noexcept;
 
     /// Construct a context for a specific architecture
     ///
     /// @param arch Target architecture
-    explicit VmContext(Architecture arch) noexcept
-        : VmContext{VmConfig::for_arch(arch)} {}
+    explicit VmContext(Architecture arch) noexcept;
+
+    /// Destructor
+    ///
+    /// Defined in vm_context_jit.cpp to allow JitContext destructor to be called
+    /// (unique_ptr requires complete type at point of destruction).
+    ~VmContext();
+
+    // Non-copyable, movable
+    VmContext(const VmContext&) = delete;
+    VmContext& operator=(const VmContext&) = delete;
+    VmContext(VmContext&&) noexcept = default;
+    VmContext& operator=(VmContext&&) noexcept = default;
 
     // =========================================================================
     // Configuration Access
@@ -492,6 +536,40 @@ public:
     [[nodiscard]] const simd::SimdAlu* simd_alu() const noexcept { return simd_alu_.get(); }
 
     // =========================================================================
+    // JIT Access (EXEC-012)
+    // =========================================================================
+
+    /// Check if JIT compilation is enabled
+    ///
+    /// @return true if JIT is available
+    [[nodiscard]] bool jit_enabled() const noexcept { return jit_ctx_ != nullptr; }
+
+    /// Get mutable pointer to JIT context
+    ///
+    /// @return Pointer to JIT context, or nullptr if JIT disabled
+    [[nodiscard]] jit::JitContext* jit_context() noexcept { return jit_ctx_.get(); }
+
+    /// Get const pointer to JIT context
+    ///
+    /// @return Const pointer to JIT context, or nullptr if JIT disabled
+    [[nodiscard]] const jit::JitContext* jit_context() const noexcept { return jit_ctx_.get(); }
+
+    /// Enable JIT compilation with custom configuration
+    ///
+    /// @param config JIT configuration (call and loop thresholds, etc.)
+    /// @return true if JIT was successfully enabled
+    bool enable_jit(const jit::JitConfig& config);
+
+    /// Enable JIT compilation with default configuration from VmConfig
+    ///
+    /// Uses the jit_call_threshold and jit_loop_threshold from VmConfig.
+    /// @return true if JIT was successfully enabled
+    bool enable_jit();
+
+    /// Disable JIT compilation and clear compiled code cache
+    void disable_jit() noexcept;
+
+    // =========================================================================
     // Security Statistics
     // =========================================================================
 
@@ -512,17 +590,9 @@ public:
     /// Reset the context to initial state
     ///
     /// Clears all registers (scalar and vector), call stack, exception context,
-    /// and CFI state. Memory allocations persist until deallocated individually.
-    /// Configuration is preserved.
-    void reset() noexcept {
-        regs_.clear();
-        vec_regs_.clear();
-        call_stack_.clear();
-        exception_ctx_.clear();
-        if (cfi_) {
-            cfi_->reset();
-        }
-    }
+    /// CFI state, and JIT cache. Memory allocations persist until deallocated
+    /// individually. Configuration is preserved.
+    void reset() noexcept;
 
     /// Get statistics about the context state
     struct Stats {
@@ -590,6 +660,9 @@ private:
     std::unique_ptr<simd::SimdAlu> simd_alu_;
     bool simd_enabled_ = false;
     Architecture simd_arch_ = Architecture::Arch64;
+
+    // JIT support (EXEC-012)
+    std::unique_ptr<jit::JitContext> jit_ctx_;
 };
 
 }  // namespace dotvm::core
