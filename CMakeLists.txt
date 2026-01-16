@@ -110,6 +110,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/capabilities.cpp
     # Permission model (SEC-002)
     src/dotvm/core/permission.cpp
+    # Security context (SEC-003)
+    src/dotvm/core/security/security_context.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -262,6 +264,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/capability_test.cpp
         # Permission model tests (SEC-002)
         tests/dotvm/core/permission_test.cpp
+        # Security context tests (SEC-003)
+        tests/dotvm/core/security/security_context_test.cpp
     )
 
     # JIT tests (EXEC-012)
