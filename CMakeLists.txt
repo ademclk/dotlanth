@@ -112,6 +112,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/permission.cpp
     # Security context (SEC-003)
     src/dotvm/core/security/security_context.cpp
+    # Resource limiter (SEC-004)
+    src/dotvm/core/resource_limiter.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -266,6 +268,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/permission_test.cpp
         # Security context tests (SEC-003)
         tests/dotvm/core/security/security_context_test.cpp
+        # Resource limiter tests (SEC-004)
+        tests/dotvm/core/resource_limiter_test.cpp
     )
 
     # JIT tests (EXEC-012)
