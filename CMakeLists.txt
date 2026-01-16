@@ -34,6 +34,7 @@ option(DOTVM_BUILD_TESTS "Build unit tests" ON)
 option(DOTVM_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(DOTVM_BUILD_C_API "Build C API shared library for FFI" ON)
 option(DOTVM_ENABLE_SIMD "Enable SIMD optimizations" ON)
+option(DOTVM_ENABLE_JIT "Enable JIT compilation (x86-64 only)" ON)
 option(DOTVM_ENABLE_SANITIZERS "Enable sanitizers in Debug builds" OFF)
 option(DOTVM_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 
@@ -106,6 +107,27 @@ add_library(dotvm_core STATIC
     src/dotvm/core/crypto/sha256.cpp
     src/dotvm/core/crypto/aes.cpp
 )
+
+# JIT subsystem (EXEC-012)
+if(DOTVM_ENABLE_JIT)
+    # Check for x86-64 architecture
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        target_sources(dotvm_core PRIVATE
+            src/dotvm/jit/jit_code_buffer.cpp
+            src/dotvm/jit/jit_profiler.cpp
+            src/dotvm/jit/jit_stencil.cpp
+            src/dotvm/jit/jit_cache.cpp
+            src/dotvm/jit/jit_compiler.cpp
+            src/dotvm/jit/jit_context.cpp
+            src/dotvm/jit/jit_osr.cpp
+            src/dotvm/core/vm_context_jit.cpp
+        )
+        target_compile_definitions(dotvm_core PUBLIC DOTVM_JIT_ENABLED=1)
+        message(STATUS "JIT compilation enabled (x86-64 detected)")
+    else()
+        message(STATUS "JIT compilation disabled (x86-64 required, found: ${CMAKE_SYSTEM_PROCESSOR})")
+    endif()
+endif()
 
 target_include_directories(dotvm_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
@@ -233,6 +255,15 @@ if(DOTVM_BUILD_TESTS)
         # Test utilities and mock tests
         tests/dotvm/test_utils/mock_test.cpp
     )
+
+    # JIT tests (EXEC-012)
+    if(DOTVM_ENABLE_JIT AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        target_sources(dotvm_tests PRIVATE
+            tests/dotvm/jit/jit_code_buffer_test.cpp
+            tests/dotvm/jit/jit_profiler_test.cpp
+            tests/dotvm/jit/jit_integration_test.cpp
+        )
+    endif()
 
     target_link_libraries(dotvm_tests PRIVATE
         dotvm_core

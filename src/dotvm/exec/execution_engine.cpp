@@ -13,6 +13,7 @@
 #include <dotvm/core/value.hpp>
 #include <dotvm/core/exception_types.hpp>
 #include <dotvm/core/exception_context.hpp>
+#include <dotvm/jit/jit_context.hpp>
 
 namespace dotvm::exec {
 
@@ -1691,5 +1692,119 @@ ExecResult ExecutionEngine::dispatch_loop_debug() noexcept {
 }
 
 #endif // DOTVM_HAS_COMPUTED_GOTO
+
+// ============================================================================
+// JIT Integration (EXEC-012)
+// ============================================================================
+
+bool ExecutionEngine::jit_available() const noexcept {
+    return vm_ctx_.jit_enabled();
+}
+
+std::uint32_t ExecutionEngine::jit_register_function(
+    std::size_t entry_pc,
+    std::size_t end_pc
+) noexcept {
+    if (auto* jit = vm_ctx_.jit_context()) {
+        return jit->register_function(entry_pc, end_pc);
+    }
+    return 0;
+}
+
+std::uint64_t ExecutionEngine::jit_register_loop(
+    std::uint32_t func_id,
+    std::size_t header_pc,
+    std::size_t backedge_pc
+) noexcept {
+    if (auto* jit = vm_ctx_.jit_context()) {
+        return jit->register_loop(func_id, header_pc, backedge_pc);
+    }
+    return 0;
+}
+
+bool ExecutionEngine::jit_has_compiled(std::size_t entry_pc) const noexcept {
+    if (auto* jit = vm_ctx_.jit_context()) {
+        return jit->lookup_by_pc(entry_pc) != nullptr;
+    }
+    return false;
+}
+
+ExecResult ExecutionEngine::jit_execute(std::size_t entry_pc) noexcept {
+    auto* jit = vm_ctx_.jit_context();
+    if (!jit) [[unlikely]] {
+        return ExecResult::JitFallback;
+    }
+
+    // Look up compiled code
+    const auto* entry = jit->lookup_by_pc(entry_pc);
+    if (!entry || !entry->is_valid()) [[unlikely]] {
+        return ExecResult::JitFallback;
+    }
+
+    // Execute the compiled code
+    // Pass pointer to register file and VM context
+    jit->execute(entry, &vm_ctx_.registers(), &vm_ctx_);
+
+    return ExecResult::Success;
+}
+
+void ExecutionEngine::jit_record_call(std::size_t entry_pc) noexcept {
+    auto* jit = vm_ctx_.jit_context();
+    if (!jit) [[unlikely]] {
+        return;
+    }
+
+    // Find the function by entry PC
+    auto func_id_opt = jit->find_function(entry_pc);
+    if (!func_id_opt) [[unlikely]] {
+        return;  // Function not registered
+    }
+
+    // Record the call and check if we should compile
+    if (jit->record_call(*func_id_opt)) {
+        jit_try_compile(entry_pc);
+    }
+}
+
+void ExecutionEngine::jit_record_iteration(std::size_t backedge_pc) noexcept {
+    auto* jit = vm_ctx_.jit_context();
+    if (!jit || !jit->osr_enabled()) [[unlikely]] {
+        return;
+    }
+
+    // Find the loop by backedge PC
+    auto loop_id_opt = jit->find_loop(backedge_pc);
+    if (!loop_id_opt) [[unlikely]] {
+        return;  // Loop not registered
+    }
+
+    // Record the iteration and check if we should trigger OSR
+    if (jit->record_iteration(*loop_id_opt)) {
+        // Trigger OSR compilation
+        // Note: For now, OSR just compiles the containing function
+        (void)jit->compile_osr(*loop_id_opt, bytecode_bytes_);
+    }
+}
+
+void ExecutionEngine::jit_try_compile(std::size_t entry_pc) noexcept {
+    auto* jit = vm_ctx_.jit_context();
+    if (!jit) [[unlikely]] {
+        return;
+    }
+
+    // Find the function ID
+    auto func_id_opt = jit->find_function(entry_pc);
+    if (!func_id_opt) [[unlikely]] {
+        return;
+    }
+
+    // Already compiled?
+    if (jit->is_compiled(*func_id_opt)) {
+        return;
+    }
+
+    // Try to compile
+    (void)jit->compile_function(*func_id_opt, bytecode_bytes_);
+}
 
 }  // namespace dotvm::exec

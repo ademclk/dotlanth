@@ -225,6 +225,54 @@ public:
         return debug_ctx_;
     }
 
+    // =========================================================================
+    // JIT Integration (EXEC-012)
+    // =========================================================================
+
+    /// Check if JIT compilation is available
+    ///
+    /// @return true if JIT is enabled in the VM context
+    [[nodiscard]] bool jit_available() const noexcept;
+
+    /// Register a function for JIT profiling
+    ///
+    /// Call this when a new function is discovered in bytecode.
+    ///
+    /// @param entry_pc PC of function entry
+    /// @param end_pc PC past last instruction
+    /// @return Function ID for tracking
+    std::uint32_t jit_register_function(
+        std::size_t entry_pc,
+        std::size_t end_pc
+    ) noexcept;
+
+    /// Register a loop for OSR tracking
+    ///
+    /// @param func_id Function containing the loop
+    /// @param header_pc PC of loop header
+    /// @param backedge_pc PC of backward edge
+    /// @return Loop ID for tracking
+    std::uint64_t jit_register_loop(
+        std::uint32_t func_id,
+        std::size_t header_pc,
+        std::size_t backedge_pc
+    ) noexcept;
+
+    /// Check if a function has compiled code available
+    ///
+    /// @param entry_pc PC of function entry
+    /// @return true if compiled code exists
+    [[nodiscard]] bool jit_has_compiled(std::size_t entry_pc) const noexcept;
+
+    /// Try to execute a function via JIT
+    ///
+    /// If compiled code is available, executes it. Otherwise falls back
+    /// to interpretation.
+    ///
+    /// @param entry_pc PC of function entry
+    /// @return ExecResult::Success if JIT executed, JitFallback if not available
+    [[nodiscard]] ExecResult jit_execute(std::size_t entry_pc) noexcept;
+
 private:
     /// Reference to VM context (registers, memory, ALU, CFI)
     core::VmContext& vm_ctx_;
@@ -260,6 +308,28 @@ private:
     /// @param instr The 32-bit instruction to execute
     /// @return true if execution should continue, false to halt
     [[nodiscard]] bool execute_instruction(std::uint32_t instr) noexcept;
+
+    /// JIT profiling: record a function call
+    ///
+    /// Called internally when CALL is executed. May trigger JIT compilation.
+    ///
+    /// @param entry_pc PC of the called function
+    void jit_record_call(std::size_t entry_pc) noexcept;
+
+    /// JIT profiling: record a loop iteration
+    ///
+    /// Called internally at backward jumps. May trigger OSR.
+    ///
+    /// @param backedge_pc PC of the backward edge
+    void jit_record_iteration(std::size_t backedge_pc) noexcept;
+
+    /// Try to trigger JIT compilation for a function
+    ///
+    /// @param entry_pc PC of function entry
+    void jit_try_compile(std::size_t entry_pc) noexcept;
+
+    /// Bytecode as raw bytes for JIT compilation
+    std::span<const std::uint8_t> bytecode_bytes_;
 };
 
 }  // namespace dotvm::exec
