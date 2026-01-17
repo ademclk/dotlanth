@@ -169,17 +169,14 @@ public:
     StencilRegistry() = default;
 
     /// @brief Register a stencil for an opcode
+    /// @note No bounds check needed: uint8_t range [0,255] always fits in MAX_OPCODES (256)
     void register_stencil(const Stencil& stencil) noexcept {
-        if (stencil.opcode < MAX_OPCODES) {
-            stencils_[stencil.opcode] = stencil;
-        }
+        stencils_[stencil.opcode] = stencil;
     }
 
     /// @brief Look up stencil by opcode
+    /// @note No bounds check needed: uint8_t range [0,255] always fits in MAX_OPCODES (256)
     [[nodiscard]] const Stencil* get(std::uint8_t opcode) const noexcept {
-        if (opcode >= MAX_OPCODES) [[unlikely]] {
-            return nullptr;
-        }
         const auto& stencil = stencils_[opcode];
         return stencil.valid() ? &stencil : nullptr;
     }

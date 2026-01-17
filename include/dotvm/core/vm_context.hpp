@@ -326,11 +326,11 @@ public:
     /// (unique_ptr requires complete type at point of destruction).
     ~VmContext();
 
-    // Non-copyable, movable
+    // Non-copyable, non-movable (MemoryManager is non-movable)
     VmContext(const VmContext&) = delete;
     VmContext& operator=(const VmContext&) = delete;
-    VmContext(VmContext&&) noexcept = default;
-    VmContext& operator=(VmContext&&) noexcept = default;
+    VmContext(VmContext&&) = delete;
+    VmContext& operator=(VmContext&&) = delete;
 
     // =========================================================================
     // Configuration Access

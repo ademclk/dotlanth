@@ -159,7 +159,8 @@ public:
     /// Construct from raw pointer
     /// @note Only 48 bits of the address are preserved. This is sufficient
     ///       for canonical x86-64 user-space and kernel-space addresses.
-    constexpr explicit Value(void* ptr) noexcept
+    /// @note Not constexpr because reinterpret_cast is not allowed in constant expressions.
+    explicit Value(void* ptr) noexcept
         : bits_{nan_box::POINTER_PREFIX |
                 (reinterpret_cast<std::uint64_t>(ptr) & nan_box::FULL_PAYLOAD)} {}
 
