@@ -86,15 +86,19 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     /// Width of the vector in bits
+    // NOLINTNEXTLINE(readability-identifier-naming)
     static constexpr std::size_t kWidthBits = Width;
 
     /// Width of the vector in bytes
+    // NOLINTNEXTLINE(readability-identifier-naming)
     static constexpr std::size_t kWidthBytes = Width / 8;
 
     /// Number of lanes in this vector
+    // NOLINTNEXTLINE(readability-identifier-naming)
     static constexpr std::size_t kLaneCount = Width / (sizeof(Lane) * 8);
 
     /// Size of each lane in bytes
+    // NOLINTNEXTLINE(readability-identifier-naming)
     static constexpr std::size_t kLaneSize = sizeof(Lane);
 
     // ========================================================================
@@ -166,12 +170,14 @@ public:
         if constexpr (std::is_floating_point_v<Lane>) {
             // For floating point, set all bits via bit_cast
             if constexpr (std::same_as<Lane, float>) {
+                // NOLINTNEXTLINE(readability-identifier-naming)
                 constexpr std::uint32_t kAllOnes = ~std::uint32_t{0};
                 Lane val = std::bit_cast<Lane>(kAllOnes);
                 for (auto& lane : v.lanes_) {
                     lane = val;
                 }
             } else {
+                // NOLINTNEXTLINE(readability-identifier-naming)
                 constexpr std::uint64_t kAllOnes = ~std::uint64_t{0};
                 Lane val = std::bit_cast<Lane>(kAllOnes);
                 for (auto& lane : v.lanes_) {

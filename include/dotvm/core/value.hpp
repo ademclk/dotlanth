@@ -129,7 +129,7 @@ public:
     /// @note NaN inputs that would conflict with type tags are canonicalized
     ///       to a standard quiet NaN to prevent type confusion.
     constexpr explicit Value(double f) noexcept {
-        std::uint64_t bits = std::bit_cast<std::uint64_t>(f);
+        auto bits = std::bit_cast<std::uint64_t>(f);
         // Canonicalize NaN values that would conflict with our type tags
         // A conflicting NaN has QNAN_PREFIX set AND has non-zero tag bits (bits 48-50)
         if ((bits & nan_box::QNAN_PREFIX) == nan_box::QNAN_PREFIX) {
@@ -291,6 +291,7 @@ public:
     [[nodiscard]] constexpr std::int64_t as_integer() const noexcept {
         // Sign-extend from 48 bits to 64 bits
         const auto val = static_cast<std::int64_t>(bits_ & nan_box::FULL_PAYLOAD);
+        // NOLINTNEXTLINE(readability-identifier-naming)
         constexpr std::int64_t kSignBit = 1LL << 47;
         return (val ^ kSignBit) - kSignBit;
     }
@@ -496,7 +497,7 @@ namespace value_ops {
         return a.as_integer() <=> b.as_integer();
     }
     if (a.is_bool() && b.is_bool()) {
-        return a.as_bool() <=> b.as_bool();
+        return static_cast<int>(a.as_bool()) <=> static_cast<int>(b.as_bool());
     }
     // Mixed numeric: promote to float
     if (a.is_numeric() && b.is_numeric()) {

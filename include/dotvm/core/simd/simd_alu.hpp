@@ -313,7 +313,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Lane vdot(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b) noexcept {
     Lane sum{0};
     for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
-        sum = static_cast<Lane>(sum + a[i] * b[i]);
+        sum = static_cast<Lane>(sum + (a[i] * b[i]));
     }
     return sum;
 }

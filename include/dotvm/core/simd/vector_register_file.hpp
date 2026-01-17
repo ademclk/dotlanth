@@ -214,9 +214,11 @@ public:
     // ========================================================================
 
     /// Number of registers
+    // NOLINTNEXTLINE(readability-identifier-naming)
     static constexpr std::size_t kRegisterCount = VECTOR_REGISTER_COUNT;
 
     /// Index of the zero register
+    // NOLINTNEXTLINE(readability-identifier-naming)
     static constexpr std::uint8_t kZeroRegister = VREG_ZERO;
 
     // ========================================================================
@@ -511,6 +513,7 @@ private:
     std::array<VectorRegister, VECTOR_REGISTER_COUNT> regs_;
 
     /// Pre-initialized zero register for V0 reads
+    // NOLINTNEXTLINE(readability-identifier-naming)
     static inline const VectorRegister kZeroReg{};
 };
 
