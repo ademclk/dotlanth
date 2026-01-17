@@ -42,11 +42,11 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: clang-release-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+          key: v2-clang-release-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
           restore-keys: |
-            clang-release-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
-            clang-release-llvm${{ env.LLVM_VERSION }}-refs/heads/main
-            clang-release-llvm${{ env.LLVM_VERSION }}-
+            v2-clang-release-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+            v2-clang-release-llvm${{ env.LLVM_VERSION }}-refs/heads/main
+            v2-clang-release-llvm${{ env.LLVM_VERSION }}-
 
       - name: Configure
         run: |
@@ -91,11 +91,11 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: clang-sanitizers-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+          key: v2-clang-sanitizers-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
           restore-keys: |
-            clang-sanitizers-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
-            clang-sanitizers-llvm${{ env.LLVM_VERSION }}-refs/heads/main
-            clang-sanitizers-llvm${{ env.LLVM_VERSION }}-
+            v2-clang-sanitizers-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+            v2-clang-sanitizers-llvm${{ env.LLVM_VERSION }}-refs/heads/main
+            v2-clang-sanitizers-llvm${{ env.LLVM_VERSION }}-
 
       - name: Configure
         run: |
@@ -218,11 +218,11 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: clang-coverage-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+          key: v2-clang-coverage-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
           restore-keys: |
-            clang-coverage-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
-            clang-coverage-llvm${{ env.LLVM_VERSION }}-refs/heads/main
-            clang-coverage-llvm${{ env.LLVM_VERSION }}-
+            v2-clang-coverage-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+            v2-clang-coverage-llvm${{ env.LLVM_VERSION }}-refs/heads/main
+            v2-clang-coverage-llvm${{ env.LLVM_VERSION }}-
 
       - name: Configure
         run: |
