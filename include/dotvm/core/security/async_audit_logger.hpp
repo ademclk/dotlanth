@@ -156,12 +156,12 @@ private:
     // === Producer State (cache-line isolated) ===
 
     alignas(AUDIT_CACHE_LINE_SIZE) std::atomic<std::size_t> write_idx_{0};
-    char pad_producer_[AUDIT_CACHE_LINE_SIZE - sizeof(std::atomic<std::size_t>)];
+    [[maybe_unused]] char pad_producer_[AUDIT_CACHE_LINE_SIZE - sizeof(std::atomic<std::size_t>)];
 
     // === Consumer State (cache-line isolated) ===
 
     alignas(AUDIT_CACHE_LINE_SIZE) std::atomic<std::size_t> read_idx_{0};
-    char pad_consumer_[AUDIT_CACHE_LINE_SIZE - sizeof(std::atomic<std::size_t>)];
+    [[maybe_unused]] char pad_consumer_[AUDIT_CACHE_LINE_SIZE - sizeof(std::atomic<std::size_t>)];
 
     // === Persistent Storage ===
 
