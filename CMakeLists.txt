@@ -12,13 +12,13 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Add C++26 flag for compilers that support it
+# Add C++26 flag for compilers that support it (only for C++ files)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     # GCC 14+ supports -std=c++26
-    add_compile_options(-std=c++2c)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=c++2c>)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # Clang 19+ supports -std=c++26
-    add_compile_options(-std=c++2c)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=c++2c>)
 endif()
 
 # Export compile commands for IDE integration
