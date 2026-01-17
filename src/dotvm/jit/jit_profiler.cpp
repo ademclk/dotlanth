@@ -5,10 +5,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <utility>
+
+#include "dotvm/jit/jit_config.hpp"
 
 namespace dotvm::jit {
 
@@ -16,7 +19,7 @@ JitProfiler::JitProfiler(const JitConfig& config) noexcept
     : call_threshold_(config.call_threshold), loop_threshold_(config.loop_threshold) {}
 
 FunctionId JitProfiler::register_function(std::size_t entry_pc, std::size_t end_pc) {
-    const FunctionId id = static_cast<FunctionId>(functions_.size());
+    const auto id = static_cast<FunctionId>(functions_.size());
 
     auto profile = std::make_unique<FunctionProfile>();
     profile->entry_pc = entry_pc;

@@ -26,6 +26,7 @@ inline constexpr std::size_t CACHE_LINE_SIZE = 64;
 ///
 /// Tracks call count and PC boundaries for a function.
 /// Cache-line aligned to prevent false sharing.
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding) - intentional cache-line alignment
 struct alignas(CACHE_LINE_SIZE) FunctionProfile {
     /// @brief Number of times this function has been called
     std::atomic<std::uint32_t> call_count{0};
@@ -40,8 +41,9 @@ struct alignas(CACHE_LINE_SIZE) FunctionProfile {
     std::atomic<bool> compiled{false};
 
     /// @brief Padding to fill cache line
+    // NOLINTNEXTLINE(readability-identifier-naming) - intentional trailing underscore for padding
     std::uint8_t padding_[CACHE_LINE_SIZE - sizeof(std::atomic<std::uint32_t>) -
-                          sizeof(std::size_t) * 2 - sizeof(std::atomic<bool>)]{};
+                          (sizeof(std::size_t) * 2) - sizeof(std::atomic<bool>)]{};
 
     /// @brief Increment call count and return new value
     [[nodiscard]] std::uint32_t increment() noexcept {
@@ -64,6 +66,7 @@ struct alignas(CACHE_LINE_SIZE) FunctionProfile {
 ///
 /// Tracks iteration count and PC locations for loop OSR decisions.
 /// Cache-line aligned to prevent false sharing.
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding) - intentional cache-line alignment
 struct alignas(CACHE_LINE_SIZE) LoopProfile {
     /// @brief Number of iterations of this loop
     std::atomic<std::uint32_t> iteration_count{0};
@@ -78,8 +81,9 @@ struct alignas(CACHE_LINE_SIZE) LoopProfile {
     std::atomic<bool> osr_triggered{false};
 
     /// @brief Padding to fill cache line
+    // NOLINTNEXTLINE(readability-identifier-naming) - intentional trailing underscore for padding
     std::uint8_t padding_[CACHE_LINE_SIZE - sizeof(std::atomic<std::uint32_t>) -
-                          sizeof(std::size_t) * 2 - sizeof(std::atomic<bool>)]{};
+                          (sizeof(std::size_t) * 2) - sizeof(std::atomic<bool>)]{};
 
     /// @brief Increment iteration count and return new value
     [[nodiscard]] std::uint32_t increment() noexcept {
@@ -144,6 +148,9 @@ public:
 
     /// @brief Create a profiler with specific configuration
     explicit JitProfiler(const JitConfig& config) noexcept;
+
+    /// @brief Destructor
+    ~JitProfiler() = default;
 
     // Non-copyable due to atomic counters
     JitProfiler(const JitProfiler&) = delete;

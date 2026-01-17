@@ -21,13 +21,13 @@ inline constexpr std::uint32_t CALL_THRESHOLD = 10'000;
 inline constexpr std::uint32_t LOOP_THRESHOLD = 100'000;
 
 /// @brief Default maximum code cache size (64 MiB)
-inline constexpr std::size_t DEFAULT_MAX_CODE_CACHE = 64 * 1024 * 1024;
+inline constexpr std::size_t DEFAULT_MAX_CODE_CACHE = std::size_t{64} * 1024 * 1024;
 
 /// @brief Minimum code buffer allocation size (4 KiB = 1 page)
-inline constexpr std::size_t MIN_CODE_BUFFER_SIZE = 4 * 1024;
+inline constexpr std::size_t MIN_CODE_BUFFER_SIZE = std::size_t{4} * 1024;
 
 /// @brief Maximum single function compiled size (1 MiB)
-inline constexpr std::size_t MAX_FUNCTION_CODE_SIZE = 1 * 1024 * 1024;
+inline constexpr std::size_t MAX_FUNCTION_CODE_SIZE = std::size_t{1} * 1024 * 1024;
 
 }  // namespace thresholds
 

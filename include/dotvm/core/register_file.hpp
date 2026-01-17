@@ -48,7 +48,8 @@ public:
     public:
         constexpr RegisterProxy(RegisterFile& rf, std::uint8_t reg) noexcept : rf_{rf}, reg_{reg} {}
 
-        // NOLINTNEXTLINE(google-explicit-constructor) - intentional for proxy pattern
+        // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) - intentional for
+        // proxy pattern
         constexpr operator Value() const noexcept { return rf_.read(reg_); }
 
         constexpr RegisterProxy& operator=(Value val) noexcept {
@@ -208,7 +209,8 @@ public:
         constexpr ArchRegisterProxy(ArchRegisterFile& rf, std::uint8_t reg) noexcept
             : rf_{rf}, reg_{reg} {}
 
-        // NOLINTNEXTLINE(google-explicit-constructor) - intentional for proxy pattern
+        // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) - intentional for
+        // proxy pattern
         operator Value() const noexcept { return rf_.read(reg_); }
 
         ArchRegisterProxy& operator=(Value val) noexcept {
