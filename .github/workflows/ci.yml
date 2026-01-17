@@ -42,11 +42,11 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: clang-release-${{ github.ref }}
+          key: clang-release-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
           restore-keys: |
-            clang-release-${{ github.ref }}
-            clang-release-refs/heads/main
-            clang-release-
+            clang-release-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+            clang-release-llvm${{ env.LLVM_VERSION }}-refs/heads/main
+            clang-release-llvm${{ env.LLVM_VERSION }}-
 
       - name: Configure
         run: |
@@ -91,11 +91,11 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: clang-sanitizers-${{ github.ref }}
+          key: clang-sanitizers-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
           restore-keys: |
-            clang-sanitizers-${{ github.ref }}
-            clang-sanitizers-refs/heads/main
-            clang-sanitizers-
+            clang-sanitizers-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+            clang-sanitizers-llvm${{ env.LLVM_VERSION }}-refs/heads/main
+            clang-sanitizers-llvm${{ env.LLVM_VERSION }}-
 
       - name: Configure
         run: |
@@ -218,11 +218,11 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: clang-coverage-${{ github.ref }}
+          key: clang-coverage-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
           restore-keys: |
-            clang-coverage-${{ github.ref }}
-            clang-coverage-refs/heads/main
-            clang-coverage-
+            clang-coverage-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+            clang-coverage-llvm${{ env.LLVM_VERSION }}-refs/heads/main
+            clang-coverage-llvm${{ env.LLVM_VERSION }}-
 
       - name: Configure
         run: |
