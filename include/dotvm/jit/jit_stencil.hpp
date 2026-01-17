@@ -170,16 +170,13 @@ public:
 
     /// @brief Register a stencil for an opcode
     void register_stencil(const Stencil& stencil) noexcept {
-        if (stencil.opcode < MAX_OPCODES) {
-            stencils_[stencil.opcode] = stencil;
-        }
+        // opcode is uint8_t, always < 256 (MAX_OPCODES)
+        stencils_[stencil.opcode] = stencil;
     }
 
     /// @brief Look up stencil by opcode
     [[nodiscard]] const Stencil* get(std::uint8_t opcode) const noexcept {
-        if (opcode >= MAX_OPCODES) [[unlikely]] {
-            return nullptr;
-        }
+        // opcode is uint8_t, always < 256 (MAX_OPCODES), bounds check unnecessary
         const auto& stencil = stencils_[opcode];
         return stencil.valid() ? &stencil : nullptr;
     }
