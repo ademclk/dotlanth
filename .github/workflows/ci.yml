@@ -198,6 +198,9 @@ jobs:
     name: Code Coverage
     runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout
