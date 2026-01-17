@@ -172,7 +172,6 @@ The project uses GitHub Actions for continuous integration:
 | **Build & Test** | Builds with Clang 19 and runs all unit tests |
 | **Sanitizers** | Runs tests with AddressSanitizer and UndefinedBehaviorSanitizer |
 | **Static Analysis** | clang-tidy checks for bugs and best practices |
-| **Code Coverage** | Generates coverage reports on pull requests |
 | **Format Check** | Verifies code formatting with clang-format |
 
 ### CMake Presets
