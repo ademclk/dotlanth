@@ -293,10 +293,7 @@ void Sha256::process_block_sha_ni(std::span<const std::uint8_t, 64> block) noexc
     STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
     MSG1 = _mm_sha256msg1_epu32(MSG1, MSG2);
 
-    // Rounds 28-31
-    MSG = _mm_add_epi32(MSG3, _mm_set_epi64x(
-        static_cast<std::int64_t>(0x14292967142929ull),  // Placeholder
-        static_cast<std::int64_t>(0xD5A79147C6E00BF3ull)));
+    // Rounds 28-31 (K[28-31]: 0xC6E00BF3, 0xD5A79147, 0x06CA6351, 0x14292967)
     MSG = _mm_add_epi32(MSG3, _mm_set_epi64x(
         static_cast<std::int64_t>(0x1429296706CA6351ull),
         static_cast<std::int64_t>(0xD5A79147C6E00BF3ull)));
