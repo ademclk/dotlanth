@@ -57,7 +57,7 @@ public:
         }
 
     private:
-        RegisterFile& rf_;      // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        RegisterFile& rf_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         std::uint8_t reg_;
     };
 
