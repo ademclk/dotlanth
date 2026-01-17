@@ -180,6 +180,12 @@ enum class AuditEventType : std::uint8_t {
     // SEC-006: Resource violations (50-59)
     MemoryLimitExceeded = 50,  ///< Memory limit exceeded (explicit)
     SecurityViolation = 51,    ///< Generic security violation
+
+    // SEC-007: Isolation violations (60-69)
+    IsolationViolation = 60,  ///< Cross-Dot isolation boundary violation
+    HandleGranted = 61,       ///< Handle granted from parent to child Dot
+    HandleRevoked = 62,       ///< Handle grant revoked
+    SyscallBlocked = 63,      ///< Syscall blocked by whitelist
 };
 
 /// @brief Convert AuditEventType to human-readable string
@@ -226,6 +232,15 @@ enum class AuditEventType : std::uint8_t {
             return "MemoryLimitExceeded";
         case AuditEventType::SecurityViolation:
             return "SecurityViolation";
+        // SEC-007: Isolation violations
+        case AuditEventType::IsolationViolation:
+            return "IsolationViolation";
+        case AuditEventType::HandleGranted:
+            return "HandleGranted";
+        case AuditEventType::HandleRevoked:
+            return "HandleRevoked";
+        case AuditEventType::SyscallBlocked:
+            return "SyscallBlocked";
     }
     return "Unknown";
 }

@@ -127,6 +127,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/security/audit_logger.cpp
     src/dotvm/core/security/audit_serializer.cpp
     src/dotvm/core/security/async_audit_logger.cpp
+    # Isolation boundaries (SEC-007)
+    src/dotvm/core/security/isolation_manager.cpp
     # Resource limiter (SEC-004)
     src/dotvm/core/resource_limiter.cpp
 )
@@ -290,6 +292,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/security/security_context_test.cpp
         # Opcode permission tests (SEC-005)
         tests/dotvm/core/security/opcode_permission_test.cpp
+        # Isolation manager tests (SEC-007)
+        tests/dotvm/core/security/isolation_manager_test.cpp
         # Audit logging tests (SEC-006)
         tests/dotvm/core/security/audit_event_test.cpp
         tests/dotvm/core/security/async_audit_logger_test.cpp

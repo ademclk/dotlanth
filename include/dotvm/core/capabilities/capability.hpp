@@ -85,6 +85,11 @@ enum class Permission : std::uint32_t {
     /// Bypass CFI checks (dangerous)
     BypassCfi = 1U << 15,
 
+    // ===== Isolation Permissions (bits 16-19) =====
+
+    /// Grant handles to child Dots (SEC-007)
+    GrantHandles = 1U << 16,
+
     // ===== Composite Permissions =====
 
     /// All memory permissions
@@ -237,6 +242,9 @@ constexpr Permission& operator^=(Permission& lhs, Permission rhs) noexcept {
     }
     if ((value & static_cast<std::uint32_t>(Permission::BypassCfi)) != 0) {
         append("BypassCfi");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::GrantHandles)) != 0) {
+        append("GrantHandles");
     }
 
     return result.empty() ? "Unknown" : result;
