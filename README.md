@@ -1,9 +1,10 @@
 # Dotlanth
 
-[![CI](https://github.com/YOUR_ORG/dotlanth/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/dotlanth/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/YOUR_ORG/dotlanth/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_ORG/dotlanth)
+[![CI](https://github.com/ademclk/dotlanth/actions/workflows/ci.yml/badge.svg)](https://github.com/ademclk/dotlanth/actions/workflows/ci.yml)
+[![Coverage](https://github.com/ademclk/dotlanth/actions/workflows/coverage.yml/badge.svg)](https://github.com/ademclk/dotlanth/actions/workflows/coverage.yml)
+[![Static Analysis](https://github.com/ademclk/dotlanth/actions/workflows/static-analysis.yml/badge.svg)](https://github.com/ademclk/dotlanth/actions/workflows/static-analysis.yml)
 [![C++26](https://img.shields.io/badge/C%2B%2B-26-blue.svg)](https://en.cppreference.com/w/cpp/26)
-[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
 AI-Powered Automation Platform
 
@@ -26,7 +27,7 @@ Dotlanth is a modular automation platform designed for building intelligent work
 
 ## Requirements
 
-- **C++26 Compiler**: GCC 14+ or Clang 19+
+- **C++26 Compiler**: Clang 19+ (primary) or GCC 14+
 - **CMake**: 3.28+
 - **Ninja** (recommended) or Make
 
@@ -45,7 +46,9 @@ cmake --build build
 |--------|---------|-------------|
 | `DOTVM_BUILD_TESTS` | ON | Build unit tests |
 | `DOTVM_BUILD_BENCHMARKS` | OFF | Build benchmarks |
+| `DOTVM_BUILD_C_API` | ON | Build C API shared library |
 | `DOTVM_ENABLE_SIMD` | ON | Enable SIMD optimizations |
+| `DOTVM_ENABLE_JIT` | ON | Enable JIT compilation (x86-64 only) |
 | `DOTVM_ENABLE_SANITIZERS` | OFF | Enable AddressSanitizer/UBSan (Debug) |
 | `DOTVM_ENABLE_COVERAGE` | OFF | Enable code coverage instrumentation |
 
@@ -68,7 +71,6 @@ cmake --build build
 cmake -B build -DCMAKE_BUILD_TYPE=Debug -DDOTVM_ENABLE_COVERAGE=ON
 cmake --build build
 ctest --test-dir build
-lcov --directory build --capture --output-file coverage.info
 ```
 
 ## Running
@@ -89,6 +91,21 @@ ctest --test-dir build --output-on-failure --verbose
 # Run specific test
 ./build/dotvm_tests --gtest_filter="ValueTest.*"
 ```
+
+## CI/CD
+
+The project uses GitHub Actions for continuous integration:
+
+| Workflow | Description | Trigger |
+|----------|-------------|---------|
+| **CI** | Build and test (Debug + Release) | Push/PR to main, develop |
+| **Format** | clang-format and cmake-format checks | Push/PR to main, develop |
+| **Static Analysis** | clang-tidy and CodeQL security scanning | Push/PR to main, develop |
+| **Coverage** | Code coverage report | Push/PR to main, develop |
+| **Sanitizers** | ASan, UBSan, TSan builds | Push/PR to main, weekly |
+| **Release** | Create release artifacts | Tags (v*) |
+
+All workflows run on **Ubuntu 24.04 with Clang 19**.
 
 ## Development
 
@@ -134,20 +151,17 @@ clang-tidy -p build include/dotvm/core/*.hpp
 
 ```
 dotlanth/
-├── include/dotvm/core/    # Public header files
-│   ├── value.hpp          # NaN-boxed value type system
-│   ├── instruction.hpp    # Instruction encoding/decoding
-│   ├── register_file.hpp  # Register file management
-│   ├── memory.hpp         # Memory manager with handles
-│   ├── vm_context.hpp     # VM execution context
-│   ├── bytecode.hpp       # Bytecode format and validation
-│   ├── alu.hpp            # Arithmetic Logic Unit
-│   ├── cfi.hpp            # Control Flow Integrity
-│   ├── concepts.hpp       # C++20 concepts
-│   └── result.hpp         # Enhanced Result type
-├── src/dotvm/core/        # Implementation files
-├── tests/dotvm/core/      # Test suite
-├── .github/workflows/     # CI configuration
+├── include/dotvm/         # Public header files
+│   ├── core/              # Core VM components
+│   ├── exec/              # Execution engine
+│   ├── jit/               # JIT compilation (x86-64)
+│   └── dotvm_c.h          # C API
+├── src/dotvm/             # Implementation files
+├── tests/dotvm/           # Test suite
+├── benchmarks/            # Performance benchmarks
+├── fuzz/                  # Fuzzing targets
+├── docs/                  # Documentation
+├── .github/workflows/     # CI/CD configuration
 ├── .clang-format          # Code formatting rules
 ├── .clang-tidy            # Static analysis rules
 ├── .pre-commit-config.yaml # Pre-commit hooks
@@ -162,8 +176,9 @@ dotlanth/
 - **Value System**: NaN-boxed 64-bit values supporting Float, Integer (48-bit), Bool, Handle, Nil, and Pointer types
 - **Instruction Set**: 32-bit fixed-format instructions with three encoding types (A, B, C)
 - **Memory Management**: Generation-based handle system preventing use-after-free vulnerabilities
-- **Security**: Control Flow Integrity (CFI), bounds checking, and comprehensive validation
+- **Security**: Control Flow Integrity (CFI), bounds checking, capability-based permissions, and comprehensive validation
+- **JIT Compilation**: On-stack replacement (OSR) for hot code paths (x86-64)
 
 ## License
 
-Proprietary
+This project is licensed under the GNU General Public License v2.0 - see the [LICENSE](LICENSE) file for details.
