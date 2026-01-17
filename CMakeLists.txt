@@ -159,6 +159,11 @@ target_include_directories(dotvm_core PUBLIC
 
 target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
+# Pass SIMD enable flag to source code for conditional compilation of intrinsics
+if(DOTVM_ENABLE_SIMD)
+    target_compile_definitions(dotvm_core PUBLIC DOTVM_SIMD_ENABLED=1)
+endif()
+
 # Suppress pedantic warning for computed-goto in execution engine
 # Computed-goto is a GCC/Clang extension required for high-performance dispatch
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -336,10 +341,14 @@ if(DOTVM_BUILD_TESTS)
             tests/dotvm/dotvm_c_test.c
         )
 
-        # Force C compilation (not C++)
-        set_target_properties(dotvm_c_compat_test PROPERTIES
-            LINKER_LANGUAGE C
-        )
+        # Force C linker only when sanitizers are disabled.
+        # When sanitizers are enabled, the linked shared library (libdotvm_c.so)
+        # contains C++ UBSan symbols that require the C++ linker to resolve.
+        if(NOT DOTVM_ENABLE_SANITIZERS)
+            set_target_properties(dotvm_c_compat_test PROPERTIES
+                LINKER_LANGUAGE C
+            )
+        endif()
 
         target_link_libraries(dotvm_c_compat_test PRIVATE dotvm_c)
 

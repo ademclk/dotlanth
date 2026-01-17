@@ -5,15 +5,18 @@
 #include <cstring>
 
 // Platform-specific intrinsics for hardware acceleration
-#if defined(__x86_64__) || defined(_M_X64)
-    #include <immintrin.h>
-    #define DOTVM_X86_SHA256 1
-#endif
+// Only enable when SIMD is enabled at build time (DOTVM_SIMD_ENABLED)
+#if defined(DOTVM_SIMD_ENABLED)
+    #if defined(__x86_64__) || defined(_M_X64)
+        #include <immintrin.h>
+        #define DOTVM_X86_SHA256 1
+    #endif
 
-#if defined(__aarch64__) || defined(_M_ARM64)
-    #if defined(__ARM_FEATURE_CRYPTO) || defined(_MSC_VER)
-        #include <arm_neon.h>
-        #define DOTVM_ARM_SHA256 1
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        #if defined(__ARM_FEATURE_CRYPTO) || defined(_MSC_VER)
+            #include <arm_neon.h>
+            #define DOTVM_ARM_SHA256 1
+        #endif
     #endif
 #endif
 
