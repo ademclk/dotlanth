@@ -14,7 +14,7 @@
 
 #include "dotvm/jit/jit_config.hpp"
 #include "dotvm/jit/jit_profiler.hpp"
-#include "dotvm/jit/stencil.hpp"
+#include "dotvm/jit/jit_stencil.hpp"
 
 namespace dotvm::jit {
 
