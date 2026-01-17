@@ -150,8 +150,8 @@ private:
                                                           std::span<const std::int64_t> operands);
 
     /// @brief Patch a single hole in copied stencil code
-    void patch_hole(std::span<std::uint8_t> code, const StencilHole& hole,
-                    std::int64_t value) noexcept;
+    static void patch_hole(std::span<std::uint8_t> code, const StencilHole& hole,
+                           std::int64_t value) noexcept;
 
     /// @brief Calculate register file offset for a register index
     [[nodiscard]] static constexpr std::int32_t reg_offset(std::uint8_t reg) noexcept {

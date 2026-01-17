@@ -4,7 +4,17 @@
 #include "dotvm/jit/jit_compiler.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <cstring>
+#include <expected>
+#include <ranges>
+#include <span>
+#include <vector>
+
+#include "dotvm/jit/jit_config.hpp"
+#include "dotvm/jit/jit_profiler.hpp"
+#include "dotvm/jit/stencil.hpp"
 
 namespace dotvm::jit {
 
@@ -38,6 +48,7 @@ CompileResult<CompiledFunction> JitCompiler::compile(FunctionId func_id,
     std::size_t offset = 0;
 
     // Calculate frame size (for now, fixed size)
+    // NOLINTNEXTLINE(readability-identifier-naming)
     constexpr std::size_t frame_size = 64;
 
     // Emit prologue
@@ -87,12 +98,8 @@ bool JitCompiler::supports_opcode(std::uint8_t opcode) const noexcept {
 }
 
 bool JitCompiler::can_compile(std::span<const BytecodeInstr> instructions) const noexcept {
-    for (const auto& instr : instructions) {
-        if (!supports_opcode(instr.opcode)) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(instructions,
+                               [this](const auto& instr) { return supports_opcode(instr.opcode); });
 }
 
 std::size_t
@@ -102,7 +109,7 @@ JitCompiler::estimate_code_size(std::span<const BytecodeInstr> instructions) con
 
     for (const auto& instr : instructions) {
         const auto* stencil = stencils_.get(instr.opcode);
-        if (stencil) {
+        if (stencil != nullptr) {
             size += stencil->code_size;
         } else {
             // Estimate for fallback
@@ -129,7 +136,7 @@ CompileResult<std::size_t> JitCompiler::emit_prologue(std::span<std::uint8_t> ou
     std::memcpy(output.data(), prologue.code, prologue.code_size);
 
     // Patch frame size hole
-    std::int64_t operands[] = {static_cast<std::int64_t>(frame_size)};
+    const std::int64_t operands[] = {static_cast<std::int64_t>(frame_size)};
     for (std::size_t i = 0; i < prologue.hole_count; ++i) {
         patch_hole(output, prologue.holes[i], operands[prologue.holes[i].operand_index]);
     }
@@ -153,7 +160,7 @@ CompileResult<std::size_t> JitCompiler::emit_epilogue(std::span<std::uint8_t> ou
     std::memcpy(output.data(), epilogue.code, epilogue.code_size);
 
     // Patch frame size hole
-    std::int64_t operands[] = {static_cast<std::int64_t>(frame_size)};
+    const std::int64_t operands[] = {static_cast<std::int64_t>(frame_size)};
     for (std::size_t i = 0; i < epilogue.hole_count; ++i) {
         patch_hole(output, epilogue.holes[i], operands[epilogue.holes[i].operand_index]);
     }
@@ -167,7 +174,7 @@ CompileResult<std::size_t> JitCompiler::emit_epilogue(std::span<std::uint8_t> ou
 CompileResult<std::size_t> JitCompiler::emit_instruction(std::span<std::uint8_t> output,
                                                          const BytecodeInstr& instr) {
     const auto* stencil = stencils_.get(instr.opcode);
-    if (!stencil) [[unlikely]] {
+    if (stencil == nullptr) [[unlikely]] {
         return std::unexpected(JitStatus::UnsupportedOpcode);
     }
 
@@ -175,6 +182,7 @@ CompileResult<std::size_t> JitCompiler::emit_instruction(std::span<std::uint8_t>
     // Most stencils expect: [dst_offset, src1_offset, src2_offset] or variations
     std::array<std::int64_t, MAX_STENCIL_HOLES> operands{};
 
+    // NOLINTBEGIN(bugprone-branch-clone) - cases intentionally share code paths
     for (std::size_t i = 0; i < stencil->hole_count; ++i) {
         const auto& hole = stencil->holes[i];
         switch (hole.operand_index) {
@@ -212,6 +220,7 @@ CompileResult<std::size_t> JitCompiler::emit_instruction(std::span<std::uint8_t>
                 break;
         }
     }
+    // NOLINTEND(bugprone-branch-clone)
 
     return emit_stencil(output, *stencil, std::span(operands.data(), stencil->hole_count));
 }
