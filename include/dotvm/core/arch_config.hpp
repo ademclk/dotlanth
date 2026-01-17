@@ -13,10 +13,7 @@
 
 #include "arch_types.hpp"  // for Architecture enum
 
-namespace dotvm::core {
-
-/// Architecture-specific configuration and masking operations
-namespace arch_config {
+namespace dotvm::core::arch_config {
 
 // ============================================================================
 // 32-bit Architecture Constants
@@ -257,6 +254,4 @@ inline constexpr std::int64_t SHIFT48_MOD = 48;
     return ((shift % SHIFT48_MOD) + SHIFT48_MOD) % SHIFT48_MOD;
 }
 
-}  // namespace arch_config
-
-}  // namespace dotvm::core
+}  // namespace dotvm::core::arch_config

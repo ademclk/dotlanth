@@ -3,6 +3,13 @@
 
 #include "dotvm/jit/jit_profiler.hpp"
 
+#include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <utility>
+
 namespace dotvm::jit {
 
 JitProfiler::JitProfiler(const JitConfig& config) noexcept

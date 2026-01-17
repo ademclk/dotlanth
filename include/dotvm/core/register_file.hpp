@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <ranges>
 #include <span>
 
 #include "arch_config.hpp"
@@ -47,6 +48,7 @@ public:
     public:
         constexpr RegisterProxy(RegisterFile& rf, std::uint8_t reg) noexcept : rf_{rf}, reg_{reg} {}
 
+        // NOLINTNEXTLINE(google-explicit-constructor) - intentional for proxy pattern
         constexpr operator Value() const noexcept { return rf_.read(reg_); }
 
         constexpr RegisterProxy& operator=(Value val) noexcept {
@@ -55,7 +57,7 @@ public:
         }
 
     private:
-        RegisterFile& rf_;
+        RegisterFile& rf_;      // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         std::uint8_t reg_;
     };
 
@@ -83,7 +85,7 @@ public:
     }
 
     void restore_caller_saved(std::span<const Value, reg_range::CALLER_SAVED_COUNT> in) noexcept {
-        std::copy(in.begin(), in.end(), regs_.begin() + reg_range::CALLER_SAVED_START);
+        std::ranges::copy(in, regs_.begin() + reg_range::CALLER_SAVED_START);
     }
 
     void save_callee_saved(std::span<Value, reg_range::CALLEE_SAVED_COUNT> out) const noexcept {
@@ -92,7 +94,7 @@ public:
     }
 
     void restore_callee_saved(std::span<const Value, reg_range::CALLEE_SAVED_COUNT> in) noexcept {
-        std::copy(in.begin(), in.end(), regs_.begin() + reg_range::CALLEE_SAVED_START);
+        std::ranges::copy(in, regs_.begin() + reg_range::CALLEE_SAVED_START);
     }
 
     // Clear all registers (reset to zero)
@@ -206,6 +208,7 @@ public:
         constexpr ArchRegisterProxy(ArchRegisterFile& rf, std::uint8_t reg) noexcept
             : rf_{rf}, reg_{reg} {}
 
+        // NOLINTNEXTLINE(google-explicit-constructor) - intentional for proxy pattern
         operator Value() const noexcept { return rf_.read(reg_); }
 
         ArchRegisterProxy& operator=(Value val) noexcept {
@@ -214,7 +217,7 @@ public:
         }
 
     private:
-        ArchRegisterFile& rf_;
+        ArchRegisterFile& rf_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         std::uint8_t reg_;
     };
 

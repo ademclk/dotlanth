@@ -4,6 +4,7 @@
 #include <dotvm/core/register_file.hpp>
 #include <dotvm/core/value.hpp>
 
+// NOLINTNEXTLINE(bugprone-exception-escape) - demo program, exceptions are acceptable
 int main() {
     using namespace dotvm::core;
 

@@ -41,12 +41,15 @@ enum class RegisterClass : std::uint8_t {
 };
 
 [[nodiscard]] constexpr RegisterClass classify_register(std::uint8_t reg) noexcept {
-    if (reg == 0)
+    if (reg == 0) {
         return RegisterClass::Zero;
-    if (reg <= 15)
+    }
+    if (reg <= 15) {
         return RegisterClass::CallerSaved;
-    if (reg <= 31)
+    }
+    if (reg <= 31) {
         return RegisterClass::CalleeSaved;
+    }
     return RegisterClass::General;
 }
 
