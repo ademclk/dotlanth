@@ -9,20 +9,21 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 
-#include "alu.hpp"
 #include "arch_config.hpp"
 #include "arch_types.hpp"
+#include "alu.hpp"
 #include "call_stack.hpp"
 #include "cfi.hpp"
 #include "exception_context.hpp"
-#include "memory.hpp"
 #include "register_file.hpp"
+#include "memory.hpp"
 #include "security_stats.hpp"
-#include "simd/cpu_features.hpp"
-#include "simd/simd_alu.hpp"
 #include "simd/vector_register_file.hpp"
+#include "simd/simd_alu.hpp"
+#include "simd/cpu_features.hpp"
+
+#include <optional>
 
 // Forward declaration for JIT support
 namespace dotvm::jit {
@@ -65,7 +66,9 @@ struct ResourceLimits {
     std::uint32_t max_backward_jumps = 0;
 
     /// Creates default unlimited policy (no restrictions)
-    [[nodiscard]] static constexpr ResourceLimits unlimited() noexcept { return ResourceLimits{}; }
+    [[nodiscard]] static constexpr ResourceLimits unlimited() noexcept {
+        return ResourceLimits{};
+    }
 
     /// Creates a restricted policy suitable for untrusted bytecode
     ///
@@ -76,17 +79,19 @@ struct ResourceLimits {
     /// - 256 call depth
     /// - 10K backward jumps
     [[nodiscard]] static constexpr ResourceLimits restricted() noexcept {
-        return ResourceLimits{.max_instructions = 1'000'000,
-                              .max_allocations = 1'000,
-                              .max_total_memory = 16 * 1024 * 1024,
-                              .max_call_depth = 256,
-                              .max_backward_jumps = 10'000};
+        return ResourceLimits{
+            .max_instructions = 1'000'000,
+            .max_allocations = 1'000,
+            .max_total_memory = 16 * 1024 * 1024,
+            .max_call_depth = 256,
+            .max_backward_jumps = 10'000};
     }
 
     /// Check if any limits are set
     [[nodiscard]] constexpr bool has_limits() const noexcept {
-        return max_instructions > 0 || max_allocations > 0 || max_total_memory > 0 ||
-               max_call_depth > 0 || max_backward_jumps > 0;
+        return max_instructions > 0 || max_allocations > 0 ||
+               max_total_memory > 0 || max_call_depth > 0 ||
+               max_backward_jumps > 0;
     }
 
     constexpr bool operator==(const ResourceLimits&) const noexcept = default;
@@ -177,11 +182,13 @@ struct VmConfig {
 
     /// Creates a security-hardened configuration
     [[nodiscard]] static constexpr VmConfig secure() noexcept {
-        return VmConfig{.arch = Architecture::Arch64,
-                        .strict_overflow = true,
-                        .max_memory = mem_config::MAX_ALLOCATION_SIZE,
-                        .cfi_enabled = true,
-                        .cfi_policy = cfi::CfiPolicy::strict()};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .strict_overflow = true,
+            .max_memory = mem_config::MAX_ALLOCATION_SIZE,
+            .cfi_enabled = true,
+            .cfi_policy = cfi::CfiPolicy::strict()
+        };
     }
 
     /// Creates a fully sandboxed configuration for untrusted bytecode
@@ -192,40 +199,58 @@ struct VmConfig {
     /// - Resource limits (instruction, memory, call depth)
     /// - Reduced memory allocation cap
     [[nodiscard]] static constexpr VmConfig sandboxed() noexcept {
-        return VmConfig{.arch = Architecture::Arch64,
-                        .strict_overflow = true,
-                        .max_memory = 16 * 1024 * 1024,  // 16MB per-allocation limit
-                        .cfi_enabled = true,
-                        .cfi_policy = cfi::CfiPolicy::strict(),
-                        .resource_limits = ResourceLimits::restricted()};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .strict_overflow = true,
+            .max_memory = 16 * 1024 * 1024,  // 16MB per-allocation limit
+            .cfi_enabled = true,
+            .cfi_policy = cfi::CfiPolicy::strict(),
+            .resource_limits = ResourceLimits::restricted()
+        };
     }
 
     /// Creates a scalar-only configuration (no SIMD)
     ///
     /// SIMD operations are explicitly disabled.
     [[nodiscard]] static constexpr VmConfig scalar_only() noexcept {
-        return VmConfig{.arch = Architecture::Arch64, .simd_width = 0, .simd_enabled = false};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 0,
+            .simd_enabled = false
+        };
     }
 
     /// Creates a 128-bit SIMD configuration
     ///
     /// Enables SIMD with 128-bit vectors (SSE/NEON equivalent).
     [[nodiscard]] static constexpr VmConfig simd128() noexcept {
-        return VmConfig{.arch = Architecture::Arch64, .simd_width = 128, .simd_enabled = true};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 128,
+            .simd_enabled = true
+        };
     }
 
     /// Creates a 256-bit SIMD configuration
     ///
     /// Enables SIMD with 256-bit vectors (AVX2 equivalent).
     [[nodiscard]] static constexpr VmConfig simd256() noexcept {
-        return VmConfig{.arch = Architecture::Arch64, .simd_width = 256, .simd_enabled = true};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 256,
+            .simd_enabled = true
+        };
     }
 
     /// Creates a 512-bit SIMD configuration
     ///
     /// Enables SIMD with 512-bit vectors (AVX-512 equivalent).
     [[nodiscard]] static constexpr VmConfig simd512() noexcept {
-        return VmConfig{.arch = Architecture::Arch64, .simd_width = 512, .simd_enabled = true};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 512,
+            .simd_enabled = true
+        };
     }
 
     /// Creates a configuration with auto-detected SIMD
@@ -233,29 +258,35 @@ struct VmConfig {
     /// Enables SIMD and auto-detects the optimal vector width
     /// based on CPU capabilities at runtime.
     [[nodiscard]] static constexpr VmConfig auto_detect() noexcept {
-        return VmConfig{.arch = Architecture::Arch64,
-                        .simd_width = 0,  // 0 = auto-detect
-                        .simd_enabled = true};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .simd_width = 0,  // 0 = auto-detect
+            .simd_enabled = true
+        };
     }
 
     /// Creates a JIT-enabled configuration (EXEC-012)
     ///
     /// Enables JIT compilation with default thresholds.
     [[nodiscard]] static constexpr VmConfig with_jit() noexcept {
-        return VmConfig{.arch = Architecture::Arch64,
-                        .jit_enabled = true,
-                        .jit_call_threshold = 10'000,
-                        .jit_loop_threshold = 100'000};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .jit_enabled = true,
+            .jit_call_threshold = 10'000,
+            .jit_loop_threshold = 100'000
+        };
     }
 
     /// Creates an aggressive JIT configuration
     ///
     /// Lower thresholds for faster compilation, useful for benchmarks.
     [[nodiscard]] static constexpr VmConfig with_jit_aggressive() noexcept {
-        return VmConfig{.arch = Architecture::Arch64,
-                        .jit_enabled = true,
-                        .jit_call_threshold = 1'000,
-                        .jit_loop_threshold = 10'000};
+        return VmConfig{
+            .arch = Architecture::Arch64,
+            .jit_enabled = true,
+            .jit_call_threshold = 1'000,
+            .jit_loop_threshold = 10'000
+        };
     }
 
     constexpr bool operator==(const VmConfig&) const noexcept = default;
@@ -295,11 +326,11 @@ public:
     /// (unique_ptr requires complete type at point of destruction).
     ~VmContext();
 
-    // Non-copyable, non-movable (MemoryManager is non-movable)
+    // Non-copyable, movable
     VmContext(const VmContext&) = delete;
     VmContext& operator=(const VmContext&) = delete;
-    VmContext(VmContext&&) = delete;
-    VmContext& operator=(VmContext&&) = delete;
+    VmContext(VmContext&&) noexcept = default;
+    VmContext& operator=(VmContext&&) noexcept = default;
 
     // =========================================================================
     // Configuration Access
@@ -312,10 +343,14 @@ public:
     [[nodiscard]] Architecture arch() const noexcept { return config_.arch; }
 
     /// Check if running in 32-bit mode
-    [[nodiscard]] bool is_arch32() const noexcept { return arch_config::is_arch32(config_.arch); }
+    [[nodiscard]] bool is_arch32() const noexcept {
+        return arch_config::is_arch32(config_.arch);
+    }
 
     /// Check if running in 64-bit mode
-    [[nodiscard]] bool is_arch64() const noexcept { return arch_config::is_arch64(config_.arch); }
+    [[nodiscard]] bool is_arch64() const noexcept {
+        return arch_config::is_arch64(config_.arch);
+    }
 
     // =========================================================================
     // Architecture-Aware Value Creation
@@ -360,7 +395,8 @@ public:
     /// @param base Base address
     /// @param offset Offset to add
     /// @return The computed and masked address
-    [[nodiscard]] std::size_t compute_address(std::size_t base, std::size_t offset) const noexcept {
+    [[nodiscard]] std::size_t compute_address(std::size_t base,
+                                               std::size_t offset) const noexcept {
         return MemoryManager::compute_address(base, offset, config_.arch);
     }
 
@@ -399,19 +435,29 @@ public:
     // =========================================================================
 
     /// Check if CFI is enabled
-    [[nodiscard]] bool cfi_enabled() const noexcept { return cfi_.has_value(); }
+    [[nodiscard]] bool cfi_enabled() const noexcept {
+        return cfi_.has_value();
+    }
 
     /// Get mutable reference to CFI context (only valid if cfi_enabled())
-    [[nodiscard]] cfi::CfiContext& cfi() noexcept { return *cfi_; }
+    [[nodiscard]] cfi::CfiContext& cfi() noexcept {
+        return *cfi_;
+    }
 
     /// Get const reference to CFI context (only valid if cfi_enabled())
-    [[nodiscard]] const cfi::CfiContext& cfi() const noexcept { return *cfi_; }
+    [[nodiscard]] const cfi::CfiContext& cfi() const noexcept {
+        return *cfi_;
+    }
 
     /// Get optional CFI context (safe access)
-    [[nodiscard]] std::optional<cfi::CfiContext>& cfi_opt() noexcept { return cfi_; }
+    [[nodiscard]] std::optional<cfi::CfiContext>& cfi_opt() noexcept {
+        return cfi_;
+    }
 
     /// Get const optional CFI context (safe access)
-    [[nodiscard]] const std::optional<cfi::CfiContext>& cfi_opt() const noexcept { return cfi_; }
+    [[nodiscard]] const std::optional<cfi::CfiContext>& cfi_opt() const noexcept {
+        return cfi_;
+    }
 
     // =========================================================================
     // Call Stack Access (EXEC-007)
@@ -421,10 +467,14 @@ public:
     ///
     /// The call stack manages function call frames including saved
     /// callee-saved registers (R16-R31) and return addresses.
-    [[nodiscard]] CallStack& call_stack() noexcept { return call_stack_; }
+    [[nodiscard]] CallStack& call_stack() noexcept {
+        return call_stack_;
+    }
 
     /// Get const reference to the call stack
-    [[nodiscard]] const CallStack& call_stack() const noexcept { return call_stack_; }
+    [[nodiscard]] const CallStack& call_stack() const noexcept {
+        return call_stack_;
+    }
 
     // =========================================================================
     // Exception Context Access (EXEC-011)
@@ -434,7 +484,9 @@ public:
     ///
     /// The exception context manages exception frames for TRY/CATCH blocks
     /// and tracks the current exception state during execution.
-    [[nodiscard]] ExceptionContext& exception_context() noexcept { return exception_ctx_; }
+    [[nodiscard]] ExceptionContext& exception_context() noexcept {
+        return exception_ctx_;
+    }
 
     /// Get const reference to the exception context
     [[nodiscard]] const ExceptionContext& exception_context() const noexcept {
@@ -471,9 +523,7 @@ public:
     /// Access vector registers (V0-V31) - const version
     ///
     /// @return Const reference to the vector register file
-    [[nodiscard]] const simd::VectorRegisterFile& vec_registers() const noexcept {
-        return vec_regs_;
-    }
+    [[nodiscard]] const simd::VectorRegisterFile& vec_registers() const noexcept { return vec_regs_; }
 
     /// Access SIMD ALU
     ///
@@ -529,7 +579,9 @@ public:
     }
 
     /// Get mutable reference to security statistics
-    [[nodiscard]] SecurityStats& security_stats() noexcept { return mem_.security_stats(); }
+    [[nodiscard]] SecurityStats& security_stats() noexcept {
+        return mem_.security_stats();
+    }
 
     // =========================================================================
     // State Management
@@ -549,16 +601,18 @@ public:
     };
 
     [[nodiscard]] Stats stats() const noexcept {
-        return Stats{.active_allocations = mem_.active_allocations(),
-                     .total_allocated_bytes = mem_.total_allocated_bytes()};
+        return Stats{
+            .active_allocations = mem_.active_allocations(),
+            .total_allocated_bytes = mem_.total_allocated_bytes()
+        };
     }
 
 private:
     /// Determine the maximum call depth from configuration
     ///
     /// Priority: ResourceLimits > CfiPolicy > Default (1024)
-    [[nodiscard]] static constexpr std::size_t
-    determine_max_call_depth(const VmConfig& config) noexcept {
+    [[nodiscard]] static constexpr std::size_t determine_max_call_depth(
+        const VmConfig& config) noexcept {
         if (config.resource_limits.max_call_depth > 0) {
             return config.resource_limits.max_call_depth;
         }
@@ -598,7 +652,7 @@ private:
     MemoryManager mem_;
     ALU alu_;
     std::optional<cfi::CfiContext> cfi_;
-    CallStack call_stack_;            // EXEC-007: Call stack for frame management
+    CallStack call_stack_;       // EXEC-007: Call stack for frame management
     ExceptionContext exception_ctx_;  // EXEC-011: Exception handling context
 
     // SIMD support

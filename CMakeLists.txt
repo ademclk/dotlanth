@@ -112,6 +112,10 @@ add_library(dotvm_core STATIC
     src/dotvm/core/permission.cpp
     # Security context (SEC-003)
     src/dotvm/core/security/security_context.cpp
+    # Audit logging framework (SEC-006)
+    src/dotvm/core/security/audit_logger.cpp
+    src/dotvm/core/security/audit_serializer.cpp
+    src/dotvm/core/security/async_audit_logger.cpp
     # Resource limiter (SEC-004)
     src/dotvm/core/resource_limiter.cpp
 )
@@ -142,12 +146,6 @@ target_include_directories(dotvm_core PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-# Enable PIC for static library when it may be linked into shared library
-# Required when sanitizers are enabled since ASAN symbols need PIC
-if(DOTVM_BUILD_C_API)
-    set_target_properties(dotvm_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-endif()
-
 target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
 # Suppress pedantic warning for computed-goto in execution engine
@@ -164,6 +162,9 @@ endif()
 if(DOTVM_COVERAGE_FLAGS)
     target_link_options(dotvm_core PUBLIC ${DOTVM_COVERAGE_FLAGS})
 endif()
+
+# Enable PIC for core library so it can be linked into the shared C API library
+set_target_properties(dotvm_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ============================================================================
 # C API Shared Library
@@ -276,6 +277,9 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/security/security_context_test.cpp
         # Opcode permission tests (SEC-005)
         tests/dotvm/core/security/opcode_permission_test.cpp
+        # Audit logging tests (SEC-006)
+        tests/dotvm/core/security/audit_event_test.cpp
+        tests/dotvm/core/security/async_audit_logger_test.cpp
         # Resource limiter tests (SEC-004)
         tests/dotvm/core/resource_limiter_test.cpp
     )

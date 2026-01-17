@@ -39,18 +39,12 @@ enum class HoleType : std::uint8_t {
 /// @brief Convert hole type to string for debugging
 [[nodiscard]] constexpr const char* hole_type_string(HoleType type) noexcept {
     switch (type) {
-        case HoleType::Immediate32:
-            return "Immediate32";
-        case HoleType::Immediate64:
-            return "Immediate64";
-        case HoleType::RegisterIndex:
-            return "RegisterIndex";
-        case HoleType::RelativeOffset32:
-            return "RelativeOffset32";
-        case HoleType::AbsoluteAddress:
-            return "AbsoluteAddress";
-        case HoleType::PcRelative:
-            return "PcRelative";
+        case HoleType::Immediate32:     return "Immediate32";
+        case HoleType::Immediate64:     return "Immediate64";
+        case HoleType::RegisterIndex:   return "RegisterIndex";
+        case HoleType::RelativeOffset32: return "RelativeOffset32";
+        case HoleType::AbsoluteAddress: return "AbsoluteAddress";
+        case HoleType::PcRelative:      return "PcRelative";
     }
     return "Unknown";
 }
@@ -101,7 +95,9 @@ struct Stencil {
     const char* name{nullptr};
 
     /// @brief Check if stencil is valid
-    [[nodiscard]] constexpr bool valid() const noexcept { return code != nullptr && code_size > 0; }
+    [[nodiscard]] constexpr bool valid() const noexcept {
+        return code != nullptr && code_size > 0;
+    }
 
     /// @brief Get span of holes
     [[nodiscard]] constexpr std::span<const StencilHole> get_holes() const noexcept {
@@ -123,7 +119,7 @@ enum class JitOpcode : std::uint8_t {
 
     // Bitwise
     AND = 0x10,
-    OR = 0x11,
+    OR  = 0x11,
     XOR = 0x12,
     NOT = 0x13,
     SHL = 0x14,
@@ -139,13 +135,13 @@ enum class JitOpcode : std::uint8_t {
     CMP_GE = 0x25,
 
     // Control flow
-    JMP = 0x30,
-    JMP_Z = 0x31,   // Jump if zero
-    JMP_NZ = 0x32,  // Jump if not zero
+    JMP     = 0x30,
+    JMP_Z   = 0x31,  // Jump if zero
+    JMP_NZ  = 0x32,  // Jump if not zero
 
     // Load/Store (memory)
-    LOAD = 0x40,
-    STORE = 0x41,
+    LOAD   = 0x40,
+    STORE  = 0x41,
     LOAD_IMM = 0x42,
 
     // Register moves
@@ -153,10 +149,10 @@ enum class JitOpcode : std::uint8_t {
 
     // Function calls
     CALL = 0x60,
-    RET = 0x61,
+    RET  = 0x61,
 
     // Special
-    NOP = 0x00,
+    NOP  = 0x00,
     HALT = 0xFF,
 };
 
@@ -174,13 +170,16 @@ public:
 
     /// @brief Register a stencil for an opcode
     void register_stencil(const Stencil& stencil) noexcept {
-        // uint8_t opcode is always < 256 (MAX_OPCODES), so no bounds check needed
-        stencils_[stencil.opcode] = stencil;
+        if (stencil.opcode < MAX_OPCODES) {
+            stencils_[stencil.opcode] = stencil;
+        }
     }
 
     /// @brief Look up stencil by opcode
     [[nodiscard]] const Stencil* get(std::uint8_t opcode) const noexcept {
-        // uint8_t opcode is always < 256 (MAX_OPCODES), so no bounds check needed
+        if (opcode >= MAX_OPCODES) [[unlikely]] {
+            return nullptr;
+        }
         const auto& stencil = stencils_[opcode];
         return stencil.valid() ? &stencil : nullptr;
     }
@@ -199,8 +198,7 @@ public:
     [[nodiscard]] std::size_t count() const noexcept {
         std::size_t n = 0;
         for (const auto& s : stencils_) {
-            if (s.valid())
-                ++n;
+            if (s.valid()) ++n;
         }
         return n;
     }
@@ -332,6 +330,6 @@ extern const Stencil mov;
 /// Used when encountering opcodes without native stencils.
 extern const Stencil interpreter_fallback;
 
-}  // namespace stencils::x86_64
+} // namespace stencils::x86_64
 
-}  // namespace dotvm::jit
+} // namespace dotvm::jit

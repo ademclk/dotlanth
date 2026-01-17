@@ -8,22 +8,23 @@ on:
 
 jobs:
   build-gcc:
-    name: Build (GCC 14)
+    name: Build (GCC 15)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install GCC 15
         run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update
-          sudo apt-get install -y gcc-14 g++-14 cmake ninja-build
+          sudo apt-get install -y gcc-15 g++-15 cmake ninja-build
 
       - name: Configure
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=gcc-14 \
-            -DCMAKE_CXX_COMPILER=g++-14 \
+            -DCMAKE_C_COMPILER=gcc-15 \
+            -DCMAKE_CXX_COMPILER=g++-15 \
             -DDOTVM_BUILD_TESTS=ON \
             -DDOTVM_BUILD_C_API=ON
 
@@ -34,17 +35,17 @@ jobs:
         run: ctest --test-dir build --output-on-failure --parallel $(nproc)
 
   build-clang:
-    name: Build (Clang 19)
+    name: Build (Clang 21)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install LLVM 19
+      - name: Install LLVM 21
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 19
-          sudo apt-get install -y libc++-19-dev libc++abi-19-dev
+          sudo ./llvm.sh 21
+          sudo apt-get install -y libc++-21-dev libc++abi-21-dev
 
       - name: Install dependencies
         run: |
@@ -55,8 +56,8 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=clang-19 \
-            -DCMAKE_CXX_COMPILER=clang++-19 \
+            -DCMAKE_C_COMPILER=clang-21 \
+            -DCMAKE_CXX_COMPILER=clang++-21 \
             -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
             -DDOTVM_BUILD_TESTS=ON \
             -DDOTVM_BUILD_C_API=ON
@@ -73,24 +74,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install LLVM 19
+      - name: Install LLVM 21
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 19
-          sudo apt-get install -y clang-tidy-19
+          sudo ./llvm.sh 21
+          sudo apt-get install -y clang-tidy-21
 
-      - name: Install dependencies
+      - name: Install GCC 15
         run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build gcc-14 g++-14
+          sudo apt-get install -y cmake ninja-build gcc-15 g++-15
 
       - name: Configure
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=gcc-14 \
-            -DCMAKE_CXX_COMPILER=g++-14 \
+            -DCMAKE_C_COMPILER=gcc-15 \
+            -DCMAKE_CXX_COMPILER=g++-15 \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DDOTVM_BUILD_TESTS=ON \
             -DDOTVM_BUILD_C_API=ON
@@ -98,5 +100,5 @@ jobs:
       - name: Run clang-tidy
         run: |
           find src include -name '*.cpp' -o -name '*.hpp' | \
-            xargs clang-tidy-19 -p build --warnings-as-errors='*' 2>&1 | \
+            xargs clang-tidy-21 -p build --warnings-as-errors='*' 2>&1 | \
             head -1000

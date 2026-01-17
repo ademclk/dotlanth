@@ -1,6 +1,9 @@
 /// @file bigint.cpp
 /// @brief Implementation of BigInt arbitrary precision integer class
 
+#include <dotvm/core/bigint/bigint.hpp>
+#include <dotvm/core/bigint/bigint_ops.hpp>
+
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -8,9 +11,6 @@
 #include <ranges>
 #include <sstream>
 #include <utility>
-
-#include <dotvm/core/bigint/bigint.hpp>
-#include <dotvm/core/bigint/bigint_ops.hpp>
 
 namespace dotvm::core::bigint {
 
@@ -41,8 +41,7 @@ BigInt::BigInt(std::string_view str) {
     }
 
     // Check for hex prefix
-    if (str.size() > start + 2 && str[start] == '0' &&
-        (str[start + 1] == 'x' || str[start + 1] == 'X')) {
+    if (str.size() > start + 2 && str[start] == '0' && (str[start + 1] == 'x' || str[start + 1] == 'X')) {
         parse_hex(str.substr(start + 2));
     } else {
         parse_decimal(str.substr(start));
@@ -82,8 +81,13 @@ void BigInt::parse_decimal(std::string_view str) {
 
         // Parse this chunk
         limb_type chunk_value = 0;
+        limb_type multiplier = 1;
+
         for (std::size_t j = 0; j < this_chunk; ++j) {
             chunk_value = chunk_value * 10 + static_cast<limb_type>(str[i + j] - '0');
+            if (j < this_chunk - 1) {
+                multiplier *= 10;
+            }
         }
 
         // Multiply current result by the appropriate power of 10 and add chunk
@@ -115,8 +119,7 @@ void BigInt::parse_decimal(std::string_view str) {
                 auto [result, new_carry] = add_with_carry(limb, carry, 0);
                 limb = result;
                 carry = new_carry;
-                if (carry == 0)
-                    break;
+                if (carry == 0) break;
             }
             if (carry != 0) {
                 limbs_.push_back(carry);
@@ -158,8 +161,7 @@ void BigInt::parse_hex(std::string_view str) {
         for (std::size_t j = 0; j < chunk_len; ++j) {
             auto digit = hex_char_to_value(str[chunk_start + j]);
             if (digit == 255) {
-                throw InvalidFormatError(std::string("invalid hex character: ") +
-                                         str[chunk_start + j]);
+                throw InvalidFormatError(std::string("invalid hex character: ") + str[chunk_start + j]);
             }
             value = (value << 4) | digit;
         }
@@ -284,10 +286,8 @@ BigInt BigInt::sub_magnitudes(const BigInt& a, const BigInt& b) {
 // =============================================================================
 
 BigInt BigInt::operator+(const BigInt& rhs) const {
-    if (is_zero())
-        return rhs;
-    if (rhs.is_zero())
-        return *this;
+    if (is_zero()) return rhs;
+    if (rhs.is_zero()) return *this;
 
     // Same sign: add magnitudes
     if (negative_ == rhs.negative_) {
@@ -314,10 +314,8 @@ BigInt BigInt::operator+(const BigInt& rhs) const {
 }
 
 BigInt BigInt::operator-(const BigInt& rhs) const {
-    if (rhs.is_zero())
-        return *this;
-    if (is_zero())
-        return -rhs;
+    if (rhs.is_zero()) return *this;
+    if (is_zero()) return -rhs;
 
     // a - b = a + (-b)
     BigInt neg_rhs = rhs;
@@ -326,8 +324,7 @@ BigInt BigInt::operator-(const BigInt& rhs) const {
 }
 
 BigInt BigInt::operator-() const {
-    if (is_zero())
-        return *this;
+    if (is_zero()) return *this;
     BigInt result = *this;
     result.negative_ = !result.negative_;
     return result;
@@ -352,8 +349,7 @@ BigInt BigInt::multiply_simple(const BigInt& a, const BigInt& b) {
     for (std::size_t i = 0; i < a.limbs_.size(); ++i) {
         limb_type carry = 0;
         for (std::size_t j = 0; j < b.limbs_.size(); ++j) {
-            auto [lo, hi] =
-                mul_add_with_carry(a.limbs_[i], b.limbs_[j], result.limbs_[i + j], carry);
+            auto [lo, hi] = mul_add_with_carry(a.limbs_[i], b.limbs_[j], result.limbs_[i + j], carry);
             result.limbs_[i + j] = lo;
             carry = hi;
         }
@@ -375,8 +371,7 @@ BigInt BigInt::multiply_karatsuba(const BigInt& a, const BigInt& b) {
 
     // Split a = a1 * B^m + a0
     BigInt a0, a1;
-    a0.limbs_.assign(a.limbs_.begin(),
-                     a.limbs_.begin() + static_cast<std::ptrdiff_t>(std::min(m, a.limbs_.size())));
+    a0.limbs_.assign(a.limbs_.begin(), a.limbs_.begin() + static_cast<std::ptrdiff_t>(std::min(m, a.limbs_.size())));
     if (m < a.limbs_.size()) {
         a1.limbs_.assign(a.limbs_.begin() + static_cast<std::ptrdiff_t>(m), a.limbs_.end());
     }
@@ -385,8 +380,7 @@ BigInt BigInt::multiply_karatsuba(const BigInt& a, const BigInt& b) {
 
     // Split b = b1 * B^m + b0
     BigInt b0, b1;
-    b0.limbs_.assign(b.limbs_.begin(),
-                     b.limbs_.begin() + static_cast<std::ptrdiff_t>(std::min(m, b.limbs_.size())));
+    b0.limbs_.assign(b.limbs_.begin(), b.limbs_.begin() + static_cast<std::ptrdiff_t>(std::min(m, b.limbs_.size())));
     if (m < b.limbs_.size()) {
         b1.limbs_.assign(b.limbs_.begin() + static_cast<std::ptrdiff_t>(m), b.limbs_.end());
     }
@@ -507,8 +501,7 @@ std::pair<BigInt, BigInt> BigInt::divide_knuth(const BigInt& dividend, const Big
                (n >= 2 && qhat * v.limbs_[n - 2] > (rhat << limb_bits) + u.get_limb(j + n - 2))) {
             --qhat;
             rhat += v.limbs_[n - 1];
-            if (rhat >= LIMB_BASE)
-                break;
+            if (rhat >= LIMB_BASE) break;
         }
 
         // Multiply and subtract
@@ -722,10 +715,8 @@ BigInt BigInt::operator&(const BigInt& rhs) const {
 }
 
 BigInt BigInt::operator|(const BigInt& rhs) const {
-    if (is_zero())
-        return rhs;
-    if (rhs.is_zero())
-        return *this;
+    if (is_zero()) return rhs;
+    if (rhs.is_zero()) return *this;
 
     BigInt result;
     std::size_t max_size = std::max(limbs_.size(), rhs.limbs_.size());
@@ -740,10 +731,8 @@ BigInt BigInt::operator|(const BigInt& rhs) const {
 }
 
 BigInt BigInt::operator^(const BigInt& rhs) const {
-    if (is_zero())
-        return rhs;
-    if (rhs.is_zero())
-        return *this;
+    if (is_zero()) return rhs;
+    if (rhs.is_zero()) return *this;
 
     BigInt result;
     std::size_t max_size = std::max(limbs_.size(), rhs.limbs_.size());
@@ -791,10 +780,8 @@ BigInt BigInt::pow(std::uint64_t exponent) const {
 
 BigInt BigInt::gcd(const BigInt& a, const BigInt& b) {
     // Binary GCD (Stein's algorithm)
-    if (a.is_zero())
-        return b.abs();
-    if (b.is_zero())
-        return a.abs();
+    if (a.is_zero()) return b.abs();
+    if (b.is_zero()) return a.abs();
 
     BigInt u = a.abs();
     BigInt v = b.abs();
@@ -913,9 +900,7 @@ std::string BigInt::to_string() const {
     result = chunks.back();  // First chunk doesn't need padding
     for (std::size_t i = chunks.size() - 1; i-- > 0;) {
         // Pad with leading zeros
-        std::string padded =
-            std::string(static_cast<std::size_t>(chunk_digits) - chunks[i].length(), '0') +
-            chunks[i];
+        std::string padded = std::string(static_cast<std::size_t>(chunk_digits) - chunks[i].length(), '0') + chunks[i];
         result += padded;
     }
 
