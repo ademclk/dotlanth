@@ -174,33 +174,71 @@ constexpr Permission& operator^=(Permission& lhs, Permission rhs) noexcept {
 /// @param perm The permission to convert
 /// @return String representation (may be composite like "MemoryRead|Execute")
 [[nodiscard]] inline std::string to_string(Permission perm) {
-    if (perm == Permission::None) return "None";
-    if (perm == Permission::All) return "All";
+    if (perm == Permission::None) {
+        return "None";
+    }
+    if (perm == Permission::All) {
+        return "All";
+    }
 
     std::string result;
     auto append = [&result](const char* name) {
-        if (!result.empty()) result += "|";
+        if (!result.empty()) {
+            result += "|";
+        }
         result += name;
     };
 
     auto value = static_cast<std::uint32_t>(perm);
 
-    if (value & static_cast<std::uint32_t>(Permission::MemoryRead)) append("MemoryRead");
-    if (value & static_cast<std::uint32_t>(Permission::MemoryWrite)) append("MemoryWrite");
-    if (value & static_cast<std::uint32_t>(Permission::MemoryAllocate)) append("MemoryAllocate");
-    if (value & static_cast<std::uint32_t>(Permission::MemoryDeallocate)) append("MemoryDeallocate");
-    if (value & static_cast<std::uint32_t>(Permission::Execute)) append("Execute");
-    if (value & static_cast<std::uint32_t>(Permission::Call)) append("Call");
-    if (value & static_cast<std::uint32_t>(Permission::Simd)) append("Simd");
-    if (value & static_cast<std::uint32_t>(Permission::Jit)) append("Jit");
-    if (value & static_cast<std::uint32_t>(Permission::IoRead)) append("IoRead");
-    if (value & static_cast<std::uint32_t>(Permission::IoWrite)) append("IoWrite");
-    if (value & static_cast<std::uint32_t>(Permission::Network)) append("Network");
-    if (value & static_cast<std::uint32_t>(Permission::Filesystem)) append("Filesystem");
-    if (value & static_cast<std::uint32_t>(Permission::Derive)) append("Derive");
-    if (value & static_cast<std::uint32_t>(Permission::Revoke)) append("Revoke");
-    if (value & static_cast<std::uint32_t>(Permission::Crypto)) append("Crypto");
-    if (value & static_cast<std::uint32_t>(Permission::BypassCfi)) append("BypassCfi");
+    if ((value & static_cast<std::uint32_t>(Permission::MemoryRead)) != 0) {
+        append("MemoryRead");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::MemoryWrite)) != 0) {
+        append("MemoryWrite");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::MemoryAllocate)) != 0) {
+        append("MemoryAllocate");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::MemoryDeallocate)) != 0) {
+        append("MemoryDeallocate");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Execute)) != 0) {
+        append("Execute");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Call)) != 0) {
+        append("Call");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Simd)) != 0) {
+        append("Simd");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Jit)) != 0) {
+        append("Jit");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::IoRead)) != 0) {
+        append("IoRead");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::IoWrite)) != 0) {
+        append("IoWrite");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Network)) != 0) {
+        append("Network");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Filesystem)) != 0) {
+        append("Filesystem");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Derive)) != 0) {
+        append("Derive");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Revoke)) != 0) {
+        append("Revoke");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::Crypto)) != 0) {
+        append("Crypto");
+    }
+    if ((value & static_cast<std::uint32_t>(Permission::BypassCfi)) != 0) {
+        append("BypassCfi");
+    }
 
     return result.empty() ? "Unknown" : result;
 }

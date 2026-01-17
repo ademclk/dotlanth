@@ -10,7 +10,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <span>
 
 namespace dotvm::jit {
@@ -101,7 +100,7 @@ struct Stencil {
 
     /// @brief Get span of holes
     [[nodiscard]] constexpr std::span<const StencilHole> get_holes() const noexcept {
-        return std::span<const StencilHole>(holes.data(), hole_count);
+        return {holes.data(), hole_count};
     }
 };
 
@@ -109,6 +108,7 @@ struct Stencil {
 ///
 /// Must match the opcodes defined in the VM instruction set.
 /// Only opcodes with stencils can be JIT compiled; others fall back to interpreter.
+// NOLINTBEGIN(readability-identifier-naming)
 enum class JitOpcode : std::uint8_t {
     // Arithmetic
     ADD = 0x01,
@@ -155,6 +155,7 @@ enum class JitOpcode : std::uint8_t {
     NOP  = 0x00,
     HALT = 0xFF,
 };
+// NOLINTEND(readability-identifier-naming)
 
 /// @brief Maximum number of opcodes we track
 inline constexpr std::size_t MAX_OPCODES = 256;
@@ -195,7 +196,9 @@ public:
     [[nodiscard]] std::size_t count() const noexcept {
         std::size_t n = 0;
         for (const auto& s : stencils_) {
-            if (s.valid()) ++n;
+            if (s.valid()) {
+                ++n;
+            }
         }
         return n;
     }
@@ -211,6 +214,7 @@ private:
 ///
 /// These are generated at build time and linked in. For now, we define
 /// minimal inline stencils for arithmetic operations.
+// NOLINTBEGIN(readability-identifier-naming)
 namespace stencils::x86_64 {
 
 // ============================================================================
@@ -328,5 +332,6 @@ extern const Stencil mov;
 extern const Stencil interpreter_fallback;
 
 } // namespace stencils::x86_64
+// NOLINTEND(readability-identifier-naming)
 
 } // namespace dotvm::jit
