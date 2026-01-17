@@ -152,8 +152,9 @@ jobs:
           echo "Running clang-tidy on all source files..."
 
           # Run clang-tidy with compile_commands.json
+          # Use WarningsAsErrors from .clang-tidy config for consistency
           xargs -a files.txt -P $(nproc) -I {} \
-            clang-tidy {} -p build/ci-clang-release --warnings-as-errors='*' 2>&1 | tee clang-tidy-output.txt
+            clang-tidy {} -p build/ci-clang-release 2>&1 | tee clang-tidy-output.txt
 
           # Check for errors
           if grep -q "error:" clang-tidy-output.txt; then
@@ -183,8 +184,10 @@ jobs:
 
           echo "Running clang-tidy on changed files..."
 
+          # Use WarningsAsErrors from .clang-tidy config (not --warnings-as-errors='*')
+          # This ensures only critical issues block the build, not style suggestions
           xargs -a changed_files.txt -P $(nproc) -I {} \
-            clang-tidy {} -p build/ci-clang-release --warnings-as-errors='*' 2>&1 | tee clang-tidy-output.txt
+            clang-tidy {} -p build/ci-clang-release 2>&1 | tee clang-tidy-output.txt
 
           if grep -q "error:" clang-tidy-output.txt; then
             echo "clang-tidy found errors!"
