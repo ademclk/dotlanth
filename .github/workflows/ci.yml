@@ -147,7 +147,8 @@ jobs:
         run: |
           # Remove C++20 module map references from compile_commands.json
           # These files only exist during the build job, not in the downloaded artifact
-          sed -i 's/@[^ ]*\.modmap//g' build/ci-clang-release/compile_commands.json
+          # The pattern matches: @CMakeFiles/.../*.modmap (with or without quotes)
+          sed -i -E 's/"?@[^"[:space:]]*\.modmap"?//g' build/ci-clang-release/compile_commands.json
 
       - name: Run clang-tidy (Full - Push to main)
         if: github.event_name == 'push'
@@ -162,9 +163,11 @@ jobs:
           xargs -a files.txt -P $(nproc) -I {} \
             clang-tidy {} -p build/ci-clang-release 2>&1 | tee clang-tidy-output.txt
 
-          # Check for errors
-          if grep -q "error:" clang-tidy-output.txt; then
+          # Check for real errors (exclude modmap file-not-found errors which are build artifacts)
+          # Only fail on actual code errors, not missing build files
+          if grep -E "error:" clang-tidy-output.txt | grep -v "\.modmap" | grep -q "error:"; then
             echo "clang-tidy found errors!"
+            grep -E "error:" clang-tidy-output.txt | grep -v "\.modmap"
             exit 1
           fi
 
@@ -195,8 +198,10 @@ jobs:
           xargs -a changed_files.txt -P $(nproc) -I {} \
             clang-tidy {} -p build/ci-clang-release 2>&1 | tee clang-tidy-output.txt
 
-          if grep -q "error:" clang-tidy-output.txt; then
+          # Check for real errors (exclude modmap file-not-found errors which are build artifacts)
+          if grep -E "error:" clang-tidy-output.txt | grep -v "\.modmap" | grep -q "error:"; then
             echo "clang-tidy found errors!"
+            grep -E "error:" clang-tidy-output.txt | grep -v "\.modmap"
             exit 1
           fi
 
