@@ -44,3 +44,6 @@ coverage/
 # Package managers
 _deps/
 vcpkg_installed/
+
+# Git worktrees
+.worktrees/
