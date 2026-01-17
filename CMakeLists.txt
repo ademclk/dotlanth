@@ -29,6 +29,10 @@ endif()
 # Export compile commands for IDE integration
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Enable position-independent code for all targets
+# Required when static libraries are linked into shared libraries
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Build type defaults to Release
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
