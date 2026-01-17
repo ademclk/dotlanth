@@ -143,6 +143,12 @@ jobs:
           name: compile-commands
           path: build/ci-clang-release
 
+      - name: Clean compile_commands.json
+        run: |
+          # Remove C++20 module map references from compile_commands.json
+          # These files only exist during the build job, not in the downloaded artifact
+          sed -i 's/@[^ ]*\.modmap//g' build/ci-clang-release/compile_commands.json
+
       - name: Run clang-tidy (Full - Push to main)
         if: github.event_name == 'push'
         run: |
