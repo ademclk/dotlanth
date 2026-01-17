@@ -1,9 +1,8 @@
 # Dotlanth
 
-[![CI](https://github.com/YOUR_ORG/dotlanth/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/dotlanth/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/YOUR_ORG/dotlanth/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_ORG/dotlanth)
+[![CI](https://github.com/ademclk/dotlanth/actions/workflows/ci.yml/badge.svg)](https://github.com/ademclk/dotlanth/actions/workflows/ci.yml)
 [![C++26](https://img.shields.io/badge/C%2B%2B-26-blue.svg)](https://en.cppreference.com/w/cpp/26)
-[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
 AI-Powered Automation Platform
 
@@ -164,6 +163,37 @@ dotlanth/
 - **Memory Management**: Generation-based handle system preventing use-after-free vulnerabilities
 - **Security**: Control Flow Integrity (CFI), bounds checking, and comprehensive validation
 
+## CI/CD
+
+The project uses GitHub Actions for continuous integration with the following checks:
+
+| Check | Description |
+|-------|-------------|
+| **Build & Test** | Builds with Clang 19 and runs all unit tests |
+| **Sanitizers** | Runs tests with AddressSanitizer and UndefinedBehaviorSanitizer |
+| **Static Analysis** | clang-tidy checks for bugs, style, and best practices |
+| **Code Coverage** | Generates coverage reports on pull requests |
+| **Format Check** | Verifies code formatting with clang-format |
+
+### Using CMake Presets
+
+```bash
+# Release build (used by CI)
+cmake --preset ci-clang-release
+cmake --build --preset ci-clang-release
+ctest --preset ci-clang-release
+
+# Debug with sanitizers
+cmake --preset ci-clang-sanitizers
+cmake --build --preset ci-clang-sanitizers
+ctest --preset ci-clang-sanitizers
+
+# Coverage build
+cmake --preset ci-clang-coverage
+cmake --build --preset ci-clang-coverage
+ctest --preset ci-clang-coverage
+```
+
 ## License
 
-Proprietary
+This project is licensed under the GNU General Public License v2.0 - see the [LICENSE](LICENSE) file for details.
