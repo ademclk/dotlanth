@@ -22,7 +22,8 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # Use libc++ for better C++26 standard library support
     if(DOTVM_USE_LIBCXX)
         add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
-        add_link_options(-stdlib=libc++)
+        # Apply link option only to C++ targets (CMake 3.18+)
+        add_link_options($<$<LINK_LANGUAGE:CXX>:-stdlib=libc++>)
     endif()
 endif()
 

@@ -15,7 +15,7 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "DOTVM_BUILD_TESTS": "ON",
         "DOTVM_BUILD_C_API": "ON",
-        "DOTVM_ENABLE_SIMD": "ON",
+        "DOTVM_ENABLE_SIMD": "OFF",
         "DOTVM_ENABLE_JIT": "ON"
       }
     },
