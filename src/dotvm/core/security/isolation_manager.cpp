@@ -76,11 +76,10 @@ auto IsolationManager::destroy_sandbox(DotId dot_id) noexcept -> IsolationError 
 
             // Also remove any outgoing grants to this child
             auto& grants = parent->outgoing_grants;
-            grants.erase(std::remove_if(grants.begin(), grants.end(),
-                                        [dot_id](const HandleGrant& g) {
-                                            return g.child_dot == dot_id;
-                                        }),
-                         grants.end());
+            grants.erase(
+                std::remove_if(grants.begin(), grants.end(),
+                               [dot_id](const HandleGrant& g) { return g.child_dot == dot_id; }),
+                grants.end());
         }
     }
 
@@ -126,8 +125,8 @@ auto IsolationManager::enforce_boundary(DotId source_dot, DotId target_dot, Hand
     return IsolationError::Success;
 }
 
-auto IsolationManager::validate_syscall(DotId dot_id, SyscallId syscall) const noexcept
-    -> IsolationError {
+auto IsolationManager::validate_syscall(DotId dot_id,
+                                        SyscallId syscall) const noexcept -> IsolationError {
     const auto* sandbox = get_sandbox(dot_id);
     if (sandbox == nullptr) {
         return IsolationError::DotNotFound;
@@ -200,8 +199,8 @@ auto IsolationManager::grant_handle(DotId parent, DotId child, Handle handle, bo
     return granted_handle;
 }
 
-auto IsolationManager::revoke_handle(DotId parent, DotId child, Handle handle) noexcept
-    -> IsolationError {
+auto IsolationManager::revoke_handle(DotId parent, DotId child,
+                                     Handle handle) noexcept -> IsolationError {
     auto* parent_sandbox = get_sandbox_mut(parent);
     if (parent_sandbox == nullptr) {
         return IsolationError::ParentNotFound;

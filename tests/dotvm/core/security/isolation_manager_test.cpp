@@ -1,9 +1,9 @@
 /// @file isolation_manager_test.cpp
 /// @brief Unit tests for SEC-007 Isolation Boundaries
 
-#include "dotvm/core/security/isolation_manager.hpp"
-
 #include <gtest/gtest.h>
+
+#include "dotvm/core/security/isolation_manager.hpp"
 
 namespace dotvm::core::security {
 namespace {
