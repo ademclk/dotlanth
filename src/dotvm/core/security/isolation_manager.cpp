@@ -11,8 +11,8 @@ namespace dotvm::core::security {
 // Sandbox Lifecycle
 // ============================================================================
 
-auto IsolationManager::create_sandbox(DotId dot_id, IsolationLevel level,
-                                      DotId parent) noexcept -> Result<void> {
+auto IsolationManager::create_sandbox(DotId dot_id, IsolationLevel level, DotId parent) noexcept
+    -> Result<void> {
     // Check if Dot already exists
     if (sandboxes_.contains(dot_id)) {
         return std::unexpected{IsolationError::DotAlreadyExists};
@@ -125,8 +125,8 @@ auto IsolationManager::enforce_boundary(DotId source_dot, DotId target_dot, Hand
     return IsolationError::Success;
 }
 
-auto IsolationManager::validate_syscall(DotId dot_id,
-                                        SyscallId syscall) const noexcept -> IsolationError {
+auto IsolationManager::validate_syscall(DotId dot_id, SyscallId syscall) const noexcept
+    -> IsolationError {
     const auto* sandbox = get_sandbox(dot_id);
     if (sandbox == nullptr) {
         return IsolationError::DotNotFound;
@@ -199,8 +199,8 @@ auto IsolationManager::grant_handle(DotId parent, DotId child, Handle handle, bo
     return granted_handle;
 }
 
-auto IsolationManager::revoke_handle(DotId parent, DotId child,
-                                     Handle handle) noexcept -> IsolationError {
+auto IsolationManager::revoke_handle(DotId parent, DotId child, Handle handle) noexcept
+    -> IsolationError {
     auto* parent_sandbox = get_sandbox_mut(parent);
     if (parent_sandbox == nullptr) {
         return IsolationError::ParentNotFound;
@@ -333,8 +333,8 @@ auto IsolationManager::get_syscall_whitelist(DotId dot_id) noexcept -> SyscallWh
 // Private Helpers
 // ============================================================================
 
-auto IsolationManager::find_grant(DotId source_dot, DotId target_dot,
-                                  Handle handle) const noexcept -> const HandleGrant* {
+auto IsolationManager::find_grant(DotId source_dot, DotId target_dot, Handle handle) const noexcept
+    -> const HandleGrant* {
     const auto* source_sandbox = get_sandbox(source_dot);
     if (source_sandbox == nullptr) {
         return nullptr;
@@ -350,8 +350,8 @@ auto IsolationManager::find_grant(DotId source_dot, DotId target_dot,
     return nullptr;
 }
 
-auto IsolationManager::find_grant_mut(DotId source_dot, DotId target_dot,
-                                      Handle handle) noexcept -> HandleGrant* {
+auto IsolationManager::find_grant_mut(DotId source_dot, DotId target_dot, Handle handle) noexcept
+    -> HandleGrant* {
     auto* source_sandbox = get_sandbox_mut(source_dot);
     if (source_sandbox == nullptr) {
         return nullptr;
