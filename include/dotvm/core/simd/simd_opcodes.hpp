@@ -82,23 +82,40 @@ inline constexpr std::uint8_t SIMD_OPCODE_MAX = 0xCF;
 /// Get the mnemonic name for a SIMD opcode
 [[nodiscard]] constexpr std::string_view opcode_name(std::uint8_t op) noexcept {
     switch (op) {
-        case VADD:     return "VADD";
-        case VSUB:     return "VSUB";
-        case VMUL:     return "VMUL";
-        case VDIV:     return "VDIV";
-        case VDOT:     return "VDOT";
-        case VFMA:     return "VFMA";
-        case VMIN:     return "VMIN";
-        case VMAX:     return "VMAX";
-        case VLOAD:    return "VLOAD";
-        case VSTORE:   return "VSTORE";
-        case VBCAST:   return "VBCAST";
-        case VEXTRACT: return "VEXTRACT";
-        case VCMPEQ:   return "VCMPEQ";
-        case VCMPLT:   return "VCMPLT";
-        case VBLEND:   return "VBLEND";
-        case VSHUFFLE: return "VSHUFFLE";
-        default:       return "UNKNOWN";
+        case VADD:
+            return "VADD";
+        case VSUB:
+            return "VSUB";
+        case VMUL:
+            return "VMUL";
+        case VDIV:
+            return "VDIV";
+        case VDOT:
+            return "VDOT";
+        case VFMA:
+            return "VFMA";
+        case VMIN:
+            return "VMIN";
+        case VMAX:
+            return "VMAX";
+        case VLOAD:
+            return "VLOAD";
+        case VSTORE:
+            return "VSTORE";
+        case VBCAST:
+            return "VBCAST";
+        case VEXTRACT:
+            return "VEXTRACT";
+        case VCMPEQ:
+            return "VCMPEQ";
+        case VCMPLT:
+            return "VCMPLT";
+        case VBLEND:
+            return "VBLEND";
+        case VSHUFFLE:
+            return "VSHUFFLE";
+        default:
+            return "UNKNOWN";
     }
 }
 
@@ -150,10 +167,10 @@ inline constexpr std::uint8_t SIMD_OPCODE_MAX = 0xCF;
 /// Packed into 3 bits in the instruction encoding:
 /// - Bits 0-2: element size code
 enum class ElementSize : std::uint8_t {
-    Int8    = 0,  ///< 8-bit signed integer
-    Int16   = 1,  ///< 16-bit signed integer
-    Int32   = 2,  ///< 32-bit signed integer
-    Int64   = 3,  ///< 64-bit signed integer
+    Int8 = 0,     ///< 8-bit signed integer
+    Int16 = 1,    ///< 16-bit signed integer
+    Int32 = 2,    ///< 32-bit signed integer
+    Int64 = 3,    ///< 64-bit signed integer
     Float32 = 4,  ///< 32-bit IEEE 754 float
     Float64 = 5   ///< 64-bit IEEE 754 double
 };
@@ -169,12 +186,18 @@ inline constexpr std::uint8_t ELEMENT_SIZE_MAX = 5;
 /// Get the byte count for an element size
 [[nodiscard]] constexpr std::size_t element_byte_size(ElementSize es) noexcept {
     switch (es) {
-        case ElementSize::Int8:    return 1;
-        case ElementSize::Int16:   return 2;
-        case ElementSize::Int32:   return 4;
-        case ElementSize::Int64:   return 8;
-        case ElementSize::Float32: return 4;
-        case ElementSize::Float64: return 8;
+        case ElementSize::Int8:
+            return 1;
+        case ElementSize::Int16:
+            return 2;
+        case ElementSize::Int32:
+            return 4;
+        case ElementSize::Int64:
+            return 8;
+        case ElementSize::Float32:
+            return 4;
+        case ElementSize::Float64:
+            return 8;
     }
     return 0;
 }
@@ -192,12 +215,18 @@ inline constexpr std::uint8_t ELEMENT_SIZE_MAX = 5;
 /// Get the element size name
 [[nodiscard]] constexpr std::string_view element_size_name(ElementSize es) noexcept {
     switch (es) {
-        case ElementSize::Int8:    return "i8";
-        case ElementSize::Int16:   return "i16";
-        case ElementSize::Int32:   return "i32";
-        case ElementSize::Int64:   return "i64";
-        case ElementSize::Float32: return "f32";
-        case ElementSize::Float64: return "f64";
+        case ElementSize::Int8:
+            return "i8";
+        case ElementSize::Int16:
+            return "i16";
+        case ElementSize::Int32:
+            return "i32";
+        case ElementSize::Int64:
+            return "i64";
+        case ElementSize::Float32:
+            return "f32";
+        case ElementSize::Float64:
+            return "f64";
     }
     return "???";
 }
@@ -216,9 +245,12 @@ enum class VectorWidth : std::uint8_t {
 /// Get the bit count for a vector width
 [[nodiscard]] constexpr std::size_t vector_bit_width(VectorWidth vw) noexcept {
     switch (vw) {
-        case VectorWidth::Width128: return 128;
-        case VectorWidth::Width256: return 256;
-        case VectorWidth::Width512: return 512;
+        case VectorWidth::Width128:
+            return 128;
+        case VectorWidth::Width256:
+            return 256;
+        case VectorWidth::Width512:
+            return 512;
     }
     return 128;
 }
@@ -244,9 +276,9 @@ inline constexpr std::uint8_t UNSIGNED = 0x02;
 /// Mask for rounding mode (for float ops)
 inline constexpr std::uint8_t ROUND_MASK = 0x0C;
 inline constexpr std::uint8_t ROUND_NEAREST = 0x00;
-inline constexpr std::uint8_t ROUND_DOWN    = 0x04;
-inline constexpr std::uint8_t ROUND_UP      = 0x08;
-inline constexpr std::uint8_t ROUND_TRUNC   = 0x0C;
+inline constexpr std::uint8_t ROUND_DOWN = 0x04;
+inline constexpr std::uint8_t ROUND_UP = 0x08;
+inline constexpr std::uint8_t ROUND_TRUNC = 0x0C;
 
 /// Mask for memory alignment requirement
 inline constexpr std::uint8_t ALIGNED = 0x10;
@@ -280,15 +312,15 @@ inline constexpr std::uint8_t FAULT_SUPPRESS = 0x20;
 /// [47:40] imm8        (8 bits) - immediate (for VSHUFFLE, VEXTRACT)
 /// ```
 struct SimdInstruction {
-    std::uint8_t opcode;          ///< SIMD opcode (0xC0-0xCF)
-    ElementSize element_size;     ///< Element type
-    VectorWidth vector_width;     ///< Vector width
-    std::uint8_t vd;              ///< Destination register (0-31)
-    std::uint8_t vs1;             ///< Source register 1 (0-31)
-    std::uint8_t vs2;             ///< Source register 2 (0-31)
-    std::uint8_t vs3;             ///< Source register 3 (0-31, for FMA/BLEND)
-    std::uint8_t flags;           ///< Instruction flags
-    std::uint8_t imm8;            ///< 8-bit immediate (for shuffle/extract)
+    std::uint8_t opcode;       ///< SIMD opcode (0xC0-0xCF)
+    ElementSize element_size;  ///< Element type
+    VectorWidth vector_width;  ///< Vector width
+    std::uint8_t vd;           ///< Destination register (0-31)
+    std::uint8_t vs1;          ///< Source register 1 (0-31)
+    std::uint8_t vs2;          ///< Source register 2 (0-31)
+    std::uint8_t vs3;          ///< Source register 3 (0-31, for FMA/BLEND)
+    std::uint8_t flags;        ///< Instruction flags
+    std::uint8_t imm8;         ///< 8-bit immediate (for shuffle/extract)
 
     // ========================================================================
     // Construction
@@ -296,27 +328,29 @@ struct SimdInstruction {
 
     /// Default constructor - creates a NOP-like instruction
     constexpr SimdInstruction() noexcept
-        : opcode{0}, element_size{ElementSize::Int32}, vector_width{VectorWidth::Width128},
-          vd{0}, vs1{0}, vs2{0}, vs3{0}, flags{0}, imm8{0} {}
+        : opcode{0},
+          element_size{ElementSize::Int32},
+          vector_width{VectorWidth::Width128},
+          vd{0},
+          vs1{0},
+          vs2{0},
+          vs3{0},
+          flags{0},
+          imm8{0} {}
 
     /// Full constructor
-    constexpr SimdInstruction(
-        std::uint8_t op,
-        ElementSize es,
-        VectorWidth vw,
-        std::uint8_t dst,
-        std::uint8_t src1,
-        std::uint8_t src2 = 0,
-        std::uint8_t src3 = 0,
-        std::uint8_t flg = 0,
-        std::uint8_t imm = 0
-    ) noexcept
-        : opcode{op}, element_size{es}, vector_width{vw},
+    constexpr SimdInstruction(std::uint8_t op, ElementSize es, VectorWidth vw, std::uint8_t dst,
+                              std::uint8_t src1, std::uint8_t src2 = 0, std::uint8_t src3 = 0,
+                              std::uint8_t flg = 0, std::uint8_t imm = 0) noexcept
+        : opcode{op},
+          element_size{es},
+          vector_width{vw},
           vd{static_cast<std::uint8_t>(dst & 0x1F)},
           vs1{static_cast<std::uint8_t>(src1 & 0x1F)},
           vs2{static_cast<std::uint8_t>(src2 & 0x1F)},
           vs3{static_cast<std::uint8_t>(src3 & 0x1F)},
-          flags{flg}, imm8{imm} {}
+          flags{flg},
+          imm8{imm} {}
 
     // ========================================================================
     // Encoding/Decoding
@@ -378,7 +412,7 @@ struct SimdInstruction {
     /// @return Decoded instruction
     [[nodiscard]] static constexpr SimdInstruction decode64(std::uint64_t encoded) noexcept {
         SimdInstruction inst = decode(static_cast<std::uint32_t>(encoded & 0xFFFFFFFF));
-        std::uint32_t extended = static_cast<std::uint32_t>(encoded >> 32);
+        const auto extended = static_cast<std::uint32_t>(encoded >> 32);
         inst.vs3 = static_cast<std::uint8_t>(extended & 0x1F);
         inst.imm8 = static_cast<std::uint8_t>((extended >> 8) & 0xFF);
         inst.flags |= static_cast<std::uint8_t>((extended >> 12) & 0xF0);
@@ -391,16 +425,13 @@ struct SimdInstruction {
 
     /// Check if this is a valid SIMD instruction
     [[nodiscard]] constexpr bool is_valid() const noexcept {
-        return opcode::is_simd_opcode(opcode) &&
-               is_valid_element_size(element_size) &&
-               vd < 32 && vs1 < 32 && vs2 < 32 && vs3 < 32;
+        return opcode::is_simd_opcode(opcode) && is_valid_element_size(element_size) && vd < 32 &&
+               vs1 < 32 && vs2 < 32 && vs3 < 32;
     }
 
     /// Check if this instruction needs the extended format
     [[nodiscard]] constexpr bool needs_extended() const noexcept {
-        return opcode == opcode::VFMA ||
-               opcode == opcode::VBLEND ||
-               opcode == opcode::VSHUFFLE ||
+        return opcode == opcode::VFMA || opcode == opcode::VBLEND || opcode == opcode::VSHUFFLE ||
                opcode == opcode::VEXTRACT;
     }
 
@@ -435,140 +466,112 @@ struct SimdInstruction {
 // ============================================================================
 
 /// Create a vector add instruction
-[[nodiscard]] constexpr SimdInstruction make_vadd(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2,
-    std::uint8_t flg = 0
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vadd(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                  std::uint8_t vs1, std::uint8_t vs2,
+                                                  std::uint8_t flg = 0) noexcept {
     return SimdInstruction{opcode::VADD, es, vw, vd, vs1, vs2, 0, flg, 0};
 }
 
 /// Create a vector subtract instruction
-[[nodiscard]] constexpr SimdInstruction make_vsub(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2,
-    std::uint8_t flg = 0
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vsub(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                  std::uint8_t vs1, std::uint8_t vs2,
+                                                  std::uint8_t flg = 0) noexcept {
     return SimdInstruction{opcode::VSUB, es, vw, vd, vs1, vs2, 0, flg, 0};
 }
 
 /// Create a vector multiply instruction
-[[nodiscard]] constexpr SimdInstruction make_vmul(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2,
-    std::uint8_t flg = 0
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vmul(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                  std::uint8_t vs1, std::uint8_t vs2,
+                                                  std::uint8_t flg = 0) noexcept {
     return SimdInstruction{opcode::VMUL, es, vw, vd, vs1, vs2, 0, flg, 0};
 }
 
 /// Create a vector divide instruction
-[[nodiscard]] constexpr SimdInstruction make_vdiv(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2,
-    std::uint8_t flg = 0
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vdiv(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                  std::uint8_t vs1, std::uint8_t vs2,
+                                                  std::uint8_t flg = 0) noexcept {
     return SimdInstruction{opcode::VDIV, es, vw, vd, vs1, vs2, 0, flg, 0};
 }
 
 /// Create a dot product instruction
-[[nodiscard]] constexpr SimdInstruction make_vdot(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vdot(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                  std::uint8_t vs1, std::uint8_t vs2) noexcept {
     return SimdInstruction{opcode::VDOT, es, vw, vd, vs1, vs2, 0, 0, 0};
 }
 
 /// Create a fused multiply-add instruction
-[[nodiscard]] constexpr SimdInstruction make_vfma(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2, std::uint8_t vs3
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vfma(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                  std::uint8_t vs1, std::uint8_t vs2,
+                                                  std::uint8_t vs3) noexcept {
     return SimdInstruction{opcode::VFMA, es, vw, vd, vs1, vs2, vs3, 0, 0};
 }
 
 /// Create a vector minimum instruction
-[[nodiscard]] constexpr SimdInstruction make_vmin(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vmin(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                  std::uint8_t vs1, std::uint8_t vs2) noexcept {
     return SimdInstruction{opcode::VMIN, es, vw, vd, vs1, vs2, 0, 0, 0};
 }
 
 /// Create a vector maximum instruction
-[[nodiscard]] constexpr SimdInstruction make_vmax(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vmax(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                  std::uint8_t vs1, std::uint8_t vs2) noexcept {
     return SimdInstruction{opcode::VMAX, es, vw, vd, vs1, vs2, 0, 0, 0};
 }
 
 /// Create a vector load instruction
-[[nodiscard]] constexpr SimdInstruction make_vload(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t addr_reg,
-    bool aligned = false
-) noexcept {
-    std::uint8_t flg = aligned ? flags::ALIGNED : 0;
+[[nodiscard]] constexpr SimdInstruction make_vload(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                   std::uint8_t addr_reg,
+                                                   bool aligned = false) noexcept {
+    const std::uint8_t flg = aligned ? flags::ALIGNED : 0;
     return SimdInstruction{opcode::VLOAD, es, vw, vd, addr_reg, 0, 0, flg, 0};
 }
 
 /// Create a vector store instruction
-[[nodiscard]] constexpr SimdInstruction make_vstore(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vs, std::uint8_t addr_reg,
-    bool aligned = false
-) noexcept {
-    std::uint8_t flg = aligned ? flags::ALIGNED : 0;
+[[nodiscard]] constexpr SimdInstruction make_vstore(ElementSize es, VectorWidth vw, std::uint8_t vs,
+                                                    std::uint8_t addr_reg,
+                                                    bool aligned = false) noexcept {
+    const std::uint8_t flg = aligned ? flags::ALIGNED : 0;
     return SimdInstruction{opcode::VSTORE, es, vw, 0, addr_reg, vs, 0, flg, 0};
 }
 
 /// Create a broadcast instruction
-[[nodiscard]] constexpr SimdInstruction make_vbcast(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t scalar_reg
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vbcast(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                    std::uint8_t scalar_reg) noexcept {
     return SimdInstruction{opcode::VBCAST, es, vw, vd, scalar_reg, 0, 0, 0, 0};
 }
 
 /// Create an extract instruction
-[[nodiscard]] constexpr SimdInstruction make_vextract(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t scalar_dst, std::uint8_t vs, std::uint8_t lane_idx
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vextract(ElementSize es, VectorWidth vw,
+                                                      std::uint8_t scalar_dst, std::uint8_t vs,
+                                                      std::uint8_t lane_idx) noexcept {
     return SimdInstruction{opcode::VEXTRACT, es, vw, scalar_dst, vs, 0, 0, 0, lane_idx};
 }
 
 /// Create a compare equal instruction
-[[nodiscard]] constexpr SimdInstruction make_vcmpeq(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vcmpeq(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                    std::uint8_t vs1, std::uint8_t vs2) noexcept {
     return SimdInstruction{opcode::VCMPEQ, es, vw, vd, vs1, vs2, 0, 0, 0};
 }
 
 /// Create a compare less than instruction
-[[nodiscard]] constexpr SimdInstruction make_vcmplt(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs1, std::uint8_t vs2,
-    bool is_unsigned = false
-) noexcept {
-    std::uint8_t flg = is_unsigned ? flags::UNSIGNED : 0;
+[[nodiscard]] constexpr SimdInstruction make_vcmplt(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                    std::uint8_t vs1, std::uint8_t vs2,
+                                                    bool is_unsigned = false) noexcept {
+    const std::uint8_t flg = is_unsigned ? flags::UNSIGNED : 0;
     return SimdInstruction{opcode::VCMPLT, es, vw, vd, vs1, vs2, 0, flg, 0};
 }
 
 /// Create a blend instruction
-[[nodiscard]] constexpr SimdInstruction make_vblend(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vmask, std::uint8_t vs1, std::uint8_t vs2
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vblend(ElementSize es, VectorWidth vw, std::uint8_t vd,
+                                                    std::uint8_t vmask, std::uint8_t vs1,
+                                                    std::uint8_t vs2) noexcept {
     return SimdInstruction{opcode::VBLEND, es, vw, vd, vmask, vs1, vs2, 0, 0};
 }
 
 /// Create a shuffle instruction
-[[nodiscard]] constexpr SimdInstruction make_vshuffle(
-    ElementSize es, VectorWidth vw,
-    std::uint8_t vd, std::uint8_t vs, std::uint8_t indices
-) noexcept {
+[[nodiscard]] constexpr SimdInstruction make_vshuffle(ElementSize es, VectorWidth vw,
+                                                      std::uint8_t vd, std::uint8_t vs,
+                                                      std::uint8_t indices) noexcept {
     return SimdInstruction{opcode::VSHUFFLE, es, vw, vd, vs, 0, 0, 0, indices};
 }
 

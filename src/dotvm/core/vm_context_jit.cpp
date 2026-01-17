@@ -5,8 +5,8 @@
 /// and reduce header size.
 
 #include "dotvm/core/vm_context.hpp"
-#include "dotvm/jit/jit_context.hpp"
 #include "dotvm/jit/jit_config.hpp"
+#include "dotvm/jit/jit_context.hpp"
 
 namespace dotvm::core {
 
@@ -37,8 +37,7 @@ VmContext::VmContext(VmConfig config) noexcept
     }
 }
 
-VmContext::VmContext(Architecture arch) noexcept
-    : VmContext{VmConfig::for_arch(arch)} {}
+VmContext::VmContext(Architecture arch) noexcept : VmContext{VmConfig::for_arch(arch)} {}
 
 // Destructor must be defined here where JitContext is complete
 // (unique_ptr requires complete type for destruction)
@@ -87,4 +86,4 @@ void VmContext::reset() noexcept {
     }
 }
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

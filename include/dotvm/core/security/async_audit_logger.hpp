@@ -8,8 +8,11 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <ostream>
 #include <thread>
 #include <vector>
 
@@ -86,11 +89,9 @@ public:
 
     [[nodiscard]] bool is_enabled() const noexcept override { return true; }
 
-    [[nodiscard]] std::vector<AuditEvent>
-    query(const AuditQuery& filter) const override;
+    [[nodiscard]] std::vector<AuditEvent> query(const AuditQuery& filter) const override;
 
-    std::size_t export_to(std::ostream& out,
-                          ExportFormat format,
+    std::size_t export_to(std::ostream& out, ExportFormat format,
                           const AuditQuery& filter) const override;
 
     void set_retention(std::uint32_t hours) noexcept override;
@@ -139,9 +140,7 @@ public:
     [[nodiscard]] std::size_t capacity() const noexcept { return capacity_; }
 
     /// @brief Get flush interval
-    [[nodiscard]] std::uint32_t flush_interval_ms() const noexcept {
-        return flush_interval_ms_;
-    }
+    [[nodiscard]] std::uint32_t flush_interval_ms() const noexcept { return flush_interval_ms_; }
 
 private:
     // === Ring Buffer Entry ===

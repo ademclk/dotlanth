@@ -31,4 +31,4 @@ class HandleTable;
 class MemoryManager;
 enum class MemoryError : std::uint8_t;
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

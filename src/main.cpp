@@ -1,5 +1,6 @@
-#include <dotvm/dotvm.hpp>
 #include <cstdio>
+
+#include <dotvm/dotvm.hpp>
 
 int main() {
     using namespace dotvm::core;

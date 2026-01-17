@@ -110,7 +110,8 @@ inline constexpr std::uint64_t NEG_ZERO_BITS = 0x8000'0000'0000'0000ULL;
 /// Signaling NaN has the quiet bit (bit 51) clear
 /// Note: Behavior may be implementation-defined on some platforms
 [[nodiscard]] inline bool is_signaling_nan(double d) noexcept {
-    if (!std::isnan(d)) return false;
+    if (!std::isnan(d))
+        return false;
     const std::uint64_t bits = std::bit_cast<std::uint64_t>(d);
     return (bits & QUIET_NAN_BIT) == 0;
 }
@@ -118,7 +119,8 @@ inline constexpr std::uint64_t NEG_ZERO_BITS = 0x8000'0000'0000'0000ULL;
 /// Check if value is a quiet NaN
 /// Quiet NaN has the quiet bit (bit 51) set
 [[nodiscard]] inline bool is_quiet_nan(double d) noexcept {
-    if (!std::isnan(d)) return false;
+    if (!std::isnan(d))
+        return false;
     const std::uint64_t bits = std::bit_cast<std::uint64_t>(d);
     return (bits & QUIET_NAN_BIT) != 0;
 }
@@ -141,8 +143,10 @@ inline constexpr std::uint64_t NEG_ZERO_BITS = 0x8000'0000'0000'0000ULL;
 /// If either input is NaN, returns canonical quiet NaN
 /// Otherwise returns the first operand (should not happen in normal use)
 [[nodiscard]] inline double propagate_nan(double a, double b) noexcept {
-    if (std::isnan(a)) return QNAN;
-    if (std::isnan(b)) return QNAN;
+    if (std::isnan(a))
+        return QNAN;
+    if (std::isnan(b))
+        return QNAN;
     return a;
 }
 

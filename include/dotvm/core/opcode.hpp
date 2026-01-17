@@ -249,7 +249,8 @@ inline constexpr std::uint8_t BLE = 0x46;
 /// BGT: if (Rs1 > Rs2) PC = PC + sign_extend(offset8) - Branch if greater than, signed (Type A)
 inline constexpr std::uint8_t BGT = 0x47;
 
-/// BGE: if (Rs1 >= Rs2) PC = PC + sign_extend(offset8) - Branch if greater or equal, signed (Type A)
+/// BGE: if (Rs1 >= Rs2) PC = PC + sign_extend(offset8) - Branch if greater or equal, signed (Type
+/// A)
 inline constexpr std::uint8_t BGE = 0x48;
 
 /// CALL: push return address to CFI stack, PC = PC + sign_extend(offset24) (Type C)

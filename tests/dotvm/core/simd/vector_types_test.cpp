@@ -68,28 +68,28 @@ TEST_F(VectorStaticAssertionsTest, SizeRequirements) {
 
 TEST_F(VectorStaticAssertionsTest, LaneCountRequirements) {
     // 128-bit lane counts
-    EXPECT_EQ(Vector128i8::lane_count, 16u);
-    EXPECT_EQ(Vector128i16::lane_count, 8u);
-    EXPECT_EQ(Vector128i32::lane_count, 4u);
-    EXPECT_EQ(Vector128i64::lane_count, 2u);
-    EXPECT_EQ(Vector128f32::lane_count, 4u);
-    EXPECT_EQ(Vector128f64::lane_count, 2u);
+    EXPECT_EQ(Vector128i8::kLaneCount, 16u);
+    EXPECT_EQ(Vector128i16::kLaneCount, 8u);
+    EXPECT_EQ(Vector128i32::kLaneCount, 4u);
+    EXPECT_EQ(Vector128i64::kLaneCount, 2u);
+    EXPECT_EQ(Vector128f32::kLaneCount, 4u);
+    EXPECT_EQ(Vector128f64::kLaneCount, 2u);
 
     // 256-bit lane counts
-    EXPECT_EQ(Vector256i8::lane_count, 32u);
-    EXPECT_EQ(Vector256i16::lane_count, 16u);
-    EXPECT_EQ(Vector256i32::lane_count, 8u);
-    EXPECT_EQ(Vector256i64::lane_count, 4u);
-    EXPECT_EQ(Vector256f32::lane_count, 8u);
-    EXPECT_EQ(Vector256f64::lane_count, 4u);
+    EXPECT_EQ(Vector256i8::kLaneCount, 32u);
+    EXPECT_EQ(Vector256i16::kLaneCount, 16u);
+    EXPECT_EQ(Vector256i32::kLaneCount, 8u);
+    EXPECT_EQ(Vector256i64::kLaneCount, 4u);
+    EXPECT_EQ(Vector256f32::kLaneCount, 8u);
+    EXPECT_EQ(Vector256f64::kLaneCount, 4u);
 
     // 512-bit lane counts
-    EXPECT_EQ(Vector512i8::lane_count, 64u);
-    EXPECT_EQ(Vector512i16::lane_count, 32u);
-    EXPECT_EQ(Vector512i32::lane_count, 16u);
-    EXPECT_EQ(Vector512i64::lane_count, 8u);
-    EXPECT_EQ(Vector512f32::lane_count, 16u);
-    EXPECT_EQ(Vector512f64::lane_count, 8u);
+    EXPECT_EQ(Vector512i8::kLaneCount, 64u);
+    EXPECT_EQ(Vector512i16::kLaneCount, 32u);
+    EXPECT_EQ(Vector512i32::kLaneCount, 16u);
+    EXPECT_EQ(Vector512i64::kLaneCount, 8u);
+    EXPECT_EQ(Vector512f32::kLaneCount, 16u);
+    EXPECT_EQ(Vector512f64::kLaneCount, 8u);
 }
 
 // ============================================================================
@@ -277,13 +277,13 @@ TEST_F(VectorSizeTest, MaxSize_SameAsSize) {
 }
 
 TEST_F(VectorSizeTest, StaticConstants_AreCorrect) {
-    EXPECT_EQ(Vector128i32::width_bits, 128u);
-    EXPECT_EQ(Vector128i32::width_bytes, 16u);
-    EXPECT_EQ(Vector128i32::lane_size, 4u);
+    EXPECT_EQ(Vector128i32::kWidthBits, 128u);
+    EXPECT_EQ(Vector128i32::kWidthBytes, 16u);
+    EXPECT_EQ(Vector128i32::kLaneSize, 4u);
 
-    EXPECT_EQ(Vector512f64::width_bits, 512u);
-    EXPECT_EQ(Vector512f64::width_bytes, 64u);
-    EXPECT_EQ(Vector512f64::lane_size, 8u);
+    EXPECT_EQ(Vector512f64::kWidthBits, 512u);
+    EXPECT_EQ(Vector512f64::kWidthBytes, 64u);
+    EXPECT_EQ(Vector512f64::kLaneSize, 8u);
 }
 
 // ============================================================================
@@ -548,10 +548,10 @@ TEST_F(VectorConstexprTest, ConstexprOnes_Works) {
 }
 
 TEST_F(VectorConstexprTest, ConstexprStaticValues_Work) {
-    static_assert(Vector128i32::width_bits == 128);
-    static_assert(Vector128i32::width_bytes == 16);
-    static_assert(Vector128i32::lane_count == 4);
-    static_assert(Vector128i32::lane_size == 4);
+    static_assert(Vector128i32::kWidthBits == 128);
+    static_assert(Vector128i32::kWidthBytes == 16);
+    static_assert(Vector128i32::kLaneCount == 4);
+    static_assert(Vector128i32::kLaneSize == 4);
 }
 
 TEST_F(VectorConstexprTest, ConstexprComparison_Works) {

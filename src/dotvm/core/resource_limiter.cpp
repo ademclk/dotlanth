@@ -2,6 +2,7 @@
 /// @brief SEC-004 Resource Limits - Implementation
 
 #include "dotvm/core/security/resource_limiter.hpp"
+
 #include "dotvm/core/security_stats.hpp"
 
 namespace dotvm::core::security {
@@ -18,8 +19,7 @@ ResourceLimiter::ResourceLimiter(RuntimeLimits limits) noexcept
       current_stack_depth_{0},
       start_time_{std::chrono::steady_clock::now()} {}
 
-ResourceLimiter::ResourceLimiter(RuntimeLimits limits,
-                                 SecurityStats* stats) noexcept
+ResourceLimiter::ResourceLimiter(RuntimeLimits limits, SecurityStats* stats) noexcept
     : limits_{limits},
       stats_{stats},
       current_memory_{0},
@@ -31,8 +31,7 @@ ResourceLimiter::ResourceLimiter(RuntimeLimits limits,
 // Memory Tracking
 // ============================================================================
 
-Result<void, ResourceLimitError>
-ResourceLimiter::try_allocate(std::size_t bytes) noexcept {
+Result<void, ResourceLimitError> ResourceLimiter::try_allocate(std::size_t bytes) noexcept {
     // Fast path: check single allocation size limit first
     if (limits_.max_allocation_size != 0) [[likely]] {
         if (bytes > limits_.max_allocation_size) {
@@ -61,8 +60,8 @@ ResourceLimiter::try_allocate(std::size_t bytes) noexcept {
             return ResourceLimitError::MemoryLimitExceeded;
         }
         desired = current + bytes;
-    } while (!current_memory_.compare_exchange_weak(
-        current, desired, std::memory_order_relaxed, std::memory_order_relaxed));
+    } while (!current_memory_.compare_exchange_weak(current, desired, std::memory_order_relaxed,
+                                                    std::memory_order_relaxed));
 
     return Ok;
 }
@@ -73,8 +72,8 @@ void ResourceLimiter::on_deallocate(std::size_t bytes) noexcept {
     std::uint64_t desired;
     do {
         desired = (bytes > current) ? 0 : (current - bytes);
-    } while (!current_memory_.compare_exchange_weak(
-        current, desired, std::memory_order_relaxed, std::memory_order_relaxed));
+    } while (!current_memory_.compare_exchange_weak(current, desired, std::memory_order_relaxed,
+                                                    std::memory_order_relaxed));
 }
 
 // ============================================================================
@@ -89,8 +88,7 @@ Result<void, ResourceLimitError> ResourceLimiter::try_execute() noexcept {
     }
 
     // Increment and check
-    std::uint64_t current =
-        current_instructions_.fetch_add(1, std::memory_order_relaxed);
+    std::uint64_t current = current_instructions_.fetch_add(1, std::memory_order_relaxed);
 
     if (current >= limits_.max_instructions) [[unlikely]] {
         if (stats_ != nullptr) {
@@ -102,8 +100,7 @@ Result<void, ResourceLimitError> ResourceLimiter::try_execute() noexcept {
     return Ok;
 }
 
-Result<void, ResourceLimitError>
-ResourceLimiter::try_execute_batch(std::uint64_t count) noexcept {
+Result<void, ResourceLimitError> ResourceLimiter::try_execute_batch(std::uint64_t count) noexcept {
     // Fast path: unlimited instructions
     if (limits_.max_instructions == 0) [[unlikely]] {
         current_instructions_.fetch_add(count, std::memory_order_relaxed);
@@ -111,8 +108,7 @@ ResourceLimiter::try_execute_batch(std::uint64_t count) noexcept {
     }
 
     // Atomic add and check
-    std::uint64_t prev =
-        current_instructions_.fetch_add(count, std::memory_order_relaxed);
+    std::uint64_t prev = current_instructions_.fetch_add(count, std::memory_order_relaxed);
 
     if (prev + count > limits_.max_instructions) [[unlikely]] {
         if (stats_ != nullptr) {
@@ -171,16 +167,14 @@ bool ResourceLimiter::is_time_expired() const noexcept {
     }
 
     auto now = std::chrono::steady_clock::now();
-    auto elapsed =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time_);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time_);
 
     return elapsed.count() >= static_cast<std::int64_t>(limits_.max_execution_time_ms);
 }
 
 std::uint64_t ResourceLimiter::elapsed_time_ms() const noexcept {
     auto now = std::chrono::steady_clock::now();
-    auto elapsed =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time_);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time_);
     return static_cast<std::uint64_t>(elapsed.count());
 }
 

@@ -7,13 +7,13 @@
 
 #pragma once
 
-#include "jit_config.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
 #include <span>
+
+#include "jit_config.hpp"
 
 namespace dotvm::jit {
 
@@ -41,18 +41,24 @@ enum class CodeBufferError : std::uint8_t {
 /// @brief Convert error to string for debugging
 [[nodiscard]] constexpr const char* code_buffer_error_string(CodeBufferError err) noexcept {
     switch (err) {
-        case CodeBufferError::AllocationFailed:   return "AllocationFailed";
-        case CodeBufferError::ProtectionFailed:   return "ProtectionFailed";
-        case CodeBufferError::InsufficientSpace:  return "InsufficientSpace";
-        case CodeBufferError::NotWritable:        return "NotWritable";
-        case CodeBufferError::NotExecutable:      return "NotExecutable";
-        case CodeBufferError::InvalidParameters:  return "InvalidParameters";
+        case CodeBufferError::AllocationFailed:
+            return "AllocationFailed";
+        case CodeBufferError::ProtectionFailed:
+            return "ProtectionFailed";
+        case CodeBufferError::InsufficientSpace:
+            return "InsufficientSpace";
+        case CodeBufferError::NotWritable:
+            return "NotWritable";
+        case CodeBufferError::NotExecutable:
+            return "NotExecutable";
+        case CodeBufferError::InvalidParameters:
+            return "InvalidParameters";
     }
     return "Unknown";
 }
 
 /// @brief Result type for code buffer operations
-template<typename T>
+template <typename T>
 using CodeBufferResult = std::expected<T, CodeBufferError>;
 
 /// @brief Memory protection states
@@ -168,9 +174,7 @@ public:
     [[nodiscard]] std::size_t available() const noexcept { return capacity_ - used_; }
 
     /// @brief Check if buffer has space for the given size
-    [[nodiscard]] bool has_space(std::size_t size) const noexcept {
-        return available() >= size;
-    }
+    [[nodiscard]] bool has_space(std::size_t size) const noexcept { return available() >= size; }
 
     /// @brief Check if buffer is empty
     [[nodiscard]] bool empty() const noexcept { return used_ == 0; }
@@ -230,4 +234,4 @@ private:
     bool success_;
 };
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

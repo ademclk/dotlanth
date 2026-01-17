@@ -2,13 +2,12 @@
 /// @brief Implementation of On-Stack Replacement manager
 
 #include "dotvm/jit/jit_osr.hpp"
+
 #include "dotvm/jit/jit_context.hpp"
 
 namespace dotvm::jit {
 
-OsrManager::OsrManager(JitContext& jit_ctx) noexcept
-    : jit_ctx_(jit_ctx)
-{}
+OsrManager::OsrManager(JitContext& jit_ctx) noexcept : jit_ctx_(jit_ctx) {}
 
 bool OsrManager::should_trigger(LoopId loop_id) const noexcept {
     // Check if OSR is enabled and entry point exists
@@ -54,9 +53,8 @@ OsrStatus OsrManager::transfer(LoopId loop_id, const OsrState& state) noexcept {
     // 3. Jump to the native code entry point
     // For now, we use a simplified approach via function call
 
-    auto fn = reinterpret_cast<void (*)(void*, void*)>(
-        const_cast<std::uint8_t*>(osr_entry->entry_point)
-    );
+    auto fn =
+        reinterpret_cast<void (*)(void*, void*)>(const_cast<std::uint8_t*>(osr_entry->entry_point));
 
     // Call the compiled code
     fn(state.registers, state.context);
@@ -69,4 +67,4 @@ bool OsrManager::has_osr_entry(LoopId loop_id) const noexcept {
     return jit_ctx_.lookup_osr(loop_id) != nullptr;
 }
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

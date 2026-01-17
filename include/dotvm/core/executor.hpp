@@ -25,7 +25,7 @@ namespace dotvm::core {
 // ============================================================================
 
 /// Hint that a condition is likely to be true (hot path optimization)
-#define DOTVM_LIKELY(x)   (__builtin_expect(!!(x), 1))
+#define DOTVM_LIKELY(x) (__builtin_expect(!!(x), 1))
 
 /// Hint that a condition is unlikely to be true (cold path optimization)
 #define DOTVM_UNLIKELY(x) (__builtin_expect(!!(x), 0))
@@ -46,9 +46,7 @@ struct StepResult {
     std::uint64_t next_pc{0};
 
     /// Create a success result that advances PC normally
-    [[nodiscard]] static constexpr StepResult success() noexcept {
-        return StepResult{};
-    }
+    [[nodiscard]] static constexpr StepResult success() noexcept { return StepResult{}; }
 
     /// Create a success result that jumps to absolute address
     [[nodiscard]] static constexpr StepResult jump(std::uint64_t target) noexcept {
@@ -305,13 +303,13 @@ private:
 ///
 /// This concept validates at compile-time that a type provides the required
 /// interface for executing bitwise operations across all instruction formats.
-template<typename T>
-concept BitwiseExecutorInterface = requires(T exec, const DecodedTypeA& da,
-                                            const DecodedTypeS& ds, const DecodedTypeB& db) {
-    { exec.execute_type_a(da) } -> std::same_as<StepResult>;
-    { exec.execute_type_s(ds) } -> std::same_as<StepResult>;
-    { exec.execute_type_b(db) } -> std::same_as<StepResult>;
-};
+template <typename T>
+concept BitwiseExecutorInterface =
+    requires(T exec, const DecodedTypeA& da, const DecodedTypeS& ds, const DecodedTypeB& db) {
+        { exec.execute_type_a(da) } -> std::same_as<StepResult>;
+        { exec.execute_type_s(ds) } -> std::same_as<StepResult>;
+        { exec.execute_type_b(db) } -> std::same_as<StepResult>;
+    };
 
 /// @brief Verify BitwiseExecutor satisfies BitwiseExecutorInterface at compile time
 static_assert(BitwiseExecutorInterface<BitwiseExecutor>,
@@ -343,7 +341,11 @@ public:
     /// @param ctx VM context with registers, memory, ALU
     /// @param code Code section span (bytecode instructions)
     explicit Executor(VmContext& ctx, std::span<const std::uint8_t> code) noexcept
-        : ctx_{ctx}, code_{code}, state_{}, arith_exec_{ctx}, fp_exec_{ctx, state_},
+        : ctx_{ctx},
+          code_{code},
+          state_{},
+          arith_exec_{ctx},
+          fp_exec_{ctx, state_},
           bitwise_exec_{ctx} {}
 
     // =========================================================================
@@ -403,24 +405,21 @@ private:
     [[nodiscard]] StepResult dispatch(std::uint32_t instr) noexcept;
 
     /// Dispatch arithmetic opcode (0x00-0x08)
-    [[nodiscard]] StepResult dispatch_arithmetic(std::uint32_t instr,
-                                                   std::uint8_t opcode) noexcept;
+    [[nodiscard]] StepResult dispatch_arithmetic(std::uint32_t instr, std::uint8_t opcode) noexcept;
 
     /// Dispatch floating-point opcode (0x10-0x18)
     [[nodiscard]] StepResult dispatch_floating_point(std::uint32_t instr,
-                                                      std::uint8_t opcode) noexcept;
+                                                     std::uint8_t opcode) noexcept;
 
     /// Dispatch bitwise opcode (0x20-0x2F)
-    [[nodiscard]] StepResult dispatch_bitwise(std::uint32_t instr,
-                                               std::uint8_t opcode) noexcept;
+    [[nodiscard]] StepResult dispatch_bitwise(std::uint32_t instr, std::uint8_t opcode) noexcept;
 
     /// Dispatch control flow opcode (0x40-0x5F) - HALT, JMP, branches, etc.
     [[nodiscard]] StepResult dispatch_control_flow(std::uint32_t instr,
-                                                    std::uint8_t opcode) noexcept;
+                                                   std::uint8_t opcode) noexcept;
 
     /// Handle system opcodes (NOP, etc.) at 0xF0-0xFF
-    [[nodiscard]] StepResult dispatch_system(std::uint32_t instr,
-                                              std::uint8_t opcode) noexcept;
+    [[nodiscard]] StepResult dispatch_system(std::uint32_t instr, std::uint8_t opcode) noexcept;
 };
 
 }  // namespace dotvm::core

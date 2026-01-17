@@ -1,9 +1,9 @@
 /// @file permission.cpp
 /// @brief SEC-002 Permission Model implementation
 
-#include <dotvm/core/security/permission.hpp>
-
 #include <sstream>
+
+#include <dotvm/core/security/permission.hpp>
 
 namespace dotvm::core::security {
 
@@ -46,21 +46,19 @@ std::string to_string(Permission perm) {
     append(Permission::Debug, "Debug");
 
     // Handle any remaining unknown bits
-    const std::uint32_t known_bits =
-        static_cast<std::uint32_t>(Permission::Execute) |
-        static_cast<std::uint32_t>(Permission::ReadMemory) |
-        static_cast<std::uint32_t>(Permission::WriteMemory) |
-        static_cast<std::uint32_t>(Permission::Allocate) |
-        static_cast<std::uint32_t>(Permission::ReadState) |
-        static_cast<std::uint32_t>(Permission::WriteState) |
-        static_cast<std::uint32_t>(Permission::SpawnDot) |
-        static_cast<std::uint32_t>(Permission::SendMessage) |
-        static_cast<std::uint32_t>(Permission::Crypto) |
-        static_cast<std::uint32_t>(Permission::SystemCall) |
-        static_cast<std::uint32_t>(Permission::Debug);
+    const std::uint32_t known_bits = static_cast<std::uint32_t>(Permission::Execute) |
+                                     static_cast<std::uint32_t>(Permission::ReadMemory) |
+                                     static_cast<std::uint32_t>(Permission::WriteMemory) |
+                                     static_cast<std::uint32_t>(Permission::Allocate) |
+                                     static_cast<std::uint32_t>(Permission::ReadState) |
+                                     static_cast<std::uint32_t>(Permission::WriteState) |
+                                     static_cast<std::uint32_t>(Permission::SpawnDot) |
+                                     static_cast<std::uint32_t>(Permission::SendMessage) |
+                                     static_cast<std::uint32_t>(Permission::Crypto) |
+                                     static_cast<std::uint32_t>(Permission::SystemCall) |
+                                     static_cast<std::uint32_t>(Permission::Debug);
 
-    const std::uint32_t unknown =
-        static_cast<std::uint32_t>(perm) & ~known_bits;
+    const std::uint32_t unknown = static_cast<std::uint32_t>(perm) & ~known_bits;
     if (unknown != 0) {
         if (!first) {
             oss << " | ";
@@ -75,15 +73,10 @@ std::string to_string(Permission perm) {
 // PermissionDeniedException Implementation
 // ============================================================================
 
-PermissionDeniedException::PermissionDeniedException(
-    Permission required,
-    Permission actual,
-    std::string_view context,
-    std::source_location location)
-    : required_(required),
-      actual_(actual),
-      context_(context),
-      location_(location) {
+PermissionDeniedException::PermissionDeniedException(Permission required, Permission actual,
+                                                     std::string_view context,
+                                                     std::source_location location)
+    : required_(required), actual_(actual), context_(context), location_(location) {
     build_message();
 }
 
@@ -105,8 +98,7 @@ void PermissionDeniedException::build_message() {
 // PermissionSet::require Implementation
 // ============================================================================
 
-void PermissionSet::require(Permission perm,
-                            std::string_view context,
+void PermissionSet::require(Permission perm, std::string_view context,
                             std::source_location location) const {
     if (!has_permission(perm)) {
         throw PermissionDeniedException(perm, permissions_, context, location);

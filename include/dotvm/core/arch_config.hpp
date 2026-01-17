@@ -89,7 +89,7 @@ inline constexpr std::uint64_t ADDR48_MAX = 0x0000'FFFF'FFFF'FFFFULL;
     // Extract lower 32 bits
     std::int64_t masked = value & INT32_MASK;
     // Sign-extend if bit 31 is set
-    if (masked & INT32_SIGN_BIT) {
+    if ((masked & INT32_SIGN_BIT) != 0) {
         masked |= ~INT32_MASK;  // Set upper bits for negative values
     }
     return masked;
@@ -168,6 +168,7 @@ inline constexpr std::uint64_t ADDR48_MAX = 0x0000'FFFF'FFFF'FFFFULL;
 /// @return A pointer within the 32-bit address space
 [[nodiscard]] inline void* mask_ptr32(void* ptr) noexcept {
     auto addr = reinterpret_cast<std::uint64_t>(ptr);
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) - intentional for VM pointer representation
     return reinterpret_cast<void*>(mask_addr32(addr));
 }
 

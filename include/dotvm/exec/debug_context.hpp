@@ -7,12 +7,12 @@
 /// breakpoints, stepping, and callback-based debugging. The design targets
 /// <5x overhead when debug mode is enabled.
 
-#include <dotvm/exec/execution_context.hpp>
-
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <unordered_set>
+
+#include <dotvm/exec/execution_context.hpp>
 
 namespace dotvm::exec {
 
@@ -41,10 +41,14 @@ enum class DebugEvent : std::uint8_t {
 /// Convert DebugEvent to string representation
 [[nodiscard]] constexpr const char* to_string(DebugEvent event) noexcept {
     switch (event) {
-        case DebugEvent::Break:     return "Break";
-        case DebugEvent::Step:      return "Step";
-        case DebugEvent::WatchHit:  return "WatchHit";
-        case DebugEvent::Exception: return "Exception";
+        case DebugEvent::Break:
+            return "Break";
+        case DebugEvent::Step:
+            return "Step";
+        case DebugEvent::WatchHit:
+            return "WatchHit";
+        case DebugEvent::Exception:
+            return "Exception";
     }
     return "Unknown";
 }
@@ -120,16 +124,12 @@ struct DebugContext {
     /// Set a breakpoint at the given PC
     ///
     /// @param pc Program counter value where execution should pause
-    void set_breakpoint(std::size_t pc) {
-        breakpoints.insert(pc);
-    }
+    void set_breakpoint(std::size_t pc) { breakpoints.insert(pc); }
 
     /// Remove a breakpoint at the given PC
     ///
     /// @param pc Program counter value to remove breakpoint from
-    void remove_breakpoint(std::size_t pc) {
-        breakpoints.erase(pc);
-    }
+    void remove_breakpoint(std::size_t pc) { breakpoints.erase(pc); }
 
     /// Check if a breakpoint exists at the given PC
     ///
@@ -140,14 +140,10 @@ struct DebugContext {
     }
 
     /// Get the number of breakpoints
-    [[nodiscard]] std::size_t breakpoint_count() const noexcept {
-        return breakpoints.size();
-    }
+    [[nodiscard]] std::size_t breakpoint_count() const noexcept { return breakpoints.size(); }
 
     /// Clear all breakpoints
-    void clear_breakpoints() noexcept {
-        breakpoints.clear();
-    }
+    void clear_breakpoints() noexcept { breakpoints.clear(); }
 
     // ========================================================================
     // State Management

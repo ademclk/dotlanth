@@ -7,22 +7,22 @@
 
 #pragma once
 
-#include "jit_cache.hpp"
-#include "jit_code_buffer.hpp"
-#include "jit_config.hpp"
-#include "jit_profiler.hpp"
-#include "jit_stencil.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <span>
 #include <vector>
 
+#include "jit_cache.hpp"
+#include "jit_code_buffer.hpp"
+#include "jit_config.hpp"
+#include "jit_profiler.hpp"
+#include "jit_stencil.hpp"
+
 namespace dotvm::jit {
 
 /// @brief Compilation result type
-template<typename T>
+template <typename T>
 using CompileResult = std::expected<T, JitStatus>;
 
 /// @brief Represents a bytecode instruction to be compiled
@@ -64,9 +64,7 @@ struct CompiledFunction {
     std::size_t end_pc{0};
 
     /// @brief Check if compilation succeeded
-    [[nodiscard]] bool valid() const noexcept {
-        return code != nullptr && code_size > 0;
-    }
+    [[nodiscard]] bool valid() const noexcept { return code != nullptr && code_size > 0; }
 };
 
 /// @brief Copy-and-patch JIT compiler
@@ -99,21 +97,16 @@ public:
     /// @param config JIT configuration
     /// @param buffer Code buffer for output
     /// @param stencils Stencil registry
-    JitCompiler(
-        const JitConfig& config,
-        JitCodeBuffer& buffer,
-        const StencilRegistry& stencils
-    ) noexcept;
+    JitCompiler(const JitConfig& config, JitCodeBuffer& buffer,
+                const StencilRegistry& stencils) noexcept;
 
     /// @brief Compile a function to native code
     ///
     /// @param func_id Function ID for tracking
     /// @param instructions Bytecode instructions to compile
     /// @return Compiled function info on success, error status on failure
-    [[nodiscard]] CompileResult<CompiledFunction> compile(
-        FunctionId func_id,
-        std::span<const BytecodeInstr> instructions
-    );
+    [[nodiscard]] CompileResult<CompiledFunction>
+    compile(FunctionId func_id, std::span<const BytecodeInstr> instructions);
 
     /// @brief Check if an opcode is supported for JIT compilation
     [[nodiscard]] bool supports_opcode(std::uint8_t opcode) const noexcept;
@@ -122,9 +115,8 @@ public:
     [[nodiscard]] bool can_compile(std::span<const BytecodeInstr> instructions) const noexcept;
 
     /// @brief Estimate compiled code size for a function
-    [[nodiscard]] std::size_t estimate_code_size(
-        std::span<const BytecodeInstr> instructions
-    ) const noexcept;
+    [[nodiscard]] std::size_t
+    estimate_code_size(std::span<const BytecodeInstr> instructions) const noexcept;
 
     /// @brief Get the stencil registry
     [[nodiscard]] const StencilRegistry& stencils() const noexcept { return stencils_; }
@@ -141,36 +133,25 @@ public:
 
 private:
     /// @brief Emit the function prologue
-    [[nodiscard]] CompileResult<std::size_t> emit_prologue(
-        std::span<std::uint8_t> output,
-        std::size_t frame_size
-    );
+    [[nodiscard]] CompileResult<std::size_t> emit_prologue(std::span<std::uint8_t> output,
+                                                           std::size_t frame_size);
 
     /// @brief Emit the function epilogue
-    [[nodiscard]] CompileResult<std::size_t> emit_epilogue(
-        std::span<std::uint8_t> output,
-        std::size_t frame_size
-    );
+    [[nodiscard]] CompileResult<std::size_t> emit_epilogue(std::span<std::uint8_t> output,
+                                                           std::size_t frame_size);
 
     /// @brief Emit code for a single instruction
-    [[nodiscard]] CompileResult<std::size_t> emit_instruction(
-        std::span<std::uint8_t> output,
-        const BytecodeInstr& instr
-    );
+    [[nodiscard]] CompileResult<std::size_t> emit_instruction(std::span<std::uint8_t> output,
+                                                              const BytecodeInstr& instr);
 
     /// @brief Emit a stencil with patched operands
-    [[nodiscard]] CompileResult<std::size_t> emit_stencil(
-        std::span<std::uint8_t> output,
-        const Stencil& stencil,
-        std::span<const std::int64_t> operands
-    );
+    [[nodiscard]] CompileResult<std::size_t> emit_stencil(std::span<std::uint8_t> output,
+                                                          const Stencil& stencil,
+                                                          std::span<const std::int64_t> operands);
 
     /// @brief Patch a single hole in copied stencil code
-    void patch_hole(
-        std::span<std::uint8_t> code,
-        const StencilHole& hole,
-        std::int64_t value
-    ) noexcept;
+    void patch_hole(std::span<std::uint8_t> code, const StencilHole& hole,
+                    std::int64_t value) noexcept;
 
     /// @brief Calculate register file offset for a register index
     [[nodiscard]] static constexpr std::int32_t reg_offset(std::uint8_t reg) noexcept {
@@ -199,10 +180,7 @@ private:
 /// @param start_pc Starting PC
 /// @param end_pc Ending PC (exclusive)
 /// @return Vector of parsed instructions
-[[nodiscard]] std::vector<BytecodeInstr> parse_bytecode(
-    std::span<const std::uint8_t> bytecode,
-    std::size_t start_pc,
-    std::size_t end_pc
-);
+[[nodiscard]] std::vector<BytecodeInstr> parse_bytecode(std::span<const std::uint8_t> bytecode,
+                                                        std::size_t start_pc, std::size_t end_pc);
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

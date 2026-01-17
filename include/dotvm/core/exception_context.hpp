@@ -7,12 +7,12 @@
 /// for managing exception handlers during VM execution. The design follows the
 /// CallStack pattern from EXEC-007.
 
-#include "exception_types.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
+
+#include "exception_types.hpp"
 
 namespace dotvm::core {
 
@@ -81,12 +81,9 @@ struct ExceptionFrame {
     /// @param depth Current call stack depth
     /// @param types Catch type mask (default ALL)
     /// @return ExceptionFrame instance
-    [[nodiscard]] static ExceptionFrame make(
-        std::size_t handler,
-        std::size_t try_loc,
-        std::size_t depth,
-        std::uint8_t types = catch_mask::ALL) noexcept {
-
+    [[nodiscard]] static ExceptionFrame make(std::size_t handler, std::size_t try_loc,
+                                             std::size_t depth,
+                                             std::uint8_t types = catch_mask::ALL) noexcept {
         ExceptionFrame frame;
         frame.handler_pc = handler;
         frame.try_pc = try_loc;
@@ -230,37 +227,27 @@ public:
     /// Called when THROW executes. Stores the exception for handler dispatch.
     ///
     /// @param exc The exception being thrown
-    void set_exception(Exception exc) noexcept {
-        current_ = std::move(exc);
-    }
+    void set_exception(Exception exc) noexcept { current_ = std::move(exc); }
 
     /// Get the current exception
     ///
     /// @return Reference to the current exception state
-    [[nodiscard]] const Exception& current_exception() const noexcept {
-        return current_;
-    }
+    [[nodiscard]] const Exception& current_exception() const noexcept { return current_; }
 
     /// Get mutable reference to current exception
     ///
     /// @return Mutable reference to the current exception state
-    [[nodiscard]] Exception& current_exception() noexcept {
-        return current_;
-    }
+    [[nodiscard]] Exception& current_exception() noexcept { return current_; }
 
     /// Check if an exception is pending
     ///
     /// @return true if current exception is active
-    [[nodiscard]] bool has_pending_exception() const noexcept {
-        return current_.is_active();
-    }
+    [[nodiscard]] bool has_pending_exception() const noexcept { return current_.is_active(); }
 
     /// Clear the current exception
     ///
     /// Called when an exception is caught and handled.
-    void clear_exception() noexcept {
-        current_.clear();
-    }
+    void clear_exception() noexcept { current_.clear(); }
 
     // =========================================================================
     // Stack Information
@@ -269,30 +256,22 @@ public:
     /// Get current frame stack depth
     ///
     /// @return Number of exception frames on the stack
-    [[nodiscard]] std::size_t depth() const noexcept {
-        return frames_.size();
-    }
+    [[nodiscard]] std::size_t depth() const noexcept { return frames_.size(); }
 
     /// Check if frame stack is empty
     ///
     /// @return true if no exception frames are active
-    [[nodiscard]] bool empty() const noexcept {
-        return frames_.empty();
-    }
+    [[nodiscard]] bool empty() const noexcept { return frames_.empty(); }
 
     /// Get maximum allowed depth
     ///
     /// @return Maximum number of frames before overflow
-    [[nodiscard]] std::size_t max_depth() const noexcept {
-        return max_depth_;
-    }
+    [[nodiscard]] std::size_t max_depth() const noexcept { return max_depth_; }
 
     /// Check if stack would overflow with one more push
     ///
     /// @return true if stack is at maximum capacity
-    [[nodiscard]] bool would_overflow() const noexcept {
-        return frames_.size() >= max_depth_;
-    }
+    [[nodiscard]] bool would_overflow() const noexcept { return frames_.size() >= max_depth_; }
 
     /// Access frame at index (for debugging/testing)
     ///
@@ -318,9 +297,7 @@ public:
     ///
     /// @param new_max New maximum depth
     /// @note Does not truncate if current depth exceeds new_max
-    void set_max_depth(std::size_t new_max) noexcept {
-        max_depth_ = new_max;
-    }
+    void set_max_depth(std::size_t new_max) noexcept { max_depth_ = new_max; }
 
 private:
     std::vector<ExceptionFrame> frames_;

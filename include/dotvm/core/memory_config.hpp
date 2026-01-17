@@ -7,40 +7,40 @@ namespace dotvm::core {
 
 /// Memory configuration constants for the handle-based memory system.
 namespace mem_config {
-    /// Page size in bytes (4KB granularity).
-    inline constexpr std::size_t PAGE_SIZE = 4096;
+/// Page size in bytes (4KB granularity).
+inline constexpr std::size_t PAGE_SIZE = 4096;
 
-    /// Log2 of PAGE_SIZE for shift operations.
-    inline constexpr std::size_t PAGE_SHIFT = 12;
+/// Log2 of PAGE_SIZE for shift operations.
+inline constexpr std::size_t PAGE_SHIFT = 12;
 
-    /// Mask for extracting page offset (PAGE_SIZE - 1).
-    inline constexpr std::size_t PAGE_MASK = PAGE_SIZE - 1;
+/// Mask for extracting page offset (PAGE_SIZE - 1).
+inline constexpr std::size_t PAGE_MASK = PAGE_SIZE - 1;
 
-    /// Maximum allocation size (64MB default).
-    inline constexpr std::size_t MAX_ALLOCATION_SIZE = 64 * 1024 * 1024;
+/// Maximum allocation size (64MB default).
+inline constexpr std::size_t MAX_ALLOCATION_SIZE = 64 * 1024 * 1024;
 
-    /// Minimum allocation size (one page).
-    inline constexpr std::size_t MIN_ALLOCATION_SIZE = PAGE_SIZE;
+/// Minimum allocation size (one page).
+inline constexpr std::size_t MIN_ALLOCATION_SIZE = PAGE_SIZE;
 
-    /// Sentinel value indicating an invalid handle index.
-    inline constexpr std::uint32_t INVALID_INDEX = 0xFFFF'FFFFU;
+/// Sentinel value indicating an invalid handle index.
+inline constexpr std::uint32_t INVALID_INDEX = 0xFFFF'FFFFU;
 
-    /// Initial generation value for new entries.
-    inline constexpr std::uint32_t INITIAL_GENERATION = 1;
+/// Initial generation value for new entries.
+inline constexpr std::uint32_t INITIAL_GENERATION = 1;
 
-    /// Maximum generation value (16-bit due to NaN-boxing constraint in Value).
-    /// When stored in a NaN-boxed Value, only 16 bits are available for generation.
-    inline constexpr std::uint32_t MAX_GENERATION = 0xFFFFU;
+/// Maximum generation value (16-bit due to NaN-boxing constraint in Value).
+/// When stored in a NaN-boxed Value, only 16 bits are available for generation.
+inline constexpr std::uint32_t MAX_GENERATION = 0xFFFFU;
 
-    /// Initial capacity for the handle table.
-    inline constexpr std::size_t INITIAL_TABLE_CAPACITY = 64;
+/// Initial capacity for the handle table.
+inline constexpr std::size_t INITIAL_TABLE_CAPACITY = 64;
 
-    /// Maximum number of handles (~1M).
-    inline constexpr std::size_t MAX_TABLE_SIZE = 1U << 20;
+/// Maximum number of handles (~1M).
+inline constexpr std::size_t MAX_TABLE_SIZE = 1U << 20;
 
-    /// Alignment requirement for allocations (same as PAGE_SIZE).
-    inline constexpr std::size_t ALLOCATION_ALIGNMENT = PAGE_SIZE;
-} // namespace mem_config
+/// Alignment requirement for allocations (same as PAGE_SIZE).
+inline constexpr std::size_t ALLOCATION_ALIGNMENT = PAGE_SIZE;
+}  // namespace mem_config
 
 /// Rounds a size up to the nearest page boundary.
 /// @param size The size to align.
@@ -89,8 +89,7 @@ static_assert((mem_config::PAGE_SIZE & mem_config::PAGE_MASK) == 0,
               "PAGE_SIZE must be a power of 2");
 static_assert(mem_config::MAX_GENERATION <= 0xFFFFU,
               "MAX_GENERATION must fit in 16 bits for NaN-boxing");
-static_assert(mem_config::INVALID_INDEX == 0xFFFF'FFFFU,
-              "INVALID_INDEX should be max uint32_t");
+static_assert(mem_config::INVALID_INDEX == 0xFFFF'FFFFU, "INVALID_INDEX should be max uint32_t");
 
 // Constexpr function tests
 static_assert(align_to_page(0) == 0);
@@ -98,10 +97,10 @@ static_assert(align_to_page(1) == mem_config::PAGE_SIZE);
 static_assert(align_to_page(4096) == 4096);
 static_assert(align_to_page(4097) == 8192);
 // Overflow protection tests
-static_assert(align_to_page(SIZE_MAX) == 0);  // SIZE_MAX + PAGE_MASK overflows
+static_assert(align_to_page(SIZE_MAX) == 0);         // SIZE_MAX + PAGE_MASK overflows
 static_assert(align_to_page(SIZE_MAX - 1000) == 0);  // Still overflows
 // SIZE_MAX - PAGE_MASK is the boundary: (SIZE_MAX - PAGE_MASK) + PAGE_MASK = SIZE_MAX exactly
-static_assert(align_to_page(SIZE_MAX - mem_config::PAGE_MASK) != 0);  // Does NOT overflow
+static_assert(align_to_page(SIZE_MAX - mem_config::PAGE_MASK) != 0);      // Does NOT overflow
 static_assert(align_to_page(SIZE_MAX - mem_config::PAGE_MASK + 1) == 0);  // DOES overflow
 static_assert(is_page_aligned(0));
 static_assert(is_page_aligned(4096));
@@ -116,4 +115,4 @@ static_assert(pages_for_size(1) == 1);
 static_assert(pages_for_size(4096) == 1);
 static_assert(pages_for_size(4097) == 2);
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

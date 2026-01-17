@@ -47,8 +47,7 @@ void BufferedAuditLogger::clear() noexcept {
 // CallbackAuditLogger Implementation
 // ============================================================================
 
-CallbackAuditLogger::CallbackAuditLogger(Callback callback,
-                                         void* user_data) noexcept
+CallbackAuditLogger::CallbackAuditLogger(Callback callback, void* user_data) noexcept
     : callback_(callback), user_data_(user_data) {}
 
 void CallbackAuditLogger::log(const AuditEvent& event) noexcept {
@@ -65,8 +64,7 @@ bool CallbackAuditLogger::is_enabled() const noexcept {
 // SecurityContext Implementation
 // ============================================================================
 
-SecurityContext::SecurityContext(capabilities::CapabilityLimits limits,
-                                 PermissionSet permissions,
+SecurityContext::SecurityContext(capabilities::CapabilityLimits limits, PermissionSet permissions,
                                  AuditLogger* logger) noexcept
     : limits_(limits), permissions_(permissions), logger_(logger) {
     usage_.start_time = std::chrono::steady_clock::now();
@@ -77,8 +75,7 @@ SecurityContext::SecurityContext(capabilities::CapabilityLimits limits,
 }
 
 SecurityContext::SecurityContext(const capabilities::Capability& capability,
-                                 PermissionSet permissions,
-                                 AuditLogger* logger) noexcept
+                                 PermissionSet permissions, AuditLogger* logger) noexcept
     : limits_(capability.limits), permissions_(permissions), logger_(logger) {
     usage_.start_time = std::chrono::steady_clock::now();
 
@@ -89,35 +86,30 @@ SecurityContext::SecurityContext(const capabilities::Capability& capability,
 
 SecurityContext::~SecurityContext() {
     if (logger_ != nullptr && logger_->is_enabled()) {
-        log_event(AuditEventType::ContextDestroyed,
-                  usage_.instructions_executed);
+        log_event(AuditEventType::ContextDestroyed, usage_.instructions_executed);
     }
 }
 
 // ========== Permission Checking ==========
 
-SecurityContextError SecurityContext::require(Permission perm,
-                                               std::string_view context) noexcept {
+SecurityContextError SecurityContext::require(Permission perm, std::string_view context) noexcept {
     ++permission_checks_;
 
     if (permissions_.has_permission(perm)) {
         if (logger_ != nullptr && logger_->is_enabled()) {
-            log_event(AuditEvent::now(AuditEventType::PermissionGranted, perm,
-                                      0, context));
+            log_event(AuditEvent::now(AuditEventType::PermissionGranted, perm, 0, context));
         }
         return SecurityContextError::Success;
     }
 
     ++permission_denials_;
     if (logger_ != nullptr && logger_->is_enabled()) {
-        log_event(
-            AuditEvent::now(AuditEventType::PermissionDenied, perm, 0, context));
+        log_event(AuditEvent::now(AuditEventType::PermissionDenied, perm, 0, context));
     }
     return SecurityContextError::PermissionDenied;
 }
 
-void SecurityContext::require_or_throw(Permission perm,
-                                       std::string_view context) const {
+void SecurityContext::require_or_throw(Permission perm, std::string_view context) const {
     permissions_.require(perm, context);
 }
 
@@ -130,14 +122,12 @@ bool SecurityContext::can_allocate(std::size_t size) const noexcept {
     }
 
     // Check total memory limit
-    if (limits_.max_memory > 0 &&
-        usage_.memory_allocated + size > limits_.max_memory) {
+    if (limits_.max_memory > 0 && usage_.memory_allocated + size > limits_.max_memory) {
         return false;
     }
 
     // Check allocation count limit
-    if (limits_.max_allocations > 0 &&
-        usage_.allocation_count >= limits_.max_allocations) {
+    if (limits_.max_allocations > 0 && usage_.allocation_count >= limits_.max_allocations) {
         return false;
     }
 
@@ -150,8 +140,7 @@ bool SecurityContext::check_time_limit() const noexcept {
     }
 
     auto elapsed = std::chrono::steady_clock::now() - usage_.start_time;
-    auto elapsed_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
     return static_cast<std::uint64_t>(elapsed_ms) < limits_.max_execution_time_ms;
 }
 
@@ -161,28 +150,23 @@ SecurityContextError SecurityContext::on_allocate(std::size_t size) noexcept {
     // Check single allocation size limit
     if (limits_.max_allocation_size > 0 && size > limits_.max_allocation_size) {
         if (logger_ != nullptr && logger_->is_enabled()) {
-            log_event(AuditEventType::AllocationDenied, size,
-                      "allocation_size_exceeded");
+            log_event(AuditEventType::AllocationDenied, size, "allocation_size_exceeded");
         }
         return SecurityContextError::AllocationSizeExceeded;
     }
 
     // Check total memory limit
-    if (limits_.max_memory > 0 &&
-        usage_.memory_allocated + size > limits_.max_memory) {
+    if (limits_.max_memory > 0 && usage_.memory_allocated + size > limits_.max_memory) {
         if (logger_ != nullptr && logger_->is_enabled()) {
-            log_event(AuditEventType::AllocationDenied, size,
-                      "memory_limit_exceeded");
+            log_event(AuditEventType::AllocationDenied, size, "memory_limit_exceeded");
         }
         return SecurityContextError::MemoryLimitExceeded;
     }
 
     // Check allocation count limit
-    if (limits_.max_allocations > 0 &&
-        usage_.allocation_count >= limits_.max_allocations) {
+    if (limits_.max_allocations > 0 && usage_.allocation_count >= limits_.max_allocations) {
         if (logger_ != nullptr && logger_->is_enabled()) {
-            log_event(AuditEventType::AllocationDenied, size,
-                      "allocation_count_exceeded");
+            log_event(AuditEventType::AllocationDenied, size, "allocation_count_exceeded");
         }
         return SecurityContextError::AllocationCountExceeded;
     }
@@ -212,11 +196,9 @@ void SecurityContext::on_deallocate(std::size_t size) noexcept {
 }
 
 bool SecurityContext::on_stack_push() noexcept {
-    if (limits_.max_stack_depth > 0 &&
-        usage_.current_stack_depth >= limits_.max_stack_depth) {
+    if (limits_.max_stack_depth > 0 && usage_.current_stack_depth >= limits_.max_stack_depth) {
         if (logger_ != nullptr && logger_->is_enabled()) {
-            log_event(AuditEventType::StackDepthLimitHit,
-                      usage_.current_stack_depth);
+            log_event(AuditEventType::StackDepthLimitHit, usage_.current_stack_depth);
         }
         return false;
     }
@@ -242,8 +224,7 @@ void SecurityContext::on_stack_pop() noexcept {
 bool SecurityContext::check_instruction_limit_cold() noexcept {
     if (usage_.instructions_executed >= limits_.max_instructions) {
         if (logger_ != nullptr && logger_->is_enabled()) {
-            log_event(AuditEventType::InstructionLimitHit,
-                      usage_.instructions_executed);
+            log_event(AuditEventType::InstructionLimitHit, usage_.instructions_executed);
         }
         return false;
     }
@@ -274,9 +255,8 @@ void SecurityContext::log_event(const AuditEvent& event) noexcept {
     }
 }
 
-void SecurityContext::log_event(AuditEventType type,
-                                 std::uint64_t value,
-                                 std::string_view context) noexcept {
+void SecurityContext::log_event(AuditEventType type, std::uint64_t value,
+                                std::string_view context) noexcept {
     if (logger_ != nullptr && logger_->is_enabled()) {
         logger_->log(AuditEvent::now(type, Permission::None, value, context));
     }

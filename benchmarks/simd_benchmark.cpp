@@ -103,7 +103,7 @@ void scalar_fma(const T* a, const T* b, const T* c, T* result) {
 template<std::size_t Width, typename Lane>
 void simd_add(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b,
               Vector<Width, Lane>& result) {
-    for (std::size_t i = 0; i < Vector<Width, Lane>::lane_count; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
         result[i] = a[i] + b[i];
     }
 }
@@ -112,7 +112,7 @@ void simd_add(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b,
 template<std::size_t Width, typename Lane>
 void simd_mul(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b,
               Vector<Width, Lane>& result) {
-    for (std::size_t i = 0; i < Vector<Width, Lane>::lane_count; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
         result[i] = a[i] * b[i];
     }
 }
@@ -129,7 +129,7 @@ Lane simd_dot(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b) {
 template<std::size_t Width, typename Lane>
 void simd_fma(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b,
               const Vector<Width, Lane>& c, Vector<Width, Lane>& result) {
-    for (std::size_t i = 0; i < Vector<Width, Lane>::lane_count; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
         result[i] = a[i] * b[i] + c[i];
     }
 }

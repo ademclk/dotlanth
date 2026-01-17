@@ -18,16 +18,11 @@ namespace dotvm::core {
 
 void* MemoryManager::os_allocate(std::size_t size) noexcept {
 #if DOTVM_USE_MMAP
-    void* ptr = mmap(nullptr, size,
-                     PROT_READ | PROT_WRITE,
-                     MAP_PRIVATE | MAP_ANONYMOUS,
-                     -1, 0);
+    void* ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     return (ptr == MAP_FAILED) ? nullptr : ptr;
 
 #elif DOTVM_USE_VIRTUALALLOC
-    return VirtualAlloc(nullptr, size,
-                        MEM_COMMIT | MEM_RESERVE,
-                        PAGE_READWRITE);
+    return VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
 #else
     return std::aligned_alloc(mem_config::ALLOCATION_ALIGNMENT, size);
@@ -119,10 +114,7 @@ MemoryManager::Result<Handle> MemoryManager::allocate(std::size_t size) noexcept
 
     total_allocated_ += aligned_size;
 
-    return Handle{
-        .index = index,
-        .generation = entry.generation
-    };
+    return Handle{.index = index, .generation = entry.generation};
 }
 
 MemoryError MemoryManager::deallocate(Handle h) noexcept {
@@ -174,8 +166,8 @@ MemoryManager::Result<const void*> MemoryManager::get_ptr(Handle h) const noexce
     return table_[h.index].ptr;
 }
 
-MemoryError MemoryManager::write_bytes(Handle h, std::size_t offset,
-                                       const void* src, std::size_t count) noexcept {
+MemoryError MemoryManager::write_bytes(Handle h, std::size_t offset, const void* src,
+                                       std::size_t count) noexcept {
     if (!src || count == 0) {
         return MemoryError::Success;  // No-op for null/zero
     }
@@ -194,8 +186,8 @@ MemoryError MemoryManager::write_bytes(Handle h, std::size_t offset,
     return MemoryError::Success;
 }
 
-MemoryError MemoryManager::read_bytes(Handle h, std::size_t offset,
-                                      void* dst, std::size_t count) const noexcept {
+MemoryError MemoryManager::read_bytes(Handle h, std::size_t offset, void* dst,
+                                      std::size_t count) const noexcept {
     if (!dst || count == 0) {
         return MemoryError::Success;  // No-op for null/zero
     }
@@ -254,4 +246,4 @@ MemoryError MemoryManager::validate_bounds(Handle h, std::size_t offset,
     return MemoryError::Success;
 }
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

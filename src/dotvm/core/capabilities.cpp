@@ -1,10 +1,10 @@
 /// @file capabilities.cpp
 /// @brief Implementation of CapabilityManager for SEC-001
 
+#include <algorithm>
+
 #include <dotvm/core/capabilities/capability_manager.hpp>
 #include <dotvm/core/security_stats.hpp>
-
-#include <algorithm>
 
 namespace dotvm::core::capabilities {
 
@@ -12,8 +12,7 @@ namespace dotvm::core::capabilities {
 // Constructor
 // ============================================================================
 
-CapabilityManager::CapabilityManager(SecurityStats* stats) noexcept
-    : stats_(stats) {}
+CapabilityManager::CapabilityManager(SecurityStats* stats) noexcept : stats_(stats) {}
 
 CapabilityManager::CapabilityManager(CapabilityManager&& other) noexcept
     : capabilities_(std::move(other.capabilities_)),
@@ -29,10 +28,9 @@ CapabilityManager& CapabilityManager::operator=(CapabilityManager&& other) noexc
         std::unique_lock lock(mutex_);
         capabilities_ = std::move(other.capabilities_);
         children_ = std::move(other.children_);
-        next_id_.store(other.next_id_.load(std::memory_order_relaxed),
-                       std::memory_order_relaxed);
+        next_id_.store(other.next_id_.load(std::memory_order_relaxed), std::memory_order_relaxed);
         total_revoked_.store(other.total_revoked_.load(std::memory_order_relaxed),
-                            std::memory_order_relaxed);
+                             std::memory_order_relaxed);
         stats_ = other.stats_;
         other.stats_ = nullptr;
     }
@@ -51,29 +49,21 @@ std::uint64_t CapabilityManager::next_id() noexcept {
 // Root Capability Creation
 // ============================================================================
 
-CapabilityHandle CapabilityManager::create_root(
-    std::string name,
-    Permission perms,
-    CapabilityLimits limits,
-    TimePoint expires) noexcept {
-
+CapabilityHandle CapabilityManager::create_root(std::string name, Permission perms,
+                                                CapabilityLimits limits,
+                                                TimePoint expires) noexcept {
     std::uint64_t id = next_id();
 
-    Capability cap{
-        .id = id,
-        .name = std::move(name),
-        .permissions = perms,
-        .limits = limits,
-        .expires_at = expires,
-        .granted_by = 0,  // Root has no parent
-        .generation = 1,
-        .is_active = true
-    };
+    Capability cap{.id = id,
+                   .name = std::move(name),
+                   .permissions = perms,
+                   .limits = limits,
+                   .expires_at = expires,
+                   .granted_by = 0,  // Root has no parent
+                   .generation = 1,
+                   .is_active = true};
 
-    CapabilityHandle handle{
-        .id = id,
-        .generation = cap.generation
-    };
+    CapabilityHandle handle{.id = id, .generation = cap.generation};
 
     {
         std::unique_lock lock(mutex_);
@@ -88,13 +78,9 @@ CapabilityHandle CapabilityManager::create_root(
 // Capability Derivation
 // ============================================================================
 
-CapabilityManager::Result<CapabilityHandle> CapabilityManager::derive(
-    CapabilityHandle parent,
-    std::string name,
-    Permission perms,
-    CapabilityLimits limits,
-    TimePoint expires) noexcept {
-
+CapabilityManager::Result<CapabilityHandle>
+CapabilityManager::derive(CapabilityHandle parent, std::string name, Permission perms,
+                          CapabilityLimits limits, TimePoint expires) noexcept {
     std::unique_lock lock(mutex_);
 
     // Validate parent handle
@@ -139,21 +125,16 @@ CapabilityManager::Result<CapabilityHandle> CapabilityManager::derive(
     // Create the child capability
     std::uint64_t id = next_id();
 
-    Capability cap{
-        .id = id,
-        .name = std::move(name),
-        .permissions = perms,
-        .limits = limits,
-        .expires_at = expires,
-        .granted_by = parent.id,
-        .generation = 1,
-        .is_active = true
-    };
+    Capability cap{.id = id,
+                   .name = std::move(name),
+                   .permissions = perms,
+                   .limits = limits,
+                   .expires_at = expires,
+                   .granted_by = parent.id,
+                   .generation = 1,
+                   .is_active = true};
 
-    CapabilityHandle handle{
-        .id = id,
-        .generation = cap.generation
-    };
+    CapabilityHandle handle{.id = id, .generation = cap.generation};
 
     capabilities_.emplace(id, std::move(cap));
     children_[parent.id].insert(id);
@@ -250,10 +231,8 @@ const Capability* CapabilityManager::get_internal(CapabilityHandle handle) const
     return &it->second;
 }
 
-bool CapabilityManager::check_permission(
-    CapabilityHandle handle,
-    Permission required) const noexcept {
-
+bool CapabilityManager::check_permission(CapabilityHandle handle,
+                                         Permission required) const noexcept {
     std::shared_lock lock(mutex_);
     const Capability* cap = get_internal(handle);
 
@@ -270,11 +249,8 @@ bool CapabilityManager::check_permission(
     return has_perm;
 }
 
-bool CapabilityManager::check_limits(
-    CapabilityHandle handle,
-    std::uint64_t memory,
-    std::uint64_t instructions) const noexcept {
-
+bool CapabilityManager::check_limits(CapabilityHandle handle, std::uint64_t memory,
+                                     std::uint64_t instructions) const noexcept {
     std::shared_lock lock(mutex_);
     const Capability* cap = get_internal(handle);
 
@@ -302,17 +278,13 @@ bool CapabilityManager::check_limits(
 // ============================================================================
 
 CapabilityHandle CapabilityManager::create_untrusted(std::string name) noexcept {
-    Permission perms = Permission::Execute |
-                       Permission::MemoryRead |
-                       Permission::MemoryWrite;
+    Permission perms = Permission::Execute | Permission::MemoryRead | Permission::MemoryWrite;
 
     return create_root(std::move(name), perms, CapabilityLimits::untrusted());
 }
 
 CapabilityHandle CapabilityManager::create_sandbox(std::string name) noexcept {
-    Permission perms = Permission::ExecuteBasic |
-                       Permission::MemoryAll |
-                       Permission::Derive;
+    Permission perms = Permission::ExecuteBasic | Permission::MemoryAll | Permission::Derive;
 
     return create_root(std::move(name), perms, CapabilityLimits::sandbox());
 }
@@ -352,9 +324,8 @@ std::uint64_t CapabilityManager::total_revoked() const noexcept {
 // Advanced Operations
 // ============================================================================
 
-std::vector<CapabilityHandle> CapabilityManager::get_children(
-    CapabilityHandle parent) const noexcept {
-
+std::vector<CapabilityHandle>
+CapabilityManager::get_children(CapabilityHandle parent) const noexcept {
     std::shared_lock lock(mutex_);
     std::vector<CapabilityHandle> result;
 
@@ -367,10 +338,8 @@ std::vector<CapabilityHandle> CapabilityManager::get_children(
     for (std::uint64_t child_id : children_it->second) {
         auto cap_it = capabilities_.find(child_id);
         if (cap_it != capabilities_.end()) {
-            result.push_back(CapabilityHandle{
-                .id = child_id,
-                .generation = cap_it->second.generation
-            });
+            result.push_back(
+                CapabilityHandle{.id = child_id, .generation = cap_it->second.generation});
         }
     }
 

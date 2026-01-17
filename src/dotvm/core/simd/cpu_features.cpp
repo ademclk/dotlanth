@@ -15,8 +15,8 @@
 #elif defined(__aarch64__) || defined(_M_ARM64)
     #define DOTVM_ARM64_TARGET 1
     #if defined(__linux__)
-        #include <sys/auxv.h>
         #include <asm/hwcap.h>
+        #include <sys/auxv.h>
         #define DOTVM_ARM_HWCAP 1
     #elif defined(__APPLE__)
         #include <sys/sysctl.h>
@@ -35,35 +35,34 @@ namespace {
 #if defined(DOTVM_X86_TARGET)
 
 /// Execute CPUID instruction and return results
-inline void cpuid(std::uint32_t leaf, std::uint32_t subleaf,
-                  std::uint32_t& eax, std::uint32_t& ebx,
+inline void cpuid(std::uint32_t leaf, std::uint32_t subleaf, std::uint32_t& eax, std::uint32_t& ebx,
                   std::uint32_t& ecx, std::uint32_t& edx) noexcept {
-#if defined(DOTVM_CPUID_MSVC)
+    #if defined(DOTVM_CPUID_MSVC)
     int regs[4];
     __cpuidex(regs, static_cast<int>(leaf), static_cast<int>(subleaf));
     eax = static_cast<std::uint32_t>(regs[0]);
     ebx = static_cast<std::uint32_t>(regs[1]);
     ecx = static_cast<std::uint32_t>(regs[2]);
     edx = static_cast<std::uint32_t>(regs[3]);
-#elif defined(DOTVM_CPUID_GCC)
+    #elif defined(DOTVM_CPUID_GCC)
     __cpuid_count(leaf, subleaf, eax, ebx, ecx, edx);
-#else
+    #else
     eax = ebx = ecx = edx = 0;
-#endif
+    #endif
 }
 
 /// Execute XGETBV instruction to check OS support for AVX state
 inline std::uint64_t xgetbv(std::uint32_t xcr) noexcept {
-#if defined(DOTVM_CPUID_MSVC)
+    #if defined(DOTVM_CPUID_MSVC)
     return _xgetbv(xcr);
-#elif defined(DOTVM_CPUID_GCC)
+    #elif defined(DOTVM_CPUID_GCC)
     std::uint32_t eax, edx;
     __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(xcr));
     return (static_cast<std::uint64_t>(edx) << 32) | eax;
-#else
+    #else
     (void)xcr;
     return 0;
-#endif
+    #endif
 }
 
 /// Detect x86-64 CPU features using CPUID
@@ -87,13 +86,13 @@ CpuFeatures detect_x86_features() noexcept {
     features.sse2 = (edx >> 26) & 1;
 
     // ECX flags
-    features.sse3    = (ecx >> 0) & 1;
-    features.ssse3   = (ecx >> 9) & 1;
-    features.sse4_1  = (ecx >> 19) & 1;
-    features.sse4_2  = (ecx >> 20) & 1;
-    features.aesni   = (ecx >> 25) & 1;
-    features.pclmul  = (ecx >> 1) & 1;
-    features.fma3    = (ecx >> 12) & 1;
+    features.sse3 = (ecx >> 0) & 1;
+    features.ssse3 = (ecx >> 9) & 1;
+    features.sse4_1 = (ecx >> 19) & 1;
+    features.sse4_2 = (ecx >> 20) & 1;
+    features.aesni = (ecx >> 25) & 1;
+    features.pclmul = (ecx >> 1) & 1;
+    features.fma3 = (ecx >> 12) & 1;
 
     // Check for OSXSAVE (bit 27) before checking AVX
     const bool osxsave = (ecx >> 27) & 1;
@@ -127,7 +126,7 @@ CpuFeatures detect_x86_features() noexcept {
         const bool os_avx512_support = osxsave && ((xcr0 & 0xE6) == 0xE6);
 
         if (os_avx512_support) {
-            features.avx512f  = (ebx >> 16) & 1;
+            features.avx512f = (ebx >> 16) & 1;
             features.avx512bw = (ebx >> 30) & 1;
             features.avx512vl = (ebx >> 31) & 1;
         }
@@ -148,26 +147,26 @@ CpuFeatures detect_x86_features() noexcept {
 CpuFeatures detect_arm_features() noexcept {
     CpuFeatures features{};
 
-#if defined(DOTVM_ARM_HWCAP)
+    #if defined(DOTVM_ARM_HWCAP)
     // Linux: Use getauxval() to query hardware capabilities
     const unsigned long hwcap = getauxval(AT_HWCAP);
 
     features.neon = true;  // NEON is mandatory on AArch64
 
-    // Check cryptography extensions
-    #ifdef HWCAP_AES
+        // Check cryptography extensions
+        #ifdef HWCAP_AES
     features.neon_aes = (hwcap & HWCAP_AES) != 0;
-    #endif
+        #endif
 
-    #ifdef HWCAP_SHA2
+        #ifdef HWCAP_SHA2
     features.neon_sha2 = (hwcap & HWCAP_SHA2) != 0;
-    #endif
+        #endif
 
-    #ifdef HWCAP_SVE
+        #ifdef HWCAP_SVE
     features.sve = (hwcap & HWCAP_SVE) != 0;
-    #endif
+        #endif
 
-#elif defined(DOTVM_ARM_SYSCTL)
+    #elif defined(DOTVM_ARM_SYSCTL)
     // macOS: Use sysctl to query features
     features.neon = true;  // NEON is mandatory on Apple Silicon
 
@@ -183,10 +182,10 @@ CpuFeatures detect_arm_features() noexcept {
         features.neon_sha2 = (has_sha256 != 0);
     }
 
-#else
+    #else
     // Fallback: Assume basic NEON support on AArch64
     features.neon = true;
-#endif
+    #endif
 
     return features;
 }
@@ -226,26 +225,44 @@ std::string CpuFeatures::feature_string() const {
 
     if (is_x86()) {
         oss << "x86-64:";
-        if (sse2)     oss << " SSE2";
-        if (sse3)     oss << " SSE3";
-        if (ssse3)    oss << " SSSE3";
-        if (sse4_1)   oss << " SSE4.1";
-        if (sse4_2)   oss << " SSE4.2";
-        if (avx)      oss << " AVX";
-        if (avx2)     oss << " AVX2";
-        if (fma3)     oss << " FMA3";
-        if (avx512f)  oss << " AVX-512F";
-        if (avx512bw) oss << " AVX-512BW";
-        if (avx512vl) oss << " AVX-512VL";
-        if (aesni)    oss << " AES-NI";
-        if (sha)      oss << " SHA";
-        if (pclmul)   oss << " PCLMUL";
+        if (sse2)
+            oss << " SSE2";
+        if (sse3)
+            oss << " SSE3";
+        if (ssse3)
+            oss << " SSSE3";
+        if (sse4_1)
+            oss << " SSE4.1";
+        if (sse4_2)
+            oss << " SSE4.2";
+        if (avx)
+            oss << " AVX";
+        if (avx2)
+            oss << " AVX2";
+        if (fma3)
+            oss << " FMA3";
+        if (avx512f)
+            oss << " AVX-512F";
+        if (avx512bw)
+            oss << " AVX-512BW";
+        if (avx512vl)
+            oss << " AVX-512VL";
+        if (aesni)
+            oss << " AES-NI";
+        if (sha)
+            oss << " SHA";
+        if (pclmul)
+            oss << " PCLMUL";
     } else if (is_arm()) {
         oss << "ARM:";
-        if (neon)      oss << " NEON";
-        if (neon_aes)  oss << " AES";
-        if (neon_sha2) oss << " SHA2";
-        if (sve)       oss << " SVE";
+        if (neon)
+            oss << " NEON";
+        if (neon_aes)
+            oss << " AES";
+        if (neon_sha2)
+            oss << " SHA2";
+        if (sve)
+            oss << " SVE";
     } else {
         oss << "Unknown (scalar only)";
     }

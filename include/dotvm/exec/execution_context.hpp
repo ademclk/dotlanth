@@ -17,39 +17,53 @@ inline constexpr std::size_t CACHE_LINE_SIZE = 64;
 
 /// Execution result codes
 enum class ExecResult : std::uint8_t {
-    Success = 0,            ///< Execution completed normally (HALT)
-    Error = 1,              ///< Execution error occurred
-    InvalidOpcode = 2,      ///< Unknown or reserved opcode
-    CfiViolation = 3,       ///< Control flow integrity violation
-    OutOfBounds = 4,        ///< PC out of code section bounds
-    Interrupted = 5,        ///< Execution was interrupted
-    DivisionByZero = 6,     ///< Division by zero (if strict mode enabled)
-    MemoryError = 7,        ///< Memory access error (bounds violation, invalid handle)
-    UnalignedAccess = 8,    ///< Misaligned memory access (EXEC-006)
-    StackOverflow = 9,      ///< Call stack overflow (EXEC-007)
-    ExecutionLimit = 10,    ///< Instruction limit exceeded (EXEC-008)
-    UnhandledException = 11, ///< Unhandled exception (EXEC-011)
-    JitFallback = 12,       ///< JIT compilation not available, use interpreter (EXEC-012)
-    CapabilityDenied = 13   ///< Opcode permission denied (SEC-005)
+    Success = 0,              ///< Execution completed normally (HALT)
+    Error = 1,                ///< Execution error occurred
+    InvalidOpcode = 2,        ///< Unknown or reserved opcode
+    CfiViolation = 3,         ///< Control flow integrity violation
+    OutOfBounds = 4,          ///< PC out of code section bounds
+    Interrupted = 5,          ///< Execution was interrupted
+    DivisionByZero = 6,       ///< Division by zero (if strict mode enabled)
+    MemoryError = 7,          ///< Memory access error (bounds violation, invalid handle)
+    UnalignedAccess = 8,      ///< Misaligned memory access (EXEC-006)
+    StackOverflow = 9,        ///< Call stack overflow (EXEC-007)
+    ExecutionLimit = 10,      ///< Instruction limit exceeded (EXEC-008)
+    UnhandledException = 11,  ///< Unhandled exception (EXEC-011)
+    JitFallback = 12,         ///< JIT compilation not available, use interpreter (EXEC-012)
+    CapabilityDenied = 13     ///< Opcode permission denied (SEC-005)
 };
 
 /// Convert ExecResult to string representation
 [[nodiscard]] constexpr const char* to_string(ExecResult result) noexcept {
     switch (result) {
-        case ExecResult::Success:            return "Success";
-        case ExecResult::Error:              return "Error";
-        case ExecResult::InvalidOpcode:      return "InvalidOpcode";
-        case ExecResult::CfiViolation:       return "CfiViolation";
-        case ExecResult::OutOfBounds:        return "OutOfBounds";
-        case ExecResult::Interrupted:        return "Interrupted";
-        case ExecResult::DivisionByZero:     return "DivisionByZero";
-        case ExecResult::MemoryError:        return "MemoryError";
-        case ExecResult::UnalignedAccess:    return "UnalignedAccess";
-        case ExecResult::StackOverflow:      return "StackOverflow";
-        case ExecResult::ExecutionLimit:     return "ExecutionLimit";
-        case ExecResult::UnhandledException: return "UnhandledException";
-        case ExecResult::JitFallback:        return "JitFallback";
-        case ExecResult::CapabilityDenied:   return "CapabilityDenied";
+        case ExecResult::Success:
+            return "Success";
+        case ExecResult::Error:
+            return "Error";
+        case ExecResult::InvalidOpcode:
+            return "InvalidOpcode";
+        case ExecResult::CfiViolation:
+            return "CfiViolation";
+        case ExecResult::OutOfBounds:
+            return "OutOfBounds";
+        case ExecResult::Interrupted:
+            return "Interrupted";
+        case ExecResult::DivisionByZero:
+            return "DivisionByZero";
+        case ExecResult::MemoryError:
+            return "MemoryError";
+        case ExecResult::UnalignedAccess:
+            return "UnalignedAccess";
+        case ExecResult::StackOverflow:
+            return "StackOverflow";
+        case ExecResult::ExecutionLimit:
+            return "ExecutionLimit";
+        case ExecResult::UnhandledException:
+            return "UnhandledException";
+        case ExecResult::JitFallback:
+            return "JitFallback";
+        case ExecResult::CapabilityDenied:
+            return "CapabilityDenied";
     }
     return "Unknown";
 }
@@ -107,22 +121,18 @@ struct alignas(CACHE_LINE_SIZE) ExecutionContext {
     }
 
     /// Advance PC by one instruction
-    constexpr void advance() noexcept {
-        ++pc;
-    }
+    constexpr void advance() noexcept { ++pc; }
 
     /// Jump to absolute instruction index
     /// @param target Target instruction index
-    constexpr void jump_to(std::size_t target) noexcept {
-        pc = target;
-    }
+    constexpr void jump_to(std::size_t target) noexcept { pc = target; }
 
     /// Jump relative to current PC
     /// @param offset Signed offset in instructions
     constexpr void jump_relative(std::int32_t offset) noexcept {
         // Safe casting: pc is always positive, and offset is bounded
-        pc = static_cast<std::size_t>(
-            static_cast<std::int64_t>(pc) + static_cast<std::int64_t>(offset));
+        pc = static_cast<std::size_t>(static_cast<std::int64_t>(pc) +
+                                      static_cast<std::int64_t>(offset));
     }
 
     /// Mark execution as halted with success
@@ -143,10 +153,8 @@ struct alignas(CACHE_LINE_SIZE) ExecutionContext {
     /// @param new_size Size in instructions
     /// @param entry_point Starting instruction index
     /// @param max_instr Maximum instruction limit (0 = unlimited)
-    constexpr void reset(const std::uint32_t* new_code,
-                         std::size_t new_size,
-                         std::size_t entry_point = 0,
-                         std::uint64_t max_instr = 0) noexcept {
+    constexpr void reset(const std::uint32_t* new_code, std::size_t new_size,
+                         std::size_t entry_point = 0, std::uint64_t max_instr = 0) noexcept {
         code = new_code;
         code_size = new_size;
         pc = entry_point;

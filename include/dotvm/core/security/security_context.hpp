@@ -63,7 +63,7 @@ struct ResourceUsage {
     std::uint32_t max_stack_depth_reached{0};
 
     /// Execution start time
-    std::chrono::steady_clock::time_point start_time{};
+    std::chrono::steady_clock::time_point start_time;
 
     /// Reset all counters to initial state
     constexpr void reset() noexcept {
@@ -114,8 +114,7 @@ enum class SecurityContextError : std::uint8_t {
 };
 
 /// @brief Convert SecurityContextError to human-readable string
-[[nodiscard]] constexpr const char*
-to_string(SecurityContextError error) noexcept {
+[[nodiscard]] constexpr const char* to_string(SecurityContextError error) noexcept {
     switch (error) {
         case SecurityContextError::Success:
             return "Success";
@@ -151,23 +150,23 @@ to_string(SecurityContextError error) noexcept {
 enum class AuditEventType : std::uint8_t {
     // Permission events (0-9)
     PermissionGranted = 0,  ///< Permission check passed
-    PermissionDenied,       ///< Permission check failed
+    PermissionDenied = 1,   ///< Permission check failed
 
     // Resource events (10-19)
-    AllocationAttempt,      ///< Memory allocation attempted
-    AllocationDenied,       ///< Allocation exceeded limits
-    DeallocationAttempt,    ///< Memory deallocation attempted
-    InstructionLimitHit,    ///< Instruction count exceeded
-    StackDepthLimitHit,     ///< Stack depth exceeded
-    TimeLimitHit,           ///< Execution time exceeded
+    AllocationAttempt = 2,    ///< Memory allocation attempted
+    AllocationDenied = 3,     ///< Allocation exceeded limits
+    DeallocationAttempt = 4,  ///< Memory deallocation attempted
+    InstructionLimitHit = 5,  ///< Instruction count exceeded
+    StackDepthLimitHit = 6,   ///< Stack depth exceeded
+    TimeLimitHit = 7,         ///< Execution time exceeded
 
     // Context lifecycle (8-11)
-    ContextCreated,         ///< SecurityContext instantiated
-    ContextDestroyed,       ///< SecurityContext destroyed
-    ContextReset,           ///< SecurityContext usage reset
+    ContextCreated = 8,    ///< SecurityContext instantiated
+    ContextDestroyed = 9,  ///< SecurityContext destroyed
+    ContextReset = 10,     ///< SecurityContext usage reset
 
     // Opcode authorization (SEC-005)
-    OpcodeDenied = 20,      ///< Opcode permission denied
+    OpcodeDenied = 20,  ///< Opcode permission denied
 
     // SEC-006: Dot lifecycle (30-39)
     DotStarted = 30,    ///< Dot execution started
@@ -241,7 +240,7 @@ struct AuditEvent {
     AuditEventType type{AuditEventType::ContextCreated};
 
     /// Timestamp when event occurred
-    std::chrono::steady_clock::time_point timestamp{};
+    std::chrono::steady_clock::time_point timestamp;
 
     /// Associated permission (for permission events)
     Permission permission{Permission::None};
@@ -250,11 +249,10 @@ struct AuditEvent {
     std::uint64_t value{0};
 
     /// Optional context string
-    std::string_view context{};
+    std::string_view context;
 
     /// Create an event with current timestamp
-    [[nodiscard]] static AuditEvent now(AuditEventType type,
-                                        Permission perm = Permission::None,
+    [[nodiscard]] static AuditEvent now(AuditEventType type, Permission perm = Permission::None,
                                         std::uint64_t value = 0,
                                         std::string_view ctx = "") noexcept {
         return AuditEvent{
@@ -278,7 +276,12 @@ struct AuditEvent {
 /// when logging is disabled.
 class AuditLogger {
 public:
+    AuditLogger() = default;
     virtual ~AuditLogger() = default;
+    AuditLogger(const AuditLogger&) = default;
+    AuditLogger& operator=(const AuditLogger&) = default;
+    AuditLogger(AuditLogger&&) = default;
+    AuditLogger& operator=(AuditLogger&&) = default;
 
     /// @brief Log a security event
     ///
@@ -301,7 +304,7 @@ public:
 /// Use this when audit logging is not needed. All operations are no-ops.
 class NullAuditLogger final : public AuditLogger {
 public:
-    void log(const AuditEvent&) noexcept override {}
+    void log(const AuditEvent& /*event*/) noexcept override {}
 
     [[nodiscard]] bool is_enabled() const noexcept override { return false; }
 
@@ -369,7 +372,7 @@ public:
     ///
     /// @param callback Function to call for each event (nullptr disables)
     /// @param user_data User data passed to callback
-    CallbackAuditLogger(Callback callback, void* user_data = nullptr) noexcept;
+    explicit CallbackAuditLogger(Callback callback, void* user_data = nullptr) noexcept;
 
     void log(const AuditEvent& event) noexcept override;
 
@@ -428,8 +431,7 @@ public:
     /// @param limits Resource limits to enforce (copied)
     /// @param permissions SEC-002 permission set (copied)
     /// @param logger Optional audit logger (nullptr for no logging)
-    SecurityContext(capabilities::CapabilityLimits limits,
-                    PermissionSet permissions,
+    SecurityContext(capabilities::CapabilityLimits limits, PermissionSet permissions,
                     AuditLogger* logger = nullptr) noexcept;
 
     /// @brief Construct from a Capability (extracts limits)
@@ -437,8 +439,7 @@ public:
     /// @param capability The capability to extract limits from
     /// @param permissions SEC-002 permission set for this Dot
     /// @param logger Optional audit logger
-    SecurityContext(const capabilities::Capability& capability,
-                    PermissionSet permissions,
+    SecurityContext(const capabilities::Capability& capability, PermissionSet permissions,
                     AuditLogger* logger = nullptr) noexcept;
 
     // Non-copyable, movable
@@ -471,8 +472,8 @@ public:
     /// @par Side Effects
     /// - Increments internal permission check counter
     /// - Logs to audit logger if configured
-    [[nodiscard]] SecurityContextError
-    require(Permission perm, std::string_view context = "") noexcept;
+    [[nodiscard]] SecurityContextError require(Permission perm,
+                                               std::string_view context = "") noexcept;
 
     /// @brief Require a permission (throwing version)
     ///
@@ -503,7 +504,9 @@ public:
     /// @par Performance
     /// Inline check, samples limit every INSTRUCTION_CHECK_INTERVAL.
     [[nodiscard]] bool can_execute_instruction() const noexcept {
-        if (limits_.max_instructions == 0) return true;
+        if (limits_.max_instructions == 0) {
+            return true;
+        }
         return usage_.instructions_executed < limits_.max_instructions;
     }
 
@@ -511,7 +514,9 @@ public:
     ///
     /// @return true if within stack depth limit
     [[nodiscard]] bool can_push_stack() const noexcept {
-        if (limits_.max_stack_depth == 0) return true;
+        if (limits_.max_stack_depth == 0) {
+            return true;
+        }
         return usage_.current_stack_depth < limits_.max_stack_depth;
     }
 
@@ -559,8 +564,7 @@ public:
         }
 
         // Periodic limit check
-        if ((usage_.instructions_executed & (INSTRUCTION_CHECK_INTERVAL - 1)) ==
-            0) [[unlikely]] {
+        if ((usage_.instructions_executed & (INSTRUCTION_CHECK_INTERVAL - 1)) == 0) [[unlikely]] {
             return check_instruction_limit_cold();
         }
 
@@ -587,8 +591,7 @@ public:
     /// @param type Event type
     /// @param value Associated value (size, count, etc.)
     /// @param context Optional context string
-    void log_event(AuditEventType type,
-                   std::uint64_t value = 0,
+    void log_event(AuditEventType type, std::uint64_t value = 0,
                    std::string_view context = "") noexcept;
 
     // ========== State Access ==========
@@ -597,14 +600,10 @@ public:
     [[nodiscard]] const ResourceUsage& usage() const noexcept { return usage_; }
 
     /// @brief Get the configured limits
-    [[nodiscard]] const capabilities::CapabilityLimits& limits() const noexcept {
-        return limits_;
-    }
+    [[nodiscard]] const capabilities::CapabilityLimits& limits() const noexcept { return limits_; }
 
     /// @brief Get the permission set
-    [[nodiscard]] const PermissionSet& permissions() const noexcept {
-        return permissions_;
-    }
+    [[nodiscard]] const PermissionSet& permissions() const noexcept { return permissions_; }
 
     /// @brief Get execution elapsed time in milliseconds
     [[nodiscard]] std::uint64_t elapsed_ms() const noexcept;
@@ -634,42 +633,36 @@ public:
     ///
     /// @param permissions SEC-002 permission set
     /// @param logger Optional audit logger
-    [[nodiscard]] static SecurityContext
-    unlimited(PermissionSet permissions,
-              AuditLogger* logger = nullptr) noexcept {
-        return SecurityContext(capabilities::CapabilityLimits::unlimited(),
-                               permissions, logger);
+    [[nodiscard]] static SecurityContext unlimited(PermissionSet permissions,
+                                                   AuditLogger* logger = nullptr) noexcept {
+        return {capabilities::CapabilityLimits::unlimited(), permissions, logger};
     }
 
     /// @brief Create a context for untrusted code
     ///
     /// @param permissions SEC-002 permission set
     /// @param logger Optional audit logger
-    [[nodiscard]] static SecurityContext
-    untrusted(PermissionSet permissions,
-              AuditLogger* logger = nullptr) noexcept {
-        return SecurityContext(capabilities::CapabilityLimits::untrusted(),
-                               permissions, logger);
+    [[nodiscard]] static SecurityContext untrusted(PermissionSet permissions,
+                                                   AuditLogger* logger = nullptr) noexcept {
+        return {capabilities::CapabilityLimits::untrusted(), permissions, logger};
     }
 
     /// @brief Create a context for sandboxed code
     ///
     /// @param permissions SEC-002 permission set
     /// @param logger Optional audit logger
-    [[nodiscard]] static SecurityContext
-    sandbox(PermissionSet permissions, AuditLogger* logger = nullptr) noexcept {
-        return SecurityContext(capabilities::CapabilityLimits::sandbox(),
-                               permissions, logger);
+    [[nodiscard]] static SecurityContext sandbox(PermissionSet permissions,
+                                                 AuditLogger* logger = nullptr) noexcept {
+        return {capabilities::CapabilityLimits::sandbox(), permissions, logger};
     }
 
     /// @brief Create a context for trusted code
     ///
     /// @param permissions SEC-002 permission set
     /// @param logger Optional audit logger
-    [[nodiscard]] static SecurityContext
-    trusted(PermissionSet permissions, AuditLogger* logger = nullptr) noexcept {
-        return SecurityContext(capabilities::CapabilityLimits::trusted(),
-                               permissions, logger);
+    [[nodiscard]] static SecurityContext trusted(PermissionSet permissions,
+                                                 AuditLogger* logger = nullptr) noexcept {
+        return {capabilities::CapabilityLimits::trusted(), permissions, logger};
     }
 
 private:

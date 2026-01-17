@@ -1,14 +1,14 @@
 #pragma once
 
-#include "value.hpp"
-#include "register_conventions.hpp"
-#include "arch_config.hpp"
-
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
+
+#include "arch_config.hpp"
+#include "register_conventions.hpp"
+#include "value.hpp"
 
 namespace dotvm::core {
 
@@ -37,7 +37,7 @@ public:
     // Writes to R0 are silently ignored (no-op)
     constexpr void write(std::uint8_t reg, Value val) noexcept {
         if (reg == REG_ZERO) [[unlikely]] {
-            return; // R0 is hardwired to zero
+            return;  // R0 is hardwired to zero
         }
         regs_[reg] = val;
     }
@@ -45,12 +45,9 @@ public:
     // Proxy class for non-const operator[] access
     class RegisterProxy {
     public:
-        constexpr RegisterProxy(RegisterFile& rf, std::uint8_t reg) noexcept
-            : rf_{rf}, reg_{reg} {}
+        constexpr RegisterProxy(RegisterFile& rf, std::uint8_t reg) noexcept : rf_{rf}, reg_{reg} {}
 
-        constexpr operator Value() const noexcept {
-            return rf_.read(reg_);
-        }
+        constexpr operator Value() const noexcept { return rf_.read(reg_); }
 
         constexpr RegisterProxy& operator=(Value val) noexcept {
             rf_.write(reg_, val);
@@ -66,44 +63,36 @@ public:
         return RegisterProxy{*this, reg};
     }
 
-    [[nodiscard]] constexpr Value operator[](std::uint8_t reg) const noexcept {
-        return read(reg);
-    }
+    [[nodiscard]] constexpr Value operator[](std::uint8_t reg) const noexcept { return read(reg); }
 
     // Bulk operations for context switching
     [[nodiscard]] std::span<const Value> caller_saved_regs() const noexcept {
         return std::span{regs_}.subspan(reg_range::CALLER_SAVED_START,
-                                         reg_range::CALLER_SAVED_COUNT);
+                                        reg_range::CALLER_SAVED_COUNT);
     }
 
     [[nodiscard]] std::span<const Value> callee_saved_regs() const noexcept {
         return std::span{regs_}.subspan(reg_range::CALLEE_SAVED_START,
-                                         reg_range::CALLEE_SAVED_COUNT);
+                                        reg_range::CALLEE_SAVED_COUNT);
     }
 
     // Save/restore for context switching
-    void save_caller_saved(
-        std::span<Value, reg_range::CALLER_SAVED_COUNT> out) const noexcept {
-        std::copy_n(regs_.begin() + reg_range::CALLER_SAVED_START,
-                    reg_range::CALLER_SAVED_COUNT, out.begin());
+    void save_caller_saved(std::span<Value, reg_range::CALLER_SAVED_COUNT> out) const noexcept {
+        std::copy_n(regs_.begin() + reg_range::CALLER_SAVED_START, reg_range::CALLER_SAVED_COUNT,
+                    out.begin());
     }
 
-    void restore_caller_saved(
-        std::span<const Value, reg_range::CALLER_SAVED_COUNT> in) noexcept {
-        std::copy(in.begin(), in.end(),
-                  regs_.begin() + reg_range::CALLER_SAVED_START);
+    void restore_caller_saved(std::span<const Value, reg_range::CALLER_SAVED_COUNT> in) noexcept {
+        std::copy(in.begin(), in.end(), regs_.begin() + reg_range::CALLER_SAVED_START);
     }
 
-    void save_callee_saved(
-        std::span<Value, reg_range::CALLEE_SAVED_COUNT> out) const noexcept {
-        std::copy_n(regs_.begin() + reg_range::CALLEE_SAVED_START,
-                    reg_range::CALLEE_SAVED_COUNT, out.begin());
+    void save_callee_saved(std::span<Value, reg_range::CALLEE_SAVED_COUNT> out) const noexcept {
+        std::copy_n(regs_.begin() + reg_range::CALLEE_SAVED_START, reg_range::CALLEE_SAVED_COUNT,
+                    out.begin());
     }
 
-    void restore_callee_saved(
-        std::span<const Value, reg_range::CALLEE_SAVED_COUNT> in) noexcept {
-        std::copy(in.begin(), in.end(),
-                  regs_.begin() + reg_range::CALLEE_SAVED_START);
+    void restore_callee_saved(std::span<const Value, reg_range::CALLEE_SAVED_COUNT> in) noexcept {
+        std::copy(in.begin(), in.end(), regs_.begin() + reg_range::CALLEE_SAVED_START);
     }
 
     // Clear all registers (reset to zero)
@@ -114,17 +103,12 @@ public:
     }
 
     // Size information
-    [[nodiscard]] static constexpr std::size_t size() noexcept {
-        return REGISTER_FILE_SIZE;
-    }
+    [[nodiscard]] static constexpr std::size_t size() noexcept { return REGISTER_FILE_SIZE; }
 
-    [[nodiscard]] static constexpr std::size_t byte_size() noexcept {
-        return sizeof(RegisterFile);
-    }
+    [[nodiscard]] static constexpr std::size_t byte_size() noexcept { return sizeof(RegisterFile); }
 
     // Raw access for serialization/debugging
-    [[nodiscard]] std::span<const Value, REGISTER_FILE_SIZE> raw_view()
-        const noexcept {
+    [[nodiscard]] std::span<const Value, REGISTER_FILE_SIZE> raw_view() const noexcept {
         return std::span<const Value, REGISTER_FILE_SIZE>{regs_};
     }
 
@@ -134,8 +118,7 @@ private:
 
 // Static assertions for size guarantees
 static_assert(sizeof(Value) == 8, "Value must be 8 bytes for <16 byte target");
-static_assert(alignof(RegisterFile) == CACHE_LINE_SIZE,
-              "RegisterFile must be cache-line aligned");
+static_assert(alignof(RegisterFile) == CACHE_LINE_SIZE, "RegisterFile must be cache-line aligned");
 
 // ============================================================================
 // Architecture-Aware Register File Wrapper
@@ -154,8 +137,7 @@ public:
     /// Construct an architecture-aware register file
     ///
     /// @param arch Target architecture (default: Arch64)
-    explicit ArchRegisterFile(Architecture arch = Architecture::Arch64) noexcept
-        : arch_{arch} {}
+    explicit ArchRegisterFile(Architecture arch = Architecture::Arch64) noexcept : arch_{arch} {}
 
     // =========================================================================
     // Architecture Configuration
@@ -178,9 +160,7 @@ public:
     ///
     /// @param reg Register index (0-255)
     /// @return The register value
-    [[nodiscard]] Value read(std::uint8_t reg) const noexcept {
-        return regs_.read(reg);
-    }
+    [[nodiscard]] Value read(std::uint8_t reg) const noexcept { return regs_.read(reg); }
 
     /// Write a register value with architecture-aware masking
     ///
@@ -214,9 +194,7 @@ public:
     ///
     /// @param reg Register index (0-255)
     /// @param val Value to write
-    void write_raw(std::uint8_t reg, Value val) noexcept {
-        regs_.write(reg, val);
-    }
+    void write_raw(std::uint8_t reg, Value val) noexcept { regs_.write(reg, val); }
 
     // =========================================================================
     // Proxy for operator[] access
@@ -228,9 +206,7 @@ public:
         constexpr ArchRegisterProxy(ArchRegisterFile& rf, std::uint8_t reg) noexcept
             : rf_{rf}, reg_{reg} {}
 
-        operator Value() const noexcept {
-            return rf_.read(reg_);
-        }
+        operator Value() const noexcept { return rf_.read(reg_); }
 
         ArchRegisterProxy& operator=(Value val) noexcept {
             rf_.write(reg_, val);
@@ -246,9 +222,7 @@ public:
         return ArchRegisterProxy{*this, reg};
     }
 
-    [[nodiscard]] Value operator[](std::uint8_t reg) const noexcept {
-        return read(reg);
-    }
+    [[nodiscard]] Value operator[](std::uint8_t reg) const noexcept { return read(reg); }
 
     // =========================================================================
     // Bulk Operations
@@ -258,9 +232,7 @@ public:
     void clear() noexcept { regs_.clear(); }
 
     /// Get the number of registers
-    [[nodiscard]] static constexpr std::size_t size() noexcept {
-        return RegisterFile::size();
-    }
+    [[nodiscard]] static constexpr std::size_t size() noexcept { return RegisterFile::size(); }
 
     // =========================================================================
     // Raw Access
@@ -284,4 +256,4 @@ private:
     Architecture arch_;
 };
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

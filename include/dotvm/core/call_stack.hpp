@@ -8,15 +8,15 @@
 /// the return address, callee-saved registers (R16-R31), and local
 /// register information for proper stack unwinding.
 
-#include "value.hpp"
-#include "register_conventions.hpp"
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
 #include <vector>
+
+#include "register_conventions.hpp"
+#include "value.hpp"
 
 namespace dotvm::core {
 
@@ -128,12 +128,9 @@ public:
     /// @param base_reg Base register for locals (default 0, reserved)
     /// @param local_count Number of local registers (default 0)
     /// @return true if push succeeded, false if stack overflow
-    [[nodiscard]] bool push(
-        std::size_t return_pc,
-        std::span<const Value, reg_range::CALLEE_SAVED_COUNT> saved_regs,
-        std::uint8_t base_reg = 0,
-        std::uint8_t local_count = 0) noexcept {
-
+    [[nodiscard]] bool push(std::size_t return_pc,
+                            std::span<const Value, reg_range::CALLEE_SAVED_COUNT> saved_regs,
+                            std::uint8_t base_reg = 0, std::uint8_t local_count = 0) noexcept {
         if (frames_.size() >= max_depth_) {
             return false;  // Stack overflow
         }
@@ -142,8 +139,7 @@ public:
         frame.return_pc = return_pc;
         frame.base_reg = base_reg;
         frame.local_count = local_count;
-        std::copy(saved_regs.begin(), saved_regs.end(),
-                  frame.saved_regs.begin());
+        std::copy(saved_regs.begin(), saved_regs.end(), frame.saved_regs.begin());
 
         frames_.push_back(std::move(frame));
         return true;
@@ -181,30 +177,22 @@ public:
     /// Get current stack depth
     ///
     /// @return Number of frames currently on the stack
-    [[nodiscard]] std::size_t depth() const noexcept {
-        return frames_.size();
-    }
+    [[nodiscard]] std::size_t depth() const noexcept { return frames_.size(); }
 
     /// Check if stack is empty
     ///
     /// @return true if no frames are on the stack
-    [[nodiscard]] bool empty() const noexcept {
-        return frames_.empty();
-    }
+    [[nodiscard]] bool empty() const noexcept { return frames_.empty(); }
 
     /// Get maximum allowed depth
     ///
     /// @return Maximum number of frames allowed before overflow
-    [[nodiscard]] std::size_t max_depth() const noexcept {
-        return max_depth_;
-    }
+    [[nodiscard]] std::size_t max_depth() const noexcept { return max_depth_; }
 
     /// Check if stack would overflow with one more push
     ///
     /// @return true if stack is at maximum capacity
-    [[nodiscard]] bool would_overflow() const noexcept {
-        return frames_.size() >= max_depth_;
-    }
+    [[nodiscard]] bool would_overflow() const noexcept { return frames_.size() >= max_depth_; }
 
     // =========================================================================
     // State Management
@@ -213,17 +201,13 @@ public:
     /// Clear all frames from the stack
     ///
     /// Resets the stack to empty state. Does not change max_depth.
-    void clear() noexcept {
-        frames_.clear();
-    }
+    void clear() noexcept { frames_.clear(); }
 
     /// Set a new maximum depth
     ///
     /// @param new_max New maximum depth
     /// @note Does not truncate if current depth exceeds new_max
-    void set_max_depth(std::size_t new_max) noexcept {
-        max_depth_ = new_max;
-    }
+    void set_max_depth(std::size_t new_max) noexcept { max_depth_ = new_max; }
 
 private:
     std::vector<CallFrame> frames_;

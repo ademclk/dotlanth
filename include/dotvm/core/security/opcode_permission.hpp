@@ -190,8 +190,7 @@ inline constexpr std::array<Permission, 256> opcode_permission_table = [] {
 /// Permission required = get_required_permission(0x64); // STORE8
 /// // required == Permission::Execute | Permission::WriteMemory
 /// @endcode
-[[nodiscard]] constexpr Permission
-get_required_permission(std::uint8_t opcode) noexcept {
+[[nodiscard]] constexpr Permission get_required_permission(std::uint8_t opcode) noexcept {
     return opcode_permission_table[opcode];
 }
 
@@ -210,8 +209,8 @@ get_required_permission(std::uint8_t opcode) noexcept {
 /// bool ok = is_opcode_authorized(0x60, granted);  // LOAD8 - true
 /// bool fail = is_opcode_authorized(0x64, granted);  // STORE8 - false
 /// @endcode
-[[nodiscard]] constexpr bool
-is_opcode_authorized(std::uint8_t opcode, Permission granted) noexcept {
+[[nodiscard]] constexpr bool is_opcode_authorized(std::uint8_t opcode,
+                                                  Permission granted) noexcept {
     const Permission required = get_required_permission(opcode);
     // Reserved opcodes (Permission::None) are never authorized
     if (required == Permission::None) {
@@ -225,8 +224,8 @@ is_opcode_authorized(std::uint8_t opcode, Permission granted) noexcept {
 /// @param opcode The opcode to check
 /// @param permissions The PermissionSet to check against
 /// @return true if all required permissions are present, false for reserved opcodes
-[[nodiscard]] constexpr bool
-is_opcode_authorized(std::uint8_t opcode, const PermissionSet& permissions) noexcept {
+[[nodiscard]] constexpr bool is_opcode_authorized(std::uint8_t opcode,
+                                                  const PermissionSet& permissions) noexcept {
     const Permission required = get_required_permission(opcode);
     // Reserved opcodes (Permission::None) are never authorized
     if (required == Permission::None) {
@@ -272,24 +271,20 @@ is_opcode_authorized(std::uint8_t opcode, const PermissionSet& permissions) noex
 /// }
 /// @endcode
 [[nodiscard]] inline SecurityContextError
-check_opcode_permission(std::uint8_t opcode,
-                        SecurityContext& ctx,
+check_opcode_permission(std::uint8_t opcode, SecurityContext& ctx,
                         std::string_view context = "") noexcept {
     const Permission required = get_required_permission(opcode);
 
     // Reserved opcodes are always denied
     if (required == Permission::None) {
-        ctx.log_event(AuditEventType::OpcodeDenied,
-                      static_cast<std::uint64_t>(opcode),
+        ctx.log_event(AuditEventType::OpcodeDenied, static_cast<std::uint64_t>(opcode),
                       context.empty() ? "reserved_opcode" : context);
         return SecurityContextError::PermissionDenied;
     }
 
     // Check if all required permissions are granted
     if (!ctx.can(required)) {
-        ctx.log_event(AuditEventType::OpcodeDenied,
-                      static_cast<std::uint64_t>(opcode),
-                      context);
+        ctx.log_event(AuditEventType::OpcodeDenied, static_cast<std::uint64_t>(opcode), context);
         return SecurityContextError::PermissionDenied;
     }
 
@@ -300,28 +295,47 @@ check_opcode_permission(std::uint8_t opcode,
 ///
 /// @param opcode The opcode to describe
 /// @return A string describing the opcode category
-[[nodiscard]] constexpr std::string_view
-get_opcode_category(std::uint8_t opcode) noexcept {
-    if (opcode <= 0x1F) return "Arithmetic";
-    if (opcode <= 0x2F) return "Bitwise";
-    if (opcode <= 0x3F) return "Comparison";
-    if (opcode <= 0x5F) return "ControlFlow";
-    if (opcode <= 0x63) return "Load";
-    if (opcode <= 0x67) return "Store";
-    if (opcode == 0x68) return "LEA";
-    if (opcode <= 0x7F) return "Reserved";
-    if (opcode <= 0x8F) return "DataMove";
-    if (opcode <= 0x9F) return "Reserved";
-    if (opcode <= 0xA7) return "StateGet";
-    if (opcode <= 0xAF) return "StatePut";
-    if (opcode <= 0xBF) return "Crypto";
-    if (opcode <= 0xC3) return "Spawn";
-    if (opcode <= 0xCF) return "Message";
-    if (opcode <= 0xEF) return "Reserved";
-    if (opcode == 0xF0) return "NOP";
-    if (opcode == 0xF1) return "BREAK";
-    if (opcode == 0xFD) return "DEBUG";
-    if (opcode == 0xFE) return "SYSCALL";
+[[nodiscard]] constexpr std::string_view get_opcode_category(std::uint8_t opcode) noexcept {
+    if (opcode <= 0x1F)
+        return "Arithmetic";
+    if (opcode <= 0x2F)
+        return "Bitwise";
+    if (opcode <= 0x3F)
+        return "Comparison";
+    if (opcode <= 0x5F)
+        return "ControlFlow";
+    if (opcode <= 0x63)
+        return "Load";
+    if (opcode <= 0x67)
+        return "Store";
+    if (opcode == 0x68)
+        return "LEA";
+    if (opcode <= 0x7F)
+        return "Reserved";
+    if (opcode <= 0x8F)
+        return "DataMove";
+    if (opcode <= 0x9F)
+        return "Reserved";
+    if (opcode <= 0xA7)
+        return "StateGet";
+    if (opcode <= 0xAF)
+        return "StatePut";
+    if (opcode <= 0xBF)
+        return "Crypto";
+    if (opcode <= 0xC3)
+        return "Spawn";
+    if (opcode <= 0xCF)
+        return "Message";
+    if (opcode <= 0xEF)
+        return "Reserved";
+    if (opcode == 0xF0)
+        return "NOP";
+    if (opcode == 0xF1)
+        return "BREAK";
+    if (opcode == 0xFD)
+        return "DEBUG";
+    if (opcode == 0xFE)
+        return "SYSCALL";
     return "System";
 }
 
