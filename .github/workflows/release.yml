@@ -1,7 +1,8 @@
 # Release Builds
 # Creates release artifacts when a tag is pushed
 #
-# Security: This workflow only uses safe matrix and github.workspace variables.
+# Security: This workflow only uses safe context variables.
+# Cost: All tools are free.
 
 name: Release
 
@@ -15,22 +16,8 @@ env:
 
 jobs:
   build-release:
-    name: Build ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            artifact_name: dotlanth-linux-x86_64
-            compiler: clang
-            cxx: clang++-19
-            cc: clang-19
-          - os: macos-14
-            artifact_name: dotlanth-macos-arm64
-            compiler: appleclang
-            cxx: clang++
-            cc: clang
+    name: Build Linux x86_64
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -39,8 +26,7 @@ jobs:
       - name: Setup CMake and Ninja
         uses: lukka/get-cmake@latest
 
-      - name: Install Clang 19 (Ubuntu)
-        if: matrix.os == 'ubuntu-24.04'
+      - name: Install Clang 19
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
@@ -48,14 +34,11 @@ jobs:
           sudo apt-get install -y clang-19 clang++-19
 
       - name: Configure CMake
-        env:
-          CC: ${{ matrix.cc }}
-          CXX: ${{ matrix.cxx }}
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER="$CC" \
-            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19 \
             -DDOTVM_BUILD_TESTS=OFF \
             -DDOTVM_BUILD_C_API=ON \
             -DDOTVM_ENABLE_SIMD=OFF \
@@ -69,17 +52,15 @@ jobs:
         run: cmake --install build
 
       - name: Package
-        env:
-          ARTIFACT_NAME: ${{ matrix.artifact_name }}
         run: |
           cd "${{ github.workspace }}/install"
-          tar -czvf "../$ARTIFACT_NAME.tar.gz" .
+          tar -czvf ../dotlanth-linux-x86_64.tar.gz .
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_name }}.tar.gz
+          name: dotlanth-linux-x86_64
+          path: dotlanth-linux-x86_64.tar.gz
 
   create-release:
     name: Create Release
