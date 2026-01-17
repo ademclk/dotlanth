@@ -25,7 +25,8 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++"
+        "CMAKE_CXX_COMPILER": "clang++",
+        "DOTVM_USE_LIBCXX": "ON"
       },
       "environment": {
         "CC": "clang",
