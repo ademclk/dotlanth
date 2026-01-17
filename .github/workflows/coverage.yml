@@ -1,0 +1,62 @@
+name: Coverage
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LLVM 18
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          sudo apt-get install -y llvm-18
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DDOTVM_ENABLE_COVERAGE=ON \
+            -DDOTVM_BUILD_TESTS=ON \
+            -DDOTVM_BUILD_C_API=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure --parallel $(nproc)
+
+      - name: Generate coverage report
+        run: |
+          llvm-profdata-18 merge -sparse build/default.profraw -o build/coverage.profdata
+          llvm-cov-18 report ./build/dotvm_tests -instr-profile=build/coverage.profdata \
+            -ignore-filename-regex='tests/.*' \
+            -ignore-filename-regex='_deps/.*'
+
+      - name: Export coverage (lcov format)
+        run: |
+          llvm-cov-18 export ./build/dotvm_tests -instr-profile=build/coverage.profdata \
+            -format=lcov \
+            -ignore-filename-regex='tests/.*' \
+            -ignore-filename-regex='_deps/.*' > build/coverage.lcov
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage.lcov
