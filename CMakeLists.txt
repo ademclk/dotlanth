@@ -112,6 +112,10 @@ add_library(dotvm_core STATIC
     src/dotvm/core/permission.cpp
     # Security context (SEC-003)
     src/dotvm/core/security/security_context.cpp
+    # Audit logging framework (SEC-006)
+    src/dotvm/core/security/audit_logger.cpp
+    src/dotvm/core/security/audit_serializer.cpp
+    src/dotvm/core/security/async_audit_logger.cpp
     # Resource limiter (SEC-004)
     src/dotvm/core/resource_limiter.cpp
 )
@@ -270,6 +274,9 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/security/security_context_test.cpp
         # Opcode permission tests (SEC-005)
         tests/dotvm/core/security/opcode_permission_test.cpp
+        # Audit logging tests (SEC-006)
+        tests/dotvm/core/security/audit_event_test.cpp
+        tests/dotvm/core/security/async_audit_logger_test.cpp
         # Resource limiter tests (SEC-004)
         tests/dotvm/core/resource_limiter_test.cpp
     )
