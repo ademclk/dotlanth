@@ -341,10 +341,14 @@ if(DOTVM_BUILD_TESTS)
             tests/dotvm/dotvm_c_test.c
         )
 
-        # Force C linker only when sanitizers are disabled.
+        # Set linker language based on sanitizer state.
         # When sanitizers are enabled, the linked shared library (libdotvm_c.so)
         # contains C++ UBSan symbols that require the C++ linker to resolve.
-        if(NOT DOTVM_ENABLE_SANITIZERS)
+        if(DOTVM_ENABLE_SANITIZERS)
+            set_target_properties(dotvm_c_compat_test PROPERTIES
+                LINKER_LANGUAGE CXX
+            )
+        else()
             set_target_properties(dotvm_c_compat_test PROPERTIES
                 LINKER_LANGUAGE C
             )

@@ -236,14 +236,16 @@ jobs:
       - name: Run Tests with Coverage
         run: |
           cd build/ci-clang-coverage
-          LLVM_PROFILE_FILE="coverage-%p.profraw" ctest --output-on-failure
+          # Use absolute path to ensure profraw files are collected in build dir
+          LLVM_PROFILE_FILE="$PWD/coverage-%p-%m.profraw" ctest --output-on-failure
 
       - name: Generate Coverage Report
         run: |
           cd build/ci-clang-coverage
 
-          # Merge raw profiles
-          llvm-profdata merge -sparse coverage-*.profraw -o coverage.profdata
+          # Find and merge all raw profiles (tests may write to different locations)
+          find . -name '*.profraw' -type f | head -20
+          llvm-profdata merge -sparse $(find . -name '*.profraw' -type f) -o coverage.profdata
 
           # Generate JSON report for processing
           llvm-cov export ./dotvm_tests \
