@@ -81,13 +81,8 @@ void BigInt::parse_decimal(std::string_view str) {
 
         // Parse this chunk
         limb_type chunk_value = 0;
-        limb_type multiplier = 1;
-
         for (std::size_t j = 0; j < this_chunk; ++j) {
             chunk_value = chunk_value * 10 + static_cast<limb_type>(str[i + j] - '0');
-            if (j < this_chunk - 1) {
-                multiplier *= 10;
-            }
         }
 
         // Multiply current result by the appropriate power of 10 and add chunk

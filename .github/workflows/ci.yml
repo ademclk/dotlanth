@@ -296,6 +296,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for diff analysis on PRs
 
       - name: Install clang-format
         run: |
@@ -305,11 +307,12 @@ jobs:
           sudo apt-get install -y clang-format-$LLVM_VERSION
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-$LLVM_VERSION 100
 
-      - name: Check Formatting
+      - name: Check Formatting (Full - Push to main)
+        if: github.event_name == 'push'
         run: |
-          find src include tests -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | head -500 > files.txt
+          find src include -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | head -500 > files.txt
 
-          echo "Checking formatting..."
+          echo "Checking formatting on all source files..."
           xargs -a files.txt clang-format --dry-run --Werror 2>&1 | tee format-output.txt
 
           if [ -s format-output.txt ]; then
@@ -318,3 +321,33 @@ jobs:
           fi
 
           echo "All files properly formatted!"
+
+      - name: Check Formatting (Diff - Pull Request)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # Get changed C++ files in this PR
+          git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA" \
+            | grep -E '\.(cpp|hpp|h)$' \
+            | grep -E '^(src|include)/' \
+            > changed_files.txt || true
+
+          if [ ! -s changed_files.txt ]; then
+            echo "No C++ source files changed in this PR"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          cat changed_files.txt
+
+          echo "Checking formatting on changed files..."
+          xargs -a changed_files.txt clang-format --dry-run --Werror 2>&1 | tee format-output.txt
+
+          if [ -s format-output.txt ]; then
+            echo "Formatting issues found. Run 'clang-format -i' on the files above."
+            exit 1
+          fi
+
+          echo "All changed files properly formatted!"
