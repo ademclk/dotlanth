@@ -3,6 +3,9 @@
 #
 # Security: Changed files output from tj-actions/changed-files is used safely
 # in a bash loop with proper quoting.
+#
+# Cost: All tools are free for public repos.
+# Note: CodeQL is free for public repos. For private repos, requires GitHub Advanced Security.
 
 name: Static Analysis
 
