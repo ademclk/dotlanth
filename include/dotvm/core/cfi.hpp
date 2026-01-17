@@ -1,12 +1,12 @@
 #pragma once
 
-#include <dotvm/core/instruction.hpp>
-#include <dotvm/core/security_stats.hpp>
-
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
+
+#include <dotvm/core/instruction.hpp>
+#include <dotvm/core/security_stats.hpp>
 
 namespace dotvm::core::cfi {
 
@@ -40,14 +40,22 @@ enum class CfiViolation : std::uint8_t {
 /// Returns a string description of the CFI violation.
 [[nodiscard]] constexpr const char* violation_name(CfiViolation v) noexcept {
     switch (v) {
-        case CfiViolation::InvalidOpcode: return "InvalidOpcode";
-        case CfiViolation::ReservedOpcode: return "ReservedOpcode";
-        case CfiViolation::InvalidJumpTarget: return "InvalidJumpTarget";
-        case CfiViolation::BackwardJumpLimit: return "BackwardJumpLimit";
-        case CfiViolation::CallStackOverflow: return "CallStackOverflow";
-        case CfiViolation::ReturnMismatch: return "ReturnMismatch";
-        case CfiViolation::JumpOutOfBounds: return "JumpOutOfBounds";
-        case CfiViolation::IndirectJumpViolation: return "IndirectJumpViolation";
+        case CfiViolation::InvalidOpcode:
+            return "InvalidOpcode";
+        case CfiViolation::ReservedOpcode:
+            return "ReservedOpcode";
+        case CfiViolation::InvalidJumpTarget:
+            return "InvalidJumpTarget";
+        case CfiViolation::BackwardJumpLimit:
+            return "BackwardJumpLimit";
+        case CfiViolation::CallStackOverflow:
+            return "CallStackOverflow";
+        case CfiViolation::ReturnMismatch:
+            return "ReturnMismatch";
+        case CfiViolation::JumpOutOfBounds:
+            return "JumpOutOfBounds";
+        case CfiViolation::IndirectJumpViolation:
+            return "IndirectJumpViolation";
     }
     return "Unknown";
 }
@@ -72,24 +80,20 @@ struct CfiPolicy {
 
     /// Creates a strict policy with all checks enabled.
     [[nodiscard]] static constexpr CfiPolicy strict() noexcept {
-        return CfiPolicy{
-            .max_backward_jumps = 5000,
-            .max_call_depth = 512,
-            .strict_jump_alignment = true,
-            .reject_reserved_opcodes = true,
-            .validate_indirect_jumps = true
-        };
+        return CfiPolicy{.max_backward_jumps = 5000,
+                         .max_call_depth = 512,
+                         .strict_jump_alignment = true,
+                         .reject_reserved_opcodes = true,
+                         .validate_indirect_jumps = true};
     }
 
     /// Creates a relaxed policy for debugging.
     [[nodiscard]] static constexpr CfiPolicy relaxed() noexcept {
-        return CfiPolicy{
-            .max_backward_jumps = 0,  // Disabled
-            .max_call_depth = 4096,
-            .strict_jump_alignment = false,
-            .reject_reserved_opcodes = false,
-            .validate_indirect_jumps = false
-        };
+        return CfiPolicy{.max_backward_jumps = 0,  // Disabled
+                         .max_call_depth = 4096,
+                         .strict_jump_alignment = false,
+                         .reject_reserved_opcodes = false,
+                         .validate_indirect_jumps = false};
     }
 
     /// Equality comparison for testing
@@ -111,15 +115,13 @@ class CfiContext {
 public:
     /// Constructs a CFI context with the specified policy.
     /// @note May throw std::bad_alloc if call stack reservation fails.
-    explicit CfiContext(CfiPolicy policy = {})
-        : policy_(policy) {
+    explicit CfiContext(CfiPolicy policy = {}) : policy_(policy) {
         call_stack_.reserve(policy.max_call_depth);
     }
 
     /// Constructs a CFI context with policy and optional security stats.
     /// @note May throw std::bad_alloc if call stack reservation fails.
-    CfiContext(CfiPolicy policy, SecurityStats* stats)
-        : policy_(policy), stats_(stats) {
+    CfiContext(CfiPolicy policy, SecurityStats* stats) : policy_(policy), stats_(stats) {
         call_stack_.reserve(policy.max_call_depth);
     }
 
@@ -131,9 +133,8 @@ public:
     /// @param instr The 32-bit instruction to validate.
     /// @param code_size Total size of code section in bytes.
     /// @return true if instruction is valid, false if CFI violation detected.
-    [[nodiscard]] bool validate_instruction(std::uint32_t pc,
-                                             std::uint32_t instr,
-                                             std::size_t code_size) noexcept {
+    [[nodiscard]] bool validate_instruction(std::uint32_t pc, std::uint32_t instr,
+                                            std::size_t code_size) noexcept {
         // Check PC is within bounds
         if (pc >= code_size) {
             record_violation(CfiViolation::JumpOutOfBounds);
@@ -147,8 +148,8 @@ public:
         }
 
         // Extract opcode from instruction (bits 31:24)
-        std::uint8_t opcode = static_cast<std::uint8_t>(
-            (instr >> instr_bits::OPCODE_SHIFT) & instr_bits::OPCODE_MASK);
+        std::uint8_t opcode = static_cast<std::uint8_t>((instr >> instr_bits::OPCODE_SHIFT) &
+                                                        instr_bits::OPCODE_MASK);
 
         // Check for reserved opcodes
         if (policy_.reject_reserved_opcodes && is_reserved_opcode(opcode)) {
@@ -167,9 +168,8 @@ public:
     /// @param target_pc Target program counter after jump.
     /// @param code_size Total size of code section.
     /// @return true if jump is valid, false if CFI violation detected.
-    [[nodiscard]] bool validate_jump(std::uint32_t current_pc,
-                                      std::uint32_t target_pc,
-                                      std::size_t code_size) noexcept {
+    [[nodiscard]] bool validate_jump(std::uint32_t current_pc, std::uint32_t target_pc,
+                                     std::size_t code_size) noexcept {
         // Bounds check
         if (target_pc >= code_size) {
             record_violation(CfiViolation::JumpOutOfBounds);
@@ -177,8 +177,7 @@ public:
         }
 
         // Alignment check
-        if (policy_.strict_jump_alignment &&
-            (target_pc % INSTRUCTION_ALIGNMENT != 0)) {
+        if (policy_.strict_jump_alignment && (target_pc % INSTRUCTION_ALIGNMENT != 0)) {
             record_violation(CfiViolation::InvalidJumpTarget);
             return false;
         }
@@ -204,7 +203,7 @@ public:
     /// @param code_size Total size of code section.
     /// @return true if jump is valid, false if CFI violation detected.
     [[nodiscard]] bool validate_indirect_jump(std::uint32_t target_pc,
-                                               std::size_t code_size) noexcept {
+                                              std::size_t code_size) noexcept {
         if (!policy_.validate_indirect_jumps) {
             return true;  // Indirect jump validation disabled
         }
@@ -216,8 +215,7 @@ public:
         }
 
         // Alignment check
-        if (policy_.strict_jump_alignment &&
-            (target_pc % INSTRUCTION_ALIGNMENT != 0)) {
+        if (policy_.strict_jump_alignment && (target_pc % INSTRUCTION_ALIGNMENT != 0)) {
             record_violation(CfiViolation::IndirectJumpViolation);
             return false;
         }
@@ -254,9 +252,7 @@ public:
     }
 
     /// Returns current call stack depth.
-    [[nodiscard]] std::size_t call_depth() const noexcept {
-        return call_stack_.size();
-    }
+    [[nodiscard]] std::size_t call_depth() const noexcept { return call_stack_.size(); }
 
     // ========== State Query ==========
 
@@ -266,9 +262,7 @@ public:
     }
 
     /// Returns true if any CFI violation has been recorded.
-    [[nodiscard]] bool has_violation() const noexcept {
-        return last_violation_.has_value();
-    }
+    [[nodiscard]] bool has_violation() const noexcept { return last_violation_.has_value(); }
 
     /// Returns the backward jump count.
     [[nodiscard]] std::uint32_t backward_jump_count() const noexcept {
@@ -276,9 +270,7 @@ public:
     }
 
     /// Returns the current policy.
-    [[nodiscard]] const CfiPolicy& policy() const noexcept {
-        return policy_;
-    }
+    [[nodiscard]] const CfiPolicy& policy() const noexcept { return policy_; }
 
     // ========== Reset ==========
 
@@ -311,4 +303,4 @@ private:
     }
 };
 
-} // namespace dotvm::core::cfi
+}  // namespace dotvm::core::cfi

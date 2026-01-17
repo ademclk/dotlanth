@@ -51,9 +51,7 @@ struct FpFlags {
     }
 
     /// Check if comparison was ordered (neither operand was NaN)
-    [[nodiscard]] constexpr bool is_ordered() const noexcept {
-        return !unordered;
-    }
+    [[nodiscard]] constexpr bool is_ordered() const noexcept { return !unordered; }
 };
 
 /// Execution error codes
@@ -187,11 +185,11 @@ enum class ExecutionError : std::uint8_t {
 [[nodiscard]] constexpr bool is_fatal_error(ExecutionError error) noexcept {
     switch (error) {
         case ExecutionError::Success:
-        case ExecutionError::IntegerOverflow:     // Non-fatal: continues execution
-        case ExecutionError::DivisionByZero:      // Non-fatal: returns 0, continues
-        case ExecutionError::FloatingPointInvalid:  // Non-fatal: returns NaN, continues
-        case ExecutionError::FloatingPointOverflow: // Non-fatal: returns Inf, continues
-        case ExecutionError::ConversionOverflow:    // Non-fatal: saturates, continues
+        case ExecutionError::IntegerOverflow:        // Non-fatal: continues execution
+        case ExecutionError::DivisionByZero:         // Non-fatal: returns 0, continues
+        case ExecutionError::FloatingPointInvalid:   // Non-fatal: returns NaN, continues
+        case ExecutionError::FloatingPointOverflow:  // Non-fatal: returns Inf, continues
+        case ExecutionError::ConversionOverflow:     // Non-fatal: saturates, continues
             return false;
         default:
             return true;

@@ -7,57 +7,59 @@
 #include <cstdint>
 #include <format>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
-#include "arch_config.hpp"  // for Architecture enum and masking functions
+#include "arch_config.hpp"  // for masking functions
+#include "arch_types.hpp"   // for Architecture enum
 
 namespace dotvm::core {
 
 // NaN-boxing constants
 namespace nan_box {
-    /// Quiet NaN prefix - all tagged values have this prefix
-    inline constexpr std::uint64_t QNAN_PREFIX     = 0x7FF8'0000'0000'0000ULL;
+/// Quiet NaN prefix - all tagged values have this prefix
+inline constexpr std::uint64_t QNAN_PREFIX = 0x7FF8'0000'0000'0000ULL;
 
-    /// Mask for extracting the type tag (bits 48-63 minus QNAN bits)
-    inline constexpr std::uint64_t TAG_MASK        = 0x0000'FFFF'0000'0000ULL;
+/// Mask for extracting the type tag (bits 48-63 minus QNAN bits)
+inline constexpr std::uint64_t TAG_MASK = 0x0000'FFFF'0000'0000ULL;
 
-    /// Mask for 32-bit payload (used by Handle index)
-    inline constexpr std::uint64_t PAYLOAD_MASK    = 0x0000'0000'FFFF'FFFFULL;
+/// Mask for 32-bit payload (used by Handle index)
+inline constexpr std::uint64_t PAYLOAD_MASK = 0x0000'0000'FFFF'FFFFULL;
 
-    /// Mask for full 48-bit payload
-    inline constexpr std::uint64_t FULL_PAYLOAD    = 0x0000'FFFF'FFFF'FFFFULL;
+/// Mask for full 48-bit payload
+inline constexpr std::uint64_t FULL_PAYLOAD = 0x0000'FFFF'FFFF'FFFFULL;
 
-    /// Type tags - stored in bits 48-51 (after QNAN_PREFIX)
-    inline constexpr std::uint64_t TAG_INTEGER     = 0x0001ULL << 48;
-    inline constexpr std::uint64_t TAG_BOOL        = 0x0002ULL << 48;
-    inline constexpr std::uint64_t TAG_HANDLE      = 0x0003ULL << 48;
-    inline constexpr std::uint64_t TAG_NIL         = 0x0004ULL << 48;
-    inline constexpr std::uint64_t TAG_POINTER     = 0x0005ULL << 48;
+/// Type tags - stored in bits 48-51 (after QNAN_PREFIX)
+inline constexpr std::uint64_t TAG_INTEGER = 0x0001ULL << 48;
+inline constexpr std::uint64_t TAG_BOOL = 0x0002ULL << 48;
+inline constexpr std::uint64_t TAG_HANDLE = 0x0003ULL << 48;
+inline constexpr std::uint64_t TAG_NIL = 0x0004ULL << 48;
+inline constexpr std::uint64_t TAG_POINTER = 0x0005ULL << 48;
 
-    /// Full prefixes for each type (QNAN_PREFIX | TAG)
-    inline constexpr std::uint64_t INTEGER_PREFIX  = QNAN_PREFIX | TAG_INTEGER;
-    inline constexpr std::uint64_t BOOL_PREFIX     = QNAN_PREFIX | TAG_BOOL;
-    inline constexpr std::uint64_t HANDLE_PREFIX   = QNAN_PREFIX | TAG_HANDLE;
-    inline constexpr std::uint64_t NIL_VALUE       = QNAN_PREFIX | TAG_NIL;
-    inline constexpr std::uint64_t POINTER_PREFIX  = QNAN_PREFIX | TAG_POINTER;
+/// Full prefixes for each type (QNAN_PREFIX | TAG)
+inline constexpr std::uint64_t INTEGER_PREFIX = QNAN_PREFIX | TAG_INTEGER;
+inline constexpr std::uint64_t BOOL_PREFIX = QNAN_PREFIX | TAG_BOOL;
+inline constexpr std::uint64_t HANDLE_PREFIX = QNAN_PREFIX | TAG_HANDLE;
+inline constexpr std::uint64_t NIL_VALUE = QNAN_PREFIX | TAG_NIL;
+inline constexpr std::uint64_t POINTER_PREFIX = QNAN_PREFIX | TAG_POINTER;
 
-    /// Masks for type checking
-    inline constexpr std::uint64_t TYPE_CHECK_MASK = 0x7FFF'0000'0000'0000ULL;
-    inline constexpr std::uint64_t BOOL_CHECK_MASK = 0x7FFF'FFFF'FFFF'FFFEULL;
+/// Masks for type checking
+inline constexpr std::uint64_t TYPE_CHECK_MASK = 0x7FFF'0000'0000'0000ULL;
+inline constexpr std::uint64_t BOOL_CHECK_MASK = 0x7FFF'FFFF'FFFF'FFFEULL;
 
-    /// Mask for tag bits (bits 48-50, where type tags are encoded)
-    /// Used to distinguish canonical NaN from tagged types
-    inline constexpr std::uint64_t TAG_BITS_MASK   = 0x0007ULL << 48;  // 0x0007'0000'0000'0000
+/// Mask for tag bits (bits 48-50, where type tags are encoded)
+/// Used to distinguish canonical NaN from tagged types
+inline constexpr std::uint64_t TAG_BITS_MASK = 0x0007ULL << 48;  // 0x0007'0000'0000'0000
 
-    /// Canonical quiet NaN - used when input NaN would conflict with type tags
-    inline constexpr std::uint64_t CANONICAL_QNAN  = QNAN_PREFIX;
+/// Canonical quiet NaN - used when input NaN would conflict with type tags
+inline constexpr std::uint64_t CANONICAL_QNAN = QNAN_PREFIX;
 
-    /// Maximum generation value that fits in NaN-boxed Handle (16 bits)
-    inline constexpr std::uint32_t MAX_HANDLE_GENERATION = 0xFFFFU;
+/// Maximum generation value that fits in NaN-boxed Handle (16 bits)
+inline constexpr std::uint32_t MAX_HANDLE_GENERATION = 0xFFFFU;
 
-    /// Number of bits available for Handle generation in NaN-boxing
-    inline constexpr std::uint32_t HANDLE_GEN_BITS = 16;
-} // namespace nan_box
+/// Number of bits available for Handle generation in NaN-boxing
+inline constexpr std::uint32_t HANDLE_GEN_BITS = 16;
+}  // namespace nan_box
 
 /// Handle structure: 32-bit index + 32-bit generation
 /// @note When stored in a NaN-boxed Value, only 16 bits of generation are preserved.
@@ -80,23 +82,29 @@ static_assert(sizeof(Handle) == 8);
 
 /// Value type enumeration
 enum class ValueType : std::uint8_t {
-    Float   = 0,
+    Float = 0,
     Integer = 1,
-    Bool    = 2,
-    Handle  = 3,
-    Nil     = 4,
+    Bool = 2,
+    Handle = 3,
+    Nil = 4,
     Pointer = 5
 };
 
 /// Get the string name of a ValueType
 [[nodiscard]] constexpr std::string_view type_name(ValueType t) noexcept {
     switch (t) {
-        case ValueType::Float:   return "Float";
-        case ValueType::Integer: return "Integer";
-        case ValueType::Bool:    return "Bool";
-        case ValueType::Handle:  return "Handle";
-        case ValueType::Nil:     return "Nil";
-        case ValueType::Pointer: return "Pointer";
+        case ValueType::Float:
+            return "Float";
+        case ValueType::Integer:
+            return "Integer";
+        case ValueType::Bool:
+            return "Bool";
+        case ValueType::Handle:
+            return "Handle";
+        case ValueType::Nil:
+            return "Nil";
+        case ValueType::Pointer:
+            return "Pointer";
     }
     return "Unknown";
 }
@@ -121,7 +129,7 @@ public:
     /// @note NaN inputs that would conflict with type tags are canonicalized
     ///       to a standard quiet NaN to prevent type confusion.
     constexpr explicit Value(double f) noexcept {
-        std::uint64_t bits = std::bit_cast<std::uint64_t>(f);
+        auto bits = std::bit_cast<std::uint64_t>(f);
         // Canonicalize NaN values that would conflict with our type tags
         // A conflicting NaN has QNAN_PREFIX set AND has non-zero tag bits (bits 48-50)
         if ((bits & nan_box::QNAN_PREFIX) == nan_box::QNAN_PREFIX) {
@@ -137,8 +145,8 @@ public:
     /// @note Only 48 bits of precision are preserved; values outside
     ///       [-2^47, 2^47-1] will be truncated.
     constexpr explicit Value(std::int64_t i) noexcept
-        : bits_{nan_box::INTEGER_PREFIX |
-                (static_cast<std::uint64_t>(i) & nan_box::FULL_PAYLOAD)} {}
+        : bits_{nan_box::INTEGER_PREFIX | (static_cast<std::uint64_t>(i) & nan_box::FULL_PAYLOAD)} {
+    }
 
     /// Construct from boolean
     constexpr explicit Value(bool b) noexcept
@@ -159,21 +167,18 @@ public:
     /// Construct from raw pointer
     /// @note Only 48 bits of the address are preserved. This is sufficient
     ///       for canonical x86-64 user-space and kernel-space addresses.
-    constexpr explicit Value(void* ptr) noexcept
+    /// @note Not constexpr because reinterpret_cast is not allowed in constant expressions.
+    explicit Value(void* ptr) noexcept
         : bits_{nan_box::POINTER_PREFIX |
                 (reinterpret_cast<std::uint64_t>(ptr) & nan_box::FULL_PAYLOAD)} {}
 
     // Factory methods for clarity
 
     /// Create a Value from a double
-    [[nodiscard]] static constexpr Value from_float(double f) noexcept {
-        return Value{f};
-    }
+    [[nodiscard]] static constexpr Value from_float(double f) noexcept { return Value{f}; }
 
     /// Create a Value from an integer
-    [[nodiscard]] static constexpr Value from_int(std::int64_t i) noexcept {
-        return Value{i};
-    }
+    [[nodiscard]] static constexpr Value from_int(std::int64_t i) noexcept { return Value{i}; }
 
     /// Create an integer Value with architecture-specific masking
     ///
@@ -188,25 +193,19 @@ public:
     }
 
     /// Create a Value from a boolean
-    [[nodiscard]] static constexpr Value from_bool(bool b) noexcept {
-        return Value{b};
-    }
+    [[nodiscard]] static constexpr Value from_bool(bool b) noexcept { return Value{b}; }
 
     /// Create a Value from a Handle
-    [[nodiscard]] static constexpr Value from_handle(Handle h) noexcept {
-        return Value{h};
-    }
+    [[nodiscard]] static constexpr Value from_handle(Handle h) noexcept { return Value{h}; }
 
     /// Create a Value from handle components
     [[nodiscard]] static constexpr Value from_handle(std::uint32_t idx,
-                                                      std::uint32_t gen) noexcept {
-        return Value{Handle{idx, gen}};
+                                                     std::uint32_t gen) noexcept {
+        return Value{Handle{.index = idx, .generation = gen}};
     }
 
     /// Create a nil Value
-    [[nodiscard]] static constexpr Value nil() noexcept {
-        return Value{};
-    }
+    [[nodiscard]] static constexpr Value nil() noexcept { return Value{}; }
 
     /// Create a zero float Value
     [[nodiscard]] static constexpr Value zero() noexcept {
@@ -219,13 +218,25 @@ public:
 
     /// Get the type of this Value
     [[nodiscard]] constexpr ValueType type() const noexcept {
-        if (is_float()) return ValueType::Float;
-        if (is_integer()) return ValueType::Integer;
-        if (is_bool()) return ValueType::Bool;
-        if (is_handle()) return ValueType::Handle;
-        if (is_nil()) return ValueType::Nil;
-        if (is_pointer()) return ValueType::Pointer;
-        return ValueType::Float; // Fallback (should not reach)
+        if (is_float()) {
+            return ValueType::Float;
+        }
+        if (is_integer()) {
+            return ValueType::Integer;
+        }
+        if (is_bool()) {
+            return ValueType::Bool;
+        }
+        if (is_handle()) {
+            return ValueType::Handle;
+        }
+        if (is_nil()) {
+            return ValueType::Nil;
+        }
+        if (is_pointer()) {
+            return ValueType::Pointer;
+        }
+        return ValueType::Float;  // Fallback (should not reach)
     }
 
     /// Check if this Value holds a float
@@ -257,9 +268,7 @@ public:
     }
 
     /// Check if this Value is nil
-    [[nodiscard]] constexpr bool is_nil() const noexcept {
-        return bits_ == nan_box::NIL_VALUE;
-    }
+    [[nodiscard]] constexpr bool is_nil() const noexcept { return bits_ == nan_box::NIL_VALUE; }
 
     /// Check if this Value holds a pointer
     [[nodiscard]] constexpr bool is_pointer() const noexcept {
@@ -267,9 +276,7 @@ public:
     }
 
     /// Check if this Value holds a numeric type (float or integer)
-    [[nodiscard]] constexpr bool is_numeric() const noexcept {
-        return is_float() || is_integer();
-    }
+    [[nodiscard]] constexpr bool is_numeric() const noexcept { return is_float() || is_integer(); }
 
     // Value accessors
 
@@ -284,24 +291,21 @@ public:
     [[nodiscard]] constexpr std::int64_t as_integer() const noexcept {
         // Sign-extend from 48 bits to 64 bits
         const auto val = static_cast<std::int64_t>(bits_ & nan_box::FULL_PAYLOAD);
-        constexpr std::int64_t sign_bit = 1LL << 47;
-        return (val ^ sign_bit) - sign_bit;
+        // NOLINTNEXTLINE(readability-identifier-naming)
+        constexpr std::int64_t kSignBit = 1LL << 47;
+        return (val ^ kSignBit) - kSignBit;
     }
 
     /// Get the boolean value
     /// @pre is_bool() == true
-    [[nodiscard]] constexpr bool as_bool() const noexcept {
-        return (bits_ & 1) != 0;
-    }
+    [[nodiscard]] constexpr bool as_bool() const noexcept { return (bits_ & 1) != 0; }
 
     /// Get the Handle value
     /// @pre is_handle() == true
     /// @note Generation is only 16 bits (masked from original)
     [[nodiscard]] constexpr Handle as_handle() const noexcept {
-        return Handle{
-            .index = static_cast<std::uint32_t>(bits_ & 0xFFFF'FFFF),
-            .generation = static_cast<std::uint32_t>((bits_ >> 32) & 0xFFFF)
-        };
+        return Handle{.index = static_cast<std::uint32_t>(bits_ & 0xFFFF'FFFF),
+                      .generation = static_cast<std::uint32_t>((bits_ >> 32) & 0xFFFF)};
     }
 
     /// Get the pointer value (sign-extended for canonical x86-64 addresses)
@@ -309,25 +313,26 @@ public:
     [[nodiscard]] void* as_pointer() const noexcept {
         // Sign-extend from 48 bits for canonical x86-64 addresses
         std::uint64_t addr = bits_ & nan_box::FULL_PAYLOAD;
-        if (addr & (1ULL << 47)) {
+        if ((addr & (1ULL << 47)) != 0) {
             addr |= 0xFFFF'0000'0000'0000ULL;
         }
+        // NOLINTNEXTLINE(performance-no-int-to-ptr) - intentional for VM pointer representation
         return reinterpret_cast<void*>(addr);
     }
 
     /// Get numeric value as double (works for both float and integer)
     /// @pre is_numeric() == true
     [[nodiscard]] constexpr double as_number() const noexcept {
-        if (is_float()) return as_float();
+        if (is_float()) {
+            return as_float();
+        }
         return static_cast<double>(as_integer());
     }
 
     // Raw access (for serialization, debugging)
 
     /// Get the raw 64-bit representation
-    [[nodiscard]] constexpr std::uint64_t raw_bits() const noexcept {
-        return bits_;
-    }
+    [[nodiscard]] constexpr std::uint64_t raw_bits() const noexcept { return bits_; }
 
     /// Create a Value from raw bits (use with caution)
     [[nodiscard]] static constexpr Value from_raw(std::uint64_t bits) noexcept {
@@ -359,11 +364,19 @@ public:
     /// Truthiness (for conditionals)
     /// nil and false are falsy; everything else is truthy
     [[nodiscard]] constexpr bool is_truthy() const noexcept {
-        if (is_nil()) return false;
-        if (is_bool()) return as_bool();
-        if (is_integer()) return as_integer() != 0;
-        if (is_float()) return as_float() != 0.0;
-        return true; // handles and pointers are truthy
+        if (is_nil()) {
+            return false;
+        }
+        if (is_bool()) {
+            return as_bool();
+        }
+        if (is_integer()) {
+            return as_integer() != 0;
+        }
+        if (is_float()) {
+            return as_float() != 0.0;
+        }
+        return true;  // handles and pointers are truthy
     }
 
 private:
@@ -383,140 +396,142 @@ static_assert(std::atomic<Value>::is_always_lock_free, "Value should be lock-fre
 /// Arithmetic and comparison operations for Values
 namespace value_ops {
 
-    /// Add two Values
-    /// Float + Float -> Float
-    /// Int + Int -> Int
-    /// Float + Int or Int + Float -> Float
-    /// Other combinations -> nil
-    [[nodiscard]] constexpr Value add(Value a, Value b) noexcept {
-        if (a.is_float() && b.is_float()) {
-            return Value::from_float(a.as_float() + b.as_float());
-        }
-        if (a.is_integer() && b.is_integer()) {
-            // Note: potential overflow, wraps in 48-bit space
-            return Value::from_int(a.as_integer() + b.as_integer());
-        }
-        if (a.is_numeric() && b.is_numeric()) {
-            // Mixed: promote to float
-            return Value::from_float(a.as_number() + b.as_number());
-        }
-        return Value::nil();
+/// Add two Values
+/// Float + Float -> Float
+/// Int + Int -> Int
+/// Float + Int or Int + Float -> Float
+/// Other combinations -> nil
+[[nodiscard]] constexpr Value add(Value a, Value b) noexcept {
+    if (a.is_float() && b.is_float()) {
+        return Value::from_float(a.as_float() + b.as_float());
     }
-
-    /// Subtract two Values
-    [[nodiscard]] constexpr Value sub(Value a, Value b) noexcept {
-        if (a.is_float() && b.is_float()) {
-            return Value::from_float(a.as_float() - b.as_float());
-        }
-        if (a.is_integer() && b.is_integer()) {
-            return Value::from_int(a.as_integer() - b.as_integer());
-        }
-        if (a.is_numeric() && b.is_numeric()) {
-            return Value::from_float(a.as_number() - b.as_number());
-        }
-        return Value::nil();
+    if (a.is_integer() && b.is_integer()) {
+        // Note: potential overflow, wraps in 48-bit space
+        return Value::from_int(a.as_integer() + b.as_integer());
     }
-
-    /// Multiply two Values
-    [[nodiscard]] constexpr Value mul(Value a, Value b) noexcept {
-        if (a.is_float() && b.is_float()) {
-            return Value::from_float(a.as_float() * b.as_float());
-        }
-        if (a.is_integer() && b.is_integer()) {
-            return Value::from_int(a.as_integer() * b.as_integer());
-        }
-        if (a.is_numeric() && b.is_numeric()) {
-            return Value::from_float(a.as_number() * b.as_number());
-        }
-        return Value::nil();
+    if (a.is_numeric() && b.is_numeric()) {
+        // Mixed: promote to float
+        return Value::from_float(a.as_number() + b.as_number());
     }
+    return Value::nil();
+}
 
-    /// Divide two Values
-    /// @note Integer division truncates toward zero
-    /// @note Division by zero returns nil (not infinity or NaN for integers)
-    [[nodiscard]] constexpr Value div(Value a, Value b) noexcept {
-        if (a.is_float() && b.is_float()) {
-            return Value::from_float(a.as_float() / b.as_float());
-        }
-        if (a.is_integer() && b.is_integer()) {
-            if (b.as_integer() == 0) return Value::nil();
-            return Value::from_int(a.as_integer() / b.as_integer());
-        }
-        if (a.is_numeric() && b.is_numeric()) {
-            return Value::from_float(a.as_number() / b.as_number());
-        }
-        return Value::nil();
+/// Subtract two Values
+[[nodiscard]] constexpr Value sub(Value a, Value b) noexcept {
+    if (a.is_float() && b.is_float()) {
+        return Value::from_float(a.as_float() - b.as_float());
     }
-
-    /// Modulo operation for integers
-    /// @note Only works on integers; returns nil for floats
-    [[nodiscard]] constexpr Value mod(Value a, Value b) noexcept {
-        if (a.is_integer() && b.is_integer()) {
-            if (b.as_integer() == 0) return Value::nil();
-            return Value::from_int(a.as_integer() % b.as_integer());
-        }
-        return Value::nil();
+    if (a.is_integer() && b.is_integer()) {
+        return Value::from_int(a.as_integer() - b.as_integer());
     }
-
-    /// Negate a Value
-    [[nodiscard]] constexpr Value neg(Value a) noexcept {
-        if (a.is_float()) {
-            return Value::from_float(-a.as_float());
-        }
-        if (a.is_integer()) {
-            return Value::from_int(-a.as_integer());
-        }
-        return Value::nil();
+    if (a.is_numeric() && b.is_numeric()) {
+        return Value::from_float(a.as_number() - b.as_number());
     }
+    return Value::nil();
+}
 
-    /// Compare two Values
-    /// Returns partial_ordering because NaN comparisons are unordered
-    [[nodiscard]] constexpr std::partial_ordering compare(Value a, Value b) noexcept {
-        // Same type comparisons
-        if (a.is_float() && b.is_float()) {
-            return a.as_float() <=> b.as_float();
+/// Multiply two Values
+[[nodiscard]] constexpr Value mul(Value a, Value b) noexcept {
+    if (a.is_float() && b.is_float()) {
+        return Value::from_float(a.as_float() * b.as_float());
+    }
+    if (a.is_integer() && b.is_integer()) {
+        return Value::from_int(a.as_integer() * b.as_integer());
+    }
+    if (a.is_numeric() && b.is_numeric()) {
+        return Value::from_float(a.as_number() * b.as_number());
+    }
+    return Value::nil();
+}
+
+/// Divide two Values
+/// @note Integer division truncates toward zero
+/// @note Division by zero returns nil (not infinity or NaN for integers)
+[[nodiscard]] constexpr Value div(Value a, Value b) noexcept {
+    if (a.is_float() && b.is_float()) {
+        return Value::from_float(a.as_float() / b.as_float());
+    }
+    if (a.is_integer() && b.is_integer()) {
+        if (b.as_integer() == 0) {
+            return Value::nil();
         }
-        if (a.is_integer() && b.is_integer()) {
-            return a.as_integer() <=> b.as_integer();
+        return Value::from_int(a.as_integer() / b.as_integer());
+    }
+    if (a.is_numeric() && b.is_numeric()) {
+        return Value::from_float(a.as_number() / b.as_number());
+    }
+    return Value::nil();
+}
+
+/// Modulo operation for integers
+/// @note Only works on integers; returns nil for floats
+[[nodiscard]] constexpr Value mod(Value a, Value b) noexcept {
+    if (a.is_integer() && b.is_integer()) {
+        if (b.as_integer() == 0) {
+            return Value::nil();
         }
-        if (a.is_bool() && b.is_bool()) {
-            return a.as_bool() <=> b.as_bool();
-        }
-        // Mixed numeric: promote to float
-        if (a.is_numeric() && b.is_numeric()) {
-            return a.as_number() <=> b.as_number();
-        }
-        // Different types or non-comparable
-        return std::partial_ordering::unordered;
+        return Value::from_int(a.as_integer() % b.as_integer());
     }
+    return Value::nil();
+}
 
-    /// Check if a < b
-    [[nodiscard]] constexpr bool less_than(Value a, Value b) noexcept {
-        auto cmp = compare(a, b);
-        return cmp == std::partial_ordering::less;
+/// Negate a Value
+[[nodiscard]] constexpr Value neg(Value a) noexcept {
+    if (a.is_float()) {
+        return Value::from_float(-a.as_float());
     }
-
-    /// Check if a > b
-    [[nodiscard]] constexpr bool greater_than(Value a, Value b) noexcept {
-        auto cmp = compare(a, b);
-        return cmp == std::partial_ordering::greater;
+    if (a.is_integer()) {
+        return Value::from_int(-a.as_integer());
     }
+    return Value::nil();
+}
 
-    /// Check if a <= b
-    [[nodiscard]] constexpr bool less_equal(Value a, Value b) noexcept {
-        auto cmp = compare(a, b);
-        return cmp == std::partial_ordering::less ||
-               cmp == std::partial_ordering::equivalent;
+/// Compare two Values
+/// Returns partial_ordering because NaN comparisons are unordered
+[[nodiscard]] constexpr std::partial_ordering compare(Value a, Value b) noexcept {
+    // Same type comparisons
+    if (a.is_float() && b.is_float()) {
+        return a.as_float() <=> b.as_float();
     }
-
-    /// Check if a >= b
-    [[nodiscard]] constexpr bool greater_equal(Value a, Value b) noexcept {
-        auto cmp = compare(a, b);
-        return cmp == std::partial_ordering::greater ||
-               cmp == std::partial_ordering::equivalent;
+    if (a.is_integer() && b.is_integer()) {
+        return a.as_integer() <=> b.as_integer();
     }
+    if (a.is_bool() && b.is_bool()) {
+        return static_cast<int>(a.as_bool()) <=> static_cast<int>(b.as_bool());
+    }
+    // Mixed numeric: promote to float
+    if (a.is_numeric() && b.is_numeric()) {
+        return a.as_number() <=> b.as_number();
+    }
+    // Different types or non-comparable
+    return std::partial_ordering::unordered;
+}
 
-} // namespace value_ops
+/// Check if a < b
+[[nodiscard]] constexpr bool less_than(Value a, Value b) noexcept {
+    auto cmp = compare(a, b);
+    return cmp == std::partial_ordering::less;
+}
+
+/// Check if a > b
+[[nodiscard]] constexpr bool greater_than(Value a, Value b) noexcept {
+    auto cmp = compare(a, b);
+    return cmp == std::partial_ordering::greater;
+}
+
+/// Check if a <= b
+[[nodiscard]] constexpr bool less_equal(Value a, Value b) noexcept {
+    auto cmp = compare(a, b);
+    return cmp == std::partial_ordering::less || cmp == std::partial_ordering::equivalent;
+}
+
+/// Check if a >= b
+[[nodiscard]] constexpr bool greater_equal(Value a, Value b) noexcept {
+    auto cmp = compare(a, b);
+    return cmp == std::partial_ordering::greater || cmp == std::partial_ordering::equivalent;
+}
+
+}  // namespace value_ops
 
 // ============================================================================
 // String Representation
@@ -543,20 +558,20 @@ namespace value_ops {
     return "Unknown";
 }
 
-} // namespace dotvm::core
+}  // namespace dotvm::core
 
 // ============================================================================
 // std::formatter specialization
 // ============================================================================
 
-template<>
+template <>
 struct std::formatter<dotvm::core::Value> : std::formatter<std::string> {
     auto format(dotvm::core::Value v, std::format_context& ctx) const {
         return std::formatter<std::string>::format(dotvm::core::to_string(v), ctx);
     }
 };
 
-template<>
+template <>
 struct std::formatter<dotvm::core::ValueType> : std::formatter<std::string_view> {
     auto format(dotvm::core::ValueType t, std::format_context& ctx) const {
         return std::formatter<std::string_view>::format(dotvm::core::type_name(t), ctx);

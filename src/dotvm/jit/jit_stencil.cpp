@@ -43,11 +43,11 @@ namespace stencils::x86_64 {
 /// mov rbp, rsp         ; 48 89 e5
 /// sub rsp, 0x40        ; 48 83 ec 40  (reserve 64 bytes, patched)
 static constexpr std::uint8_t prologue_code[] = {
-    0x55,                   // push rbp
-    0x48, 0x89, 0xe5,       // mov rbp, rsp
-    0x48, 0x83, 0xec, 0x40, // sub rsp, 0x40 (placeholder for frame size)
-    0x48, 0x89, 0x7d, 0xf8, // mov [rbp-8], rdi  (save regs ptr)
-    0x48, 0x89, 0x75, 0xf0, // mov [rbp-16], rsi (save ctx ptr)
+    0x55,                    // push rbp
+    0x48, 0x89, 0xe5,        // mov rbp, rsp
+    0x48, 0x83, 0xec, 0x40,  // sub rsp, 0x40 (placeholder for frame size)
+    0x48, 0x89, 0x7d, 0xf8,  // mov [rbp-8], rdi  (save regs ptr)
+    0x48, 0x89, 0x75, 0xf0,  // mov [rbp-16], rsi (save ctx ptr)
 };
 
 const Stencil prologue = {
@@ -67,10 +67,10 @@ const Stencil prologue = {
 /// pop rbp              ; 5d
 /// ret                  ; c3
 static constexpr std::uint8_t epilogue_code[] = {
-    0x48, 0x8b, 0x7d, 0xf8, // mov rdi, [rbp-8]  (restore regs ptr)
-    0x48, 0x83, 0xc4, 0x40, // add rsp, 0x40 (placeholder)
-    0x5d,                   // pop rbp
-    0xc3,                   // ret
+    0x48, 0x8b, 0x7d, 0xf8,  // mov rdi, [rbp-8]  (restore regs ptr)
+    0x48, 0x83, 0xc4, 0x40,  // add rsp, 0x40 (placeholder)
+    0x5d,                    // pop rbp
+    0xc3,                    // ret
 };
 
 const Stencil epilogue = {
@@ -103,9 +103,9 @@ const Stencil add = {
     .code = add_code,
     .code_size = sizeof(add_code),
     .holes = {{
-        {.offset = 3, .type = HoleType::Immediate32, .operand_index = 1, .adjustment = 0},  // src1
-        {.offset = 10, .type = HoleType::Immediate32, .operand_index = 2, .adjustment = 0}, // src2
-        {.offset = 17, .type = HoleType::Immediate32, .operand_index = 0, .adjustment = 0}, // dst
+        {.offset = 3, .type = HoleType::Immediate32, .operand_index = 1, .adjustment = 0},   // src1
+        {.offset = 10, .type = HoleType::Immediate32, .operand_index = 2, .adjustment = 0},  // src2
+        {.offset = 17, .type = HoleType::Immediate32, .operand_index = 0, .adjustment = 0},  // dst
     }},
     .hole_count = 3,
     .opcode = static_cast<std::uint8_t>(JitOpcode::ADD),
@@ -167,17 +167,21 @@ static constexpr std::uint8_t div_code[] = {
     0x48, 0x89, 0x87, 0xCC, 0xCC, 0xCC, 0xCC,  // mov [rdi + dst_offset], rax
     0xeb, 0x07,                                // jmp done
     // Error path: set dst to 0
-    0x48, 0xc7, 0x87, 0xCC, 0xCC, 0xCC, 0xCC, 0x00, 0x00, 0x00, 0x00,  // mov qword [rdi + dst_offset], 0
+    0x48, 0xc7, 0x87, 0xCC, 0xCC, 0xCC, 0xCC, 0x00, 0x00, 0x00,
+    0x00,  // mov qword [rdi + dst_offset], 0
 };
 
 const Stencil div = {
     .code = div_code,
     .code_size = sizeof(div_code),
     .holes = {{
-        {.offset = 3, .type = HoleType::Immediate32, .operand_index = 2, .adjustment = 0},  // src2
-        {.offset = 16, .type = HoleType::Immediate32, .operand_index = 1, .adjustment = 0}, // src1
-        {.offset = 27, .type = HoleType::Immediate32, .operand_index = 0, .adjustment = 0}, // dst
-        {.offset = 34, .type = HoleType::Immediate32, .operand_index = 0, .adjustment = 0}, // dst (error path)
+        {.offset = 3, .type = HoleType::Immediate32, .operand_index = 2, .adjustment = 0},   // src2
+        {.offset = 16, .type = HoleType::Immediate32, .operand_index = 1, .adjustment = 0},  // src1
+        {.offset = 27, .type = HoleType::Immediate32, .operand_index = 0, .adjustment = 0},  // dst
+        {.offset = 34,
+         .type = HoleType::Immediate32,
+         .operand_index = 0,
+         .adjustment = 0},  // dst (error path)
     }},
     .hole_count = 4,
     .opcode = static_cast<std::uint8_t>(JitOpcode::DIV),
@@ -188,17 +192,52 @@ const Stencil div = {
 /// Same as DIV but stores remainder (from rdx after idiv)
 static constexpr std::uint8_t mod_code[] = {
     // Check for division by zero
-    0x48, 0x8b, 0x8f, 0xCC, 0xCC, 0xCC, 0xCC,  // mov rcx, [rdi + src2_offset]
-    0x48, 0x85, 0xc9,                          // test rcx, rcx
-    0x74, 0x14,                                // jz error
+    0x48,
+    0x8b,
+    0x8f,
+    0xCC,
+    0xCC,
+    0xCC,
+    0xCC,  // mov rcx, [rdi + src2_offset]
+    0x48,
+    0x85,
+    0xc9,  // test rcx, rcx
+    0x74,
+    0x14,  // jz error
     // Perform division
-    0x48, 0x8b, 0x87, 0xCC, 0xCC, 0xCC, 0xCC,  // mov rax, [rdi + src1_offset]
-    0x48, 0x99,                                // cqo
-    0x48, 0xf7, 0xf9,                          // idiv rcx
-    0x48, 0x89, 0x97, 0xCC, 0xCC, 0xCC, 0xCC,  // mov [rdi + dst_offset], rdx (remainder)
-    0xeb, 0x07,                                // jmp done
+    0x48,
+    0x8b,
+    0x87,
+    0xCC,
+    0xCC,
+    0xCC,
+    0xCC,  // mov rax, [rdi + src1_offset]
+    0x48,
+    0x99,  // cqo
+    0x48,
+    0xf7,
+    0xf9,  // idiv rcx
+    0x48,
+    0x89,
+    0x97,
+    0xCC,
+    0xCC,
+    0xCC,
+    0xCC,  // mov [rdi + dst_offset], rdx (remainder)
+    0xeb,
+    0x07,  // jmp done
     // Error path
-    0x48, 0xc7, 0x87, 0xCC, 0xCC, 0xCC, 0xCC, 0x00, 0x00, 0x00, 0x00,
+    0x48,
+    0xc7,
+    0x87,
+    0xCC,
+    0xCC,
+    0xCC,
+    0xCC,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
 };
 
 const Stencil mod = {
@@ -540,7 +579,7 @@ static constexpr std::uint8_t interpreter_fallback_code[] = {
     // Arguments already in rdi (ctx) and rsi (pc)
     // Call the fallback function (address patched)
     0x48, 0xb8, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,  // mov rax, fallback_addr
-    0xff, 0xd0,  // call rax
+    0xff, 0xd0,                                                  // call rax
 };
 
 const Stencil interpreter_fallback = {
@@ -554,9 +593,9 @@ const Stencil interpreter_fallback = {
     .name = "interpreter_fallback",
 };
 
-} // namespace stencils::x86_64
+}  // namespace stencils::x86_64
 
-#endif // __x86_64__
+#endif  // __x86_64__
 
 // ============================================================================
 // StencilRegistry Implementation
@@ -592,4 +631,4 @@ StencilRegistry StencilRegistry::create_default() {
     return registry;
 }
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

@@ -48,7 +48,7 @@ inline constexpr Err_t Err{};
 ///     .map([](int x) { return x * 2; })
 ///     .value_or(-1);  // Returns 10
 /// ```
-template<typename T, typename E>
+template <typename T, typename E>
 class Result {
 public:
     using value_type = T;
@@ -67,13 +67,13 @@ public:
         : data_{std::in_place_index<1>, std::move(error)} {}
 
     /// @brief Construct success explicitly with Ok tag
-    template<typename U>
+    template <typename U>
         requires std::convertible_to<U, T>
     constexpr Result(Ok_t, U&& value) noexcept(std::is_nothrow_constructible_v<T, U&&>)
         : data_{std::in_place_index<0>, std::forward<U>(value)} {}
 
     /// @brief Construct error explicitly with Err tag
-    template<typename U>
+    template <typename U>
         requires std::convertible_to<U, E>
     constexpr Result(Err_t, U&& error) noexcept(std::is_nothrow_constructible_v<E, U&&>)
         : data_{std::in_place_index<1>, std::forward<U>(error)} {}
@@ -83,19 +83,13 @@ public:
     // =========================================================================
 
     /// @brief Check if the result contains a success value
-    [[nodiscard]] constexpr bool is_ok() const noexcept {
-        return data_.index() == 0;
-    }
+    [[nodiscard]] constexpr bool is_ok() const noexcept { return data_.index() == 0; }
 
     /// @brief Check if the result contains an error
-    [[nodiscard]] constexpr bool is_err() const noexcept {
-        return data_.index() == 1;
-    }
+    [[nodiscard]] constexpr bool is_err() const noexcept { return data_.index() == 1; }
 
     /// @brief Explicit boolean conversion (true if success)
-    [[nodiscard]] constexpr explicit operator bool() const noexcept {
-        return is_ok();
-    }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return is_ok(); }
 
     // =========================================================================
     // Value Access
@@ -103,27 +97,19 @@ public:
 
     /// @brief Get the success value (const lvalue reference)
     /// @pre is_ok() must be true
-    [[nodiscard]] constexpr const T& value() const& noexcept {
-        return std::get<0>(data_);
-    }
+    [[nodiscard]] constexpr const T& value() const& noexcept { return std::get<0>(data_); }
 
     /// @brief Get the success value (lvalue reference)
     /// @pre is_ok() must be true
-    [[nodiscard]] constexpr T& value() & noexcept {
-        return std::get<0>(data_);
-    }
+    [[nodiscard]] constexpr T& value() & noexcept { return std::get<0>(data_); }
 
     /// @brief Get the success value (rvalue reference)
     /// @pre is_ok() must be true
-    [[nodiscard]] constexpr T&& value() && noexcept {
-        return std::get<0>(std::move(data_));
-    }
+    [[nodiscard]] constexpr T&& value() && noexcept { return std::get<0>(std::move(data_)); }
 
     /// @brief Get the error value
     /// @pre is_err() must be true
-    [[nodiscard]] constexpr E error() const noexcept {
-        return std::get<1>(data_);
-    }
+    [[nodiscard]] constexpr E error() const noexcept { return std::get<1>(data_); }
 
     /// @brief Get the value or a default
     [[nodiscard]] constexpr T value_or(T default_value) const& noexcept {
@@ -153,7 +139,7 @@ public:
     ///
     /// @param f Function to apply to the success value
     /// @return Result<U, E> where U is the return type of f
-    template<typename F>
+    template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) const& -> Result<std::invoke_result_t<F, const T&>, E> {
         using U = std::invoke_result_t<F, const T&>;
         if (is_ok()) {
@@ -163,7 +149,7 @@ public:
     }
 
     /// @brief Transform the success value with a function (move semantics)
-    template<typename F>
+    template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) && -> Result<std::invoke_result_t<F, T&&>, E> {
         using U = std::invoke_result_t<F, T&&>;
         if (is_ok()) {
@@ -177,7 +163,7 @@ public:
     /// If this Result is Err, applies f to the error and returns a new Result
     /// containing the transformed error. If this Result is Ok, returns
     /// a new Result with the same value.
-    template<typename F>
+    template <typename F>
     [[nodiscard]] constexpr auto map_err(F&& f) const& -> Result<T, std::invoke_result_t<F, E>> {
         using U = std::invoke_result_t<F, E>;
         if (is_err()) {
@@ -193,7 +179,7 @@ public:
     ///
     /// @param f Function returning Result<U, E>
     /// @return The result of f, or the original error
-    template<typename F>
+    template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) const& -> std::invoke_result_t<F, const T&> {
         if (is_ok()) {
             return std::invoke(std::forward<F>(f), value());
@@ -202,7 +188,7 @@ public:
     }
 
     /// @brief Chain computations that return Result (move semantics)
-    template<typename F>
+    template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) && -> std::invoke_result_t<F, T&&> {
         if (is_ok()) {
             return std::invoke(std::forward<F>(f), std::move(*this).value());
@@ -214,7 +200,7 @@ public:
     ///
     /// If this Result is Err, applies f to the error. f must return a Result<T, F>.
     /// If this Result is Ok, returns a copy of this Result.
-    template<typename F>
+    template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) const& -> std::invoke_result_t<F, E> {
         if (is_err()) {
             return std::invoke(std::forward<F>(f), error());
@@ -227,7 +213,7 @@ public:
     // =========================================================================
 
     /// @brief Execute a function if this Result is Ok
-    template<typename F>
+    template <typename F>
     constexpr const Result& inspect(F&& f) const& {
         if (is_ok()) {
             std::invoke(std::forward<F>(f), value());
@@ -236,7 +222,7 @@ public:
     }
 
     /// @brief Execute a function if this Result is Err
-    template<typename F>
+    template <typename F>
     constexpr const Result& inspect_err(F&& f) const& {
         if (is_err()) {
             std::invoke(std::forward<F>(f), error());
@@ -249,7 +235,7 @@ private:
 };
 
 /// @brief Specialization for void success type
-template<typename E>
+template <typename E>
 class Result<void, E> {
 public:
     using value_type = void;
@@ -266,28 +252,20 @@ public:
         : data_{std::in_place_index<1>, std::move(error)} {}
 
     /// @brief Construct error explicitly with Err tag
-    template<typename U>
+    template <typename U>
         requires std::convertible_to<U, E>
     constexpr Result(Err_t, U&& error) noexcept(std::is_nothrow_constructible_v<E, U&&>)
         : data_{std::in_place_index<1>, std::forward<U>(error)} {}
 
-    [[nodiscard]] constexpr bool is_ok() const noexcept {
-        return data_.index() == 0;
-    }
+    [[nodiscard]] constexpr bool is_ok() const noexcept { return data_.index() == 0; }
 
-    [[nodiscard]] constexpr bool is_err() const noexcept {
-        return data_.index() == 1;
-    }
+    [[nodiscard]] constexpr bool is_err() const noexcept { return data_.index() == 1; }
 
-    [[nodiscard]] constexpr explicit operator bool() const noexcept {
-        return is_ok();
-    }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return is_ok(); }
 
-    [[nodiscard]] constexpr E error() const noexcept {
-        return std::get<1>(data_);
-    }
+    [[nodiscard]] constexpr E error() const noexcept { return std::get<1>(data_); }
 
-    template<typename F>
+    template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) const -> std::invoke_result_t<F> {
         if (is_ok()) {
             return std::invoke(std::forward<F>(f));

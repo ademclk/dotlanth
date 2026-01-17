@@ -18,11 +18,10 @@ std::unique_ptr<JitContext> JitContext::create(const JitConfig& config) {
 }
 
 JitContext::JitContext(const JitConfig& config)
-    : config_(config)
-    , profiler_(config)
-    , stencils_(StencilRegistry::create_default())
-    , cache_(config)
-{}
+    : config_(config),
+      profiler_(config),
+      stencils_(StencilRegistry::create_default()),
+      cache_(config) {}
 
 JitContext::~JitContext() = default;
 
@@ -48,18 +47,12 @@ bool JitContext::initialize() {
 // Function Registration and Profiling
 // ============================================================================
 
-FunctionId JitContext::register_function(
-    std::size_t entry_pc,
-    std::size_t end_pc
-) {
+FunctionId JitContext::register_function(std::size_t entry_pc, std::size_t end_pc) {
     return profiler_.register_function(entry_pc, end_pc);
 }
 
-LoopId JitContext::register_loop(
-    FunctionId func_id,
-    std::size_t header_pc,
-    std::size_t backedge_pc
-) {
+LoopId JitContext::register_loop(FunctionId func_id, std::size_t header_pc,
+                                 std::size_t backedge_pc) {
     return profiler_.register_loop(func_id, header_pc, backedge_pc);
 }
 
@@ -93,10 +86,7 @@ std::optional<LoopId> JitContext::find_loop(std::size_t backedge_pc) const noexc
 // Compilation
 // ============================================================================
 
-JitStatus JitContext::compile_function(
-    FunctionId func_id,
-    std::span<const std::uint8_t> bytecode
-) {
+JitStatus JitContext::compile_function(FunctionId func_id, std::span<const std::uint8_t> bytecode) {
     if (!initialized_ || !config_.enabled) {
         return JitStatus::Disabled;
     }
@@ -132,13 +122,7 @@ JitStatus JitContext::compile_function(
     }
 
     // Store in cache
-    if (!cache_.store(
-        func_id,
-        result->code,
-        result->code_size,
-        result->entry_pc,
-        result->end_pc
-    )) {
+    if (!cache_.store(func_id, result->code, result->code_size, result->entry_pc, result->end_pc)) {
         return JitStatus::CacheFull;
     }
 
@@ -148,10 +132,7 @@ JitStatus JitContext::compile_function(
     return JitStatus::Success;
 }
 
-OsrStatus JitContext::compile_osr(
-    LoopId loop_id,
-    std::span<const std::uint8_t> bytecode
-) {
+OsrStatus JitContext::compile_osr(LoopId loop_id, std::span<const std::uint8_t> bytecode) {
     if (!config_.osr_enabled) {
         return OsrStatus::Disabled;
     }
@@ -189,12 +170,9 @@ OsrStatus JitContext::compile_osr(
     // For a real implementation, we'd calculate the offset within
     // the compiled code that corresponds to the loop header
     // For now, we just use the function entry
-    cache_.register_osr_entry(
-        loop_id,
-        entry->code,  // Would be entry->code + loop_offset
-        loop_profile->header_pc,
-        func_id
-    );
+    cache_.register_osr_entry(loop_id,
+                              entry->code,  // Would be entry->code + loop_offset
+                              loop_profile->header_pc, func_id);
 
     profiler_.mark_osr_triggered(loop_id);
 
@@ -221,11 +199,7 @@ const OsrEntry* JitContext::lookup_osr(LoopId loop_id) noexcept {
     return cache_.lookup_osr(loop_id);
 }
 
-void JitContext::execute(
-    const CompiledEntry* entry,
-    void* regs,
-    void* ctx
-) noexcept {
+void JitContext::execute(const CompiledEntry* entry, void* regs, void* ctx) noexcept {
     if (!entry || !entry->is_valid()) [[unlikely]] {
         return;
     }
@@ -290,4 +264,4 @@ JitContext::Stats JitContext::stats() const noexcept {
     return s;
 }
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

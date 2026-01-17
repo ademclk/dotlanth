@@ -1,13 +1,12 @@
 /// @file executor.cpp
 /// @brief Instruction executor implementation
 
-#include <dotvm/core/executor.hpp>
-
 #include <bit>
 #include <cmath>
 #include <limits>
 
 #include <dotvm/core/arch_config.hpp>
+#include <dotvm/core/executor.hpp>
 
 namespace dotvm::core {
 
@@ -161,8 +160,7 @@ StepResult ArithmeticExecutor::div_op(std::uint8_t rd, Value a, Value b) noexcep
     // Check for overflow: INT64_MIN / -1 overflows
     const auto dividend = a.as_integer();
     if (ctx_.config().strict_overflow) [[unlikely]] {
-        if (dividend == std::numeric_limits<std::int64_t>::min() && divisor == -1)
-            [[unlikely]] {
+        if (dividend == std::numeric_limits<std::int64_t>::min() && divisor == -1) [[unlikely]] {
             return write_overflow(rd, ctx_.alu().div(a, b));
         }
     }
@@ -264,7 +262,7 @@ StepResult FloatingPointExecutor::write_fp_invalid(std::uint8_t rd, double resul
 }
 
 StepResult FloatingPointExecutor::write_conversion_overflow(std::uint8_t rd,
-                                                             std::int64_t result) noexcept {
+                                                            std::int64_t result) noexcept {
     ctx_.registers().write(rd, ctx_.make_int(result));
     return StepResult::make_error(ExecutionError::ConversionOverflow);
 }
@@ -348,12 +346,12 @@ StepResult FloatingPointExecutor::f2i_op(std::uint8_t rd, Value a) noexcept {
 
     // Get architecture-specific integer limits
     // Arch32: 32-bit signed, Arch64: 48-bit signed (NaN-boxing)
-    const std::int64_t int_max = ctx_.is_arch32()
-        ? static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max())
-        : arch_config::INT48_MAX;
-    const std::int64_t int_min = ctx_.is_arch32()
-        ? static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::min())
-        : arch_config::INT48_MIN;
+    const std::int64_t int_max =
+        ctx_.is_arch32() ? static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max())
+                         : arch_config::INT48_MAX;
+    const std::int64_t int_min =
+        ctx_.is_arch32() ? static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::min())
+                         : arch_config::INT48_MIN;
 
     // Handle special cases with saturation semantics
     if (std::isnan(fa)) [[unlikely]] {
@@ -444,8 +442,7 @@ ExecutionError Executor::run(std::uint64_t max_instructions) noexcept {
 
     while (!state_.halted) {
         // Check instruction limit
-        if (has_limit && state_.instructions_executed >= max_instructions)
-            [[unlikely]] {
+        if (has_limit && state_.instructions_executed >= max_instructions) [[unlikely]] {
             state_.last_error = ExecutionError::InstructionLimitExceeded;
             return ExecutionError::InstructionLimitExceeded;
         }
@@ -453,8 +450,7 @@ ExecutionError Executor::run(std::uint64_t max_instructions) noexcept {
         auto result = step();
 
         // Fatal error stops execution
-        if (is_fatal_error(result.err) && result.err != ExecutionError::Halted)
-            [[unlikely]] {
+        if (is_fatal_error(result.err) && result.err != ExecutionError::Halted) [[unlikely]] {
             return result.err;
         }
     }
@@ -474,10 +470,9 @@ std::uint32_t Executor::fetch() const noexcept {
 
     // Use std::bit_cast for efficient byte-to-int conversion if aligned,
     // otherwise manual composition for portability
-    std::uint32_t instr = static_cast<std::uint32_t>(ptr[0]) |
-                          (static_cast<std::uint32_t>(ptr[1]) << 8) |
-                          (static_cast<std::uint32_t>(ptr[2]) << 16) |
-                          (static_cast<std::uint32_t>(ptr[3]) << 24);
+    std::uint32_t instr =
+        static_cast<std::uint32_t>(ptr[0]) | (static_cast<std::uint32_t>(ptr[1]) << 8) |
+        (static_cast<std::uint32_t>(ptr[2]) << 16) | (static_cast<std::uint32_t>(ptr[3]) << 24);
     return instr;
 }
 
@@ -536,8 +531,7 @@ StepResult Executor::dispatch(std::uint32_t instr) noexcept {
     return StepResult::make_error(ExecutionError::NotImplemented);
 }
 
-StepResult Executor::dispatch_arithmetic(std::uint32_t instr,
-                                          std::uint8_t op) noexcept {
+StepResult Executor::dispatch_arithmetic(std::uint32_t instr, std::uint8_t op) noexcept {
     // Type B (immediate) instructions
     if (is_type_b_arithmetic(op)) {
         const auto decoded = decode_type_b(instr);
@@ -549,8 +543,7 @@ StepResult Executor::dispatch_arithmetic(std::uint32_t instr,
     return arith_exec_.execute_type_a(decoded);
 }
 
-StepResult Executor::dispatch_floating_point(std::uint32_t instr,
-                                              std::uint8_t /*op*/) noexcept {
+StepResult Executor::dispatch_floating_point(std::uint32_t instr, std::uint8_t /*op*/) noexcept {
     // All floating-point instructions use Type A format
     const auto decoded = decode_type_a(instr);
     return fp_exec_.execute_type_a(decoded);
@@ -643,8 +636,7 @@ StepResult BitwiseExecutor::execute_type_b(const DecodedTypeB& decoded) noexcept
 // Executor Bitwise Dispatch (delegates to BitwiseExecutor)
 // ============================================================================
 
-StepResult Executor::dispatch_bitwise(std::uint32_t instr,
-                                       std::uint8_t op) noexcept {
+StepResult Executor::dispatch_bitwise(std::uint32_t instr, std::uint8_t op) noexcept {
     // Type S (shift-immediate) instructions
     if (is_type_s_bitwise(op)) {
         const auto decoded = decode_type_s(instr);
@@ -662,8 +654,7 @@ StepResult Executor::dispatch_bitwise(std::uint32_t instr,
     return bitwise_exec_.execute_type_a(decoded);
 }
 
-StepResult Executor::dispatch_control_flow(std::uint32_t /*instr*/,
-                                            std::uint8_t op) noexcept {
+StepResult Executor::dispatch_control_flow(std::uint32_t /*instr*/, std::uint8_t op) noexcept {
     switch (op) {
         case opcode::HALT:
             return StepResult::halt();
@@ -675,8 +666,7 @@ StepResult Executor::dispatch_control_flow(std::uint32_t /*instr*/,
     }
 }
 
-StepResult Executor::dispatch_system(std::uint32_t /*instr*/,
-                                      std::uint8_t op) noexcept {
+StepResult Executor::dispatch_system(std::uint32_t /*instr*/, std::uint8_t op) noexcept {
     switch (op) {
         case opcode::NOP:
             return StepResult::success();

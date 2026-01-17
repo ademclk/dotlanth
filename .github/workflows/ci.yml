@@ -1,0 +1,379 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LLVM_VERSION: 19
+  CMAKE_VERSION: 3.28
+
+jobs:
+  # ============================================================================
+  # Build and Test (Release)
+  # ============================================================================
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM/Clang
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-$LLVM_VERSION main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-$LLVM_VERSION lld-$LLVM_VERSION libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev ninja-build
+
+          # Set up alternatives
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/lld lld /usr/bin/lld-$LLVM_VERSION 1000
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: v2-clang-release-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+          restore-keys: |
+            v2-clang-release-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+            v2-clang-release-llvm${{ env.LLVM_VERSION }}-refs/heads/main
+            v2-clang-release-llvm${{ env.LLVM_VERSION }}-
+
+      - name: Configure
+        run: |
+          cmake --preset ci-clang-release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build --preset ci-clang-release
+
+      - name: Test
+        run: ctest --preset ci-clang-release
+
+      - name: Upload compile_commands.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: compile-commands
+          path: build/ci-clang-release/compile_commands.json
+          retention-days: 1
+
+  # ============================================================================
+  # Sanitizers (ASan + UBSan)
+  # ============================================================================
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM/Clang
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-$LLVM_VERSION main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-$LLVM_VERSION lld-$LLVM_VERSION libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev ninja-build
+
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 1000
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: v2-clang-sanitizers-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+          restore-keys: |
+            v2-clang-sanitizers-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
+            v2-clang-sanitizers-llvm${{ env.LLVM_VERSION }}-refs/heads/main
+            v2-clang-sanitizers-llvm${{ env.LLVM_VERSION }}-
+
+      - name: Configure
+        run: |
+          cmake --preset ci-clang-sanitizers \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build --preset ci-clang-sanitizers
+
+      - name: Test with Sanitizers
+        run: ctest --preset ci-clang-sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1:check_initialization_order=1:strict_init_order=1:detect_stack_use_after_return=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+
+  # ============================================================================
+  # Static Analysis (clang-tidy)
+  # ============================================================================
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-24.04
+    needs: build-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for diff analysis on PRs
+
+      - name: Install LLVM/Clang
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-$LLVM_VERSION main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-$LLVM_VERSION clang-tidy-$LLVM_VERSION libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev ninja-build
+
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$LLVM_VERSION 1000
+
+      - name: Download compile_commands.json
+        uses: actions/download-artifact@v4
+        with:
+          name: compile-commands
+          path: build/ci-clang-release
+
+      - name: Clean compile_commands.json
+        run: |
+          # Remove C++20 module map references from compile_commands.json
+          # These files only exist during the build job, not in the downloaded artifact
+          # The pattern matches: @CMakeFiles/.../*.modmap (with or without quotes)
+          sed -i -E 's/"?@[^"[:space:]]*\.modmap"?//g' build/ci-clang-release/compile_commands.json
+
+      - name: Run clang-tidy (Full - Push to main)
+        if: github.event_name == 'push'
+        run: |
+          # Only analyze .cpp files (headers are analyzed through includes)
+          find src -name '*.cpp' | head -100 > files.txt
+
+          echo "Running clang-tidy on $(wc -l < files.txt) source files..."
+
+          # Run clang-tidy with explicit header filter for speed
+          xargs -a files.txt -P $(nproc) -I {} \
+            clang-tidy {} -p build/ci-clang-release \
+            --header-filter='.*include/dotvm/.*' \
+            --quiet 2>&1 | tee clang-tidy-output.txt
+
+          # Check for real errors (exclude modmap file-not-found errors)
+          if grep -E "error:" clang-tidy-output.txt | grep -v "\.modmap" | grep -q "error:"; then
+            echo "clang-tidy found errors!"
+            grep -E "error:" clang-tidy-output.txt | grep -v "\.modmap"
+            exit 1
+          fi
+
+      - name: Run clang-tidy (Diff - Pull Request)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # Get changed .cpp files in this PR (headers analyzed through includes)
+          git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA" \
+            | grep -E '\.cpp$' \
+            | grep -E '^src/' \
+            > changed_files.txt || true
+
+          if [ ! -s changed_files.txt ]; then
+            echo "No C++ source files changed in this PR"
+            exit 0
+          fi
+
+          echo "Analyzing $(wc -l < changed_files.txt) changed files..."
+
+          # Run clang-tidy with explicit header filter for speed
+          xargs -a changed_files.txt -P $(nproc) -I {} \
+            clang-tidy {} -p build/ci-clang-release \
+            --header-filter='.*include/dotvm/.*' \
+            --quiet 2>&1 | tee clang-tidy-output.txt
+
+          # Check for real errors (exclude modmap file-not-found errors)
+          if grep -E "error:" clang-tidy-output.txt | grep -v "\.modmap" | grep -q "error:"; then
+            echo "clang-tidy found errors!"
+            grep -E "error:" clang-tidy-output.txt | grep -v "\.modmap"
+            exit 1
+          fi
+
+  # ============================================================================
+  # Code Coverage
+  # ============================================================================
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM/Clang
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-$LLVM_VERSION main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-$LLVM_VERSION llvm-$LLVM_VERSION libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev ninja-build
+
+          # Use priority 1000 to override any pre-installed versions
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/llvm-cov llvm-cov /usr/bin/llvm-cov-$LLVM_VERSION 1000
+
+      - name: Verify LLVM Version
+        run: |
+          echo "=== Compiler versions ==="
+          clang --version
+          clang++ --version
+          llvm-profdata show --version
+          llvm-cov --version
+
+      # Ensure completely clean build for coverage to avoid stale profiling data
+      - name: Clean Build Environment
+        run: |
+          # Remove any stale build artifacts
+          rm -rf build/ci-clang-coverage
+          # Disable ccache to ensure fresh compilation
+          rm -rf ~/.ccache
+          mkdir -p ~/.ccache
+          echo "max_size = 0" > ~/.ccache/ccache.conf
+          echo "disable = true" >> ~/.ccache/ccache.conf
+
+      - name: Configure
+        run: cmake --preset ci-clang-coverage
+
+      - name: Build
+        run: cmake --build --preset ci-clang-coverage
+
+      - name: Run Tests with Coverage
+        run: |
+          cd build/ci-clang-coverage
+          # Use absolute path to ensure profraw files are collected in build dir
+          LLVM_PROFILE_FILE="$PWD/coverage-%p-%m.profraw" ctest --output-on-failure
+
+      - name: Generate Coverage Report
+        run: |
+          cd build/ci-clang-coverage
+
+          # Find and merge all raw profiles (tests may write to different locations)
+          find . -name '*.profraw' -type f | head -20
+          llvm-profdata merge -sparse $(find . -name '*.profraw' -type f) -o coverage.profdata
+
+          # Generate JSON report for processing
+          llvm-cov export ./dotvm_tests \
+            -instr-profile=coverage.profdata \
+            -ignore-filename-regex='(_deps|tests|benchmarks|fuzz)/' \
+            -format=lcov > coverage.lcov
+
+          # Generate text summary
+          llvm-cov report ./dotvm_tests \
+            -instr-profile=coverage.profdata \
+            -ignore-filename-regex='(_deps|tests|benchmarks|fuzz)/' \
+            > coverage-summary.txt
+
+          echo "## Coverage Summary"
+          cat coverage-summary.txt
+
+      - name: Generate Cobertura XML
+        run: |
+          pip install lcov_cobertura
+          cd build/ci-clang-coverage
+          lcov_cobertura coverage.lcov -o coverage.xml
+
+      - name: Post Coverage Comment
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: build/ci-clang-coverage/coverage.xml
+          badge: false
+          fail_below_min: false
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: true
+          indicators: true
+          output: both
+          thresholds: '60 80'
+
+      - name: Add Coverage PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: github.event_name == 'pull_request'
+        with:
+          recreate: true
+          path: code-coverage-results.md
+
+  # ============================================================================
+  # Format Check (Informational - does not block PR)
+  # ============================================================================
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-24.04
+    continue-on-error: true  # Don't block PR on format issues
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for diff analysis on PRs
+
+      - name: Install clang-format
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-$LLVM_VERSION main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-format-$LLVM_VERSION
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-$LLVM_VERSION 1000
+
+      - name: Check Formatting (Full - Push to main)
+        if: github.event_name == 'push'
+        run: |
+          find src include -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | head -500 > files.txt
+
+          echo "Checking formatting on all source files..."
+          xargs -a files.txt clang-format --dry-run --Werror 2>&1 | tee format-output.txt
+
+          if [ -s format-output.txt ]; then
+            echo "Formatting issues found. Run 'clang-format -i' on the files above."
+            exit 1
+          fi
+
+          echo "All files properly formatted!"
+
+      - name: Check Formatting (Diff - Pull Request)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # Get changed C++ files in this PR
+          git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA" \
+            | grep -E '\.(cpp|hpp|h)$' \
+            | grep -E '^(src|include)/' \
+            > changed_files.txt || true
+
+          if [ ! -s changed_files.txt ]; then
+            echo "No C++ source files changed in this PR"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          cat changed_files.txt
+
+          echo "Checking formatting on changed files..."
+          xargs -a changed_files.txt clang-format --dry-run --Werror 2>&1 | tee format-output.txt
+
+          if [ -s format-output.txt ]; then
+            echo "Formatting issues found. Run 'clang-format -i' on the files above."
+            exit 1
+          fi
+
+          echo "All changed files properly formatted!"

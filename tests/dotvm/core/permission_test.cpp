@@ -78,25 +78,25 @@ TEST(PermissionEnumTest, CompoundXorAssignment) {
 // ============================================================================
 
 TEST(PermissionComboTest, ReadOnlyContainsCorrectPermissions) {
-    EXPECT_TRUE(has_permission(ReadOnly, Permission::Execute));
-    EXPECT_TRUE(has_permission(ReadOnly, Permission::ReadMemory));
-    EXPECT_TRUE(has_permission(ReadOnly, Permission::ReadState));
-    EXPECT_FALSE(has_permission(ReadOnly, Permission::WriteMemory));
-    EXPECT_FALSE(has_permission(ReadOnly, Permission::WriteState));
+    EXPECT_TRUE(has_permission(kReadOnly, Permission::Execute));
+    EXPECT_TRUE(has_permission(kReadOnly, Permission::ReadMemory));
+    EXPECT_TRUE(has_permission(kReadOnly, Permission::ReadState));
+    EXPECT_FALSE(has_permission(kReadOnly, Permission::WriteMemory));
+    EXPECT_FALSE(has_permission(kReadOnly, Permission::WriteState));
 }
 
 TEST(PermissionComboTest, ReadWriteContainsCorrectPermissions) {
-    EXPECT_TRUE(has_permission(ReadWrite, Permission::Execute));
-    EXPECT_TRUE(has_permission(ReadWrite, Permission::ReadMemory));
-    EXPECT_TRUE(has_permission(ReadWrite, Permission::ReadState));
-    EXPECT_TRUE(has_permission(ReadWrite, Permission::WriteMemory));
-    EXPECT_TRUE(has_permission(ReadWrite, Permission::WriteState));
-    EXPECT_FALSE(has_permission(ReadWrite, Permission::SpawnDot));
+    EXPECT_TRUE(has_permission(kReadWrite, Permission::Execute));
+    EXPECT_TRUE(has_permission(kReadWrite, Permission::ReadMemory));
+    EXPECT_TRUE(has_permission(kReadWrite, Permission::ReadState));
+    EXPECT_TRUE(has_permission(kReadWrite, Permission::WriteMemory));
+    EXPECT_TRUE(has_permission(kReadWrite, Permission::WriteState));
+    EXPECT_FALSE(has_permission(kReadWrite, Permission::SpawnDot));
 }
 
 TEST(PermissionComboTest, ReadWriteIsSupersetOfReadOnly) {
-    EXPECT_TRUE(is_subset(ReadWrite, ReadOnly));
-    EXPECT_FALSE(is_subset(ReadOnly, ReadWrite));
+    EXPECT_TRUE(is_subset(kReadWrite, kReadOnly));
+    EXPECT_FALSE(is_subset(kReadOnly, kReadWrite));
 }
 
 // ============================================================================
@@ -310,7 +310,7 @@ TEST(PermissionSetTest, Clear) {
 TEST(PermissionSetTest, Set) {
     PermissionSet ps{Permission::Execute};
 
-    ps.set(ReadOnly);
+    ps.set(kReadOnly);
     EXPECT_TRUE(ps.has_permission(Permission::Execute));
     EXPECT_TRUE(ps.has_permission(Permission::ReadMemory));
     EXPECT_TRUE(ps.has_permission(Permission::ReadState));
@@ -548,7 +548,7 @@ TEST(PermissionConstexprTest, PresetConstexpr) {
 }
 
 TEST(PermissionConstexprTest, ComboConstexpr) {
-    static_assert(has_permission(ReadOnly, Permission::Execute));
-    static_assert(has_permission(ReadWrite, Permission::WriteMemory));
-    static_assert(is_subset(ReadWrite, ReadOnly));
+    static_assert(has_permission(kReadOnly, Permission::Execute));
+    static_assert(has_permission(kReadWrite, Permission::WriteMemory));
+    static_assert(is_subset(kReadWrite, kReadOnly));
 }

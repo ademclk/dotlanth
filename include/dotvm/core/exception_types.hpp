@@ -106,17 +106,28 @@ inline constexpr std::uint8_t CUSTOM = 0x80;
 /// @return String representation of the error code
 [[nodiscard]] constexpr std::string_view to_string(ErrorCode code) noexcept {
     switch (code) {
-        case ErrorCode::None:            return "None";
-        case ErrorCode::DivByZero:       return "DivByZero";
-        case ErrorCode::OutOfBounds:     return "OutOfBounds";
-        case ErrorCode::StackOverflow:   return "StackOverflow";
-        case ErrorCode::InvalidHandle:   return "InvalidHandle";
-        case ErrorCode::TypeMismatch:    return "TypeMismatch";
-        case ErrorCode::NullPointer:     return "NullPointer";
-        case ErrorCode::AssertionFailed: return "AssertionFailed";
-        case ErrorCode::InvalidArgument: return "InvalidArgument";
-        case ErrorCode::NotSupported:    return "NotSupported";
-        case ErrorCode::IoError:         return "IoError";
+        case ErrorCode::None:
+            return "None";
+        case ErrorCode::DivByZero:
+            return "DivByZero";
+        case ErrorCode::OutOfBounds:
+            return "OutOfBounds";
+        case ErrorCode::StackOverflow:
+            return "StackOverflow";
+        case ErrorCode::InvalidHandle:
+            return "InvalidHandle";
+        case ErrorCode::TypeMismatch:
+            return "TypeMismatch";
+        case ErrorCode::NullPointer:
+            return "NullPointer";
+        case ErrorCode::AssertionFailed:
+            return "AssertionFailed";
+        case ErrorCode::InvalidArgument:
+            return "InvalidArgument";
+        case ErrorCode::NotSupported:
+            return "NotSupported";
+        case ErrorCode::IoError:
+            return "IoError";
         default:
             if (static_cast<std::uint32_t>(code) >= static_cast<std::uint32_t>(ErrorCode::Custom)) {
                 return "Custom";
@@ -134,13 +145,20 @@ inline constexpr std::uint8_t CUSTOM = 0x80;
 /// @return Catch mask bit for this error code
 [[nodiscard]] constexpr std::uint8_t error_to_catch_mask(ErrorCode code) noexcept {
     switch (code) {
-        case ErrorCode::None:          return 0;
-        case ErrorCode::DivByZero:     return catch_mask::DIVZERO;
-        case ErrorCode::OutOfBounds:   return catch_mask::BOUNDS;
-        case ErrorCode::StackOverflow: return catch_mask::STACK;
-        case ErrorCode::InvalidHandle: return catch_mask::HANDLE;
-        case ErrorCode::TypeMismatch:  return catch_mask::TYPE;
-        case ErrorCode::NullPointer:   return catch_mask::NULLPTR;
+        case ErrorCode::None:
+            return 0;
+        case ErrorCode::DivByZero:
+            return catch_mask::DIVZERO;
+        case ErrorCode::OutOfBounds:
+            return catch_mask::BOUNDS;
+        case ErrorCode::StackOverflow:
+            return catch_mask::STACK;
+        case ErrorCode::InvalidHandle:
+            return catch_mask::HANDLE;
+        case ErrorCode::TypeMismatch:
+            return catch_mask::TYPE;
+        case ErrorCode::NullPointer:
+            return catch_mask::NULLPTR;
         default:
             // User-defined exceptions and others map to CUSTOM
             return catch_mask::CUSTOM;
@@ -216,16 +234,12 @@ struct Exception {
     /// Check if an exception is currently active
     ///
     /// @return true if type_id is not None
-    [[nodiscard]] bool is_active() const noexcept {
-        return type_id != ErrorCode::None;
-    }
+    [[nodiscard]] bool is_active() const noexcept { return type_id != ErrorCode::None; }
 
     /// Check if this is a user-defined exception
     ///
     /// @return true if type_id >= Custom
-    [[nodiscard]] bool is_custom() const noexcept {
-        return !is_builtin_error(type_id);
-    }
+    [[nodiscard]] bool is_custom() const noexcept { return !is_builtin_error(type_id); }
 
     // ========================================================================
     // Modification
@@ -295,9 +309,7 @@ struct Exception {
 
     /// Equality comparison
     [[nodiscard]] bool operator==(const Exception& other) const noexcept {
-        return type_id == other.type_id &&
-               payload == other.payload &&
-               throw_pc == other.throw_pc &&
+        return type_id == other.type_id && payload == other.payload && throw_pc == other.throw_pc &&
                message == other.message;
     }
 };

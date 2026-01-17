@@ -35,8 +35,8 @@ TEST_F(VectorRegisterFileStaticTest, VectorRegisterFile_Alignment) {
 }
 
 TEST_F(VectorRegisterFileStaticTest, VectorRegisterFile_RegisterCount) {
-    EXPECT_EQ(VectorRegisterFile::register_count, 32u);
-    EXPECT_EQ(VectorRegisterFile::zero_register, 0u);
+    EXPECT_EQ(VectorRegisterFile::kRegisterCount, 32u);
+    EXPECT_EQ(VectorRegisterFile::kZeroRegister, 0u);
 }
 
 // ============================================================================
@@ -227,7 +227,7 @@ TEST_F(VectorRegisterFileZeroRegisterTest, V0_OperatorWriteIsIgnored) {
 
     vrf[0] = non_zero;
 
-    const VectorRegister& v0 = vrf[0];
+    const VectorRegister& v0 = vrf.read(0);
     EXPECT_TRUE(v0.is_zero());
 }
 
@@ -326,7 +326,7 @@ TEST_F(VectorRegisterFileReadWriteTest, OperatorAccess_Works) {
     r.qwords[0] = 0xABCDEF0123456789ULL;
     vrf[5] = r;
 
-    const VectorRegister& read_back = vrf[5];
+    const VectorRegister& read_back = vrf.read(5);
     EXPECT_EQ(read_back.qwords[0], 0xABCDEF0123456789ULL);
 }
 
@@ -637,8 +637,8 @@ TEST_F(VectorRegisterFileProxyTest, ProxyRead_Works) {
     r.qwords[0] = 0x12345678ABCDEF00ULL;
     vrf.write(5, r);
 
-    // Use proxy for read via implicit conversion
-    const VectorRegister& read_via_proxy = vrf[5];
+    // Use proxy for read via explicit conversion
+    const VectorRegister& read_via_proxy = static_cast<const VectorRegister&>(vrf[5]);
     EXPECT_EQ(read_via_proxy.qwords[0], 0x12345678ABCDEF00ULL);
 }
 

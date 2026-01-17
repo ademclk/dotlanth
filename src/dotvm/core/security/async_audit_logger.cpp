@@ -14,8 +14,7 @@ namespace dotvm::core::security::audit {
 // Construction / Destruction
 // ============================================================================
 
-AsyncAuditLogger::AsyncAuditLogger(std::size_t capacity,
-                                   std::uint32_t flush_interval_ms) noexcept
+AsyncAuditLogger::AsyncAuditLogger(std::size_t capacity, std::uint32_t flush_interval_ms) noexcept
     : capacity_(next_power_of_two(capacity)),
       capacity_mask_(capacity_ - 1),
       flush_interval_ms_(flush_interval_ms) {
@@ -63,21 +62,18 @@ void AsyncAuditLogger::log(const AuditEvent& event) noexcept {
 // Query Interface
 // ============================================================================
 
-bool AsyncAuditLogger::matches_filter(const AuditEvent& event,
-                                      const AuditQuery& filter) noexcept {
+bool AsyncAuditLogger::matches_filter(const AuditEvent& event, const AuditQuery& filter) noexcept {
     if (filter.type.has_value() && event.type != *filter.type) {
         return false;
     }
-    if (filter.min_severity.has_value() &&
-        static_cast<std::uint8_t>(event.severity) <
-            static_cast<std::uint8_t>(*filter.min_severity)) {
+    if (filter.min_severity.has_value() && static_cast<std::uint8_t>(event.severity) <
+                                               static_cast<std::uint8_t>(*filter.min_severity)) {
         return false;
     }
     if (filter.dot_id.has_value() && event.dot_id != *filter.dot_id) {
         return false;
     }
-    if (filter.capability_id.has_value() &&
-        event.capability_id != *filter.capability_id) {
+    if (filter.capability_id.has_value() && event.capability_id != *filter.capability_id) {
         return false;
     }
     if (event.timestamp < filter.since || event.timestamp > filter.until) {
@@ -86,8 +82,7 @@ bool AsyncAuditLogger::matches_filter(const AuditEvent& event,
     return true;
 }
 
-std::vector<AuditEvent>
-AsyncAuditLogger::query(const AuditQuery& filter) const {
+std::vector<AuditEvent> AsyncAuditLogger::query(const AuditQuery& filter) const {
     std::lock_guard<std::mutex> lock(storage_mutex_);
 
     std::vector<AuditEvent> result;
@@ -105,8 +100,7 @@ AsyncAuditLogger::query(const AuditQuery& filter) const {
     return result;
 }
 
-std::size_t AsyncAuditLogger::export_to(std::ostream& out,
-                                        ExportFormat format,
+std::size_t AsyncAuditLogger::export_to(std::ostream& out, ExportFormat format,
                                         const AuditQuery& filter) const {
     auto events_to_export = query(filter);
 
@@ -154,14 +148,13 @@ void AsyncAuditLogger::apply_retention() noexcept {
 
     std::size_t removed = 0;
     auto new_end =
-        std::remove_if(storage_.begin(), storage_.end(),
-                       [cutoff, &removed](const AuditEvent& e) {
-                           if (e.timestamp < cutoff) {
-                               ++removed;
-                               return true;
-                           }
-                           return false;
-                       });
+        std::remove_if(storage_.begin(), storage_.end(), [cutoff, &removed](const AuditEvent& e) {
+            if (e.timestamp < cutoff) {
+                ++removed;
+                return true;
+            }
+            return false;
+        });
 
     storage_.erase(new_end, storage_.end());
     events_expired_.fetch_add(removed, std::memory_order_relaxed);
@@ -277,11 +270,10 @@ void AsyncAuditLogger::consumer_loop() {
         // Wait for next flush interval or explicit flush request
         {
             std::unique_lock<std::mutex> lock(flush_mutex_);
-            flush_cv_.wait_for(
-                lock, std::chrono::milliseconds(flush_interval_ms_), [this] {
-                    return flush_requested_.load(std::memory_order_acquire) ||
-                           stop_requested_.load(std::memory_order_acquire);
-                });
+            flush_cv_.wait_for(lock, std::chrono::milliseconds(flush_interval_ms_), [this] {
+                return flush_requested_.load(std::memory_order_acquire) ||
+                       stop_requested_.load(std::memory_order_acquire);
+            });
         }
     }
 

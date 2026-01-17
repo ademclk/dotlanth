@@ -20,12 +20,12 @@ namespace dotvm::core::concepts {
 ///
 /// Requires trivially copyable types that aren't raw pointers.
 /// This ensures memory operations are safe and deterministic.
-template<typename T>
+template <typename T>
 concept MemoryStorable =
     std::is_trivially_copyable_v<T> && !std::is_pointer_v<T> && !std::is_reference_v<T>;
 
 /// @brief Types that can be used as memory sizes
-template<typename T>
+template <typename T>
 concept MemorySize = std::unsigned_integral<T> && sizeof(T) >= sizeof(std::uint32_t);
 
 // =============================================================================
@@ -33,15 +33,15 @@ concept MemorySize = std::unsigned_integral<T> && sizeof(T) >= sizeof(std::uint3
 // =============================================================================
 
 /// @brief Numeric types that can be represented in the VM value system
-template<typename T>
+template <typename T>
 concept NumericValue = std::integral<T> || std::floating_point<T>;
 
 /// @brief Integer types suitable for VM operations (fits in 48-bit NaN-boxed storage)
-template<typename T>
+template <typename T>
 concept VmInteger = std::signed_integral<T> && sizeof(T) <= sizeof(std::int64_t);
 
 /// @brief Floating point types suitable for VM operations
-template<typename T>
+template <typename T>
 concept VmFloat = std::floating_point<T> && sizeof(T) <= sizeof(double);
 
 // =============================================================================
@@ -49,15 +49,15 @@ concept VmFloat = std::floating_point<T> && sizeof(T) <= sizeof(double);
 // =============================================================================
 
 /// @brief Valid register index type
-template<typename T>
+template <typename T>
 concept RegisterIndex = std::unsigned_integral<T> && sizeof(T) <= sizeof(std::uint8_t);
 
 /// @brief Valid opcode type
-template<typename T>
+template <typename T>
 concept Opcode = std::unsigned_integral<T> && sizeof(T) == sizeof(std::uint8_t);
 
 /// @brief Valid instruction type (32-bit encoding)
-template<typename T>
+template <typename T>
 concept Instruction = std::unsigned_integral<T> && sizeof(T) == sizeof(std::uint32_t);
 
 // =============================================================================
@@ -68,13 +68,13 @@ concept Instruction = std::unsigned_integral<T> && sizeof(T) == sizeof(std::uint
 ///
 /// Handlers must be invocable with an instruction word and return a boolean
 /// indicating success.
-template<typename H>
+template <typename H>
 concept InstructionHandler = requires(H handler, std::uint32_t instruction) {
     { handler(instruction) } -> std::convertible_to<bool>;
 };
 
 /// @brief Concept for opcode decoder functions
-template<typename F>
+template <typename F>
 concept OpcodeDecoder = requires(F func, std::uint32_t instruction) {
     { func(instruction) } -> std::same_as<std::uint8_t>;
 };
@@ -84,11 +84,11 @@ concept OpcodeDecoder = requires(F func, std::uint32_t instruction) {
 // =============================================================================
 
 /// @brief Valid address type for the VM
-template<typename T>
+template <typename T>
 concept VmAddress = std::unsigned_integral<T> && sizeof(T) <= sizeof(std::uint64_t);
 
 /// @brief Types that can be used as generation counters
-template<typename T>
+template <typename T>
 concept GenerationCounter = std::unsigned_integral<T> && sizeof(T) >= sizeof(std::uint32_t);
 
 // =============================================================================
@@ -96,11 +96,11 @@ concept GenerationCounter = std::unsigned_integral<T> && sizeof(T) >= sizeof(std
 // =============================================================================
 
 /// @brief Types that can represent success/failure states
-template<typename T>
+template <typename T>
 concept ErrorType = std::is_enum_v<T> || std::integral<T>;
 
 /// @brief Concept for Result-like types with is_ok/is_err methods
-template<typename R>
+template <typename R>
 concept ResultLike = requires(R r) {
     { r.is_ok() } -> std::convertible_to<bool>;
     { r.is_err() } -> std::convertible_to<bool>;
@@ -111,19 +111,19 @@ concept ResultLike = requires(R r) {
 // =============================================================================
 
 /// @brief Concept for binary operations on values
-template<typename Op, typename V>
+template <typename Op, typename V>
 concept BinaryValueOp = requires(Op op, V a, V b) {
     { op(a, b) } -> std::same_as<V>;
 };
 
 /// @brief Concept for unary operations on values
-template<typename Op, typename V>
+template <typename Op, typename V>
 concept UnaryValueOp = requires(Op op, V a) {
     { op(a) } -> std::same_as<V>;
 };
 
 /// @brief Concept for comparison operations
-template<typename Op, typename V>
+template <typename Op, typename V>
 concept ComparisonOp = requires(Op op, V a, V b) {
     { op(a, b) } -> std::convertible_to<bool>;
 };

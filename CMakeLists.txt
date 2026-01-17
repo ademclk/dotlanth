@@ -12,17 +12,27 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Add C++26 flag for compilers that support it
+# Add C++26 flag for compilers that support it (C++ only, not C)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     # GCC 14+ supports -std=c++26
-    add_compile_options(-std=c++2c)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=c++2c>)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # Clang 19+ supports -std=c++26
-    add_compile_options(-std=c++2c)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=c++2c>)
+    # Use libc++ for better C++26 standard library support
+    if(DOTVM_USE_LIBCXX)
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
+        # Apply link option only to C++ targets (CMake 3.18+)
+        add_link_options($<$<LINK_LANGUAGE:CXX>:-stdlib=libc++>)
+    endif()
 endif()
 
 # Export compile commands for IDE integration
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Enable position-independent code for all targets
+# Required when static libraries are linked into shared libraries
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Build type defaults to Release
 if(NOT CMAKE_BUILD_TYPE)
@@ -37,6 +47,7 @@ option(DOTVM_ENABLE_SIMD "Enable SIMD optimizations" ON)
 option(DOTVM_ENABLE_JIT "Enable JIT compilation (x86-64 only)" ON)
 option(DOTVM_ENABLE_SANITIZERS "Enable sanitizers in Debug builds" OFF)
 option(DOTVM_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
+option(DOTVM_USE_LIBCXX "Use libc++ instead of libstdc++ (Clang only)" OFF)
 
 # Define strict warning flags (applied only to our targets, not dependencies)
 set(DOTVM_WARNING_FLAGS "")
@@ -147,6 +158,11 @@ target_include_directories(dotvm_core PUBLIC
 )
 
 target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+# Pass SIMD enable flag to source code for conditional compilation of intrinsics
+if(DOTVM_ENABLE_SIMD)
+    target_compile_definitions(dotvm_core PUBLIC DOTVM_SIMD_ENABLED=1)
+endif()
 
 # Suppress pedantic warning for computed-goto in execution engine
 # Computed-goto is a GCC/Clang extension required for high-performance dispatch
@@ -325,10 +341,18 @@ if(DOTVM_BUILD_TESTS)
             tests/dotvm/dotvm_c_test.c
         )
 
-        # Force C compilation (not C++)
-        set_target_properties(dotvm_c_compat_test PROPERTIES
-            LINKER_LANGUAGE C
-        )
+        # Set linker language based on sanitizer state.
+        # When sanitizers are enabled, the linked shared library (libdotvm_c.so)
+        # contains C++ UBSan symbols that require the C++ linker to resolve.
+        if(DOTVM_ENABLE_SANITIZERS)
+            set_target_properties(dotvm_c_compat_test PROPERTIES
+                LINKER_LANGUAGE CXX
+            )
+        else()
+            set_target_properties(dotvm_c_compat_test PROPERTIES
+                LINKER_LANGUAGE C
+            )
+        endif()
 
         target_link_libraries(dotvm_c_compat_test PRIVATE dotvm_c)
 

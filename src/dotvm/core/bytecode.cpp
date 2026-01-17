@@ -12,4 +12,4 @@ namespace dotvm::core {
 
 // Placeholder for future non-constexpr implementations
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

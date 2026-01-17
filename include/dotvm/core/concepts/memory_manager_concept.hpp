@@ -15,6 +15,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "../fwd.hpp"
 #include "../memory_config.hpp"
 
 namespace dotvm::core::concepts {
@@ -26,7 +27,7 @@ namespace dotvm::core::concepts {
 /// - deallocate(handle) -> Error
 /// - get_ptr(handle) -> Result<void*>
 /// - is_valid(handle) -> bool
-template<typename T>
+template <typename T>
 concept BasicMemoryOps = requires(T& mm, const T& cmm, std::size_t size, Handle h) {
     // Allocate memory and return a handle
     { mm.allocate(size) };  // Returns some result type with Handle
@@ -48,23 +49,24 @@ concept BasicMemoryOps = requires(T& mm, const T& cmm, std::size_t size, Handle 
 ///
 /// A type satisfies TypedMemoryOps if it provides templated read/write
 /// for trivially copyable types
-template<typename T>
-concept TypedMemoryOps = requires(T& mm, const T& cmm, Handle h, std::size_t offset, std::int32_t val) {
-    // Typed read operation
-    { cmm.template read<std::int32_t>(h, offset) };
+template <typename T>
+concept TypedMemoryOps =
+    requires(T& mm, const T& cmm, Handle h, std::size_t offset, std::int32_t val) {
+        // Typed read operation
+        { cmm.template read<std::int32_t>(h, offset) };
 
-    // Typed write operation
-    { mm.template write<std::int32_t>(h, offset, val) };
-};
+        // Typed write operation
+        { mm.template write<std::int32_t>(h, offset, val) };
+    };
 
 /// Concept for bulk memory operations
 ///
 /// A type satisfies BulkMemoryOps if it provides:
 /// - write_bytes(handle, offset, src, count) -> Error
 /// - read_bytes(handle, offset, dst, count) -> Error
-template<typename T>
-concept BulkMemoryOps = requires(T& mm, const T& cmm, Handle h, std::size_t offset,
-                                  const void* src, void* dst, std::size_t count) {
+template <typename T>
+concept BulkMemoryOps = requires(T& mm, const T& cmm, Handle h, std::size_t offset, const void* src,
+                                 void* dst, std::size_t count) {
     { mm.write_bytes(h, offset, src, count) };
     { cmm.read_bytes(h, offset, dst, count) };
 };
@@ -75,7 +77,7 @@ concept BulkMemoryOps = requires(T& mm, const T& cmm, Handle h, std::size_t offs
 /// - active_allocations() -> size_t
 /// - total_allocated_bytes() -> size_t
 /// - max_allocation_size() -> size_t
-template<typename T>
+template <typename T>
 concept MemoryStats = requires(const T& cmm) {
     { cmm.active_allocations() } -> std::convertible_to<std::size_t>;
     { cmm.total_allocated_bytes() } -> std::convertible_to<std::size_t>;
@@ -86,7 +88,7 @@ concept MemoryStats = requires(const T& cmm) {
 ///
 /// A type satisfies MemorySizeQueries if it provides:
 /// - get_size(handle) -> Result<size_t>
-template<typename T>
+template <typename T>
 concept MemorySizeQueries = requires(const T& cmm, Handle h) {
     { cmm.get_size(h) };  // Returns some result type with size_t
 };
@@ -114,27 +116,23 @@ concept MemorySizeQueries = requires(const T& cmm, Handle h) {
 ///     mm.template write<Value>(h, offset, val);
 /// }
 /// ```
-template<typename T>
-concept MemoryManagerInterface =
-    BasicMemoryOps<T> &&
-    TypedMemoryOps<T> &&
-    BulkMemoryOps<T> &&
-    MemoryStats<T> &&
-    MemorySizeQueries<T>;
+template <typename T>
+concept MemoryManagerInterface = BasicMemoryOps<T> && TypedMemoryOps<T> && BulkMemoryOps<T> &&
+                                 MemoryStats<T> && MemorySizeQueries<T>;
 
 /// Concept for minimal memory manager (just allocate/deallocate)
 ///
 /// Useful for simple implementations that only need basic operations
-template<typename T>
+template <typename T>
 concept MinimalMemoryManager = BasicMemoryOps<T>;
 
 /// Verify that a type satisfies MemoryManagerInterface at compile time
 /// @example static_assert(is_memory_manager<MyMemoryManager>);
-template<typename T>
+template <typename T>
 inline constexpr bool is_memory_manager = MemoryManagerInterface<T>;
 
 /// Verify that a type satisfies minimal memory manager requirements
-template<typename T>
+template <typename T>
 inline constexpr bool is_minimal_memory_manager = MinimalMemoryManager<T>;
 
 }  // namespace dotvm::core::concepts

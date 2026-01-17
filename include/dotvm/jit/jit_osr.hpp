@@ -6,13 +6,13 @@
 
 #pragma once
 
-#include "jit_config.hpp"
-#include "jit_profiler.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <span>
+
+#include "jit_config.hpp"
+#include "jit_profiler.hpp"
 
 namespace dotvm::jit {
 
@@ -110,4 +110,4 @@ private:
     Stats stats_;
 };
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

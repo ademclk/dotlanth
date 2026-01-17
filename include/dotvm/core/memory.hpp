@@ -1,46 +1,35 @@
 #pragma once
 
-#include <dotvm/core/memory_config.hpp>
-#include <dotvm/core/value.hpp>
-#include <dotvm/core/arch_config.hpp>
-#include <dotvm/core/security_stats.hpp>
-
 #include <cstring>
 #include <expected>
 #include <span>
 #include <type_traits>
 #include <vector>
 
+#include <dotvm/core/arch_config.hpp>
+#include <dotvm/core/memory_config.hpp>
+#include <dotvm/core/security_stats.hpp>
+#include <dotvm/core/value.hpp>
+
 namespace dotvm::core {
 
 /// Entry in the handle table tracking a single allocation.
 struct HandleEntry {
-    void* ptr;                  ///< Pointer to allocated memory (nullptr if inactive).
-    std::size_t size;           ///< Allocated size in bytes (page-aligned).
-    std::uint32_t generation;   ///< Generation counter for use-after-free detection.
-    bool is_active;             ///< Whether this entry is currently in use.
+    void* ptr;                 ///< Pointer to allocated memory (nullptr if inactive).
+    std::size_t size;          ///< Allocated size in bytes (page-aligned).
+    std::uint32_t generation;  ///< Generation counter for use-after-free detection.
+    bool is_active;            ///< Whether this entry is currently in use.
 
     constexpr bool operator==(const HandleEntry&) const noexcept = default;
 
     /// Creates an active entry with the given allocation.
-    [[nodiscard]] static HandleEntry create(void* p, std::size_t s,
-                                            std::uint32_t gen) noexcept {
-        return HandleEntry{
-            .ptr = p,
-            .size = s,
-            .generation = gen,
-            .is_active = true
-        };
+    [[nodiscard]] static HandleEntry create(void* p, std::size_t s, std::uint32_t gen) noexcept {
+        return HandleEntry{.ptr = p, .size = s, .generation = gen, .is_active = true};
     }
 
     /// Creates an inactive entry (for free list slots).
     [[nodiscard]] static constexpr HandleEntry inactive(std::uint32_t gen) noexcept {
-        return HandleEntry{
-            .ptr = nullptr,
-            .size = 0,
-            .generation = gen,
-            .is_active = false
-        };
+        return HandleEntry{.ptr = nullptr, .size = 0, .generation = gen, .is_active = false};
     }
 };
 
@@ -59,8 +48,7 @@ public:
     }
 
     /// Constructs a handle table with security stats tracking.
-    HandleTable(std::size_t initial_capacity, SecurityStats* stats)
-        : stats_(stats) {
+    HandleTable(std::size_t initial_capacity, SecurityStats* stats) : stats_(stats) {
         entries_.reserve(initial_capacity);
         free_list_.reserve(initial_capacity);
     }
@@ -98,10 +86,12 @@ public:
     /// @param index The slot index to release.
     /// @note Generation wraparounds are tracked in security stats.
     void release_slot(std::uint32_t index) noexcept {
-        if (index >= entries_.size()) return;
+        if (index >= entries_.size())
+            return;
 
         auto& entry = entries_[index];
-        if (!entry.is_active) return;
+        if (!entry.is_active)
+            return;
 
         entry.ptr = nullptr;
         entry.size = 0;
@@ -109,9 +99,7 @@ public:
 
         // Increment generation (with wrap-around)
         const bool will_wrap = (entry.generation >= mem_config::MAX_GENERATION);
-        entry.generation = will_wrap
-                           ? mem_config::INITIAL_GENERATION
-                           : entry.generation + 1;
+        entry.generation = will_wrap ? mem_config::INITIAL_GENERATION : entry.generation + 1;
 
         // Track generation wraparound for security auditing
         if (will_wrap && stats_) {
@@ -122,9 +110,7 @@ public:
     }
 
     /// Access entry by index (no bounds checking).
-    [[nodiscard]] HandleEntry& operator[](std::uint32_t index) noexcept {
-        return entries_[index];
-    }
+    [[nodiscard]] HandleEntry& operator[](std::uint32_t index) noexcept { return entries_[index]; }
 
     /// Access entry by index (const, no bounds checking).
     [[nodiscard]] const HandleEntry& operator[](std::uint32_t index) const noexcept {
@@ -138,20 +124,17 @@ public:
 
     /// Validates a handle (index in bounds, active, generation matches).
     [[nodiscard]] bool is_valid_handle(Handle h) const noexcept {
-        if (h.index >= entries_.size()) return false;
+        if (h.index >= entries_.size())
+            return false;
         const auto& entry = entries_[h.index];
         return entry.is_active && entry.generation == h.generation;
     }
 
     /// Returns the number of allocated slots (active + inactive).
-    [[nodiscard]] std::size_t capacity() const noexcept {
-        return entries_.size();
-    }
+    [[nodiscard]] std::size_t capacity() const noexcept { return entries_.size(); }
 
     /// Returns the number of free slots.
-    [[nodiscard]] std::size_t free_count() const noexcept {
-        return free_list_.size();
-    }
+    [[nodiscard]] std::size_t free_count() const noexcept { return free_list_.size(); }
 
     /// Returns the number of active entries.
     /// @note Returns 0 if internal state is corrupted (free_list > entries).
@@ -164,9 +147,7 @@ public:
     }
 
     /// Sets the security stats pointer for tracking.
-    void set_stats(SecurityStats* stats) noexcept {
-        stats_ = stats;
-    }
+    void set_stats(SecurityStats* stats) noexcept { stats_ = stats; }
 
 private:
     std::vector<HandleEntry> entries_;
@@ -176,14 +157,14 @@ private:
 
 /// Error codes for memory operations.
 enum class MemoryError : std::uint8_t {
-    Success = 0,          ///< Operation completed successfully.
-    InvalidSize,          ///< Size is 0 or exceeds MAX_ALLOCATION_SIZE.
-    AllocationFailed,     ///< OS allocation failed (out of memory).
-    InvalidHandle,        ///< Handle not found or generation mismatch.
-    BoundsViolation,      ///< Read/write offset + size exceeds allocation.
-    HandleTableFull,      ///< Cannot allocate more handles.
-    DeallocationFailed,   ///< OS deallocation failed (corruption likely).
-    AccountingError       ///< Internal accounting inconsistency detected.
+    Success = 0,         ///< Operation completed successfully.
+    InvalidSize,         ///< Size is 0 or exceeds MAX_ALLOCATION_SIZE.
+    AllocationFailed,    ///< OS allocation failed (out of memory).
+    InvalidHandle,       ///< Handle not found or generation mismatch.
+    BoundsViolation,     ///< Read/write offset + size exceeds allocation.
+    HandleTableFull,     ///< Cannot allocate more handles.
+    DeallocationFailed,  ///< OS deallocation failed (corruption likely).
+    AccountingError      ///< Internal accounting inconsistency detected.
 };
 
 /// Memory manager providing safe, generation-based memory allocation.
@@ -199,12 +180,11 @@ class MemoryManager {
 public:
     /// Result type for operations that can fail.
     /// Uses std::expected (C++23) for modern error handling with monadic operations.
-    template<typename T>
+    template <typename T>
     using Result = std::expected<T, MemoryError>;
 
     /// Constructs a memory manager with default limits.
-    MemoryManager() noexcept
-        : table_(mem_config::INITIAL_TABLE_CAPACITY, &stats_) {}
+    MemoryManager() noexcept : table_(mem_config::INITIAL_TABLE_CAPACITY, &stats_) {}
 
     /// Constructs a memory manager with custom max allocation size.
     explicit MemoryManager(std::size_t max_allocation_size) noexcept
@@ -249,10 +229,9 @@ public:
     /// @param h The handle.
     /// @param offset Byte offset within the allocation.
     /// @return Value and error code.
-    template<typename T>
+    template <typename T>
     [[nodiscard]] Result<T> read(Handle h, std::size_t offset) const noexcept {
-        static_assert(std::is_trivially_copyable_v<T>,
-                      "read<T> requires trivially copyable type");
+        static_assert(std::is_trivially_copyable_v<T>, "read<T> requires trivially copyable type");
 
         auto err = validate_bounds(h, offset, sizeof(T));
         if (err != MemoryError::Success) {
@@ -275,10 +254,9 @@ public:
     /// @param offset Byte offset within the allocation.
     /// @param value The value to write.
     /// @return Error code.
-    template<typename T>
+    template <typename T>
     [[nodiscard]] MemoryError write(Handle h, std::size_t offset, T value) noexcept {
-        static_assert(std::is_trivially_copyable_v<T>,
-                      "write<T> requires trivially copyable type");
+        static_assert(std::is_trivially_copyable_v<T>, "write<T> requires trivially copyable type");
 
         auto err = validate_bounds(h, offset, sizeof(T));
         if (err != MemoryError::Success) {
@@ -302,8 +280,8 @@ public:
     /// @param src Source buffer.
     /// @param count Number of bytes to copy.
     /// @return Error code.
-    [[nodiscard]] MemoryError write_bytes(Handle h, std::size_t offset,
-                                          const void* src, std::size_t count) noexcept;
+    [[nodiscard]] MemoryError write_bytes(Handle h, std::size_t offset, const void* src,
+                                          std::size_t count) noexcept;
 
     /// Copies data from an allocation.
     /// @param h The handle.
@@ -311,8 +289,8 @@ public:
     /// @param dst Destination buffer.
     /// @param count Number of bytes to copy.
     /// @return Error code.
-    [[nodiscard]] MemoryError read_bytes(Handle h, std::size_t offset,
-                                          void* dst, std::size_t count) const noexcept;
+    [[nodiscard]] MemoryError read_bytes(Handle h, std::size_t offset, void* dst,
+                                         std::size_t count) const noexcept;
 
     // ========== Span-Based Operations (Modern C++ API) ==========
 
@@ -322,9 +300,9 @@ public:
     /// @param offset Byte offset within the allocation.
     /// @param dst Destination span.
     /// @return Error code.
-    template<typename T>
+    template <typename T>
     [[nodiscard]] MemoryError read_into(Handle h, std::size_t offset,
-                                         std::span<T> dst) const noexcept {
+                                        std::span<T> dst) const noexcept {
         static_assert(std::is_trivially_copyable_v<T>,
                       "read_into<T> requires trivially copyable type");
         return read_bytes(h, offset, dst.data(), dst.size_bytes());
@@ -336,9 +314,9 @@ public:
     /// @param offset Byte offset within the allocation.
     /// @param src Source span.
     /// @return Error code.
-    template<typename T>
+    template <typename T>
     [[nodiscard]] MemoryError write_from(Handle h, std::size_t offset,
-                                          std::span<const T> src) noexcept {
+                                         std::span<const T> src) noexcept {
         static_assert(std::is_trivially_copyable_v<T>,
                       "write_from<T> requires trivially copyable type");
         return write_bytes(h, offset, src.data(), src.size_bytes());
@@ -355,41 +333,28 @@ public:
     // ========== Statistics ==========
 
     /// Returns the number of active allocations.
-    [[nodiscard]] std::size_t active_allocations() const noexcept {
-        return table_.active_count();
-    }
+    [[nodiscard]] std::size_t active_allocations() const noexcept { return table_.active_count(); }
 
     /// Returns total bytes currently allocated.
-    [[nodiscard]] std::size_t total_allocated_bytes() const noexcept {
-        return total_allocated_;
-    }
+    [[nodiscard]] std::size_t total_allocated_bytes() const noexcept { return total_allocated_; }
 
     /// Returns the maximum allocation size.
-    [[nodiscard]] std::size_t max_allocation_size() const noexcept {
-        return max_allocation_size_;
-    }
+    [[nodiscard]] std::size_t max_allocation_size() const noexcept { return max_allocation_size_; }
 
     // ========== Security Statistics ==========
 
     /// Returns a const reference to security statistics.
     /// Use snapshot() to get a consistent copy of all counters.
-    [[nodiscard]] const SecurityStats& security_stats() const noexcept {
-        return stats_;
-    }
+    [[nodiscard]] const SecurityStats& security_stats() const noexcept { return stats_; }
 
     /// Returns a mutable reference to security statistics (for testing).
-    [[nodiscard]] SecurityStats& security_stats() noexcept {
-        return stats_;
-    }
+    [[nodiscard]] SecurityStats& security_stats() noexcept { return stats_; }
 
     // ========== Constants ==========
 
     /// Returns an invalid handle constant.
     [[nodiscard]] static constexpr Handle invalid_handle() noexcept {
-        return Handle{
-            .index = mem_config::INVALID_INDEX,
-            .generation = 0
-        };
+        return Handle{.index = mem_config::INVALID_INDEX, .generation = 0};
     }
 
     // ========== Architecture-Aware Address Computation ==========
@@ -407,10 +372,8 @@ public:
     /// @param offset Offset to add to base
     /// @param arch Target architecture
     /// @return The computed address, masked for the architecture
-    [[nodiscard]] static constexpr std::size_t compute_address(
-        std::size_t base,
-        std::size_t offset,
-        Architecture arch) noexcept {
+    [[nodiscard]] static constexpr std::size_t compute_address(std::size_t base, std::size_t offset,
+                                                               Architecture arch) noexcept {
         std::size_t addr = base + offset;
         return static_cast<std::size_t>(arch_config::mask_addr(addr, arch));
     }
@@ -421,10 +384,8 @@ public:
     /// @param size Size of the access
     /// @param arch Target architecture
     /// @return true if the entire range fits within the architecture's address space
-    [[nodiscard]] static constexpr bool address_in_range(
-        std::size_t addr,
-        std::size_t size,
-        Architecture arch) noexcept {
+    [[nodiscard]] static constexpr bool address_in_range(std::size_t addr, std::size_t size,
+                                                         Architecture arch) noexcept {
         // Check for overflow
         if (addr > SIZE_MAX - size) {
             return false;
@@ -453,4 +414,4 @@ private:
 // Static assertions for type guarantees
 static_assert(sizeof(Handle) == 8, "Handle must be 8 bytes");
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

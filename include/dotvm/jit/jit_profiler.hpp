@@ -7,8 +7,6 @@
 
 #pragma once
 
-#include "jit_config.hpp"
-
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -16,6 +14,8 @@
 #include <optional>
 #include <unordered_map>
 #include <vector>
+
+#include "jit_config.hpp"
 
 namespace dotvm::jit {
 
@@ -26,6 +26,7 @@ inline constexpr std::size_t CACHE_LINE_SIZE = 64;
 ///
 /// Tracks call count and PC boundaries for a function.
 /// Cache-line aligned to prevent false sharing.
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding) - intentional cache-line alignment
 struct alignas(CACHE_LINE_SIZE) FunctionProfile {
     /// @brief Number of times this function has been called
     std::atomic<std::uint32_t> call_count{0};
@@ -40,8 +41,9 @@ struct alignas(CACHE_LINE_SIZE) FunctionProfile {
     std::atomic<bool> compiled{false};
 
     /// @brief Padding to fill cache line
-    std::uint8_t padding_[CACHE_LINE_SIZE - sizeof(std::atomic<std::uint32_t>)
-                          - sizeof(std::size_t) * 2 - sizeof(std::atomic<bool>)]{};
+    // NOLINTNEXTLINE(readability-identifier-naming) - intentional trailing underscore for padding
+    std::uint8_t padding_[CACHE_LINE_SIZE - sizeof(std::atomic<std::uint32_t>) -
+                          (sizeof(std::size_t) * 2) - sizeof(std::atomic<bool>)]{};
 
     /// @brief Increment call count and return new value
     [[nodiscard]] std::uint32_t increment() noexcept {
@@ -64,6 +66,7 @@ struct alignas(CACHE_LINE_SIZE) FunctionProfile {
 ///
 /// Tracks iteration count and PC locations for loop OSR decisions.
 /// Cache-line aligned to prevent false sharing.
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding) - intentional cache-line alignment
 struct alignas(CACHE_LINE_SIZE) LoopProfile {
     /// @brief Number of iterations of this loop
     std::atomic<std::uint32_t> iteration_count{0};
@@ -78,8 +81,9 @@ struct alignas(CACHE_LINE_SIZE) LoopProfile {
     std::atomic<bool> osr_triggered{false};
 
     /// @brief Padding to fill cache line
-    std::uint8_t padding_[CACHE_LINE_SIZE - sizeof(std::atomic<std::uint32_t>)
-                          - sizeof(std::size_t) * 2 - sizeof(std::atomic<bool>)]{};
+    // NOLINTNEXTLINE(readability-identifier-naming) - intentional trailing underscore for padding
+    std::uint8_t padding_[CACHE_LINE_SIZE - sizeof(std::atomic<std::uint32_t>) -
+                          (sizeof(std::size_t) * 2) - sizeof(std::atomic<bool>)]{};
 
     /// @brief Increment iteration count and return new value
     [[nodiscard]] std::uint32_t increment() noexcept {
@@ -105,10 +109,7 @@ using FunctionId = std::uint32_t;
 using LoopId = std::uint64_t;
 
 /// @brief Create a loop ID from function ID and loop index
-[[nodiscard]] constexpr LoopId make_loop_id(
-    FunctionId func_id,
-    std::uint32_t loop_index
-) noexcept {
+[[nodiscard]] constexpr LoopId make_loop_id(FunctionId func_id, std::uint32_t loop_index) noexcept {
     return (static_cast<std::uint64_t>(func_id) << 32) | loop_index;
 }
 
@@ -148,6 +149,9 @@ public:
     /// @brief Create a profiler with specific configuration
     explicit JitProfiler(const JitConfig& config) noexcept;
 
+    /// @brief Destructor
+    ~JitProfiler() = default;
+
     // Non-copyable due to atomic counters
     JitProfiler(const JitProfiler&) = delete;
     JitProfiler& operator=(const JitProfiler&) = delete;
@@ -161,10 +165,7 @@ public:
     /// @param entry_pc PC of function entry point
     /// @param end_pc PC past last instruction
     /// @return Function ID for future reference
-    [[nodiscard]] FunctionId register_function(
-        std::size_t entry_pc,
-        std::size_t end_pc
-    );
+    [[nodiscard]] FunctionId register_function(std::size_t entry_pc, std::size_t end_pc);
 
     /// @brief Register a loop within a function
     ///
@@ -172,11 +173,8 @@ public:
     /// @param header_pc PC of loop header
     /// @param backedge_pc PC of backward edge
     /// @return Loop ID for future reference
-    [[nodiscard]] LoopId register_loop(
-        FunctionId func_id,
-        std::size_t header_pc,
-        std::size_t backedge_pc
-    );
+    [[nodiscard]] LoopId register_loop(FunctionId func_id, std::size_t header_pc,
+                                       std::size_t backedge_pc);
 
     /// @brief Record a function call
     ///
@@ -215,44 +213,29 @@ public:
     [[nodiscard]] const LoopProfile* get_loop(LoopId loop_id) const noexcept;
 
     /// @brief Find function by entry PC
-    [[nodiscard]] std::optional<FunctionId> find_function_by_pc(
-        std::size_t pc
-    ) const noexcept;
+    [[nodiscard]] std::optional<FunctionId> find_function_by_pc(std::size_t pc) const noexcept;
 
     /// @brief Find loop by backedge PC
-    [[nodiscard]] std::optional<LoopId> find_loop_by_backedge(
-        std::size_t backedge_pc
-    ) const noexcept;
+    [[nodiscard]] std::optional<LoopId>
+    find_loop_by_backedge(std::size_t backedge_pc) const noexcept;
 
     /// @brief Get current compilation threshold
-    [[nodiscard]] std::uint32_t call_threshold() const noexcept {
-        return call_threshold_;
-    }
+    [[nodiscard]] std::uint32_t call_threshold() const noexcept { return call_threshold_; }
 
     /// @brief Get current OSR threshold
-    [[nodiscard]] std::uint32_t loop_threshold() const noexcept {
-        return loop_threshold_;
-    }
+    [[nodiscard]] std::uint32_t loop_threshold() const noexcept { return loop_threshold_; }
 
     /// @brief Set compilation threshold
-    void set_call_threshold(std::uint32_t threshold) noexcept {
-        call_threshold_ = threshold;
-    }
+    void set_call_threshold(std::uint32_t threshold) noexcept { call_threshold_ = threshold; }
 
     /// @brief Set OSR threshold
-    void set_loop_threshold(std::uint32_t threshold) noexcept {
-        loop_threshold_ = threshold;
-    }
+    void set_loop_threshold(std::uint32_t threshold) noexcept { loop_threshold_ = threshold; }
 
     /// @brief Get number of registered functions
-    [[nodiscard]] std::size_t function_count() const noexcept {
-        return functions_.size();
-    }
+    [[nodiscard]] std::size_t function_count() const noexcept { return functions_.size(); }
 
     /// @brief Get number of registered loops
-    [[nodiscard]] std::size_t loop_count() const noexcept {
-        return loops_.size();
-    }
+    [[nodiscard]] std::size_t loop_count() const noexcept { return loops_.size(); }
 
     /// @brief Reset all profiling data
     void reset();
@@ -289,4 +272,4 @@ private:
     std::uint32_t loop_threshold_ = thresholds::LOOP_THRESHOLD;
 };
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

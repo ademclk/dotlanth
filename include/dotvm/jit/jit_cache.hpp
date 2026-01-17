@@ -6,16 +6,16 @@
 
 #pragma once
 
-#include "jit_code_buffer.hpp"
-#include "jit_config.hpp"
-#include "jit_profiler.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <unordered_map>
 #include <vector>
+
+#include "jit_code_buffer.hpp"
+#include "jit_config.hpp"
+#include "jit_profiler.hpp"
 
 namespace dotvm::jit {
 
@@ -45,7 +45,7 @@ struct CompiledEntry {
     std::uint64_t execution_count{0};
 
     /// @brief Get the compiled code as a function pointer
-    template<typename Signature>
+    template <typename Signature>
     [[nodiscard]] Signature* as_function() const noexcept {
         return reinterpret_cast<Signature*>(const_cast<std::uint8_t*>(code));
     }
@@ -160,13 +160,8 @@ public:
     /// @param entry_pc Bytecode entry PC
     /// @param end_pc Bytecode end PC
     /// @return true if stored successfully, false if cache is full
-    [[nodiscard]] bool store(
-        FunctionId func_id,
-        const std::uint8_t* code,
-        std::size_t code_size,
-        std::size_t entry_pc,
-        std::size_t end_pc
-    ) noexcept;
+    [[nodiscard]] bool store(FunctionId func_id, const std::uint8_t* code, std::size_t code_size,
+                             std::size_t entry_pc, std::size_t end_pc) noexcept;
 
     /// @brief Register an OSR entry point
     ///
@@ -174,12 +169,8 @@ public:
     /// @param entry_point Pointer to OSR entry in compiled code
     /// @param bytecode_pc Bytecode PC for state transfer
     /// @param func_id Function containing the loop
-    void register_osr_entry(
-        LoopId loop_id,
-        const std::uint8_t* entry_point,
-        std::size_t bytecode_pc,
-        FunctionId func_id
-    ) noexcept;
+    void register_osr_entry(LoopId loop_id, const std::uint8_t* entry_point,
+                            std::size_t bytecode_pc, FunctionId func_id) noexcept;
 
     /// @brief Look up an OSR entry point
     [[nodiscard]] const OsrEntry* lookup_osr(LoopId loop_id) noexcept;
@@ -247,4 +238,4 @@ private:
     std::uint64_t invalidations_{0};
 };
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

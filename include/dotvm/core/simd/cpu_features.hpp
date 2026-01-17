@@ -100,9 +100,15 @@ struct CpuFeatures {
     ///
     /// @return Maximum SIMD width (512, 256, 128) or 64 for scalar-only
     [[nodiscard]] constexpr std::size_t max_vector_width() const noexcept {
-        if (avx512f) return 512;
-        if (avx2 || avx) return 256;
-        if (sse2 || neon) return 128;
+        if (avx512f) {
+            return 512;
+        }
+        if (avx2 || avx) {
+            return 256;
+        }
+        if (sse2 || neon) {
+            return 128;
+        }
         return 64;  // Scalar fallback
     }
 
@@ -135,19 +141,13 @@ struct CpuFeatures {
     }
 
     /// Check if this is an ARM CPU
-    [[nodiscard]] constexpr bool is_arm() const noexcept {
-        return neon && !sse2;
-    }
+    [[nodiscard]] constexpr bool is_arm() const noexcept { return neon && !sse2; }
 
     /// Check if AES hardware acceleration is available
-    [[nodiscard]] constexpr bool has_aes_acceleration() const noexcept {
-        return aesni || neon_aes;
-    }
+    [[nodiscard]] constexpr bool has_aes_acceleration() const noexcept { return aesni || neon_aes; }
 
     /// Check if SHA hardware acceleration is available
-    [[nodiscard]] constexpr bool has_sha_acceleration() const noexcept {
-        return sha || neon_sha2;
-    }
+    [[nodiscard]] constexpr bool has_sha_acceleration() const noexcept { return sha || neon_sha2; }
 
     /// Get a human-readable string describing detected features
     ///

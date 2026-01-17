@@ -3,18 +3,23 @@
 
 #include "dotvm/jit/jit_profiler.hpp"
 
+#include <algorithm>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <utility>
+
+#include "dotvm/jit/jit_config.hpp"
+
 namespace dotvm::jit {
 
 JitProfiler::JitProfiler(const JitConfig& config) noexcept
-    : call_threshold_(config.call_threshold)
-    , loop_threshold_(config.loop_threshold)
-{}
+    : call_threshold_(config.call_threshold), loop_threshold_(config.loop_threshold) {}
 
-FunctionId JitProfiler::register_function(
-    std::size_t entry_pc,
-    std::size_t end_pc
-) {
-    const FunctionId id = static_cast<FunctionId>(functions_.size());
+FunctionId JitProfiler::register_function(std::size_t entry_pc, std::size_t end_pc) {
+    const auto id = static_cast<FunctionId>(functions_.size());
 
     auto profile = std::make_unique<FunctionProfile>();
     profile->entry_pc = entry_pc;
@@ -26,11 +31,8 @@ FunctionId JitProfiler::register_function(
     return id;
 }
 
-LoopId JitProfiler::register_loop(
-    FunctionId func_id,
-    std::size_t header_pc,
-    std::size_t backedge_pc
-) {
+LoopId JitProfiler::register_loop(FunctionId func_id, std::size_t header_pc,
+                                  std::size_t backedge_pc) {
     // Find the next loop index for this function
     std::uint32_t loop_index = 0;
     for (const auto& [id, _] : loops_) {
@@ -130,9 +132,7 @@ const LoopProfile* JitProfiler::get_loop(LoopId loop_id) const noexcept {
     return it->second.get();
 }
 
-std::optional<FunctionId> JitProfiler::find_function_by_pc(
-    std::size_t pc
-) const noexcept {
+std::optional<FunctionId> JitProfiler::find_function_by_pc(std::size_t pc) const noexcept {
     auto it = pc_to_function_.find(pc);
     if (it == pc_to_function_.end()) {
         return std::nullopt;
@@ -140,9 +140,7 @@ std::optional<FunctionId> JitProfiler::find_function_by_pc(
     return it->second;
 }
 
-std::optional<LoopId> JitProfiler::find_loop_by_backedge(
-    std::size_t backedge_pc
-) const noexcept {
+std::optional<LoopId> JitProfiler::find_loop_by_backedge(std::size_t backedge_pc) const noexcept {
     auto it = backedge_to_loop_.find(backedge_pc);
     if (it == backedge_to_loop_.end()) {
         return std::nullopt;
@@ -181,4 +179,4 @@ JitProfiler::Stats JitProfiler::get_stats() const noexcept {
     return stats;
 }
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

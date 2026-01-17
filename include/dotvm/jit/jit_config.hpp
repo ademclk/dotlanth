@@ -21,15 +21,15 @@ inline constexpr std::uint32_t CALL_THRESHOLD = 10'000;
 inline constexpr std::uint32_t LOOP_THRESHOLD = 100'000;
 
 /// @brief Default maximum code cache size (64 MiB)
-inline constexpr std::size_t DEFAULT_MAX_CODE_CACHE = 64 * 1024 * 1024;
+inline constexpr std::size_t DEFAULT_MAX_CODE_CACHE = std::size_t{64} * 1024 * 1024;
 
 /// @brief Minimum code buffer allocation size (4 KiB = 1 page)
-inline constexpr std::size_t MIN_CODE_BUFFER_SIZE = 4 * 1024;
+inline constexpr std::size_t MIN_CODE_BUFFER_SIZE = std::size_t{4} * 1024;
 
 /// @brief Maximum single function compiled size (1 MiB)
-inline constexpr std::size_t MAX_FUNCTION_CODE_SIZE = 1 * 1024 * 1024;
+inline constexpr std::size_t MAX_FUNCTION_CODE_SIZE = std::size_t{1} * 1024 * 1024;
 
-} // namespace thresholds
+}  // namespace thresholds
 
 /// @brief JIT compiler configuration
 ///
@@ -71,9 +71,7 @@ struct JitConfig {
     bool bounds_checking = true;
 
     /// @brief Create default JIT configuration
-    [[nodiscard]] static constexpr JitConfig defaults() noexcept {
-        return JitConfig{};
-    }
+    [[nodiscard]] static constexpr JitConfig defaults() noexcept { return JitConfig{}; }
 
     /// @brief Create aggressive JIT configuration with lower thresholds
     ///
@@ -117,9 +115,7 @@ struct JitConfig {
     }
 
     /// @brief Check if this configuration allows OSR
-    [[nodiscard]] constexpr bool allows_osr() const noexcept {
-        return enabled && osr_enabled;
-    }
+    [[nodiscard]] constexpr bool allows_osr() const noexcept { return enabled && osr_enabled; }
 };
 
 /// @brief JIT compilation status codes
@@ -155,15 +151,24 @@ enum class JitStatus : std::uint8_t {
 /// @brief Convert JIT status to string for debugging
 [[nodiscard]] constexpr const char* jit_status_string(JitStatus status) noexcept {
     switch (status) {
-        case JitStatus::Success:          return "Success";
-        case JitStatus::Disabled:         return "Disabled";
-        case JitStatus::BelowThreshold:   return "BelowThreshold";
-        case JitStatus::CacheFull:        return "CacheFull";
-        case JitStatus::UnsupportedOpcode: return "UnsupportedOpcode";
-        case JitStatus::AllocationFailed: return "AllocationFailed";
-        case JitStatus::ProtectionFailed: return "ProtectionFailed";
-        case JitStatus::InvalidFunction:  return "InvalidFunction";
-        case JitStatus::InternalError:    return "InternalError";
+        case JitStatus::Success:
+            return "Success";
+        case JitStatus::Disabled:
+            return "Disabled";
+        case JitStatus::BelowThreshold:
+            return "BelowThreshold";
+        case JitStatus::CacheFull:
+            return "CacheFull";
+        case JitStatus::UnsupportedOpcode:
+            return "UnsupportedOpcode";
+        case JitStatus::AllocationFailed:
+            return "AllocationFailed";
+        case JitStatus::ProtectionFailed:
+            return "ProtectionFailed";
+        case JitStatus::InvalidFunction:
+            return "InvalidFunction";
+        case JitStatus::InternalError:
+            return "InternalError";
     }
     return "Unknown";
 }
@@ -192,14 +197,20 @@ enum class OsrStatus : std::uint8_t {
 /// @brief Convert OSR status to string for debugging
 [[nodiscard]] constexpr const char* osr_status_string(OsrStatus status) noexcept {
     switch (status) {
-        case OsrStatus::Success:           return "Success";
-        case OsrStatus::Disabled:          return "Disabled";
-        case OsrStatus::BelowThreshold:    return "BelowThreshold";
-        case OsrStatus::NoEntryPoint:      return "NoEntryPoint";
-        case OsrStatus::StateTransferFailed: return "StateTransferFailed";
-        case OsrStatus::InvalidLoop:       return "InvalidLoop";
+        case OsrStatus::Success:
+            return "Success";
+        case OsrStatus::Disabled:
+            return "Disabled";
+        case OsrStatus::BelowThreshold:
+            return "BelowThreshold";
+        case OsrStatus::NoEntryPoint:
+            return "NoEntryPoint";
+        case OsrStatus::StateTransferFailed:
+            return "StateTransferFailed";
+        case OsrStatus::InvalidLoop:
+            return "InvalidLoop";
     }
     return "Unknown";
 }
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

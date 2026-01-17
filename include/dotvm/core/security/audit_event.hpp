@@ -30,11 +30,11 @@ namespace dotvm::core::security {
 /// Severity levels follow standard logging conventions and can be used
 /// for filtering and alerting.
 enum class AuditSeverity : std::uint8_t {
-    Debug = 0,     ///< Verbose debugging information
-    Info = 1,      ///< Normal operational events
-    Warning = 2,   ///< Potential issues worth noting
-    Error = 3,     ///< Operation failures
-    Critical = 4   ///< Security-critical events requiring immediate attention
+    Debug = 0,    ///< Verbose debugging information
+    Info = 1,     ///< Normal operational events
+    Warning = 2,  ///< Potential issues worth noting
+    Error = 3,    ///< Operation failures
+    Critical = 4  ///< Security-critical events requiring immediate attention
 };
 
 /// @brief Convert AuditSeverity to human-readable string
@@ -59,8 +59,7 @@ enum class AuditSeverity : std::uint8_t {
 // ============================================================================
 
 /// @brief Get the default severity for an event type
-[[nodiscard]] constexpr AuditSeverity
-default_severity(AuditEventType type) noexcept {
+[[nodiscard]] constexpr AuditSeverity default_severity(AuditEventType type) noexcept {
     switch (type) {
         // Critical severity
         case AuditEventType::SecurityViolation:
@@ -143,7 +142,7 @@ struct AuditEvent {
     AuditEventType type{AuditEventType::ContextCreated};
 
     /// Timestamp when event occurred
-    std::chrono::steady_clock::time_point timestamp{};
+    std::chrono::steady_clock::time_point timestamp = {};
 
     /// Associated permission (for permission events)
     Permission permission{Permission::None};
@@ -163,10 +162,10 @@ struct AuditEvent {
     CapabilityId capability_id{0};
 
     /// Human-readable message describing the event
-    std::string message{};
+    std::string message = "";
 
     /// Extensible key-value metadata pairs
-    std::vector<std::pair<std::string, std::string>> metadata{};
+    std::vector<std::pair<std::string, std::string>> metadata = {};
 
     // === Factory Methods ===
 
@@ -177,11 +176,10 @@ struct AuditEvent {
     /// @param perm Optional associated permission
     /// @param val Optional associated value
     /// @return A new AuditEvent with current timestamp
-    [[nodiscard]] static AuditEvent
-    now(AuditEventType type,
-        AuditSeverity sev = AuditSeverity::Info,
-        Permission perm = Permission::None,
-        std::uint64_t val = 0) noexcept {
+    [[nodiscard]] static AuditEvent now(AuditEventType type,
+                                        AuditSeverity sev = AuditSeverity::Info,
+                                        Permission perm = Permission::None,
+                                        std::uint64_t val = 0) noexcept {
         return AuditEvent{
             .type = type,
             .timestamp = std::chrono::steady_clock::now(),
@@ -198,10 +196,9 @@ struct AuditEvent {
     /// @param perm Optional associated permission
     /// @param val Optional associated value
     /// @return A new AuditEvent with current timestamp and default severity
-    [[nodiscard]] static AuditEvent
-    now_default(AuditEventType type,
-                Permission perm = Permission::None,
-                std::uint64_t val = 0) noexcept {
+    [[nodiscard]] static AuditEvent now_default(AuditEventType type,
+                                                Permission perm = Permission::None,
+                                                std::uint64_t val = 0) noexcept {
         return AuditEvent{
             .type = type,
             .timestamp = std::chrono::steady_clock::now(),
@@ -218,9 +215,7 @@ struct AuditEvent {
     /// @param sev Optional severity
     /// @param msg Optional message
     /// @return A new AuditEvent with Dot context
-    [[nodiscard]] static AuditEvent for_dot(DotId dot,
-                                            AuditEventType type,
-                                            AuditSeverity sev,
+    [[nodiscard]] static AuditEvent for_dot(DotId dot, AuditEventType type, AuditSeverity sev,
                                             std::string msg = "") noexcept {
         return AuditEvent{
             .type = type,
@@ -241,11 +236,9 @@ struct AuditEvent {
     /// @param sev Optional severity
     /// @param msg Optional message
     /// @return A new AuditEvent with capability context
-    [[nodiscard]] static AuditEvent
-    for_capability(CapabilityId cap_id,
-                   AuditEventType type,
-                   AuditSeverity sev = AuditSeverity::Info,
-                   std::string msg = "") noexcept {
+    [[nodiscard]] static AuditEvent for_capability(CapabilityId cap_id, AuditEventType type,
+                                                   AuditSeverity sev = AuditSeverity::Info,
+                                                   std::string msg = "") noexcept {
         return AuditEvent{
             .type = type,
             .timestamp = std::chrono::steady_clock::now(),

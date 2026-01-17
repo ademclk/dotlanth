@@ -6,17 +6,17 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <span>
+
 #include "jit_cache.hpp"
 #include "jit_code_buffer.hpp"
 #include "jit_compiler.hpp"
 #include "jit_config.hpp"
 #include "jit_profiler.hpp"
 #include "jit_stencil.hpp"
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <span>
 
 namespace dotvm::jit {
 
@@ -86,17 +86,11 @@ public:
     /// @param entry_pc PC of function entry
     /// @param end_pc PC past last instruction
     /// @return Function ID for future reference
-    [[nodiscard]] FunctionId register_function(
-        std::size_t entry_pc,
-        std::size_t end_pc
-    );
+    [[nodiscard]] FunctionId register_function(std::size_t entry_pc, std::size_t end_pc);
 
     /// @brief Register a loop within a function
-    [[nodiscard]] LoopId register_loop(
-        FunctionId func_id,
-        std::size_t header_pc,
-        std::size_t backedge_pc
-    );
+    [[nodiscard]] LoopId register_loop(FunctionId func_id, std::size_t header_pc,
+                                       std::size_t backedge_pc);
 
     /// @brief Record a function call
     ///
@@ -125,16 +119,11 @@ public:
     /// @param func_id Function ID
     /// @param bytecode Full bytecode of the module
     /// @return Compilation status
-    [[nodiscard]] JitStatus compile_function(
-        FunctionId func_id,
-        std::span<const std::uint8_t> bytecode
-    );
+    [[nodiscard]] JitStatus compile_function(FunctionId func_id,
+                                             std::span<const std::uint8_t> bytecode);
 
     /// @brief Trigger OSR compilation for a loop
-    [[nodiscard]] OsrStatus compile_osr(
-        LoopId loop_id,
-        std::span<const std::uint8_t> bytecode
-    );
+    [[nodiscard]] OsrStatus compile_osr(LoopId loop_id, std::span<const std::uint8_t> bytecode);
 
     /// @brief Check if function is compiled
     [[nodiscard]] bool is_compiled(FunctionId func_id) const noexcept;
@@ -157,11 +146,7 @@ public:
     /// @param entry Compiled entry to execute
     /// @param regs Pointer to register file
     /// @param ctx Pointer to VM context
-    void execute(
-        const CompiledEntry* entry,
-        void* regs,
-        void* ctx
-    ) noexcept;
+    void execute(const CompiledEntry* entry, void* regs, void* ctx) noexcept;
 
     // ========================================================================
     // Cache Management
@@ -244,4 +229,4 @@ private:
     bool initialized_{false};
 };
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

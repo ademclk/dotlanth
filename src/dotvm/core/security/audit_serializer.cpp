@@ -28,8 +28,7 @@ void write_le(std::vector<std::uint8_t>& out, T value) {
 
 /// @brief Read a little-endian value from a byte span
 template <typename T>
-[[nodiscard]] bool
-read_le(std::span<const std::uint8_t>& data, T& out) noexcept {
+[[nodiscard]] bool read_le(std::span<const std::uint8_t>& data, T& out) noexcept {
     if (data.size() < sizeof(T)) {
         return false;
     }
@@ -47,8 +46,7 @@ void write_string(std::vector<std::uint8_t>& out, std::string_view str) {
 }
 
 /// @brief Read a length-prefixed string
-[[nodiscard]] bool read_string(std::span<const std::uint8_t>& data,
-                               std::string& out) {
+[[nodiscard]] bool read_string(std::span<const std::uint8_t>& data, std::string& out) {
     std::uint32_t len = 0;
     if (!read_le(data, len)) {
         return false;
@@ -98,8 +96,7 @@ std::string AuditSerializer::escape_json_string(std::string_view str) {
                 if (static_cast<unsigned char>(c) < 0x20) {
                     // Control character - use unicode escape
                     char buf[8];
-                    std::snprintf(buf, sizeof(buf), "\\u%04x",
-                                  static_cast<unsigned char>(c));
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
                     result += buf;
                 } else {
                     result += c;
@@ -111,8 +108,7 @@ std::string AuditSerializer::escape_json_string(std::string_view str) {
     return result;
 }
 
-std::string
-AuditSerializer::format_timestamp(std::chrono::steady_clock::time_point tp) {
+std::string AuditSerializer::format_timestamp(std::chrono::steady_clock::time_point tp) {
     auto ns = timestamp_to_ns(tp);
     auto secs = ns / 1'000'000'000;
     auto frac = ns % 1'000'000'000;
@@ -122,15 +118,11 @@ AuditSerializer::format_timestamp(std::chrono::steady_clock::time_point tp) {
     return oss.str();
 }
 
-std::int64_t AuditSerializer::timestamp_to_ns(
-    std::chrono::steady_clock::time_point tp) noexcept {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-               tp.time_since_epoch())
-        .count();
+std::int64_t AuditSerializer::timestamp_to_ns(std::chrono::steady_clock::time_point tp) noexcept {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch()).count();
 }
 
-std::chrono::steady_clock::time_point
-AuditSerializer::ns_to_timestamp(std::int64_t ns) noexcept {
+std::chrono::steady_clock::time_point AuditSerializer::ns_to_timestamp(std::int64_t ns) noexcept {
     return std::chrono::steady_clock::time_point(std::chrono::nanoseconds(ns));
 }
 
@@ -155,8 +147,7 @@ std::string AuditSerializer::to_json(const AuditEvent& event) {
                 oss << ",";
             }
             first = false;
-            oss << "\"" << escape_json_string(key) << "\":\""
-                << escape_json_string(value) << "\"";
+            oss << "\"" << escape_json_string(key) << "\":\"" << escape_json_string(value) << "\"";
         }
         oss << "}";
     }
@@ -165,15 +156,13 @@ std::string AuditSerializer::to_json(const AuditEvent& event) {
     return oss.str();
 }
 
-void AuditSerializer::to_json_lines(const std::vector<AuditEvent>& events,
-                                    std::ostream& out) {
+void AuditSerializer::to_json_lines(const std::vector<AuditEvent>& events, std::ostream& out) {
     for (const auto& event : events) {
         out << to_json(event) << "\n";
     }
 }
 
-Result<AuditEvent, std::string>
-AuditSerializer::from_json(std::string_view /*json*/) {
+Result<AuditEvent, std::string> AuditSerializer::from_json(std::string_view /*json*/) {
     // Basic JSON parsing - simplified implementation
     // For production, consider using a proper JSON library
     return Result<AuditEvent, std::string>{Err, std::string{"JSON parsing not implemented"}};
@@ -209,8 +198,7 @@ std::vector<std::uint8_t> AuditSerializer::to_binary(const AuditEvent& event) {
     return result;
 }
 
-Result<AuditEvent, std::string>
-AuditSerializer::from_binary(std::span<const std::uint8_t> data) {
+Result<AuditEvent, std::string> AuditSerializer::from_binary(std::span<const std::uint8_t> data) {
     AuditEvent event;
 
     // Fixed fields
@@ -219,10 +207,9 @@ AuditSerializer::from_binary(std::span<const std::uint8_t> data) {
     std::int64_t timestamp_ns = 0;
     std::uint32_t permission_raw = 0;
 
-    if (!read_le(data, type_raw) || !read_le(data, severity_raw) ||
-        !read_le(data, timestamp_ns) || !read_le(data, permission_raw) ||
-        !read_le(data, event.value) || !read_le(data, event.dot_id) ||
-        !read_le(data, event.capability_id)) {
+    if (!read_le(data, type_raw) || !read_le(data, severity_raw) || !read_le(data, timestamp_ns) ||
+        !read_le(data, permission_raw) || !read_le(data, event.value) ||
+        !read_le(data, event.dot_id) || !read_le(data, event.capability_id)) {
         return Result<AuditEvent, std::string>{Err, std::string{"Failed to read fixed fields"}};
     }
 
@@ -247,7 +234,8 @@ AuditSerializer::from_binary(std::span<const std::uint8_t> data) {
         std::string key;
         std::string value;
         if (!read_string(data, key) || !read_string(data, value)) {
-            return Result<AuditEvent, std::string>{Err, std::string{"Failed to read metadata pair"}};
+            return Result<AuditEvent, std::string>{Err,
+                                                   std::string{"Failed to read metadata pair"}};
         }
         event.metadata.emplace_back(std::move(key), std::move(value));
     }
@@ -255,8 +243,7 @@ AuditSerializer::from_binary(std::span<const std::uint8_t> data) {
     return Result<AuditEvent, std::string>{Ok, std::move(event)};
 }
 
-void AuditSerializer::to_binary_stream(const std::vector<AuditEvent>& events,
-                                       std::ostream& out) {
+void AuditSerializer::to_binary_stream(const std::vector<AuditEvent>& events, std::ostream& out) {
     // Write count first
     auto count = static_cast<std::uint32_t>(events.size());
     out.write(reinterpret_cast<const char*>(&count), sizeof(count));
@@ -316,8 +303,7 @@ std::string AuditSerializer::to_text(const AuditEvent& event) {
     return oss.str();
 }
 
-void AuditSerializer::to_text_stream(const std::vector<AuditEvent>& events,
-                                     std::ostream& out) {
+void AuditSerializer::to_text_stream(const std::vector<AuditEvent>& events, std::ostream& out) {
     for (const auto& event : events) {
         out << to_text(event) << "\n";
     }

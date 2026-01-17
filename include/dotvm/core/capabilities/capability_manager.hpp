@@ -6,8 +6,6 @@
 /// This header defines the CapabilityManager class which manages capability
 /// lifecycle including creation, derivation, revocation, and validation.
 
-#include <dotvm/core/capabilities/capability.hpp>
-
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -19,6 +17,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include <dotvm/core/capabilities/capability.hpp>
 
 // Forward declaration
 namespace dotvm::core {
@@ -72,17 +72,28 @@ enum class CapabilityError : std::uint8_t {
 /// Convert CapabilityError to string
 [[nodiscard]] constexpr std::string_view to_string(CapabilityError err) noexcept {
     switch (err) {
-        case CapabilityError::Success: return "Success";
-        case CapabilityError::InvalidHandle: return "InvalidHandle";
-        case CapabilityError::Expired: return "Expired";
-        case CapabilityError::Revoked: return "Revoked";
-        case CapabilityError::InsufficientPermission: return "InsufficientPermission";
-        case CapabilityError::PermissionNotSubset: return "PermissionNotSubset";
-        case CapabilityError::LimitsNotWithin: return "LimitsNotWithin";
-        case CapabilityError::DerivationNotAllowed: return "DerivationNotAllowed";
-        case CapabilityError::AlreadyRevoked: return "AlreadyRevoked";
-        case CapabilityError::InvalidParent: return "InvalidParent";
-        case CapabilityError::GenerationMismatch: return "GenerationMismatch";
+        case CapabilityError::Success:
+            return "Success";
+        case CapabilityError::InvalidHandle:
+            return "InvalidHandle";
+        case CapabilityError::Expired:
+            return "Expired";
+        case CapabilityError::Revoked:
+            return "Revoked";
+        case CapabilityError::InsufficientPermission:
+            return "InsufficientPermission";
+        case CapabilityError::PermissionNotSubset:
+            return "PermissionNotSubset";
+        case CapabilityError::LimitsNotWithin:
+            return "LimitsNotWithin";
+        case CapabilityError::DerivationNotAllowed:
+            return "DerivationNotAllowed";
+        case CapabilityError::AlreadyRevoked:
+            return "AlreadyRevoked";
+        case CapabilityError::InvalidParent:
+            return "InvalidParent";
+        case CapabilityError::GenerationMismatch:
+            return "GenerationMismatch";
     }
     return "Unknown";
 }
@@ -107,7 +118,7 @@ enum class CapabilityError : std::uint8_t {
 class CapabilityManager {
 public:
     /// Result type for operations that may fail
-    template<typename T>
+    template <typename T>
     using Result = std::expected<T, CapabilityError>;
 
     // ========== Constructors ==========
@@ -142,11 +153,9 @@ public:
     /// @param limits Resource limits
     /// @param expires Expiration time (default: no expiration)
     /// @return Handle to the new capability
-    [[nodiscard]] CapabilityHandle create_root(
-        std::string name,
-        Permission perms,
-        CapabilityLimits limits,
-        TimePoint expires = NO_EXPIRATION) noexcept;
+    [[nodiscard]] CapabilityHandle create_root(std::string name, Permission perms,
+                                               CapabilityLimits limits,
+                                               TimePoint expires = NO_EXPIRATION) noexcept;
 
     // ========== Capability Derivation ==========
 
@@ -163,12 +172,9 @@ public:
     /// @param limits Resource limits (must be within parent)
     /// @param expires Expiration time (must not exceed parent's expiration)
     /// @return Handle to the new capability, or error
-    [[nodiscard]] Result<CapabilityHandle> derive(
-        CapabilityHandle parent,
-        std::string name,
-        Permission perms,
-        CapabilityLimits limits,
-        TimePoint expires = NO_EXPIRATION) noexcept;
+    [[nodiscard]] Result<CapabilityHandle> derive(CapabilityHandle parent, std::string name,
+                                                  Permission perms, CapabilityLimits limits,
+                                                  TimePoint expires = NO_EXPIRATION) noexcept;
 
     // ========== Capability Revocation ==========
 
@@ -206,9 +212,8 @@ public:
     /// @param handle Handle to check
     /// @param required Permissions required
     /// @return true if capability has all required permissions
-    [[nodiscard]] bool check_permission(
-        CapabilityHandle handle,
-        Permission required) const noexcept;
+    [[nodiscard]] bool check_permission(CapabilityHandle handle,
+                                        Permission required) const noexcept;
 
     /// Check if operation is within capability limits
     ///
@@ -216,10 +221,8 @@ public:
     /// @param memory Memory usage to check (0 to skip)
     /// @param instructions Instructions executed (0 to skip)
     /// @return true if within limits
-    [[nodiscard]] bool check_limits(
-        CapabilityHandle handle,
-        std::uint64_t memory,
-        std::uint64_t instructions) const noexcept;
+    [[nodiscard]] bool check_limits(CapabilityHandle handle, std::uint64_t memory,
+                                    std::uint64_t instructions) const noexcept;
 
     // ========== Preset Capabilities ==========
 
@@ -230,8 +233,7 @@ public:
     ///
     /// @param name Optional name (default: "untrusted")
     /// @return Handle to the new capability
-    [[nodiscard]] CapabilityHandle create_untrusted(
-        std::string name = "untrusted") noexcept;
+    [[nodiscard]] CapabilityHandle create_untrusted(std::string name = "untrusted") noexcept;
 
     /// Create a sandbox capability (moderate restrictions)
     ///
@@ -240,8 +242,7 @@ public:
     ///
     /// @param name Optional name (default: "sandbox")
     /// @return Handle to the new capability
-    [[nodiscard]] CapabilityHandle create_sandbox(
-        std::string name = "sandbox") noexcept;
+    [[nodiscard]] CapabilityHandle create_sandbox(std::string name = "sandbox") noexcept;
 
     /// Create a trusted capability (minimal restrictions)
     ///
@@ -250,8 +251,7 @@ public:
     ///
     /// @param name Optional name (default: "trusted")
     /// @return Handle to the new capability
-    [[nodiscard]] CapabilityHandle create_trusted(
-        std::string name = "trusted") noexcept;
+    [[nodiscard]] CapabilityHandle create_trusted(std::string name = "trusted") noexcept;
 
     // ========== Statistics ==========
 
@@ -270,8 +270,8 @@ public:
     ///
     /// @param parent Parent capability handle
     /// @return Vector of child handles (may be empty)
-    [[nodiscard]] std::vector<CapabilityHandle> get_children(
-        CapabilityHandle parent) const noexcept;
+    [[nodiscard]] std::vector<CapabilityHandle>
+    get_children(CapabilityHandle parent) const noexcept;
 
     /// Set the security stats object
     ///
