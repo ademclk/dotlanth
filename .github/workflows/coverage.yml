@@ -1,8 +1,8 @@
 # Code Coverage
-# Generates coverage reports and optionally uploads to Codecov (free for public repos)
+# Generates coverage reports and displays in GitHub Actions UI
 #
 # Security: This workflow does not use any untrusted user inputs.
-# Cost: All tools are free. Codecov upload is optional (free for public repos).
+# Cost: All tools are free. No external services required.
 
 name: Coverage
 
@@ -81,17 +81,6 @@ jobs:
             $TEST_BINARIES \
             > coverage.lcov
 
-      - name: Upload to Codecov (optional)
-        if: secrets.CODECOV_TOKEN != ''
-        uses: codecov/codecov-action@v4
-        continue-on-error: true
-        with:
-          files: build/coverage.lcov
-          flags: unittests
-          name: dotlanth-coverage
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Generate Coverage Summary
         run: |
           cd build
@@ -101,11 +90,11 @@ jobs:
             -instr-profile=coverage.profdata \
             -ignore-filename-regex='.*/_deps/.*' \
             -ignore-filename-regex='.*/tests/.*' \
-            ./dotvm_tests 2>/dev/null | head -20 >> $GITHUB_STEP_SUMMARY || true
+            ./dotvm_tests 2>/dev/null | head -30 >> $GITHUB_STEP_SUMMARY || true
 
       - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: build/coverage.lcov
-          retention-days: 7
+          retention-days: 30
