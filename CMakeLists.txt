@@ -142,6 +142,12 @@ target_include_directories(dotvm_core PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+# Enable PIC for static library when it may be linked into shared library
+# Required when sanitizers are enabled since ASAN symbols need PIC
+if(DOTVM_BUILD_C_API)
+    set_target_properties(dotvm_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
 target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
 # Suppress pedantic warning for computed-goto in execution engine
