@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <type_traits>
 
 #include "cpu_features.hpp"
 #include "simd_opcodes.hpp"
@@ -233,7 +234,14 @@ template<std::size_t Width, LaneType Lane>
                                         const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
     for (std::size_t i = 0; i < Vector<Width, Lane>::lane_count; ++i) {
-        result[i] = static_cast<Lane>(a[i] + b[i]);
+        // Use unsigned arithmetic for defined wrapping behavior on overflow
+        if constexpr (std::is_signed_v<Lane> && std::is_integral_v<Lane>) {
+            using ULane = std::make_unsigned_t<Lane>;
+            result[i] = static_cast<Lane>(
+                static_cast<ULane>(static_cast<ULane>(a[i]) + static_cast<ULane>(b[i])));
+        } else {
+            result[i] = static_cast<Lane>(a[i] + b[i]);
+        }
     }
     return result;
 }
@@ -244,7 +252,14 @@ template<std::size_t Width, LaneType Lane>
                                         const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
     for (std::size_t i = 0; i < Vector<Width, Lane>::lane_count; ++i) {
-        result[i] = static_cast<Lane>(a[i] - b[i]);
+        // Use unsigned arithmetic for defined wrapping behavior on overflow
+        if constexpr (std::is_signed_v<Lane> && std::is_integral_v<Lane>) {
+            using ULane = std::make_unsigned_t<Lane>;
+            result[i] = static_cast<Lane>(
+                static_cast<ULane>(static_cast<ULane>(a[i]) - static_cast<ULane>(b[i])));
+        } else {
+            result[i] = static_cast<Lane>(a[i] - b[i]);
+        }
     }
     return result;
 }
@@ -255,7 +270,14 @@ template<std::size_t Width, LaneType Lane>
                                         const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
     for (std::size_t i = 0; i < Vector<Width, Lane>::lane_count; ++i) {
-        result[i] = static_cast<Lane>(a[i] * b[i]);
+        // Use unsigned arithmetic for defined wrapping behavior on overflow
+        if constexpr (std::is_signed_v<Lane> && std::is_integral_v<Lane>) {
+            using ULane = std::make_unsigned_t<Lane>;
+            result[i] = static_cast<Lane>(
+                static_cast<ULane>(static_cast<ULane>(a[i]) * static_cast<ULane>(b[i])));
+        } else {
+            result[i] = static_cast<Lane>(a[i] * b[i]);
+        }
     }
     return result;
 }
