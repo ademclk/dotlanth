@@ -131,8 +131,9 @@ typedef struct dotvm_config {
  *
  * Usage: dotvm_config_t config = DOTVM_CONFIG_INIT;
  */
-#define DOTVM_CONFIG_INIT \
-    { 1, 0, 0, {0, 0, 0, 0, 0}, 0 }
+// clang-format off
+#define DOTVM_CONFIG_INIT { 1, 0, 0, {0, 0, 0, 0, 0}, 0 }
+// clang-format on
 
 /* ============================================================================
  * VM Lifecycle
