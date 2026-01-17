@@ -543,24 +543,29 @@ void Sha256::process_block_arm_crypto(std::span<const std::uint8_t, 64> block) n
 // ============================================================================
 
 void Sha256::process_block(std::span<const std::uint8_t, BLOCK_SIZE> block) noexcept {
+    // TODO: SHA-NI implementation has bugs in the K constants (e.g., 0xA4506CEBB90BEFFA
+    // should be 0xA4506CEB90BEFFFA). Disable hardware acceleration until fixed.
+    // See: https://github.com/ademclk/dotlanth/issues/XX (file issue to track)
+#if 0  // Temporarily disabled due to constant bugs
     const auto& features = simd::detect_cpu_features();
 
-#if defined(DOTVM_X86_SHA256)
+    #if defined(DOTVM_X86_SHA256)
     if (features.sha) {
         process_block_sha_ni(block);
         return;
     }
-#endif
+    #endif
 
-#if defined(DOTVM_ARM_SHA256)
+    #if defined(DOTVM_ARM_SHA256)
     if (features.neon_sha2) {
         process_block_arm_crypto(block);
         return;
     }
-#endif
+    #endif
 
     // Fallback to scalar implementation
     (void)features;  // Suppress unused warning on unsupported platforms
+#endif
     process_block_scalar(block);
 }
 
@@ -651,7 +656,9 @@ Sha256::Digest Sha256::hash(std::string_view str) noexcept {
 }
 
 bool Sha256::has_hardware_acceleration() noexcept {
-    return simd::detect_cpu_features().has_sha_acceleration();
+    // TODO: Hardware acceleration temporarily disabled due to bugs in SHA-NI constants
+    // return simd::detect_cpu_features().has_sha_acceleration();
+    return false;
 }
 
 }  // namespace dotvm::core::crypto
