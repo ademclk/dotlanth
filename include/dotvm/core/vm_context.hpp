@@ -78,7 +78,7 @@ struct ResourceLimits {
     [[nodiscard]] static constexpr ResourceLimits restricted() noexcept {
         return ResourceLimits{.max_instructions = 1'000'000,
                               .max_allocations = 1'000,
-                              .max_total_memory = 16 * 1024 * 1024,
+                              .max_total_memory = std::size_t{16} * 1024 * 1024,
                               .max_call_depth = 256,
                               .max_backward_jumps = 10'000};
     }
@@ -194,7 +194,7 @@ struct VmConfig {
     [[nodiscard]] static constexpr VmConfig sandboxed() noexcept {
         return VmConfig{.arch = Architecture::Arch64,
                         .strict_overflow = true,
-                        .max_memory = 16 * 1024 * 1024,  // 16MB per-allocation limit
+                        .max_memory = std::size_t{16} * 1024 * 1024,  // 16MB per-allocation limit
                         .cfi_enabled = true,
                         .cfi_policy = cfi::CfiPolicy::strict(),
                         .resource_limits = ResourceLimits::restricted()};
@@ -276,6 +276,7 @@ struct VmConfig {
 ///
 /// The context provides convenience methods for creating values and
 /// computing addresses that respect the configured architecture.
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 class VmContext {
 public:
     /// Construct a context with the given configuration
@@ -402,9 +403,11 @@ public:
     [[nodiscard]] bool cfi_enabled() const noexcept { return cfi_.has_value(); }
 
     /// Get mutable reference to CFI context (only valid if cfi_enabled())
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     [[nodiscard]] cfi::CfiContext& cfi() noexcept { return *cfi_; }
 
     /// Get const reference to CFI context (only valid if cfi_enabled())
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     [[nodiscard]] const cfi::CfiContext& cfi() const noexcept { return *cfi_; }
 
     /// Get optional CFI context (safe access)
