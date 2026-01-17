@@ -1,0 +1,127 @@
+# Sanitizer Builds
+# Runs tests with AddressSanitizer, UndefinedBehaviorSanitizer, and ThreadSanitizer
+#
+# Security: This workflow only uses safe matrix variables.
+
+name: Sanitizers
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Sundays at 00:00 UTC
+    - cron: "0 0 * * 0"
+
+jobs:
+  sanitizers:
+    name: ${{ matrix.sanitizer }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sanitizer: AddressSanitizer
+            flags: "-fsanitize=address -fno-omit-frame-pointer"
+            env_name: ASAN_OPTIONS
+            env_value: "detect_leaks=1:abort_on_error=1"
+          - sanitizer: UndefinedBehaviorSanitizer
+            flags: "-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
+            env_name: UBSAN_OPTIONS
+            env_value: "print_stacktrace=1:abort_on_error=1"
+          - sanitizer: ThreadSanitizer
+            flags: "-fsanitize=thread -fno-omit-frame-pointer"
+            env_name: TSAN_OPTIONS
+            env_value: "abort_on_error=1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Install Clang 19
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt-get install -y clang-19 clang++-19
+
+      - name: Cache FetchContent
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-sanitizer-${{ matrix.sanitizer }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure CMake
+        env:
+          SANITIZER_FLAGS: ${{ matrix.flags }}
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19 \
+            -DCMAKE_C_FLAGS="$SANITIZER_FLAGS" \
+            -DCMAKE_CXX_FLAGS="$SANITIZER_FLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$SANITIZER_FLAGS" \
+            -DCMAKE_SHARED_LINKER_FLAGS="$SANITIZER_FLAGS" \
+            -DDOTVM_BUILD_TESTS=ON \
+            -DDOTVM_BUILD_C_API=ON \
+            -DDOTVM_ENABLE_SIMD=OFF \
+            -DDOTVM_ENABLE_JIT=ON \
+            -DDOTVM_ENABLE_SANITIZERS=OFF
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Tests with ${{ matrix.sanitizer }}
+        env:
+          ${{ matrix.env_name }}: ${{ matrix.env_value }}
+        run: |
+          ctest --test-dir build --output-on-failure --timeout 300
+
+  asan-ubsan-combined:
+    name: ASan+UBSan Combined
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Install Clang 19
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt-get install -y clang-19 clang++-19
+
+      - name: Cache FetchContent
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-sanitizer-asan-ubsan-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure CMake with built-in sanitizers
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19 \
+            -DDOTVM_BUILD_TESTS=ON \
+            -DDOTVM_BUILD_C_API=ON \
+            -DDOTVM_ENABLE_SIMD=OFF \
+            -DDOTVM_ENABLE_JIT=ON \
+            -DDOTVM_ENABLE_SANITIZERS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Tests
+        env:
+          ASAN_OPTIONS: "detect_leaks=1:abort_on_error=1"
+          UBSAN_OPTIONS: "print_stacktrace=1:abort_on_error=1"
+        run: ctest --test-dir build --output-on-failure --timeout 300

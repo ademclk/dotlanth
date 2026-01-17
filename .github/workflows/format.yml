@@ -1,0 +1,70 @@
+# Code Formatting Check
+# Ensures consistent code style across the project
+#
+# Security: This workflow does not use any untrusted user inputs.
+
+name: Format Check
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  clang-format:
+    name: clang-format
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang-format 19
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt-get install -y clang-format-19
+
+      - name: Check C++ formatting
+        run: |
+          find include src tests -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | \
+            xargs clang-format-19 --dry-run --Werror
+
+  cmake-format:
+    name: cmake-format
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install cmake-format
+        run: pip install cmake-format pyyaml
+
+      - name: Check CMake formatting
+        run: |
+          cmake-format --check CMakeLists.txt || {
+            echo "CMakeLists.txt is not properly formatted"
+            echo "Run: cmake-format -i CMakeLists.txt"
+            exit 1
+          }
+
+  trailing-whitespace:
+    name: trailing-whitespace
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check trailing whitespace
+        run: |
+          if grep -rn '[[:blank:]]$' include/ src/ tests/ --include='*.cpp' --include='*.hpp' --include='*.h'; then
+            echo "Found trailing whitespace in the above files"
+            exit 1
+          fi
+          echo "No trailing whitespace found"

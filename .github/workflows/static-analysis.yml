@@ -1,0 +1,128 @@
+# Static Analysis
+# Runs clang-tidy and CodeQL for code quality and security
+#
+# Security: Changed files output from tj-actions/changed-files is used safely
+# in a bash loop with proper quoting.
+
+name: Static Analysis
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  clang-tidy:
+    name: clang-tidy
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Install Clang 19 tools
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt-get install -y clang-19 clang++-19 clang-tidy-19
+
+      - name: Cache FetchContent
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-clang-tidy-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19 \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DDOTVM_BUILD_TESTS=ON \
+            -DDOTVM_BUILD_C_API=ON \
+            -DDOTVM_ENABLE_SIMD=OFF \
+            -DDOTVM_ENABLE_JIT=ON
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            **/*.cpp
+            **/*.hpp
+            **/*.h
+          files_ignore: |
+            build/**
+            **/build/**
+
+      - name: Run clang-tidy on changed files
+        if: steps.changed-files.outputs.any_changed == 'true'
+        env:
+          CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+        run: |
+          echo "Changed files: $CHANGED_FILES"
+          for file in $CHANGED_FILES; do
+            if [[ -f "$file" ]]; then
+              echo "Analyzing: $file"
+              clang-tidy-19 -p build "$file" --warnings-as-errors='*' || exit 1
+            fi
+          done
+
+      - name: Run clang-tidy on all (full analysis on main)
+        if: github.ref == 'refs/heads/main' && steps.changed-files.outputs.any_changed != 'true'
+        run: |
+          find include/dotvm src/dotvm -name '*.cpp' -o -name '*.hpp' | \
+            xargs -P4 -I{} clang-tidy-19 -p build {} --warnings-as-errors='*'
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Install Clang 19
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt-get install -y clang-19 clang++-19
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+          queries: security-and-quality
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19 \
+            -DDOTVM_BUILD_TESTS=OFF \
+            -DDOTVM_BUILD_C_API=ON \
+            -DDOTVM_ENABLE_SIMD=OFF \
+            -DDOTVM_ENABLE_JIT=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:cpp"

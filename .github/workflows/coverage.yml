@@ -1,0 +1,97 @@
+# Code Coverage
+# Generates coverage reports and uploads to Codecov
+#
+# Security: This workflow does not use any untrusted user inputs.
+
+name: Coverage
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Install Clang 19 and llvm-cov
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt-get install -y clang-19 clang++-19 llvm-19
+
+      - name: Cache FetchContent
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-coverage-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure CMake with Coverage
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19 \
+            -DDOTVM_BUILD_TESTS=ON \
+            -DDOTVM_BUILD_C_API=ON \
+            -DDOTVM_ENABLE_SIMD=OFF \
+            -DDOTVM_ENABLE_JIT=ON \
+            -DDOTVM_ENABLE_COVERAGE=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Tests
+        env:
+          LLVM_PROFILE_FILE: "build/coverage-%p.profraw"
+        run: |
+          ctest --test-dir build --output-on-failure
+
+      - name: Generate Coverage Report
+        run: |
+          cd build
+          # Merge all profile data files
+          llvm-profdata-19 merge -sparse coverage-*.profraw -o coverage.profdata
+
+          # Get list of test binaries
+          TEST_BINARIES=""
+          if [[ -f dotvm_tests ]]; then
+            TEST_BINARIES="$TEST_BINARIES -object=dotvm_tests"
+          fi
+          if [[ -f dotvm_c_tests ]]; then
+            TEST_BINARIES="$TEST_BINARIES -object=dotvm_c_tests"
+          fi
+
+          # Generate lcov format coverage data
+          llvm-cov-19 export \
+            -instr-profile=coverage.profdata \
+            -format=lcov \
+            -ignore-filename-regex='.*/_deps/.*' \
+            -ignore-filename-regex='.*/tests/.*' \
+            $TEST_BINARIES \
+            > coverage.lcov
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: build/coverage.lcov
+          flags: unittests
+          name: dotlanth-coverage
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage.lcov
+          retention-days: 7

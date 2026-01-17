@@ -1,0 +1,105 @@
+# Release Builds
+# Creates release artifacts when a tag is pushed
+#
+# Security: This workflow only uses safe matrix and github.workspace variables.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+jobs:
+  build-release:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            artifact_name: dotlanth-linux-x86_64
+            compiler: clang
+            cxx: clang++-19
+            cc: clang-19
+          - os: macos-14
+            artifact_name: dotlanth-macos-arm64
+            compiler: appleclang
+            cxx: clang++
+            cc: clang
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Install Clang 19 (Ubuntu)
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt-get install -y clang-19 clang++-19
+
+      - name: Configure CMake
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DDOTVM_BUILD_TESTS=OFF \
+            -DDOTVM_BUILD_C_API=ON \
+            -DDOTVM_ENABLE_SIMD=OFF \
+            -DDOTVM_ENABLE_JIT=ON \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Install
+        run: cmake --install build
+
+      - name: Package
+        env:
+          ARTIFACT_NAME: ${{ matrix.artifact_name }}
+        run: |
+          cd "${{ github.workspace }}/install"
+          tar -czvf "../$ARTIFACT_NAME.tar.gz" .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.tar.gz
+
+  create-release:
+    name: Create Release
+    needs: build-release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
