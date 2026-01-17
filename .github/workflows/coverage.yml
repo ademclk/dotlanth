@@ -13,12 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install LLVM 18
+      - name: Install LLVM 20
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 18
-          sudo apt-get install -y llvm-18
+          sudo ./llvm.sh 20
+          sudo apt-get install -y llvm-20 libc++-20-dev libc++abi-20-dev
 
       - name: Install dependencies
         run: |
@@ -29,8 +29,9 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang-18 \
-            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_COMPILER=clang-20 \
+            -DCMAKE_CXX_COMPILER=clang++-20 \
+            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
             -DDOTVM_ENABLE_COVERAGE=ON \
             -DDOTVM_BUILD_TESTS=ON \
             -DDOTVM_BUILD_C_API=ON
@@ -43,14 +44,14 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          llvm-profdata-18 merge -sparse build/default.profraw -o build/coverage.profdata
-          llvm-cov-18 report ./build/dotvm_tests -instr-profile=build/coverage.profdata \
+          llvm-profdata-20 merge -sparse build/default.profraw -o build/coverage.profdata
+          llvm-cov-20 report ./build/dotvm_tests -instr-profile=build/coverage.profdata \
             -ignore-filename-regex='tests/.*' \
             -ignore-filename-regex='_deps/.*'
 
       - name: Export coverage (lcov format)
         run: |
-          llvm-cov-18 export ./build/dotvm_tests -instr-profile=build/coverage.profdata \
+          llvm-cov-20 export ./build/dotvm_tests -instr-profile=build/coverage.profdata \
             -format=lcov \
             -ignore-filename-regex='tests/.*' \
             -ignore-filename-regex='_deps/.*' > build/coverage.lcov
