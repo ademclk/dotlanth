@@ -1,16 +1,16 @@
 /// @file capability_test.cpp
 /// @brief Unit tests for SEC-001 Capability System
 
+#include <chrono>
+#include <future>
+#include <thread>
+#include <vector>
+
 #include <dotvm/core/capabilities/capability.hpp>
 #include <dotvm/core/capabilities/capability_manager.hpp>
 #include <dotvm/core/security_stats.hpp>
 
 #include <gtest/gtest.h>
-
-#include <chrono>
-#include <future>
-#include <thread>
-#include <vector>
 
 using namespace dotvm::core::capabilities;
 using namespace dotvm::core;
@@ -141,11 +141,9 @@ TEST(CapabilityLimitsTest, IsWithinUnlimitedParent) {
 TEST(CapabilityLimitsTest, IsWithinTrustedParent) {
     auto parent = CapabilityLimits::trusted();
     auto child = CapabilityLimits::sandbox();
-    auto too_large = CapabilityLimits{
-        .max_memory = 512ULL * 1024 * 1024,  // 512MB > 256MB
-        .max_instructions = 50'000'000,
-        .max_stack_depth = 1024
-    };
+    auto too_large = CapabilityLimits{.max_memory = 512ULL * 1024 * 1024,  // 512MB > 256MB
+                                      .max_instructions = 50'000'000,
+                                      .max_stack_depth = 1024};
 
     EXPECT_TRUE(child.is_within(parent));
     EXPECT_FALSE(too_large.is_within(parent));
@@ -248,10 +246,8 @@ TEST(CapabilityHandleTest, Equality) {
 TEST(CapabilityManagerTest, CreateRoot) {
     CapabilityManager mgr;
 
-    auto handle = mgr.create_root(
-        "test-root",
-        Permission::MemoryAll | Permission::Execute,
-        CapabilityLimits::sandbox());
+    auto handle = mgr.create_root("test-root", Permission::MemoryAll | Permission::Execute,
+                                  CapabilityLimits::sandbox());
 
     EXPECT_FALSE(handle.is_null());
     EXPECT_TRUE(mgr.is_valid(handle));
@@ -268,16 +264,12 @@ TEST(CapabilityManagerTest, CreateRoot) {
 TEST(CapabilityManagerTest, DeriveSuccess) {
     CapabilityManager mgr;
 
-    auto parent = mgr.create_root(
-        "parent",
-        Permission::MemoryAll | Permission::Execute | Permission::Derive,
-        CapabilityLimits::trusted());
+    auto parent =
+        mgr.create_root("parent", Permission::MemoryAll | Permission::Execute | Permission::Derive,
+                        CapabilityLimits::trusted());
 
-    auto result = mgr.derive(
-        parent,
-        "child",
-        Permission::MemoryRead | Permission::Execute,
-        CapabilityLimits::sandbox());
+    auto result = mgr.derive(parent, "child", Permission::MemoryRead | Permission::Execute,
+                             CapabilityLimits::sandbox());
 
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(result->is_null());
@@ -294,16 +286,11 @@ TEST(CapabilityManagerTest, DeriveRequiresPermission) {
     CapabilityManager mgr;
 
     // Parent without Derive permission
-    auto parent = mgr.create_root(
-        "parent",
-        Permission::MemoryAll | Permission::Execute,  // No Derive
-        CapabilityLimits::trusted());
+    auto parent = mgr.create_root("parent",
+                                  Permission::MemoryAll | Permission::Execute,  // No Derive
+                                  CapabilityLimits::trusted());
 
-    auto result = mgr.derive(
-        parent,
-        "child",
-        Permission::MemoryRead,
-        CapabilityLimits::sandbox());
+    auto result = mgr.derive(parent, "child", Permission::MemoryRead, CapabilityLimits::sandbox());
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), CapabilityError::DerivationNotAllowed);
@@ -312,17 +299,15 @@ TEST(CapabilityManagerTest, DeriveRequiresPermission) {
 TEST(CapabilityManagerTest, DerivePermissionSubset) {
     CapabilityManager mgr;
 
-    auto parent = mgr.create_root(
-        "parent",
-        Permission::MemoryRead | Permission::Execute | Permission::Derive,
-        CapabilityLimits::trusted());
+    auto parent =
+        mgr.create_root("parent", Permission::MemoryRead | Permission::Execute | Permission::Derive,
+                        CapabilityLimits::trusted());
 
     // Try to derive with permission parent doesn't have
-    auto result = mgr.derive(
-        parent,
-        "child",
-        Permission::MemoryRead | Permission::Network,  // Parent doesn't have Network
-        CapabilityLimits::sandbox());
+    auto result =
+        mgr.derive(parent, "child",
+                   Permission::MemoryRead | Permission::Network,  // Parent doesn't have Network
+                   CapabilityLimits::sandbox());
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), CapabilityError::PermissionNotSubset);
@@ -331,23 +316,16 @@ TEST(CapabilityManagerTest, DerivePermissionSubset) {
 TEST(CapabilityManagerTest, DeriveLimitsWithin) {
     CapabilityManager mgr;
 
-    auto parent = mgr.create_root(
-        "parent",
-        Permission::MemoryAll | Permission::Execute | Permission::Derive,
-        CapabilityLimits::sandbox());  // 16MB limit
+    auto parent =
+        mgr.create_root("parent", Permission::MemoryAll | Permission::Execute | Permission::Derive,
+                        CapabilityLimits::sandbox());  // 16MB limit
 
     // Try to derive with limits exceeding parent
-    CapabilityLimits too_large{
-        .max_memory = 256ULL * 1024 * 1024,  // 256MB > 16MB
-        .max_instructions = 1'000'000,
-        .max_stack_depth = 256
-    };
+    CapabilityLimits too_large{.max_memory = 256ULL * 1024 * 1024,  // 256MB > 16MB
+                               .max_instructions = 1'000'000,
+                               .max_stack_depth = 256};
 
-    auto result = mgr.derive(
-        parent,
-        "child",
-        Permission::MemoryRead,
-        too_large);
+    auto result = mgr.derive(parent, "child", Permission::MemoryRead, too_large);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), CapabilityError::LimitsNotWithin);
@@ -356,10 +334,7 @@ TEST(CapabilityManagerTest, DeriveLimitsWithin) {
 TEST(CapabilityManagerTest, Revoke) {
     CapabilityManager mgr;
 
-    auto handle = mgr.create_root(
-        "test",
-        Permission::MemoryRead,
-        CapabilityLimits::sandbox());
+    auto handle = mgr.create_root("test", Permission::MemoryRead, CapabilityLimits::sandbox());
 
     EXPECT_TRUE(mgr.is_valid(handle));
 
@@ -371,10 +346,7 @@ TEST(CapabilityManagerTest, Revoke) {
 TEST(CapabilityManagerTest, RevokeAlreadyRevoked) {
     CapabilityManager mgr;
 
-    auto handle = mgr.create_root(
-        "test",
-        Permission::MemoryRead,
-        CapabilityLimits::sandbox());
+    auto handle = mgr.create_root("test", Permission::MemoryRead, CapabilityLimits::sandbox());
 
     EXPECT_EQ(mgr.revoke(handle), CapabilityError::Success);
     EXPECT_EQ(mgr.revoke(handle), CapabilityError::GenerationMismatch);
@@ -383,23 +355,15 @@ TEST(CapabilityManagerTest, RevokeAlreadyRevoked) {
 TEST(CapabilityManagerTest, RevokeCascades) {
     CapabilityManager mgr;
 
-    auto root = mgr.create_root(
-        "root",
-        Permission::MemoryAll | Permission::Derive,
-        CapabilityLimits::trusted());
+    auto root = mgr.create_root("root", Permission::MemoryAll | Permission::Derive,
+                                CapabilityLimits::trusted());
 
-    auto child = mgr.derive(
-        root,
-        "child",
-        Permission::MemoryRead | Permission::Derive,
-        CapabilityLimits::sandbox());
+    auto child = mgr.derive(root, "child", Permission::MemoryRead | Permission::Derive,
+                            CapabilityLimits::sandbox());
     ASSERT_TRUE(child.has_value());
 
-    auto grandchild = mgr.derive(
-        *child,
-        "grandchild",
-        Permission::MemoryRead,
-        CapabilityLimits::untrusted());
+    auto grandchild =
+        mgr.derive(*child, "grandchild", Permission::MemoryRead, CapabilityLimits::untrusted());
     ASSERT_TRUE(grandchild.has_value());
 
     // All should be valid
@@ -418,22 +382,16 @@ TEST(CapabilityManagerTest, RevokeCascades) {
 TEST(CapabilityManagerTest, RevokeChild) {
     CapabilityManager mgr;
 
-    auto root = mgr.create_root(
-        "root",
-        Permission::MemoryAll | Permission::Derive,
-        CapabilityLimits::trusted());
+    auto root = mgr.create_root("root", Permission::MemoryAll | Permission::Derive,
+                                CapabilityLimits::trusted());
 
-    auto child = mgr.derive(
-        root,
-        "child",
-        Permission::MemoryRead,
-        CapabilityLimits::sandbox());
+    auto child = mgr.derive(root, "child", Permission::MemoryRead, CapabilityLimits::sandbox());
     ASSERT_TRUE(child.has_value());
 
     // Revoke only child
     EXPECT_EQ(mgr.revoke(*child), CapabilityError::Success);
 
-    EXPECT_TRUE(mgr.is_valid(root));   // Parent still valid
+    EXPECT_TRUE(mgr.is_valid(root));  // Parent still valid
     EXPECT_FALSE(mgr.is_valid(*child));
 }
 
@@ -448,10 +406,7 @@ TEST(CapabilityManagerTest, InvalidHandle) {
 TEST(CapabilityManagerTest, GenerationMismatch) {
     CapabilityManager mgr;
 
-    auto handle = mgr.create_root(
-        "test",
-        Permission::MemoryRead,
-        CapabilityLimits::sandbox());
+    auto handle = mgr.create_root("test", Permission::MemoryRead, CapabilityLimits::sandbox());
 
     // Modify generation to simulate stale handle
     CapabilityHandle stale{.id = handle.id, .generation = handle.generation + 1};
@@ -461,10 +416,8 @@ TEST(CapabilityManagerTest, GenerationMismatch) {
 TEST(CapabilityManagerTest, CheckPermission) {
     CapabilityManager mgr;
 
-    auto handle = mgr.create_root(
-        "test",
-        Permission::MemoryRead | Permission::Execute,
-        CapabilityLimits::sandbox());
+    auto handle = mgr.create_root("test", Permission::MemoryRead | Permission::Execute,
+                                  CapabilityLimits::sandbox());
 
     EXPECT_TRUE(mgr.check_permission(handle, Permission::MemoryRead));
     EXPECT_TRUE(mgr.check_permission(handle, Permission::Execute));
@@ -475,10 +428,8 @@ TEST(CapabilityManagerTest, CheckPermission) {
 TEST(CapabilityManagerTest, CheckLimits) {
     CapabilityManager mgr;
 
-    auto handle = mgr.create_root(
-        "test",
-        Permission::MemoryAll,
-        CapabilityLimits::sandbox());  // 16MB, 1M instructions
+    auto handle = mgr.create_root("test", Permission::MemoryAll,
+                                  CapabilityLimits::sandbox());  // 16MB, 1M instructions
 
     // Within limits
     EXPECT_TRUE(mgr.check_limits(handle, 1024 * 1024, 500'000));  // 1MB, 500K
@@ -589,7 +540,8 @@ TEST(CapabilityManagerTest, TotalCreatedAndRevoked) {
     EXPECT_EQ(mgr.total_revoked(), 0ULL);
 
     auto h1 = mgr.create_root("cap1", Permission::Execute, CapabilityLimits::sandbox());
-    [[maybe_unused]] auto h2 = mgr.create_root("cap2", Permission::Execute, CapabilityLimits::sandbox());
+    [[maybe_unused]] auto h2 =
+        mgr.create_root("cap2", Permission::Execute, CapabilityLimits::sandbox());
     EXPECT_EQ(mgr.total_created(), 2ULL);
 
     (void)mgr.revoke(h1);
@@ -599,10 +551,8 @@ TEST(CapabilityManagerTest, TotalCreatedAndRevoked) {
 TEST(CapabilityManagerTest, GetChildren) {
     CapabilityManager mgr;
 
-    auto root = mgr.create_root(
-        "root",
-        Permission::MemoryAll | Permission::Derive,
-        CapabilityLimits::trusted());
+    auto root = mgr.create_root("root", Permission::MemoryAll | Permission::Derive,
+                                CapabilityLimits::trusted());
 
     auto child1 = mgr.derive(root, "child1", Permission::MemoryRead, CapabilityLimits::sandbox());
     auto child2 = mgr.derive(root, "child2", Permission::MemoryRead, CapabilityLimits::sandbox());
@@ -621,7 +571,8 @@ TEST(CapabilityManagerTest, SecurityStatsCreation) {
     SecurityStats stats;
     CapabilityManager mgr(&stats);
 
-    [[maybe_unused]] auto handle = mgr.create_root("test", Permission::Execute, CapabilityLimits::sandbox());
+    [[maybe_unused]] auto handle =
+        mgr.create_root("test", Permission::Execute, CapabilityLimits::sandbox());
 
     auto snapshot = stats.snapshot();
     EXPECT_EQ(snapshot.capability_creations, 1U);
@@ -631,10 +582,8 @@ TEST(CapabilityManagerTest, SecurityStatsDerivation) {
     SecurityStats stats;
     CapabilityManager mgr(&stats);
 
-    auto parent = mgr.create_root(
-        "parent",
-        Permission::MemoryAll | Permission::Derive,
-        CapabilityLimits::trusted());
+    auto parent = mgr.create_root("parent", Permission::MemoryAll | Permission::Derive,
+                                  CapabilityLimits::trusted());
 
     auto child = mgr.derive(parent, "child", Permission::MemoryRead, CapabilityLimits::sandbox());
     ASSERT_TRUE(child.has_value());
@@ -660,10 +609,9 @@ TEST(CapabilityManagerTest, SecurityStatsPermissionViolation) {
     CapabilityManager mgr(&stats);
 
     // Parent without Derive permission
-    auto parent = mgr.create_root(
-        "parent",
-        Permission::MemoryRead,  // No Derive
-        CapabilityLimits::trusted());
+    auto parent = mgr.create_root("parent",
+                                  Permission::MemoryRead,  // No Derive
+                                  CapabilityLimits::trusted());
 
     auto result = mgr.derive(parent, "child", Permission::MemoryRead, CapabilityLimits::sandbox());
     EXPECT_FALSE(result.has_value());
@@ -676,16 +624,12 @@ TEST(CapabilityManagerTest, SecurityStatsLimitViolation) {
     SecurityStats stats;
     CapabilityManager mgr(&stats);
 
-    auto parent = mgr.create_root(
-        "parent",
-        Permission::MemoryAll | Permission::Derive,
-        CapabilityLimits::sandbox());
+    auto parent = mgr.create_root("parent", Permission::MemoryAll | Permission::Derive,
+                                  CapabilityLimits::sandbox());
 
-    CapabilityLimits too_large{
-        .max_memory = 1024ULL * 1024 * 1024,  // 1GB > 16MB
-        .max_instructions = 1'000'000,
-        .max_stack_depth = 256
-    };
+    CapabilityLimits too_large{.max_memory = 1024ULL * 1024 * 1024,  // 1GB > 16MB
+                               .max_instructions = 1'000'000,
+                               .max_stack_depth = 256};
 
     auto result = mgr.derive(parent, "child", Permission::MemoryRead, too_large);
     EXPECT_FALSE(result.has_value());
@@ -702,11 +646,7 @@ TEST(CapabilityManagerTest, ExpirationValid) {
     CapabilityManager mgr;
 
     auto future = std::chrono::system_clock::now() + std::chrono::hours(1);
-    auto handle = mgr.create_root(
-        "test",
-        Permission::Execute,
-        CapabilityLimits::sandbox(),
-        future);
+    auto handle = mgr.create_root("test", Permission::Execute, CapabilityLimits::sandbox(), future);
 
     EXPECT_TRUE(mgr.is_valid(handle));
 }
@@ -715,11 +655,7 @@ TEST(CapabilityManagerTest, ExpirationExpired) {
     CapabilityManager mgr;
 
     auto past = std::chrono::system_clock::now() - std::chrono::hours(1);
-    auto handle = mgr.create_root(
-        "test",
-        Permission::Execute,
-        CapabilityLimits::sandbox(),
-        past);
+    auto handle = mgr.create_root("test", Permission::Execute, CapabilityLimits::sandbox(), past);
 
     EXPECT_FALSE(mgr.is_valid(handle));
 }
@@ -740,10 +676,9 @@ TEST(CapabilityManagerTest, ConcurrentCreate) {
             std::vector<CapabilityHandle> handles;
             handles.reserve(CAPS_PER_THREAD);
             for (int i = 0; i < CAPS_PER_THREAD; ++i) {
-                handles.push_back(mgr.create_root(
-                    "thread" + std::to_string(t) + "_cap" + std::to_string(i),
-                    Permission::Execute,
-                    CapabilityLimits::sandbox()));
+                handles.push_back(
+                    mgr.create_root("thread" + std::to_string(t) + "_cap" + std::to_string(i),
+                                    Permission::Execute, CapabilityLimits::sandbox()));
             }
             return handles;
         }));
@@ -773,10 +708,9 @@ TEST(CapabilityManagerTest, ConcurrentCreateAndRevoke) {
 
     auto creator = std::async(std::launch::async, [&]() {
         for (int i = 0; i < NUM_ITERATIONS; ++i) {
-            [[maybe_unused]] auto handle = mgr.create_root(
-                "cap" + std::to_string(i),
-                Permission::Execute | Permission::Derive,
-                CapabilityLimits::sandbox());
+            [[maybe_unused]] auto handle =
+                mgr.create_root("cap" + std::to_string(i), Permission::Execute | Permission::Derive,
+                                CapabilityLimits::sandbox());
             created.fetch_add(1, std::memory_order_relaxed);
         }
     });

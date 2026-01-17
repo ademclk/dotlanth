@@ -1,10 +1,11 @@
-#include <gtest/gtest.h>
-#include <dotvm/core/value.hpp>
-
 #include <cmath>
 #include <format>
 #include <limits>
 #include <vector>
+
+#include <dotvm/core/value.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace dotvm::core;
 
@@ -39,15 +40,16 @@ TEST_F(ValueTest, AtomicLockFree) {
 // ============================================================================
 
 TEST_F(ValueTest, FloatRoundTrip) {
-    std::vector<double> test_values = {
-        0.0, -0.0, 1.0, -1.0,
-        std::numeric_limits<double>::min(),
-        std::numeric_limits<double>::max(),
-        std::numeric_limits<double>::epsilon(),
-        3.14159265358979323846,
-        std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity()
-    };
+    std::vector<double> test_values = {0.0,
+                                       -0.0,
+                                       1.0,
+                                       -1.0,
+                                       std::numeric_limits<double>::min(),
+                                       std::numeric_limits<double>::max(),
+                                       std::numeric_limits<double>::epsilon(),
+                                       3.14159265358979323846,
+                                       std::numeric_limits<double>::infinity(),
+                                       -std::numeric_limits<double>::infinity()};
 
     for (double d : test_values) {
         Value v = Value::from_float(d);
@@ -126,13 +128,15 @@ TEST_F(ValueTest, FloatNaNNonConflictingPreserved) {
 // ============================================================================
 
 TEST_F(ValueTest, IntegerRoundTrip) {
-    std::vector<std::int64_t> test_values = {
-        0, 1, -1, 42, -42,
-        (1LL << 47) - 1,   // Max 48-bit positive
-        -(1LL << 47),      // Min 48-bit negative
-        12345678901234LL,
-        -12345678901234LL
-    };
+    std::vector<std::int64_t> test_values = {0,
+                                             1,
+                                             -1,
+                                             42,
+                                             -42,
+                                             (1LL << 47) - 1,  // Max 48-bit positive
+                                             -(1LL << 47),     // Min 48-bit negative
+                                             12345678901234LL,
+                                             -12345678901234LL};
 
     for (std::int64_t i : test_values) {
         Value v = Value::from_int(i);
@@ -249,10 +253,10 @@ TEST_F(ValueTest, HandleGenerationTruncationAssertsInDebug) {
     // Debug build: assertion fires
     EXPECT_DEATH(
         {
-            [[maybe_unused]] Value v = Value::from_handle(Handle{.index = 0, .generation = 0x1'0000});
+            [[maybe_unused]] Value v =
+                Value::from_handle(Handle{.index = 0, .generation = 0x1'0000});
         },
-        "Handle generation exceeds 16-bit NaN-boxing limit"
-    );
+        "Handle generation exceeds 16-bit NaN-boxing limit");
 #endif
 }
 
@@ -503,7 +507,8 @@ TEST_F(ValueTest, ArithmeticMul) {
 
 TEST_F(ValueTest, ArithmeticDiv) {
     EXPECT_EQ(value_ops::div(Value::from_float(6.0), Value::from_float(2.0)).as_float(), 3.0);
-    EXPECT_EQ(value_ops::div(Value::from_int(10), Value::from_int(3)).as_integer(), 3);  // Truncates
+    EXPECT_EQ(value_ops::div(Value::from_int(10), Value::from_int(3)).as_integer(),
+              3);  // Truncates
 }
 
 TEST_F(ValueTest, ArithmeticDivByZero) {

@@ -1,8 +1,9 @@
-#include <gtest/gtest.h>
+#include <vector>
+
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/register_file.hpp>
 
-#include <vector>
+#include <gtest/gtest.h>
 
 using namespace dotvm::core;
 
@@ -20,12 +21,12 @@ TEST_F(InstructionEncodingTest, DecodedTypeBSizeIs4Bytes) {
 // Type A round-trip tests
 TEST_F(InstructionEncodingTest, TypeARoundTrip) {
     std::vector<std::tuple<std::uint8_t, std::uint8_t, std::uint8_t, std::uint8_t>> test_cases = {
-        {0x00, 0, 0, 0},             // All zeros
-        {0x1F, 255, 255, 255},       // Max values
-        {0x10, 1, 2, 3},             // Simple case
-        {0x05, 0, 1, 0},             // R0 as dest
-        {0x0A, 32, 64, 128},         // Various registers
-        {0xFF, 100, 100, 100},       // System opcode
+        {0x00, 0, 0, 0},        // All zeros
+        {0x1F, 255, 255, 255},  // Max values
+        {0x10, 1, 2, 3},        // Simple case
+        {0x05, 0, 1, 0},        // R0 as dest
+        {0x0A, 32, 64, 128},    // Various registers
+        {0xFF, 100, 100, 100},  // System opcode
     };
 
     for (const auto& [opcode, rd, rs1, rs2] : test_cases) {
@@ -42,11 +43,11 @@ TEST_F(InstructionEncodingTest, TypeARoundTrip) {
 // Type B round-trip tests
 TEST_F(InstructionEncodingTest, TypeBRoundTrip) {
     std::vector<std::tuple<std::uint8_t, std::uint8_t, std::uint16_t>> test_cases = {
-        {0x80, 0, 0},                // All zeros
-        {0x8F, 255, 0xFFFF},         // Max values
-        {0x85, 10, 0x1234},          // Simple case
-        {0x60, 1, 0x8000},           // Memory opcode with sign bit
-        {0x00, 5, 1},                // Min immediate
+        {0x80, 0, 0},         // All zeros
+        {0x8F, 255, 0xFFFF},  // Max values
+        {0x85, 10, 0x1234},   // Simple case
+        {0x60, 1, 0x8000},    // Memory opcode with sign bit
+        {0x00, 5, 1},         // Min immediate
     };
 
     for (const auto& [opcode, rd, imm16] : test_cases) {
@@ -62,11 +63,11 @@ TEST_F(InstructionEncodingTest, TypeBRoundTrip) {
 // Type C round-trip tests (positive offsets)
 TEST_F(InstructionEncodingTest, TypeCRoundTripPositive) {
     std::vector<std::pair<std::uint8_t, std::int32_t>> test_cases = {
-        {0x40, 0},                   // Zero offset
-        {0x45, 1},                   // Min positive
-        {0x4F, 0x7FFFFF},            // Max positive 24-bit (8388607)
-        {0x50, 100},                 // Simple case
-        {0x48, 0x123456},            // Large positive
+        {0x40, 0},         // Zero offset
+        {0x45, 1},         // Min positive
+        {0x4F, 0x7FFFFF},  // Max positive 24-bit (8388607)
+        {0x50, 100},       // Simple case
+        {0x48, 0x123456},  // Large positive
     };
 
     for (const auto& [opcode, offset] : test_cases) {
@@ -81,11 +82,11 @@ TEST_F(InstructionEncodingTest, TypeCRoundTripPositive) {
 // Type C round-trip tests (negative offsets)
 TEST_F(InstructionEncodingTest, TypeCRoundTripNegative) {
     std::vector<std::pair<std::uint8_t, std::int32_t>> test_cases = {
-        {0x40, -1},                  // -1
-        {0x45, -100},                // Simple negative
-        {0x4F, -0x800000},           // Min negative 24-bit (-8388608)
-        {0x50, -0x7FFFFF},           // Near min negative
-        {0x48, -256},                // -256
+        {0x40, -1},         // -1
+        {0x45, -100},       // Simple negative
+        {0x4F, -0x800000},  // Min negative 24-bit (-8388608)
+        {0x50, -0x7FFFFF},  // Near min negative
+        {0x48, -256},       // -256
     };
 
     for (const auto& [opcode, offset] : test_cases) {
@@ -248,25 +249,25 @@ TEST_F(InstructionEncodingTest, BitLayoutTypeA) {
 
     EXPECT_EQ((instr >> 24) & 0xFF, 0xABu) << "Opcode at [31:24]";
     EXPECT_EQ((instr >> 16) & 0xFF, 0xCDu) << "Rd at [23:16]";
-    EXPECT_EQ((instr >> 8) & 0xFF, 0xEFu)  << "Rs1 at [15:8]";
-    EXPECT_EQ(instr & 0xFF, 0x12u)         << "Rs2 at [7:0]";
+    EXPECT_EQ((instr >> 8) & 0xFF, 0xEFu) << "Rs1 at [15:8]";
+    EXPECT_EQ(instr & 0xFF, 0x12u) << "Rs2 at [7:0]";
 }
 
 // Bit layout verification - Type B
 TEST_F(InstructionEncodingTest, BitLayoutTypeB) {
     std::uint32_t instr = encode_type_b(0xAB, 0xCD, 0x1234);
 
-    EXPECT_EQ((instr >> 24) & 0xFF, 0xABu)   << "Opcode at [31:24]";
-    EXPECT_EQ((instr >> 16) & 0xFF, 0xCDu)   << "Rd at [23:16]";
-    EXPECT_EQ(instr & 0xFFFF, 0x1234u)       << "imm16 at [15:0]";
+    EXPECT_EQ((instr >> 24) & 0xFF, 0xABu) << "Opcode at [31:24]";
+    EXPECT_EQ((instr >> 16) & 0xFF, 0xCDu) << "Rd at [23:16]";
+    EXPECT_EQ(instr & 0xFFFF, 0x1234u) << "imm16 at [15:0]";
 }
 
 // Bit layout verification - Type C
 TEST_F(InstructionEncodingTest, BitLayoutTypeC) {
     std::uint32_t instr = encode_type_c(0xAB, 0x123456);
 
-    EXPECT_EQ((instr >> 24) & 0xFF, 0xABu)    << "Opcode at [31:24]";
-    EXPECT_EQ(instr & 0xFFFFFF, 0x123456u)    << "offset24 at [23:0]";
+    EXPECT_EQ((instr >> 24) & 0xFF, 0xABu) << "Opcode at [31:24]";
+    EXPECT_EQ(instr & 0xFFFFFF, 0x123456u) << "offset24 at [23:0]";
 }
 
 // Constexpr verification

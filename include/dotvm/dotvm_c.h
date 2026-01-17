@@ -73,12 +73,12 @@ typedef struct dotvm_vm dotvm_vm_t;
  * @brief Result codes for API operations
  */
 typedef enum dotvm_result {
-    DOTVM_OK          =  0,  /**< Operation succeeded */
-    DOTVM_ERROR       = -1,  /**< Generic error (check dotvm_get_error) */
-    DOTVM_OOM         = -2,  /**< Out of memory */
-    DOTVM_INVALID_ARG = -3,  /**< Invalid argument (null pointer, bad index) */
-    DOTVM_NOT_LOADED  = -4,  /**< Bytecode not loaded */
-    DOTVM_HALTED      = -5   /**< VM has halted (normal termination) */
+    DOTVM_OK = 0,           /**< Operation succeeded */
+    DOTVM_ERROR = -1,       /**< Generic error (check dotvm_get_error) */
+    DOTVM_OOM = -2,         /**< Out of memory */
+    DOTVM_INVALID_ARG = -3, /**< Invalid argument (null pointer, bad index) */
+    DOTVM_NOT_LOADED = -4,  /**< Bytecode not loaded */
+    DOTVM_HALTED = -5       /**< VM has halted (normal termination) */
 } dotvm_result_t;
 
 /* ============================================================================
@@ -100,12 +100,12 @@ typedef uint64_t dotvm_value_t;
  * @brief Value type tags for runtime type inspection
  */
 typedef enum dotvm_value_type {
-    DOTVM_TYPE_FLOAT   = 0,  /**< IEEE 754 double-precision float */
-    DOTVM_TYPE_INTEGER = 1,  /**< 48-bit signed integer */
-    DOTVM_TYPE_BOOL    = 2,  /**< Boolean (true/false) */
-    DOTVM_TYPE_HANDLE  = 3,  /**< Memory handle (index + generation) */
-    DOTVM_TYPE_NIL     = 4,  /**< Nil/null value */
-    DOTVM_TYPE_POINTER = 5   /**< Raw 48-bit pointer */
+    DOTVM_TYPE_FLOAT = 0,   /**< IEEE 754 double-precision float */
+    DOTVM_TYPE_INTEGER = 1, /**< 48-bit signed integer */
+    DOTVM_TYPE_BOOL = 2,    /**< Boolean (true/false) */
+    DOTVM_TYPE_HANDLE = 3,  /**< Memory handle (index + generation) */
+    DOTVM_TYPE_NIL = 4,     /**< Nil/null value */
+    DOTVM_TYPE_POINTER = 5  /**< Raw 48-bit pointer */
 } dotvm_value_type_t;
 
 /* ============================================================================
@@ -119,11 +119,11 @@ typedef enum dotvm_value_type {
  * when zero-initialized. Use DOTVM_CONFIG_INIT for default values.
  */
 typedef struct dotvm_config {
-    uint8_t  arch;            /**< Architecture: 0=Arch32, 1=Arch64 (default) */
-    uint8_t  strict_overflow; /**< If non-zero, enable strict overflow checks */
-    uint8_t  cfi_enabled;     /**< If non-zero, enable Control Flow Integrity */
-    uint8_t  _reserved[5];    /**< Reserved for future use (must be zero) */
-    size_t   max_memory;      /**< Max allocation size (0 = use default 64MB) */
+    uint8_t arch;            /**< Architecture: 0=Arch32, 1=Arch64 (default) */
+    uint8_t strict_overflow; /**< If non-zero, enable strict overflow checks */
+    uint8_t cfi_enabled;     /**< If non-zero, enable Control Flow Integrity */
+    uint8_t _reserved[5];    /**< Reserved for future use (must be zero) */
+    size_t max_memory;       /**< Max allocation size (0 = use default 64MB) */
 } dotvm_config_t;
 
 /**
@@ -131,7 +131,7 @@ typedef struct dotvm_config {
  *
  * Usage: dotvm_config_t config = DOTVM_CONFIG_INIT;
  */
-#define DOTVM_CONFIG_INIT { 1, 0, 0, {0,0,0,0,0}, 0 }
+#define DOTVM_CONFIG_INIT {1, 0, 0, {0, 0, 0, 0, 0}, 0}
 
 /* ============================================================================
  * VM Lifecycle
@@ -181,9 +181,7 @@ DOTVM_API void dotvm_destroy(dotvm_vm_t* vm);
  *
  * @note Thread-safety: NOT thread-safe. Caller must ensure exclusive access.
  */
-DOTVM_API dotvm_result_t dotvm_load_bytecode(dotvm_vm_t* vm,
-                                              const uint8_t* data,
-                                              size_t size);
+DOTVM_API dotvm_result_t dotvm_load_bytecode(dotvm_vm_t* vm, const uint8_t* data, size_t size);
 
 /* ============================================================================
  * Execution
@@ -246,9 +244,7 @@ DOTVM_API dotvm_value_t dotvm_get_register(dotvm_vm_t* vm, uint8_t idx);
  *
  * @note Thread-safety: NOT thread-safe. Caller must ensure exclusive access.
  */
-DOTVM_API dotvm_result_t dotvm_set_register(dotvm_vm_t* vm,
-                                             uint8_t idx,
-                                             dotvm_value_t value);
+DOTVM_API dotvm_result_t dotvm_set_register(dotvm_vm_t* vm, uint8_t idx, dotvm_value_t value);
 
 /* ============================================================================
  * Error Handling
@@ -303,9 +299,7 @@ DOTVM_API void dotvm_clear_error(dotvm_vm_t* vm);
  *
  * @note Thread-safety: NOT thread-safe. Caller must ensure exclusive access.
  */
-DOTVM_API size_t dotvm_get_error_copy(dotvm_vm_t* vm,
-                                       char* buffer,
-                                       size_t buffer_size);
+DOTVM_API size_t dotvm_get_error_copy(dotvm_vm_t* vm, char* buffer, size_t buffer_size);
 
 /* ============================================================================
  * Value Helper Functions

@@ -3,10 +3,10 @@
 
 #include <gtest/gtest.h>
 
-#include "dotvm/jit/jit_context.hpp"
-#include "dotvm/jit/jit_compiler.hpp"
 #include "dotvm/core/vm_context.hpp"
 #include "dotvm/exec/execution_engine.hpp"
+#include "dotvm/jit/jit_compiler.hpp"
+#include "dotvm/jit/jit_context.hpp"
 
 namespace dotvm::jit {
 namespace {
@@ -186,8 +186,16 @@ TEST_F(JitCompilerTest, EstimateCodeSize_ReturnsPositive) {
     JitCompiler compiler(config_, *buffer_, stencils_);
 
     std::vector<BytecodeInstr> instrs = {
-        {.opcode = static_cast<std::uint8_t>(JitOpcode::ADD), .dst = 1, .src1 = 2, .src2 = 3, .pc = 0},
-        {.opcode = static_cast<std::uint8_t>(JitOpcode::SUB), .dst = 1, .src1 = 2, .src2 = 3, .pc = 4},
+        {.opcode = static_cast<std::uint8_t>(JitOpcode::ADD),
+         .dst = 1,
+         .src1 = 2,
+         .src2 = 3,
+         .pc = 0},
+        {.opcode = static_cast<std::uint8_t>(JitOpcode::SUB),
+         .dst = 1,
+         .src1 = 2,
+         .src2 = 3,
+         .pc = 4},
     };
 
     auto size = compiler.estimate_code_size(instrs);
@@ -198,7 +206,11 @@ TEST_F(JitCompilerTest, Compile_SimpleFunction_Succeeds) {
     JitCompiler compiler(config_, *buffer_, stencils_);
 
     std::vector<BytecodeInstr> instrs = {
-        {.opcode = static_cast<std::uint8_t>(JitOpcode::ADD), .dst = 1, .src1 = 2, .src2 = 3, .pc = 0},
+        {.opcode = static_cast<std::uint8_t>(JitOpcode::ADD),
+         .dst = 1,
+         .src1 = 2,
+         .src2 = 3,
+         .pc = 0},
     };
 
     auto result = compiler.compile(0, instrs);
@@ -256,5 +268,5 @@ TEST_F(StencilRegistryTest, Count_ReturnsPositive) {
     EXPECT_GT(registry.count(), 0u);
 }
 
-} // namespace
-} // namespace dotvm::jit
+}  // namespace
+}  // namespace dotvm::jit

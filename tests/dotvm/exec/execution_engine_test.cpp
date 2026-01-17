@@ -1,18 +1,18 @@
 /// @file execution_engine_test.cpp
 /// @brief Unit tests for the computed-goto dispatch execution engine
 
-#include <gtest/gtest.h>
+#include <array>
+#include <vector>
 
-#include <dotvm/exec/execution_engine.hpp>
-#include <dotvm/exec/execution_context.hpp>
-#include <dotvm/exec/dispatch_macros.hpp>
-#include <dotvm/exec/profiling.hpp>
-#include <dotvm/core/vm_context.hpp>
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
+#include <dotvm/exec/dispatch_macros.hpp>
+#include <dotvm/exec/execution_context.hpp>
+#include <dotvm/exec/execution_engine.hpp>
+#include <dotvm/exec/profiling.hpp>
 
-#include <vector>
-#include <array>
+#include <gtest/gtest.h>
 
 using namespace dotvm;
 using namespace dotvm::exec;
@@ -28,14 +28,13 @@ protected:
     ExecutionEngine engine_{ctx_};
 
     // Helper to create Type A instruction
-    static std::uint32_t make_type_a(std::uint8_t op, std::uint8_t rd,
-                                      std::uint8_t rs1, std::uint8_t rs2) {
+    static std::uint32_t make_type_a(std::uint8_t op, std::uint8_t rd, std::uint8_t rs1,
+                                     std::uint8_t rs2) {
         return encode_type_a(op, rd, rs1, rs2);
     }
 
     // Helper to create Type B instruction
-    static std::uint32_t make_type_b(std::uint8_t op, std::uint8_t rd,
-                                      std::uint16_t imm) {
+    static std::uint32_t make_type_b(std::uint8_t op, std::uint8_t rd, std::uint16_t imm) {
         return encode_type_b(op, rd, imm);
     }
 
@@ -132,9 +131,9 @@ TEST_F(ExecutionEngineTest, HaltImmediately) {
 
 TEST_F(ExecutionEngineTest, NopThenHalt) {
     std::vector<std::uint32_t> code = {
-        make_type_c(opcode::NOP, 0),   // NOP
-        make_type_c(opcode::NOP, 0),   // NOP
-        make_type_c(opcode::HALT, 0)   // HALT
+        make_type_c(opcode::NOP, 0),  // NOP
+        make_type_c(opcode::NOP, 0),  // NOP
+        make_type_c(opcode::HALT, 0)  // HALT
     };
 
     auto result = run(code);
@@ -160,10 +159,8 @@ TEST_F(ExecutionEngineTest, AddTwoRegisters) {
     ctx_.registers().write(1, Value::from_int(10));
     ctx_.registers().write(2, Value::from_int(20));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::ADD, 3, 1, 2),  // ADD R3, R1, R2
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::ADD, 3, 1, 2),  // ADD R3, R1, R2
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -175,10 +172,8 @@ TEST_F(ExecutionEngineTest, SubTwoRegisters) {
     ctx_.registers().write(1, Value::from_int(50));
     ctx_.registers().write(2, Value::from_int(20));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::SUB, 3, 1, 2),  // SUB R3, R1, R2
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::SUB, 3, 1, 2),  // SUB R3, R1, R2
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -190,10 +185,8 @@ TEST_F(ExecutionEngineTest, MulTwoRegisters) {
     ctx_.registers().write(1, Value::from_int(6));
     ctx_.registers().write(2, Value::from_int(7));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::MUL, 3, 1, 2),  // MUL R3, R1, R2
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::MUL, 3, 1, 2),  // MUL R3, R1, R2
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -205,10 +198,8 @@ TEST_F(ExecutionEngineTest, DivTwoRegisters) {
     ctx_.registers().write(1, Value::from_int(100));
     ctx_.registers().write(2, Value::from_int(5));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::DIV, 3, 1, 2),  // DIV R3, R1, R2
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::DIV, 3, 1, 2),  // DIV R3, R1, R2
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -220,10 +211,8 @@ TEST_F(ExecutionEngineTest, ModTwoRegisters) {
     ctx_.registers().write(1, Value::from_int(17));
     ctx_.registers().write(2, Value::from_int(5));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::MOD, 3, 1, 2),  // MOD R3, R1, R2
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::MOD, 3, 1, 2),  // MOD R3, R1, R2
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -234,10 +223,8 @@ TEST_F(ExecutionEngineTest, ModTwoRegisters) {
 TEST_F(ExecutionEngineTest, AddImmediate) {
     ctx_.registers().write(1, Value::from_int(100));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::ADDI, 1, 42),  // ADDI R1, 42
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::ADDI, 1, 42),  // ADDI R1, 42
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -248,10 +235,8 @@ TEST_F(ExecutionEngineTest, AddImmediate) {
 TEST_F(ExecutionEngineTest, NegRegister) {
     ctx_.registers().write(1, Value::from_int(42));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::NEG, 2, 1, 0),  // NEG R2, R1
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::NEG, 2, 1, 0),  // NEG R2, R1
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -267,10 +252,8 @@ TEST_F(ExecutionEngineTest, BitwiseAnd) {
     ctx_.registers().write(1, Value::from_int(0xFF00));
     ctx_.registers().write(2, Value::from_int(0x0FF0));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::AND, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::AND, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -282,10 +265,8 @@ TEST_F(ExecutionEngineTest, BitwiseOr) {
     ctx_.registers().write(1, Value::from_int(0xF000));
     ctx_.registers().write(2, Value::from_int(0x000F));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::OR, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::OR, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -297,10 +278,8 @@ TEST_F(ExecutionEngineTest, BitwiseXor) {
     ctx_.registers().write(1, Value::from_int(0xFF00));
     ctx_.registers().write(2, Value::from_int(0xF0F0));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::XOR, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::XOR, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -312,10 +291,8 @@ TEST_F(ExecutionEngineTest, ShiftLeft) {
     ctx_.registers().write(1, Value::from_int(1));
     ctx_.registers().write(2, Value::from_int(4));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::SHL, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::SHL, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -327,10 +304,8 @@ TEST_F(ExecutionEngineTest, ShiftRightLogical) {
     ctx_.registers().write(1, Value::from_int(32));
     ctx_.registers().write(2, Value::from_int(2));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::SHR, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::SHR, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -346,10 +321,8 @@ TEST_F(ExecutionEngineTest, CompareEqual_True) {
     ctx_.registers().write(1, Value::from_int(42));
     ctx_.registers().write(2, Value::from_int(42));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::EQ, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::EQ, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -361,10 +334,8 @@ TEST_F(ExecutionEngineTest, CompareEqual_False) {
     ctx_.registers().write(1, Value::from_int(42));
     ctx_.registers().write(2, Value::from_int(43));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::EQ, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::EQ, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -376,10 +347,8 @@ TEST_F(ExecutionEngineTest, CompareLessThan_True) {
     ctx_.registers().write(1, Value::from_int(10));
     ctx_.registers().write(2, Value::from_int(20));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::LT, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::LT, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -391,10 +360,8 @@ TEST_F(ExecutionEngineTest, CompareGreaterThan_True) {
     ctx_.registers().write(1, Value::from_int(20));
     ctx_.registers().write(2, Value::from_int(10));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::GT, 3, 1, 2),
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::GT, 3, 1, 2),
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -409,10 +376,8 @@ TEST_F(ExecutionEngineTest, CompareGreaterThan_True) {
 TEST_F(ExecutionEngineTest, MovRegister) {
     ctx_.registers().write(1, Value::from_int(999));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::MOV, 2, 1, 0),  // MOV R2, R1
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::MOV, 2, 1, 0),  // MOV R2, R1
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -421,10 +386,8 @@ TEST_F(ExecutionEngineTest, MovRegister) {
 }
 
 TEST_F(ExecutionEngineTest, MovImmediate) {
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::MOVI, 1, 12345),  // MOVI R1, 12345
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::MOVI, 1, 12345),  // MOVI R1, 12345
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -436,8 +399,7 @@ TEST_F(ExecutionEngineTest, MovImmediateNegative) {
     // Test signed immediate (using two's complement)
     std::vector<std::uint32_t> code = {
         make_type_b(opcode::MOVI, 1, static_cast<std::uint16_t>(-100)),
-        make_type_c(opcode::HALT, 0)
-    };
+        make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -446,18 +408,13 @@ TEST_F(ExecutionEngineTest, MovImmediateNegative) {
 }
 
 TEST_F(ExecutionEngineTest, LoadConstant) {
-    std::vector<Value> const_pool = {
-        Value::from_int(111),
-        Value::from_int(222),
-        Value::from_int(333)
-    };
+    std::vector<Value> const_pool = {Value::from_int(111), Value::from_int(222),
+                                     Value::from_int(333)};
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::LOADK, 1, 0),  // LOADK R1, const[0]
-        make_type_b(opcode::LOADK, 2, 1),  // LOADK R2, const[1]
-        make_type_b(opcode::LOADK, 3, 2),  // LOADK R3, const[2]
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::LOADK, 1, 0),  // LOADK R1, const[0]
+                                       make_type_b(opcode::LOADK, 2, 1),  // LOADK R2, const[1]
+                                       make_type_b(opcode::LOADK, 3, 2),  // LOADK R3, const[2]
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code, const_pool);
 
@@ -473,9 +430,9 @@ TEST_F(ExecutionEngineTest, LoadConstant) {
 
 TEST_F(ExecutionEngineTest, UnconditionalJump) {
     std::vector<std::uint32_t> code = {
-        make_type_c(opcode::JMP, 2),       // 0: JMP +2 (to HALT)
-        make_type_b(opcode::MOVI, 1, 999), // 1: MOVI R1, 999 (skipped)
-        make_type_c(opcode::HALT, 0)       // 2: HALT
+        make_type_c(opcode::JMP, 2),        // 0: JMP +2 (to HALT)
+        make_type_b(opcode::MOVI, 1, 999),  // 1: MOVI R1, 999 (skipped)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -542,15 +499,15 @@ TEST_F(ExecutionEngineTest, SimpleCounterLoop) {
     // Count from 0 to 5
     // R1 = counter, R2 = limit, R3 = increment
     std::vector<std::uint32_t> code = {
-        make_type_b(opcode::MOVI, 1, 0),    // 0: MOVI R1, 0  (counter)
-        make_type_b(opcode::MOVI, 2, 5),    // 1: MOVI R2, 5  (limit)
-        make_type_b(opcode::MOVI, 3, 1),    // 2: MOVI R3, 1  (increment)
+        make_type_b(opcode::MOVI, 1, 0),  // 0: MOVI R1, 0  (counter)
+        make_type_b(opcode::MOVI, 2, 5),  // 1: MOVI R2, 5  (limit)
+        make_type_b(opcode::MOVI, 3, 1),  // 2: MOVI R3, 1  (increment)
         // loop:
         make_type_a(opcode::ADD, 1, 1, 3),  // 3: ADD R1, R1, R3
         make_type_a(opcode::LT, 4, 1, 2),   // 4: LT R4, R1, R2
         // Branch back if R4 != 0 (offset -2 from instruction 5 to 3)
         make_type_a(opcode::BNE, 4, 0, static_cast<std::uint8_t>(-2)),  // 5: BNE R4, R0, -2
-        make_type_c(opcode::HALT, 0)        // 6: HALT
+        make_type_c(opcode::HALT, 0)                                    // 6: HALT
     };
 
     auto result = run(code);
@@ -567,9 +524,9 @@ TEST_F(ExecutionEngineTest, JumpIfZero_Taken) {
     ctx_.registers().write(1, Value::from_int(0));  // R1 = 0
 
     std::vector<std::uint32_t> code = {
-        make_type_d(opcode::JZ, 1, 2),   // 0: JZ R1, +2 (taken, R1 is 0)
-        make_type_b(opcode::MOVI, 2, 999),    // 1: MOVI R2, 999 (skipped)
-        make_type_c(opcode::HALT, 0)          // 2: HALT
+        make_type_d(opcode::JZ, 1, 2),      // 0: JZ R1, +2 (taken, R1 is 0)
+        make_type_b(opcode::MOVI, 2, 999),  // 1: MOVI R2, 999 (skipped)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -582,9 +539,9 @@ TEST_F(ExecutionEngineTest, JumpIfZero_NotTaken) {
     ctx_.registers().write(1, Value::from_int(42));  // R1 = 42 (non-zero)
 
     std::vector<std::uint32_t> code = {
-        make_type_d(opcode::JZ, 1, 2),   // 0: JZ R1, +2 (not taken)
-        make_type_b(opcode::MOVI, 2, 999),    // 1: MOVI R2, 999 (executed)
-        make_type_c(opcode::HALT, 0)          // 2: HALT
+        make_type_d(opcode::JZ, 1, 2),      // 0: JZ R1, +2 (not taken)
+        make_type_b(opcode::MOVI, 2, 999),  // 1: MOVI R2, 999 (executed)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -597,9 +554,9 @@ TEST_F(ExecutionEngineTest, JumpIfNotZero_Taken) {
     ctx_.registers().write(1, Value::from_int(42));  // R1 = 42 (non-zero)
 
     std::vector<std::uint32_t> code = {
-        make_type_d(opcode::JNZ, 1, 2),  // 0: JNZ R1, +2 (taken)
-        make_type_b(opcode::MOVI, 2, 999),    // 1: MOVI R2, 999 (skipped)
-        make_type_c(opcode::HALT, 0)          // 2: HALT
+        make_type_d(opcode::JNZ, 1, 2),     // 0: JNZ R1, +2 (taken)
+        make_type_b(opcode::MOVI, 2, 999),  // 1: MOVI R2, 999 (skipped)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -612,9 +569,9 @@ TEST_F(ExecutionEngineTest, JumpIfNotZero_NotTaken) {
     ctx_.registers().write(1, Value::from_int(0));  // R1 = 0
 
     std::vector<std::uint32_t> code = {
-        make_type_d(opcode::JNZ, 1, 2),  // 0: JNZ R1, +2 (not taken)
-        make_type_b(opcode::MOVI, 2, 999),    // 1: MOVI R2, 999 (executed)
-        make_type_c(opcode::HALT, 0)          // 2: HALT
+        make_type_d(opcode::JNZ, 1, 2),     // 0: JNZ R1, +2 (not taken)
+        make_type_b(opcode::MOVI, 2, 999),  // 1: MOVI R2, 999 (executed)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -628,9 +585,9 @@ TEST_F(ExecutionEngineTest, BranchLessOrEqual_Taken) {
     ctx_.registers().write(2, Value::from_int(5));  // Equal
 
     std::vector<std::uint32_t> code = {
-        make_type_a(opcode::BLE, 1, 2, 2),    // 0: BLE R1, R2, +2 (taken)
-        make_type_b(opcode::MOVI, 3, 999),    // 1: MOVI R3, 999 (skipped)
-        make_type_c(opcode::HALT, 0)          // 2: HALT
+        make_type_a(opcode::BLE, 1, 2, 2),  // 0: BLE R1, R2, +2 (taken)
+        make_type_b(opcode::MOVI, 3, 999),  // 1: MOVI R3, 999 (skipped)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -644,9 +601,9 @@ TEST_F(ExecutionEngineTest, BranchLessOrEqual_NotTaken) {
     ctx_.registers().write(2, Value::from_int(5));  // R1 > R2
 
     std::vector<std::uint32_t> code = {
-        make_type_a(opcode::BLE, 1, 2, 2),    // 0: BLE R1, R2, +2 (not taken)
-        make_type_b(opcode::MOVI, 3, 999),    // 1: MOVI R3, 999 (executed)
-        make_type_c(opcode::HALT, 0)          // 2: HALT
+        make_type_a(opcode::BLE, 1, 2, 2),  // 0: BLE R1, R2, +2 (not taken)
+        make_type_b(opcode::MOVI, 3, 999),  // 1: MOVI R3, 999 (executed)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -660,9 +617,9 @@ TEST_F(ExecutionEngineTest, BranchGreaterThan_Taken) {
     ctx_.registers().write(2, Value::from_int(5));  // R1 > R2
 
     std::vector<std::uint32_t> code = {
-        make_type_a(opcode::BGT, 1, 2, 2),    // 0: BGT R1, R2, +2 (taken)
-        make_type_b(opcode::MOVI, 3, 999),    // 1: MOVI R3, 999 (skipped)
-        make_type_c(opcode::HALT, 0)          // 2: HALT
+        make_type_a(opcode::BGT, 1, 2, 2),  // 0: BGT R1, R2, +2 (taken)
+        make_type_b(opcode::MOVI, 3, 999),  // 1: MOVI R3, 999 (skipped)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -676,9 +633,9 @@ TEST_F(ExecutionEngineTest, BranchGreaterThan_NotTaken) {
     ctx_.registers().write(2, Value::from_int(5));  // Equal, not greater
 
     std::vector<std::uint32_t> code = {
-        make_type_a(opcode::BGT, 1, 2, 2),    // 0: BGT R1, R2, +2 (not taken)
-        make_type_b(opcode::MOVI, 3, 999),    // 1: MOVI R3, 999 (executed)
-        make_type_c(opcode::HALT, 0)          // 2: HALT
+        make_type_a(opcode::BGT, 1, 2, 2),  // 0: BGT R1, R2, +2 (not taken)
+        make_type_b(opcode::MOVI, 3, 999),  // 1: MOVI R3, 999 (executed)
+        make_type_c(opcode::HALT, 0)        // 2: HALT
     };
 
     auto result = run(code);
@@ -690,13 +647,13 @@ TEST_F(ExecutionEngineTest, BranchGreaterThan_NotTaken) {
 TEST_F(ExecutionEngineTest, CallAndReturn_NoCFI) {
     // Test CALL/RET using R1 link register (CFI disabled by default)
     std::vector<std::uint32_t> code = {
-        make_type_b(opcode::MOVI, 2, 100),    // 0: MOVI R2, 100
-        make_type_c(opcode::CALL, 3),         // 1: CALL +3 (to instruction 4)
-        make_type_b(opcode::MOVI, 3, 200),    // 2: MOVI R3, 200 (after return)
-        make_type_c(opcode::HALT, 0),         // 3: HALT
+        make_type_b(opcode::MOVI, 2, 100),  // 0: MOVI R2, 100
+        make_type_c(opcode::CALL, 3),       // 1: CALL +3 (to instruction 4)
+        make_type_b(opcode::MOVI, 3, 200),  // 2: MOVI R3, 200 (after return)
+        make_type_c(opcode::HALT, 0),       // 3: HALT
         // Subroutine at instruction 4:
-        make_type_b(opcode::MOVI, 4, 300),    // 4: MOVI R4, 300
-        make_type_c(opcode::RET, 0)           // 5: RET (returns to instruction 2)
+        make_type_b(opcode::MOVI, 4, 300),  // 4: MOVI R4, 300
+        make_type_c(opcode::RET, 0)         // 5: RET (returns to instruction 2)
     };
 
     auto result = run(code);
@@ -711,12 +668,12 @@ TEST_F(ExecutionEngineTest, JZ_NegativeOffset_Loop) {
     // Simple loop using JNZ with negative offset
     // Count down from 3 to 0
     std::vector<std::uint32_t> code = {
-        make_type_b(opcode::MOVI, 1, 3),      // 0: MOVI R1, 3  (counter)
-        make_type_b(opcode::MOVI, 2, 1),      // 1: MOVI R2, 1  (decrement)
+        make_type_b(opcode::MOVI, 1, 3),  // 0: MOVI R1, 3  (counter)
+        make_type_b(opcode::MOVI, 2, 1),  // 1: MOVI R2, 1  (decrement)
         // loop (instruction 2):
-        make_type_a(opcode::SUB, 1, 1, 2),    // 2: SUB R1, R1, R2 (R1 = R1 - 1)
-        make_type_d(opcode::JNZ, 1, -1), // 3: JNZ R1, -1 (back to instruction 2)
-        make_type_c(opcode::HALT, 0)          // 4: HALT
+        make_type_a(opcode::SUB, 1, 1, 2),  // 2: SUB R1, R1, R2 (R1 = R1 - 1)
+        make_type_d(opcode::JNZ, 1, -1),    // 3: JNZ R1, -1 (back to instruction 2)
+        make_type_c(opcode::HALT, 0)        // 4: HALT
     };
 
     auto result = run(code);
@@ -732,8 +689,7 @@ TEST_F(ExecutionEngineTest, JZ_NegativeOffset_Loop) {
 TEST_F(ExecutionEngineTest, InvalidOpcode) {
     std::vector<std::uint32_t> code = {
         0x07000000,  // Invalid opcode 0x07 (undefined in arithmetic range)
-        make_type_c(opcode::HALT, 0)
-    };
+        make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -741,10 +697,8 @@ TEST_F(ExecutionEngineTest, InvalidOpcode) {
 }
 
 TEST_F(ExecutionEngineTest, ReservedOpcode) {
-    std::vector<std::uint32_t> code = {
-        0x90000000,  // Reserved opcode 0x90
-        make_type_c(opcode::HALT, 0)
-    };
+    std::vector<std::uint32_t> code = {0x90000000,  // Reserved opcode 0x90
+                                       make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -758,8 +712,7 @@ TEST_F(ExecutionEngineTest, ReservedOpcode) {
 TEST_F(ExecutionEngineTest, WriteToR0Ignored) {
     std::vector<std::uint32_t> code = {
         make_type_b(opcode::MOVI, 0, 999),  // MOVI R0, 999 (should be ignored)
-        make_type_c(opcode::HALT, 0)
-    };
+        make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 
@@ -772,8 +725,7 @@ TEST_F(ExecutionEngineTest, ReadFromR0AlwaysZero) {
 
     std::vector<std::uint32_t> code = {
         make_type_a(opcode::ADD, 2, 1, 0),  // ADD R2, R1, R0 (R0 is 0)
-        make_type_c(opcode::HALT, 0)
-    };
+        make_type_c(opcode::HALT, 0)};
 
     auto result = run(code);
 

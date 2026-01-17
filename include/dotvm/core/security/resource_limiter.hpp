@@ -29,15 +29,14 @@ namespace dotvm::core::security {
 ///
 /// These represent the possible responses to a resource limit violation.
 enum class EnforcementAction : std::uint8_t {
-    Allow = 0,    ///< Operation permitted
-    Deny,         ///< Operation blocked
-    Throttle,     ///< Operation delayed (rate limiting)
-    Terminate     ///< Stop execution immediately
+    Allow = 0,  ///< Operation permitted
+    Deny,       ///< Operation blocked
+    Throttle,   ///< Operation delayed (rate limiting)
+    Terminate   ///< Stop execution immediately
 };
 
 /// @brief Returns a human-readable name for an enforcement action
-[[nodiscard]] constexpr const char*
-to_string(EnforcementAction action) noexcept {
+[[nodiscard]] constexpr const char* to_string(EnforcementAction action) noexcept {
     switch (action) {
         case EnforcementAction::Allow:
             return "Allow";
@@ -59,18 +58,17 @@ to_string(EnforcementAction action) noexcept {
 ///
 /// These represent specific resource constraints that have been exceeded.
 enum class ResourceLimitError : std::uint8_t {
-    Success = 0,              ///< No error (should not be used as an error)
-    MemoryLimitExceeded,      ///< Total memory allocation limit exceeded
-    InstructionLimitExceeded, ///< Maximum instruction count exceeded
-    StackDepthExceeded,       ///< Call stack depth limit exceeded
-    AllocationSizeExceeded,   ///< Single allocation size limit exceeded
-    TimeExpired,              ///< Maximum execution time exceeded
-    Throttled                 ///< Operation throttled due to rate limiting
+    Success = 0,               ///< No error (should not be used as an error)
+    MemoryLimitExceeded,       ///< Total memory allocation limit exceeded
+    InstructionLimitExceeded,  ///< Maximum instruction count exceeded
+    StackDepthExceeded,        ///< Call stack depth limit exceeded
+    AllocationSizeExceeded,    ///< Single allocation size limit exceeded
+    TimeExpired,               ///< Maximum execution time exceeded
+    Throttled                  ///< Operation throttled due to rate limiting
 };
 
 /// @brief Returns a human-readable name for a resource limit error
-[[nodiscard]] constexpr const char*
-to_string(ResourceLimitError error) noexcept {
+[[nodiscard]] constexpr const char* to_string(ResourceLimitError error) noexcept {
     switch (error) {
         case ResourceLimitError::Success:
             return "Success";
@@ -140,39 +138,34 @@ struct RuntimeLimits {
     ///
     /// Use for trusted code or when limits are enforced elsewhere.
     [[nodiscard]] static constexpr RuntimeLimits unlimited() noexcept {
-        return RuntimeLimits{
-            .max_memory = 0,
-            .max_instructions = 0,
-            .max_stack_depth = 0,
-            .max_allocation_size = 0,
-            .max_execution_time_ms = 0
-        };
+        return RuntimeLimits{.max_memory = 0,
+                             .max_instructions = 0,
+                             .max_stack_depth = 0,
+                             .max_allocation_size = 0,
+                             .max_execution_time_ms = 0};
     }
 
     /// @brief Create standard limits (default values)
     ///
     /// Balanced limits suitable for most use cases.
-    [[nodiscard]] static constexpr RuntimeLimits standard() noexcept {
-        return RuntimeLimits{};
-    }
+    [[nodiscard]] static constexpr RuntimeLimits standard() noexcept { return RuntimeLimits{}; }
 
     /// @brief Create strict limits for untrusted code
     ///
     /// More restrictive limits for sandboxed execution.
     [[nodiscard]] static constexpr RuntimeLimits strict() noexcept {
         return RuntimeLimits{
-            .max_memory = 16'777'216,       // 16 MB
+            .max_memory = 16'777'216,  // 16 MB
             .max_instructions = 100'000,
             .max_stack_depth = 256,
-            .max_allocation_size = 262'144, // 256 KB
-            .max_execution_time_ms = 1000   // 1 second
+            .max_allocation_size = 262'144,  // 256 KB
+            .max_execution_time_ms = 1000    // 1 second
         };
     }
 
     // ========== Comparison ==========
 
-    [[nodiscard]] constexpr bool
-    operator==(const RuntimeLimits&) const noexcept = default;
+    [[nodiscard]] constexpr bool operator==(const RuntimeLimits&) const noexcept = default;
 };
 
 // ============================================================================
@@ -240,8 +233,7 @@ public:
     /// @return Ok if allocation is allowed, error otherwise
     ///
     /// Performance: O(1), uses relaxed atomic compare-exchange.
-    [[nodiscard]] Result<void, ResourceLimitError>
-    try_allocate(std::size_t bytes) noexcept;
+    [[nodiscard]] Result<void, ResourceLimitError> try_allocate(std::size_t bytes) noexcept;
 
     /// @brief Record memory deallocation
     ///
@@ -277,8 +269,7 @@ public:
     /// @return Ok if execution is allowed, error otherwise
     ///
     /// Performance: O(1), batched update for reduced overhead.
-    [[nodiscard]] Result<void, ResourceLimitError>
-    try_execute_batch(std::uint64_t count) noexcept;
+    [[nodiscard]] Result<void, ResourceLimitError> try_execute_batch(std::uint64_t count) noexcept;
 
     /// @brief Get current instruction count
     [[nodiscard]] std::uint64_t current_instructions() const noexcept {
@@ -334,9 +325,7 @@ public:
     void reset() noexcept;
 
     /// @brief Get the configured limits
-    [[nodiscard]] const RuntimeLimits& limits() const noexcept {
-        return limits_;
-    }
+    [[nodiscard]] const RuntimeLimits& limits() const noexcept { return limits_; }
 
 private:
     RuntimeLimits limits_;

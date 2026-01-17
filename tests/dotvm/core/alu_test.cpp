@@ -1,10 +1,10 @@
 /// @file alu_test.cpp
 /// @brief Unit tests for the Arithmetic Logic Unit
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <limits>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/alu.hpp"
 

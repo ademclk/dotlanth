@@ -7,10 +7,10 @@
 #include <utility>
 
 #if defined(__unix__) || defined(__APPLE__)
-#include <sys/mman.h>
-#include <unistd.h>
+    #include <sys/mman.h>
+    #include <unistd.h>
 #elif defined(_WIN32)
-#include <windows.h>
+    #include <windows.h>
 #endif
 
 namespace dotvm::jit {
@@ -32,14 +32,7 @@ namespace {
 
 /// @brief Allocate memory with mmap
 [[nodiscard]] std::uint8_t* allocate_memory(std::size_t size) noexcept {
-    void* ptr = ::mmap(
-        nullptr,
-        size,
-        PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS,
-        -1,
-        0
-    );
+    void* ptr = ::mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (ptr == MAP_FAILED) [[unlikely]] {
         return nullptr;
     }
@@ -54,11 +47,8 @@ void free_memory(std::uint8_t* ptr, std::size_t size) noexcept {
 }
 
 /// @brief Change memory protection with mprotect
-[[nodiscard]] bool set_protection(
-    std::uint8_t* ptr,
-    std::size_t size,
-    MemoryProtection prot
-) noexcept {
+[[nodiscard]] bool set_protection(std::uint8_t* ptr, std::size_t size,
+                                  MemoryProtection prot) noexcept {
     int flags = 0;
     switch (prot) {
         case MemoryProtection::ReadWrite:
@@ -78,12 +68,7 @@ void free_memory(std::uint8_t* ptr, std::size_t size) noexcept {
 
 /// @brief Allocate memory with VirtualAlloc
 [[nodiscard]] std::uint8_t* allocate_memory(std::size_t size) noexcept {
-    void* ptr = ::VirtualAlloc(
-        nullptr,
-        size,
-        MEM_COMMIT | MEM_RESERVE,
-        PAGE_READWRITE
-    );
+    void* ptr = ::VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     return static_cast<std::uint8_t*>(ptr);
 }
 
@@ -95,11 +80,8 @@ void free_memory(std::uint8_t* ptr, std::size_t /*size*/) noexcept {
 }
 
 /// @brief Change memory protection with VirtualProtect
-[[nodiscard]] bool set_protection(
-    std::uint8_t* ptr,
-    std::size_t size,
-    MemoryProtection prot
-) noexcept {
+[[nodiscard]] bool set_protection(std::uint8_t* ptr, std::size_t size,
+                                  MemoryProtection prot) noexcept {
     DWORD flags = 0;
     switch (prot) {
         case MemoryProtection::ReadWrite:
@@ -117,10 +99,10 @@ void free_memory(std::uint8_t* ptr, std::size_t /*size*/) noexcept {
 }
 
 #else
-#error "Unsupported platform for JIT code buffer"
+    #error "Unsupported platform for JIT code buffer"
 #endif
 
-} // anonymous namespace
+}  // anonymous namespace
 
 // Static method to get page size
 std::size_t JitCodeBuffer::page_size() noexcept {
@@ -157,11 +139,7 @@ CodeBufferResult<JitCodeBuffer> JitCodeBuffer::create(std::size_t size) {
 
 // Private constructor
 JitCodeBuffer::JitCodeBuffer(std::uint8_t* base, std::size_t capacity) noexcept
-    : base_(base)
-    , capacity_(capacity)
-    , used_(0)
-    , protection_(MemoryProtection::ReadWrite)
-{}
+    : base_(base), capacity_(capacity), used_(0), protection_(MemoryProtection::ReadWrite) {}
 
 // Destructor
 JitCodeBuffer::~JitCodeBuffer() {
@@ -170,11 +148,10 @@ JitCodeBuffer::~JitCodeBuffer() {
 
 // Move constructor
 JitCodeBuffer::JitCodeBuffer(JitCodeBuffer&& other) noexcept
-    : base_(std::exchange(other.base_, nullptr))
-    , capacity_(std::exchange(other.capacity_, 0))
-    , used_(std::exchange(other.used_, 0))
-    , protection_(std::exchange(other.protection_, MemoryProtection::None))
-{}
+    : base_(std::exchange(other.base_, nullptr)),
+      capacity_(std::exchange(other.capacity_, 0)),
+      used_(std::exchange(other.used_, 0)),
+      protection_(std::exchange(other.protection_, MemoryProtection::None)) {}
 
 // Move assignment
 JitCodeBuffer& JitCodeBuffer::operator=(JitCodeBuffer&& other) noexcept {
@@ -192,8 +169,8 @@ JitCodeBuffer& JitCodeBuffer::operator=(JitCodeBuffer&& other) noexcept {
 }
 
 // Allocate region within buffer
-CodeBufferResult<std::span<std::uint8_t>>
-JitCodeBuffer::allocate(std::size_t size, std::size_t alignment) noexcept {
+CodeBufferResult<std::span<std::uint8_t>> JitCodeBuffer::allocate(std::size_t size,
+                                                                  std::size_t alignment) noexcept {
     if (protection_ != MemoryProtection::ReadWrite) [[unlikely]] {
         return std::unexpected(CodeBufferError::NotWritable);
     }
@@ -257,10 +234,7 @@ CodeBufferResult<void> JitCodeBuffer::reset() noexcept {
 
 // WritableGuard implementation
 WritableGuard::WritableGuard(JitCodeBuffer& buffer)
-    : buffer_(buffer)
-    , original_(buffer.protection())
-    , success_(false)
-{
+    : buffer_(buffer), original_(buffer.protection()), success_(false) {
     if (original_ == MemoryProtection::ReadWrite) {
         success_ = true;
         return;
@@ -281,4 +255,4 @@ WritableGuard::~WritableGuard() {
     }
 }
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

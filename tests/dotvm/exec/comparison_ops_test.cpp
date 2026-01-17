@@ -5,37 +5,37 @@
 /// Existing comparison opcodes (EQ, NE, LT, LE, GT, GE, LTU, LEU, GTU, GEU)
 /// are tested in execution_engine_test.cpp.
 
-#include <gtest/gtest.h>
-
-#include <dotvm/exec/execution_engine.hpp>
-#include <dotvm/exec/execution_context.hpp>
-#include <dotvm/exec/dispatch_macros.hpp>
-#include <dotvm/core/vm_context.hpp>
-#include <dotvm/core/instruction.hpp>
-#include <dotvm/core/value.hpp>
-#include <dotvm/core/alu.hpp>
-#include <dotvm/core/opcode.hpp>
-
-#include <vector>
 #include <cstdint>
 #include <limits>
+#include <vector>
+
+#include <dotvm/core/alu.hpp>
+#include <dotvm/core/instruction.hpp>
+#include <dotvm/core/opcode.hpp>
+#include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
+#include <dotvm/exec/dispatch_macros.hpp>
+#include <dotvm/exec/execution_context.hpp>
+#include <dotvm/exec/execution_engine.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace dotvm;
 
 // Explicitly use exec namespace items but NOT its opcode sub-namespace
-using dotvm::exec::ExecutionEngine;
-using dotvm::exec::ExecutionContext;
 using dotvm::exec::ExecResult;
+using dotvm::exec::ExecutionContext;
+using dotvm::exec::ExecutionEngine;
 
 // Explicitly use core namespace items but NOT its opcode sub-namespace
-using dotvm::core::VmContext;
-using dotvm::core::Value;
 using dotvm::core::ALU;
 using dotvm::core::Architecture;
 using dotvm::core::encode_type_a;
 using dotvm::core::encode_type_b;
 using dotvm::core::encode_type_c;
 using dotvm::core::encode_type_d;
+using dotvm::core::Value;
+using dotvm::core::VmContext;
 
 // Use exec::opcode for execution engine tests
 namespace opcode = dotvm::exec::opcode;
@@ -50,21 +50,18 @@ protected:
     ExecutionEngine engine_{ctx_};
 
     // Helper to create Type A instruction
-    static std::uint32_t make_type_a(std::uint8_t op, std::uint8_t rd,
-                                      std::uint8_t rs1, std::uint8_t rs2) {
+    static std::uint32_t make_type_a(std::uint8_t op, std::uint8_t rd, std::uint8_t rs1,
+                                     std::uint8_t rs2) {
         return encode_type_a(op, rd, rs1, rs2);
     }
 
     // Helper to create Type B instruction
-    static std::uint32_t make_type_b(std::uint8_t op, std::uint8_t rd,
-                                      std::uint16_t imm) {
+    static std::uint32_t make_type_b(std::uint8_t op, std::uint8_t rd, std::uint16_t imm) {
         return encode_type_b(op, rd, imm);
     }
 
     // Helper to create Type C instruction (HALT)
-    static std::uint32_t make_halt() {
-        return encode_type_c(opcode::HALT, 0);
-    }
+    static std::uint32_t make_halt() { return encode_type_c(opcode::HALT, 0); }
 
     // Helper to run code
     ExecResult run(const std::vector<std::uint32_t>& code) {
@@ -134,10 +131,8 @@ TEST_F(ComparisonOpsTest, Test_BothBitsSet_ReturnsOne) {
     ctx_.registers().write(1, Value::from_int(0b1100));
     ctx_.registers().write(2, Value::from_int(0b1010));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::TEST, 3, 1, 2),  // TEST R3, R1, R2
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::TEST, 3, 1, 2),  // TEST R3, R1, R2
+                                       make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -148,10 +143,8 @@ TEST_F(ComparisonOpsTest, Test_NoBitsCommon_ReturnsZero) {
     ctx_.registers().write(1, Value::from_int(0b1100));
     ctx_.registers().write(2, Value::from_int(0b0011));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::TEST, 3, 1, 2),  // TEST R3, R1, R2
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::TEST, 3, 1, 2),  // TEST R3, R1, R2
+                                       make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -163,10 +156,8 @@ TEST_F(ComparisonOpsTest, Test_ZeroRegister_Destination) {
     ctx_.registers().write(1, Value::from_int(0xF));
     ctx_.registers().write(2, Value::from_int(0xF));
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::TEST, 0, 1, 2),  // TEST R0, R1, R2
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::TEST, 0, 1, 2),  // TEST R0, R1, R2
+                                       make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -178,10 +169,7 @@ TEST_F(ComparisonOpsTest, Test_SingleBitCheck) {
     ctx_.registers().write(1, Value::from_int(0b0100));  // Bit 2 set
     ctx_.registers().write(2, Value::from_int(0b0100));  // Mask for bit 2
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::TEST, 3, 1, 2),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::TEST, 3, 1, 2), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -195,10 +183,8 @@ TEST_F(ComparisonOpsTest, Test_SingleBitCheck) {
 TEST_F(ComparisonOpsTest, CmpiEq_Equal_ReturnsOne) {
     ctx_.registers().write(1, Value::from_int(42));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_EQ, 1, 42),  // CMPI_EQ R1, 42
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_EQ, 1, 42),  // CMPI_EQ R1, 42
+                                       make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -208,10 +194,7 @@ TEST_F(ComparisonOpsTest, CmpiEq_Equal_ReturnsOne) {
 TEST_F(ComparisonOpsTest, CmpiEq_NotEqual_ReturnsZero) {
     ctx_.registers().write(1, Value::from_int(42));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_EQ, 1, 43),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_EQ, 1, 43), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -221,10 +204,7 @@ TEST_F(ComparisonOpsTest, CmpiEq_NotEqual_ReturnsZero) {
 TEST_F(ComparisonOpsTest, CmpiEq_Zero_Equal) {
     ctx_.registers().write(1, Value::from_int(0));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_EQ, 1, 0),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_EQ, 1, 0), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -234,11 +214,8 @@ TEST_F(ComparisonOpsTest, CmpiEq_Zero_Equal) {
 TEST_F(ComparisonOpsTest, CmpiEq_NegativeNumber) {
     ctx_.registers().write(1, Value::from_int(-1));
 
-    std::vector<std::uint32_t> code = {
-        // -1 as 16-bit immediate is 0xFFFF which sign-extends to -1
-        make_type_b(opcode::CMPI_EQ, 1, 0xFFFF),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {// -1 as 16-bit immediate is 0xFFFF which sign-extends to -1
+                                       make_type_b(opcode::CMPI_EQ, 1, 0xFFFF), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -252,10 +229,7 @@ TEST_F(ComparisonOpsTest, CmpiEq_NegativeNumber) {
 TEST_F(ComparisonOpsTest, CmpiNe_NotEqual_ReturnsOne) {
     ctx_.registers().write(1, Value::from_int(42));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_NE, 1, 43),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_NE, 1, 43), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -265,10 +239,7 @@ TEST_F(ComparisonOpsTest, CmpiNe_NotEqual_ReturnsOne) {
 TEST_F(ComparisonOpsTest, CmpiNe_Equal_ReturnsZero) {
     ctx_.registers().write(1, Value::from_int(42));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_NE, 1, 42),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_NE, 1, 42), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -282,10 +253,7 @@ TEST_F(ComparisonOpsTest, CmpiNe_Equal_ReturnsZero) {
 TEST_F(ComparisonOpsTest, CmpiLt_LessThan_ReturnsOne) {
     ctx_.registers().write(1, Value::from_int(10));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_LT, 1, 20),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_LT, 1, 20), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -295,10 +263,7 @@ TEST_F(ComparisonOpsTest, CmpiLt_LessThan_ReturnsOne) {
 TEST_F(ComparisonOpsTest, CmpiLt_GreaterThan_ReturnsZero) {
     ctx_.registers().write(1, Value::from_int(30));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_LT, 1, 20),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_LT, 1, 20), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -308,10 +273,7 @@ TEST_F(ComparisonOpsTest, CmpiLt_GreaterThan_ReturnsZero) {
 TEST_F(ComparisonOpsTest, CmpiLt_Equal_ReturnsZero) {
     ctx_.registers().write(1, Value::from_int(20));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_LT, 1, 20),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_LT, 1, 20), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -321,11 +283,8 @@ TEST_F(ComparisonOpsTest, CmpiLt_Equal_ReturnsZero) {
 TEST_F(ComparisonOpsTest, CmpiLt_SignedComparison_NegativeValue) {
     ctx_.registers().write(1, Value::from_int(-10));
 
-    std::vector<std::uint32_t> code = {
-        // -10 < 5 should be true (signed comparison)
-        make_type_b(opcode::CMPI_LT, 1, 5),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {// -10 < 5 should be true (signed comparison)
+                                       make_type_b(opcode::CMPI_LT, 1, 5), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -338,9 +297,7 @@ TEST_F(ComparisonOpsTest, CmpiLt_SignedComparison_NegativeImmediate) {
     std::vector<std::uint32_t> code = {
         // -20 < -10 should be true
         // -10 as imm16 = 0xFFF6
-        make_type_b(opcode::CMPI_LT, 1, static_cast<std::uint16_t>(-10)),
-        make_halt()
-    };
+        make_type_b(opcode::CMPI_LT, 1, static_cast<std::uint16_t>(-10)), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -354,10 +311,7 @@ TEST_F(ComparisonOpsTest, CmpiLt_SignedComparison_NegativeImmediate) {
 TEST_F(ComparisonOpsTest, CmpiGe_GreaterThan_ReturnsOne) {
     ctx_.registers().write(1, Value::from_int(30));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_GE, 1, 20),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_GE, 1, 20), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -367,10 +321,7 @@ TEST_F(ComparisonOpsTest, CmpiGe_GreaterThan_ReturnsOne) {
 TEST_F(ComparisonOpsTest, CmpiGe_Equal_ReturnsOne) {
     ctx_.registers().write(1, Value::from_int(20));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_GE, 1, 20),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_GE, 1, 20), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -380,10 +331,7 @@ TEST_F(ComparisonOpsTest, CmpiGe_Equal_ReturnsOne) {
 TEST_F(ComparisonOpsTest, CmpiGe_LessThan_ReturnsZero) {
     ctx_.registers().write(1, Value::from_int(10));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_GE, 1, 20),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_GE, 1, 20), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -395,9 +343,7 @@ TEST_F(ComparisonOpsTest, CmpiGe_SignedComparison_NegativeValue) {
 
     std::vector<std::uint32_t> code = {
         // -5 >= -10 should be true
-        make_type_b(opcode::CMPI_GE, 1, static_cast<std::uint16_t>(-10)),
-        make_halt()
-    };
+        make_type_b(opcode::CMPI_GE, 1, static_cast<std::uint16_t>(-10)), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -414,15 +360,12 @@ TEST_F(ComparisonOpsTest, ChainedComparison_RangeCheck_InRange) {
     ctx_.registers().write(2, Value::from_int(10));  // lower
     ctx_.registers().write(3, Value::from_int(20));  // upper
 
-    std::vector<std::uint32_t> code = {
-        // R4 = (R1 >= R2), i.e., value >= lower
-        make_type_a(opcode::GE, 4, 1, 2),
-        // R5 = (R1 < R3), i.e., value < upper
-        make_type_a(opcode::LT, 5, 1, 3),
-        // R6 = R4 & R5 (both conditions must be true)
-        make_type_a(opcode::AND, 6, 4, 5),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {// R4 = (R1 >= R2), i.e., value >= lower
+                                       make_type_a(opcode::GE, 4, 1, 2),
+                                       // R5 = (R1 < R3), i.e., value < upper
+                                       make_type_a(opcode::LT, 5, 1, 3),
+                                       // R6 = R4 & R5 (both conditions must be true)
+                                       make_type_a(opcode::AND, 6, 4, 5), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -437,12 +380,10 @@ TEST_F(ComparisonOpsTest, ChainedComparison_RangeCheck_OutOfRange) {
     ctx_.registers().write(2, Value::from_int(10));  // lower
     ctx_.registers().write(3, Value::from_int(20));  // upper
 
-    std::vector<std::uint32_t> code = {
-        make_type_a(opcode::GE, 4, 1, 2),  // R4 = 25 >= 10 = 1
-        make_type_a(opcode::LT, 5, 1, 3),  // R5 = 25 < 20 = 0
-        make_type_a(opcode::AND, 6, 4, 5), // R6 = 1 & 0 = 0
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_a(opcode::GE, 4, 1, 2),   // R4 = 25 >= 10 = 1
+                                       make_type_a(opcode::LT, 5, 1, 3),   // R5 = 25 < 20 = 0
+                                       make_type_a(opcode::AND, 6, 4, 5),  // R6 = 1 & 0 = 0
+                                       make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -459,15 +400,12 @@ TEST_F(ComparisonOpsTest, BranchOnComparisonResult_Taken) {
     ctx_.registers().write(1, Value::from_int(5));
     ctx_.registers().write(2, Value::from_int(10));
 
-    std::vector<std::uint32_t> code = {
-        // R3 = (R1 < R2) = 1
-        make_type_a(opcode::LT, 3, 1, 2),
-        // JNZ R3, +2 (jump over next instruction if R3 != 0)
-        encode_type_d(opcode::JNZ, 3, 2),
-        // This should be skipped
-        make_type_b(opcode::MOVI, 4, 999),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {// R3 = (R1 < R2) = 1
+                                       make_type_a(opcode::LT, 3, 1, 2),
+                                       // JNZ R3, +2 (jump over next instruction if R3 != 0)
+                                       encode_type_d(opcode::JNZ, 3, 2),
+                                       // This should be skipped
+                                       make_type_b(opcode::MOVI, 4, 999), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -479,15 +417,12 @@ TEST_F(ComparisonOpsTest, BranchOnComparisonResult_NotTaken) {
     ctx_.registers().write(1, Value::from_int(15));
     ctx_.registers().write(2, Value::from_int(10));
 
-    std::vector<std::uint32_t> code = {
-        // R3 = (R1 < R2) = 0 (15 is not less than 10)
-        make_type_a(opcode::LT, 3, 1, 2),
-        // JNZ R3, +2 (jump is NOT taken because R3 == 0)
-        encode_type_d(opcode::JNZ, 3, 2),
-        // This should execute
-        make_type_b(opcode::MOVI, 4, 999),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {// R3 = (R1 < R2) = 0 (15 is not less than 10)
+                                       make_type_a(opcode::LT, 3, 1, 2),
+                                       // JNZ R3, +2 (jump is NOT taken because R3 == 0)
+                                       encode_type_d(opcode::JNZ, 3, 2),
+                                       // This should execute
+                                       make_type_b(opcode::MOVI, 4, 999), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -503,10 +438,7 @@ TEST_F(ComparisonOpsTest, CmpiLt_MaxPositiveImmediate) {
     // Max positive 16-bit signed value is 32767
     ctx_.registers().write(1, Value::from_int(32766));
 
-    std::vector<std::uint32_t> code = {
-        make_type_b(opcode::CMPI_LT, 1, 32767),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_type_b(opcode::CMPI_LT, 1, 32767), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -517,11 +449,8 @@ TEST_F(ComparisonOpsTest, CmpiLt_MinNegativeImmediate) {
     // Min negative 16-bit signed value is -32768
     ctx_.registers().write(1, Value::from_int(-32769));
 
-    std::vector<std::uint32_t> code = {
-        // -32768 as uint16 = 0x8000
-        make_type_b(opcode::CMPI_LT, 1, 0x8000),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {// -32768 as uint16 = 0x8000
+                                       make_type_b(opcode::CMPI_LT, 1, 0x8000), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);
@@ -532,11 +461,8 @@ TEST_F(ComparisonOpsTest, Test_LargeBitPattern) {
     ctx_.registers().write(1, Value::from_int(0x0F0F0F0F));
     ctx_.registers().write(2, Value::from_int(0xF0F0F0F0));
 
-    std::vector<std::uint32_t> code = {
-        // 0x0F0F0F0F & 0xF0F0F0F0 = 0 -> result is 0
-        make_type_a(opcode::TEST, 3, 1, 2),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {// 0x0F0F0F0F & 0xF0F0F0F0 = 0 -> result is 0
+                                       make_type_a(opcode::TEST, 3, 1, 2), make_halt()};
 
     auto result = run(code);
     EXPECT_EQ(result, ExecResult::Success);

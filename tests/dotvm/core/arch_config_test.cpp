@@ -1,10 +1,10 @@
 /// @file arch_config_test.cpp
 /// @brief Unit tests for architecture configuration and masking operations
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <limits>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/arch_config.hpp"
 
@@ -153,7 +153,7 @@ TEST_F(MaskUintTest, Arch32_HighBitSet_NoSignExtension) {
 class MaskAddrTest : public ::testing::Test {};
 
 TEST_F(MaskAddrTest, Arch32_TruncatesTo4GB) {
-    constexpr std::uint64_t addr_5GB = 0x1'4000'0000ULL;  // 5 GB
+    constexpr std::uint64_t addr_5GB = 0x1'4000'0000ULL;                   // 5 GB
     EXPECT_EQ(mask_addr(addr_5GB, Architecture::Arch32), 0x4000'0000ULL);  // 1 GB
 }
 

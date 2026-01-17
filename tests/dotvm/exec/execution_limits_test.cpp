@@ -1,16 +1,16 @@
 /// @file execution_limits_test.cpp
 /// @brief Unit tests for EXEC-008: Execution Limit Enforcement
 
-#include <gtest/gtest.h>
+#include <array>
+#include <vector>
 
-#include <dotvm/exec/execution_engine.hpp>
-#include <dotvm/exec/execution_context.hpp>
-#include <dotvm/core/vm_context.hpp>
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
+#include <dotvm/exec/execution_context.hpp>
+#include <dotvm/exec/execution_engine.hpp>
 
-#include <vector>
-#include <array>
+#include <gtest/gtest.h>
 
 using namespace dotvm;
 using namespace dotvm::exec;
@@ -223,10 +223,7 @@ TEST_F(ExecutionLimitsTest, TightLoopHitsLimit) {
     // Create tight loop:
     // 0: ADDI R0, 1
     // 1: JMP -1  (jump back to ADDI, offset is -1 since PC is at 2)
-    std::vector<std::uint32_t> code = {
-        make_addi(0, 1),
-        make_jmp(-1)
-    };
+    std::vector<std::uint32_t> code = {make_addi(0, 1), make_jmp(-1)};
 
     auto result = engine.execute(code.data(), code.size(), 0, {});
 
@@ -346,9 +343,7 @@ TEST_F(ExecutionLimitsTest, LimitOfOneHaltsImmediately) {
     ExecutionEngine engine{ctx};
 
     // Create code with NOPs
-    std::vector<std::uint32_t> code = {
-        make_nop(), make_nop(), make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_nop(), make_nop(), make_halt()};
 
     auto result = engine.execute(code.data(), code.size(), 0, {});
 

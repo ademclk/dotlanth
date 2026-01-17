@@ -1,13 +1,13 @@
 /// @file fp_executor_test.cpp
 /// @brief Unit tests for floating-point instruction executor (EXEC-003)
 
-#include <gtest/gtest.h>
-
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/arch_config.hpp"
 #include "dotvm/core/executor.hpp"
@@ -33,8 +33,8 @@ protected:
     }
 
     // Helper to create a simple program with instructions
-    static std::vector<std::uint8_t> make_program(
-        std::initializer_list<std::uint32_t> instructions) {
+    static std::vector<std::uint8_t>
+    make_program(std::initializer_list<std::uint32_t> instructions) {
         std::vector<std::uint8_t> code;
         code.reserve(instructions.size() * 4);
         for (auto instr : instructions) {
@@ -48,10 +48,10 @@ protected:
     }
 
     // Helper to run a single FP instruction and get result
-    StepResult run_fp_instr(VmContext& ctx, std::uint8_t op, std::uint8_t rd,
-                            std::uint8_t rs1, std::uint8_t rs2 = 0) {
-        auto code = make_program({encode_type_a(op, rd, rs1, rs2),
-                                   encode_type_a(opcode::HALT, 0, 0, 0)});
+    StepResult run_fp_instr(VmContext& ctx, std::uint8_t op, std::uint8_t rd, std::uint8_t rs1,
+                            std::uint8_t rs2 = 0) {
+        auto code =
+            make_program({encode_type_a(op, rd, rs1, rs2), encode_type_a(opcode::HALT, 0, 0, 0)});
         Executor exec{ctx, code};
         return exec.step();
     }
@@ -436,8 +436,8 @@ TEST_F(FloatingPointExecutorTest, FCMP_LessThan) {
     ctx_->registers().write(1, Value::from_float(1.0));
     ctx_->registers().write(2, Value::from_float(2.0));
 
-    auto code = make_program({encode_type_a(opcode::FCMP, 0, 1, 2),
-                               encode_type_a(opcode::HALT, 0, 0, 0)});
+    auto code =
+        make_program({encode_type_a(opcode::FCMP, 0, 1, 2), encode_type_a(opcode::HALT, 0, 0, 0)});
     Executor exec{*ctx_, code};
     auto result = exec.step();
     EXPECT_EQ(result.err, ExecutionError::Success);
@@ -452,8 +452,8 @@ TEST_F(FloatingPointExecutorTest, FCMP_GreaterThan) {
     ctx_->registers().write(1, Value::from_float(5.0));
     ctx_->registers().write(2, Value::from_float(2.0));
 
-    auto code = make_program({encode_type_a(opcode::FCMP, 0, 1, 2),
-                               encode_type_a(opcode::HALT, 0, 0, 0)});
+    auto code =
+        make_program({encode_type_a(opcode::FCMP, 0, 1, 2), encode_type_a(opcode::HALT, 0, 0, 0)});
     Executor exec{*ctx_, code};
     auto result = exec.step();
     EXPECT_EQ(result.err, ExecutionError::Success);
@@ -468,8 +468,8 @@ TEST_F(FloatingPointExecutorTest, FCMP_Equal) {
     ctx_->registers().write(1, Value::from_float(3.14));
     ctx_->registers().write(2, Value::from_float(3.14));
 
-    auto code = make_program({encode_type_a(opcode::FCMP, 0, 1, 2),
-                               encode_type_a(opcode::HALT, 0, 0, 0)});
+    auto code =
+        make_program({encode_type_a(opcode::FCMP, 0, 1, 2), encode_type_a(opcode::HALT, 0, 0, 0)});
     Executor exec{*ctx_, code};
     auto result = exec.step();
     EXPECT_EQ(result.err, ExecutionError::Success);
@@ -484,8 +484,8 @@ TEST_F(FloatingPointExecutorTest, FCMP_NegativeZero_Equals_PositiveZero) {
     ctx_->registers().write(1, Value::from_float(NEG_ZERO));
     ctx_->registers().write(2, Value::from_float(POS_ZERO));
 
-    auto code = make_program({encode_type_a(opcode::FCMP, 0, 1, 2),
-                               encode_type_a(opcode::HALT, 0, 0, 0)});
+    auto code =
+        make_program({encode_type_a(opcode::FCMP, 0, 1, 2), encode_type_a(opcode::HALT, 0, 0, 0)});
     Executor exec{*ctx_, code};
     auto result = exec.step();
     EXPECT_EQ(result.err, ExecutionError::Success);
@@ -498,8 +498,8 @@ TEST_F(FloatingPointExecutorTest, FCMP_NaN_FirstOperand_Unordered) {
     ctx_->registers().write(1, Value::from_float(QNAN));
     ctx_->registers().write(2, Value::from_float(1.0));
 
-    auto code = make_program({encode_type_a(opcode::FCMP, 0, 1, 2),
-                               encode_type_a(opcode::HALT, 0, 0, 0)});
+    auto code =
+        make_program({encode_type_a(opcode::FCMP, 0, 1, 2), encode_type_a(opcode::HALT, 0, 0, 0)});
     Executor exec{*ctx_, code};
     auto result = exec.step();
     EXPECT_EQ(result.err, ExecutionError::Success);
@@ -514,8 +514,8 @@ TEST_F(FloatingPointExecutorTest, FCMP_NaN_SecondOperand_Unordered) {
     ctx_->registers().write(1, Value::from_float(1.0));
     ctx_->registers().write(2, Value::from_float(QNAN));
 
-    auto code = make_program({encode_type_a(opcode::FCMP, 0, 1, 2),
-                               encode_type_a(opcode::HALT, 0, 0, 0)});
+    auto code =
+        make_program({encode_type_a(opcode::FCMP, 0, 1, 2), encode_type_a(opcode::HALT, 0, 0, 0)});
     Executor exec{*ctx_, code};
     auto result = exec.step();
     EXPECT_EQ(result.err, ExecutionError::Success);
@@ -527,8 +527,8 @@ TEST_F(FloatingPointExecutorTest, FCMP_BothNaN_Unordered) {
     ctx_->registers().write(1, Value::from_float(QNAN));
     ctx_->registers().write(2, Value::from_float(QNAN));
 
-    auto code = make_program({encode_type_a(opcode::FCMP, 0, 1, 2),
-                               encode_type_a(opcode::HALT, 0, 0, 0)});
+    auto code =
+        make_program({encode_type_a(opcode::FCMP, 0, 1, 2), encode_type_a(opcode::HALT, 0, 0, 0)});
     Executor exec{*ctx_, code};
     auto result = exec.step();
     EXPECT_EQ(result.err, ExecutionError::Success);
@@ -540,8 +540,8 @@ TEST_F(FloatingPointExecutorTest, FCMP_Infinity_Ordered) {
     ctx_->registers().write(1, Value::from_float(POS_INF));
     ctx_->registers().write(2, Value::from_float(1.0e100));
 
-    auto code = make_program({encode_type_a(opcode::FCMP, 0, 1, 2),
-                               encode_type_a(opcode::HALT, 0, 0, 0)});
+    auto code =
+        make_program({encode_type_a(opcode::FCMP, 0, 1, 2), encode_type_a(opcode::HALT, 0, 0, 0)});
     Executor exec{*ctx_, code};
     auto result = exec.step();
     EXPECT_EQ(result.err, ExecutionError::Success);
@@ -733,11 +733,9 @@ TEST_F(FloatingPointExecutorTest, ExecuteProgram_FADD_And_FMUL) {
     ctx_->registers().write(1, Value::from_float(2.0));
     ctx_->registers().write(2, Value::from_float(3.0));
 
-    auto code = make_program({
-        encode_type_a(opcode::FADD, 3, 1, 2),  // R3 = 2.0 + 3.0 = 5.0
-        encode_type_a(opcode::FMUL, 4, 3, 1),  // R4 = 5.0 * 2.0 = 10.0
-        encode_type_a(opcode::HALT, 0, 0, 0)
-    });
+    auto code = make_program({encode_type_a(opcode::FADD, 3, 1, 2),  // R3 = 2.0 + 3.0 = 5.0
+                              encode_type_a(opcode::FMUL, 4, 3, 1),  // R4 = 5.0 * 2.0 = 10.0
+                              encode_type_a(opcode::HALT, 0, 0, 0)});
 
     Executor exec{*ctx_, code};
     auto error = exec.run();
@@ -755,12 +753,10 @@ TEST_F(FloatingPointExecutorTest, ExecuteProgram_MixedIntAndFloat) {
     ctx_->registers().write(1, Value::from_int(10));
     ctx_->registers().write(2, Value::from_float(0.5));
 
-    auto code = make_program({
-        encode_type_a(opcode::I2F, 3, 1, 0),   // R3 = 10.0
-        encode_type_a(opcode::FADD, 4, 3, 2),  // R4 = 10.5
-        encode_type_a(opcode::F2I, 5, 4, 0),   // R5 = 10
-        encode_type_a(opcode::HALT, 0, 0, 0)
-    });
+    auto code = make_program({encode_type_a(opcode::I2F, 3, 1, 0),   // R3 = 10.0
+                              encode_type_a(opcode::FADD, 4, 3, 2),  // R4 = 10.5
+                              encode_type_a(opcode::F2I, 5, 4, 0),   // R5 = 10
+                              encode_type_a(opcode::HALT, 0, 0, 0)});
 
     Executor exec{*ctx_, code};
     auto error = exec.run();

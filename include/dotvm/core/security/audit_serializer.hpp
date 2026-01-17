@@ -55,15 +55,13 @@ public:
     ///
     /// @param events The events to serialize
     /// @param out The output stream
-    static void to_json_lines(const std::vector<AuditEvent>& events,
-                              std::ostream& out);
+    static void to_json_lines(const std::vector<AuditEvent>& events, std::ostream& out);
 
     /// @brief Parse an event from JSON string
     ///
     /// @param json The JSON string
     /// @return Parsed event or error message
-    [[nodiscard]] static Result<AuditEvent, std::string>
-    from_json(std::string_view json);
+    [[nodiscard]] static Result<AuditEvent, std::string> from_json(std::string_view json);
 
     // === Binary Serialization ===
 
@@ -88,8 +86,7 @@ public:
     ///
     /// @param event The event to serialize
     /// @return Binary data
-    [[nodiscard]] static std::vector<std::uint8_t>
-    to_binary(const AuditEvent& event);
+    [[nodiscard]] static std::vector<std::uint8_t> to_binary(const AuditEvent& event);
 
     /// @brief Deserialize event from binary format
     ///
@@ -102,8 +99,7 @@ public:
     ///
     /// @param events The events to serialize
     /// @param out The output stream
-    static void to_binary_stream(const std::vector<AuditEvent>& events,
-                                 std::ostream& out);
+    static void to_binary_stream(const std::vector<AuditEvent>& events, std::ostream& out);
 
     // === Text Serialization ===
 
@@ -119,8 +115,7 @@ public:
     ///
     /// @param events The events to serialize
     /// @param out The output stream
-    static void to_text_stream(const std::vector<AuditEvent>& events,
-                               std::ostream& out);
+    static void to_text_stream(const std::vector<AuditEvent>& events, std::ostream& out);
 
     // === Utility ===
 
@@ -134,8 +129,7 @@ public:
     ///
     /// @param tp The time point
     /// @return Formatted string (ISO 8601 style, relative to process start)
-    [[nodiscard]] static std::string
-    format_timestamp(std::chrono::steady_clock::time_point tp);
+    [[nodiscard]] static std::string format_timestamp(std::chrono::steady_clock::time_point tp);
 
     /// @brief Get timestamp as nanoseconds since steady_clock epoch
     ///

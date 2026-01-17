@@ -8,4 +8,4 @@ namespace dotvm::core {
 // 2. Debug/trace instrumentation
 // 3. Future extensions
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

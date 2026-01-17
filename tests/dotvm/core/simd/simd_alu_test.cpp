@@ -8,8 +8,6 @@
 /// - All lane types (int8, int16, int32, int64, float, double)
 /// - All widths (128, 256, 512)
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -17,6 +15,8 @@
 #include <limits>
 #include <numeric>
 #include <random>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/simd/simd_alu.hpp"
 #include "dotvm/core/simd/simd_opcodes.hpp"
@@ -43,21 +43,19 @@ protected:
     // Random number generator for fuzz testing
     std::mt19937 rng_{42};  // Fixed seed for reproducibility
 
-    template<typename T>
+    template <typename T>
     T random_value() {
         if constexpr (std::is_floating_point_v<T>) {
             std::uniform_real_distribution<T> dist(-100.0, 100.0);
             return dist(rng_);
         } else {
-            std::uniform_int_distribution<T> dist(
-                std::numeric_limits<T>::min() / 2,
-                std::numeric_limits<T>::max() / 2
-            );
+            std::uniform_int_distribution<T> dist(std::numeric_limits<T>::min() / 2,
+                                                  std::numeric_limits<T>::max() / 2);
             return dist(rng_);
         }
     }
 
-    template<std::size_t Width, typename Lane>
+    template <std::size_t Width, typename Lane>
     Vector<Width, Lane> random_vector() {
         Vector<Width, Lane> v;
         for (std::size_t i = 0; i < v.size(); ++i) {
@@ -103,8 +101,7 @@ TEST_F(SimdAluTest, VectorWidthBits_ReturnsCorrectValue) {
 
     // These may fall back if not supported
     SimdAlu alu256{Architecture::Arch256};
-    EXPECT_TRUE(alu256.vector_width_bits() == 256 ||
-                alu256.vector_width_bits() == 128);
+    EXPECT_TRUE(alu256.vector_width_bits() == 256 || alu256.vector_width_bits() == 128);
 }
 
 TEST_F(SimdAluTest, FactoryFunction_CreatesValidAlu) {
@@ -201,10 +198,10 @@ TEST_F(ScalarFallbackTest, VFma_Float_CorrectResult) {
     auto result = scalar::vfma(a, b, c);
 
     // a*b + c
-    EXPECT_FLOAT_EQ(result[0], 3.0f);   // 1*2 + 1 = 3
-    EXPECT_FLOAT_EQ(result[1], 5.0f);   // 2*2 + 1 = 5
-    EXPECT_FLOAT_EQ(result[2], 7.0f);   // 3*2 + 1 = 7
-    EXPECT_FLOAT_EQ(result[3], 9.0f);   // 4*2 + 1 = 9
+    EXPECT_FLOAT_EQ(result[0], 3.0f);  // 1*2 + 1 = 3
+    EXPECT_FLOAT_EQ(result[1], 5.0f);  // 2*2 + 1 = 5
+    EXPECT_FLOAT_EQ(result[2], 7.0f);  // 3*2 + 1 = 7
+    EXPECT_FLOAT_EQ(result[3], 9.0f);  // 4*2 + 1 = 9
 }
 
 TEST_F(ScalarFallbackTest, VMin_Integer_CorrectResult) {
@@ -533,12 +530,8 @@ TEST_F(SimdEquivalenceTest512, VFma_f64_MatchesScalar) {
 class IntegerEdgeCasesTest : public SimdAluTest {};
 
 TEST_F(IntegerEdgeCasesTest, VAdd_Overflow_WrapsAround) {
-    Vector128i32 a{
-        std::numeric_limits<std::int32_t>::max(),
-        std::numeric_limits<std::int32_t>::max(),
-        0,
-        0
-    };
+    Vector128i32 a{std::numeric_limits<std::int32_t>::max(),
+                   std::numeric_limits<std::int32_t>::max(), 0, 0};
     Vector128i32 b{1, 2, 0, 0};
 
     auto result = alu_->vadd(a, b);
@@ -549,12 +542,8 @@ TEST_F(IntegerEdgeCasesTest, VAdd_Overflow_WrapsAround) {
 }
 
 TEST_F(IntegerEdgeCasesTest, VSub_Underflow_WrapsAround) {
-    Vector128i32 a{
-        std::numeric_limits<std::int32_t>::min(),
-        std::numeric_limits<std::int32_t>::min(),
-        0,
-        0
-    };
+    Vector128i32 a{std::numeric_limits<std::int32_t>::min(),
+                   std::numeric_limits<std::int32_t>::min(), 0, 0};
     Vector128i32 b{1, 2, 0, 0};
 
     auto result = alu_->vsub(a, b);
@@ -564,12 +553,10 @@ TEST_F(IntegerEdgeCasesTest, VSub_Underflow_WrapsAround) {
 }
 
 TEST_F(IntegerEdgeCasesTest, VMul_Overflow_WrapsAround) {
-    Vector128i32 a{
-        100000,   // 100000 * 100000 = 10^10, wraps around
-        -1,       // -1 * INT_MIN is undefined, skip this check
-        50000,    // 50000 * 50000 = 2.5 * 10^9
-        2
-    };
+    Vector128i32 a{100000,  // 100000 * 100000 = 10^10, wraps around
+                   -1,      // -1 * INT_MIN is undefined, skip this check
+                   50000,   // 50000 * 50000 = 2.5 * 10^9
+                   2};
     Vector128i32 b{100000, 2, 50000, 2};
 
     auto result = alu_->vmul(a, b);
@@ -605,18 +592,10 @@ TEST_F(IntegerEdgeCasesTest, VDiv_DivideByZero_ReturnsZero) {
 }
 
 TEST_F(IntegerEdgeCasesTest, VMin_WithMinMax_ReturnsMin) {
-    Vector128i32 a{
-        std::numeric_limits<std::int32_t>::max(),
-        std::numeric_limits<std::int32_t>::min(),
-        0,
-        -1
-    };
-    Vector128i32 b{
-        std::numeric_limits<std::int32_t>::min(),
-        std::numeric_limits<std::int32_t>::max(),
-        1,
-        1
-    };
+    Vector128i32 a{std::numeric_limits<std::int32_t>::max(),
+                   std::numeric_limits<std::int32_t>::min(), 0, -1};
+    Vector128i32 b{std::numeric_limits<std::int32_t>::min(),
+                   std::numeric_limits<std::int32_t>::max(), 1, 1};
 
     auto result = alu_->vmin(a, b);
 
@@ -627,18 +606,10 @@ TEST_F(IntegerEdgeCasesTest, VMin_WithMinMax_ReturnsMin) {
 }
 
 TEST_F(IntegerEdgeCasesTest, VMax_WithMinMax_ReturnsMax) {
-    Vector128i32 a{
-        std::numeric_limits<std::int32_t>::max(),
-        std::numeric_limits<std::int32_t>::min(),
-        0,
-        -1
-    };
-    Vector128i32 b{
-        std::numeric_limits<std::int32_t>::min(),
-        std::numeric_limits<std::int32_t>::max(),
-        1,
-        1
-    };
+    Vector128i32 a{std::numeric_limits<std::int32_t>::max(),
+                   std::numeric_limits<std::int32_t>::min(), 0, -1};
+    Vector128i32 b{std::numeric_limits<std::int32_t>::min(),
+                   std::numeric_limits<std::int32_t>::max(), 1, 1};
 
     auto result = alu_->vmax(a, b);
 
@@ -655,12 +626,8 @@ TEST_F(IntegerEdgeCasesTest, VMax_WithMinMax_ReturnsMax) {
 class FloatEdgeCasesTest : public SimdAluTest {};
 
 TEST_F(FloatEdgeCasesTest, VAdd_WithInfinity_ProducesInfinity) {
-    Vector128f32 a{
-        std::numeric_limits<float>::infinity(),
-        -std::numeric_limits<float>::infinity(),
-        1.0f,
-        0.0f
-    };
+    Vector128f32 a{std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(),
+                   1.0f, 0.0f};
     Vector128f32 b{1.0f, 1.0f, std::numeric_limits<float>::infinity(), 0.0f};
 
     auto result = alu_->vadd(a, b);
@@ -681,12 +648,8 @@ TEST_F(FloatEdgeCasesTest, VAdd_InfinityMinusInfinity_ProducesNaN) {
 }
 
 TEST_F(FloatEdgeCasesTest, VMul_WithNaN_ProducesNaN) {
-    Vector128f32 a{
-        std::numeric_limits<float>::quiet_NaN(),
-        1.0f,
-        0.0f,
-        std::numeric_limits<float>::infinity()
-    };
+    Vector128f32 a{std::numeric_limits<float>::quiet_NaN(), 1.0f, 0.0f,
+                   std::numeric_limits<float>::infinity()};
     Vector128f32 b{1.0f, std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f};
 
     auto result = alu_->vmul(a, b);
@@ -710,18 +673,8 @@ TEST_F(FloatEdgeCasesTest, VDiv_ByZero_ProducesInfinity) {
 }
 
 TEST_F(FloatEdgeCasesTest, VMin_WithNaN_PropagatesNaN) {
-    Vector128f32 a{
-        std::numeric_limits<float>::quiet_NaN(),
-        1.0f,
-        2.0f,
-        3.0f
-    };
-    Vector128f32 b{
-        1.0f,
-        std::numeric_limits<float>::quiet_NaN(),
-        1.0f,
-        4.0f
-    };
+    Vector128f32 a{std::numeric_limits<float>::quiet_NaN(), 1.0f, 2.0f, 3.0f};
+    Vector128f32 b{1.0f, std::numeric_limits<float>::quiet_NaN(), 1.0f, 4.0f};
 
     auto result = alu_->vmin(a, b);
 
@@ -756,18 +709,8 @@ TEST_F(FloatEdgeCasesTest, VDot_LargeVector_AccumulatesCorrectly) {
 }
 
 TEST_F(FloatEdgeCasesTest, VCmpEq_Float_HandlesNaN) {
-    Vector128f32 a{
-        1.0f,
-        std::numeric_limits<float>::quiet_NaN(),
-        0.0f,
-        -0.0f
-    };
-    Vector128f32 b{
-        1.0f,
-        std::numeric_limits<float>::quiet_NaN(),
-        -0.0f,
-        0.0f
-    };
+    Vector128f32 a{1.0f, std::numeric_limits<float>::quiet_NaN(), 0.0f, -0.0f};
+    Vector128f32 b{1.0f, std::numeric_limits<float>::quiet_NaN(), -0.0f, 0.0f};
 
     auto result = alu_->vcmpeq(a, b);
 
@@ -1170,8 +1113,8 @@ TEST_F(LegacyApiTest, Fma_v512f32_Works) {
 
     auto result = alu_->fma_v512f32(a, b, c);
 
-    EXPECT_FLOAT_EQ(result[0], 2.5f);   // 1*2 + 0.5
-    EXPECT_FLOAT_EQ(result[15], 32.5f); // 16*2 + 0.5
+    EXPECT_FLOAT_EQ(result[0], 2.5f);    // 1*2 + 0.5
+    EXPECT_FLOAT_EQ(result[15], 32.5f);  // 16*2 + 0.5
 }
 
 // ============================================================================

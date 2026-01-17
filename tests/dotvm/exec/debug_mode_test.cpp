@@ -1,18 +1,18 @@
 /// @file debug_mode_test.cpp
 /// @brief Unit tests for EXEC-010: Debug Mode & Stepping
 
-#include <gtest/gtest.h>
-
-#include <dotvm/exec/execution_engine.hpp>
-#include <dotvm/exec/execution_context.hpp>
-#include <dotvm/exec/debug_context.hpp>
-#include <dotvm/core/vm_context.hpp>
-#include <dotvm/core/instruction.hpp>
-#include <dotvm/core/value.hpp>
-
-#include <vector>
 #include <array>
 #include <functional>
+#include <vector>
+
+#include <dotvm/core/instruction.hpp>
+#include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
+#include <dotvm/exec/debug_context.hpp>
+#include <dotvm/exec/execution_context.hpp>
+#include <dotvm/exec/execution_engine.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace dotvm;
 using namespace dotvm::exec;
@@ -28,19 +28,13 @@ namespace op = dotvm::exec::opcode;
 class DebugModeTest : public ::testing::Test {
 protected:
     // Helper to create NOP instruction
-    static std::uint32_t make_nop() {
-        return encode_type_c(op::NOP, 0);
-    }
+    static std::uint32_t make_nop() { return encode_type_c(op::NOP, 0); }
 
     // Helper to create HALT instruction
-    static std::uint32_t make_halt() {
-        return encode_type_c(op::HALT, 0);
-    }
+    static std::uint32_t make_halt() { return encode_type_c(op::HALT, 0); }
 
     // Helper to create DEBUG instruction (explicit breakpoint)
-    static std::uint32_t make_debug() {
-        return encode_type_c(op::DEBUG, 0);
-    }
+    static std::uint32_t make_debug() { return encode_type_c(op::DEBUG, 0); }
 
     // Helper to create ADDI instruction (add immediate)
     static std::uint32_t make_addi(std::uint8_t rd, std::uint16_t imm) {
@@ -53,9 +47,7 @@ protected:
     }
 
     // Helper to create JMP instruction
-    static std::uint32_t make_jmp(std::int32_t offset) {
-        return encode_type_c(op::JMP, offset);
-    }
+    static std::uint32_t make_jmp(std::int32_t offset) { return encode_type_c(op::JMP, offset); }
 };
 
 // ============================================================================
@@ -196,11 +188,11 @@ TEST_F(DebugModeTest, BreakpointHitsAndPausesExecution) {
 
     // Code: NOP, NOP, ADDI R1,1, NOP, HALT
     std::vector<std::uint32_t> code = {
-        make_nop(),         // PC=0
-        make_nop(),         // PC=1
-        make_addi(1, 1),    // PC=2 (breakpoint)
-        make_nop(),         // PC=3
-        make_halt()         // PC=4
+        make_nop(),       // PC=0
+        make_nop(),       // PC=1
+        make_addi(1, 1),  // PC=2 (breakpoint)
+        make_nop(),       // PC=3
+        make_halt()       // PC=4
     };
 
     engine.enable_debug(true);
@@ -208,9 +200,8 @@ TEST_F(DebugModeTest, BreakpointHitsAndPausesExecution) {
 
     // Record callback events
     std::vector<std::pair<DebugEvent, std::size_t>> events;
-    engine.set_debug_callback([&events](DebugEvent event, ExecutionContext& ctx) {
-        events.push_back({event, ctx.pc});
-    });
+    engine.set_debug_callback(
+        [&events](DebugEvent event, ExecutionContext& ctx) { events.push_back({event, ctx.pc}); });
 
     // Execute - will hit breakpoint at PC=2
     auto result = engine.execute(code.data(), code.size(), 0, {});
@@ -227,10 +218,10 @@ TEST_F(DebugModeTest, ContinueAfterBreakpoint) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_nop(),         // PC=0
-        make_addi(1, 1),    // PC=1 (breakpoint)
-        make_addi(1, 2),    // PC=2
-        make_halt()         // PC=3
+        make_nop(),       // PC=0
+        make_addi(1, 1),  // PC=1 (breakpoint)
+        make_addi(1, 2),  // PC=2
+        make_halt()       // PC=3
     };
 
     engine.enable_debug(true);
@@ -253,11 +244,11 @@ TEST_F(DebugModeTest, MultipleBreakpoints) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_movi(1, 10),   // PC=0
-        make_nop(),         // PC=1 (breakpoint)
-        make_addi(1, 5),    // PC=2
-        make_nop(),         // PC=3 (breakpoint)
-        make_halt()         // PC=4
+        make_movi(1, 10),  // PC=0
+        make_nop(),        // PC=1 (breakpoint)
+        make_addi(1, 5),   // PC=2
+        make_nop(),        // PC=3 (breakpoint)
+        make_halt()        // PC=4
     };
 
     engine.enable_debug(true);
@@ -290,9 +281,9 @@ TEST_F(DebugModeTest, StepIntoExecutesOneInstruction) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_movi(1, 10),   // PC=0
-        make_addi(1, 5),    // PC=1
-        make_halt()         // PC=2
+        make_movi(1, 10),  // PC=0
+        make_addi(1, 5),   // PC=1
+        make_halt()        // PC=2
     };
 
     engine.enable_debug(true);
@@ -320,10 +311,7 @@ TEST_F(DebugModeTest, StepCallsCallback) {
     VmContext ctx;
     ExecutionEngine engine{ctx};
 
-    std::vector<std::uint32_t> code = {
-        make_nop(),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_nop(), make_halt()};
 
     engine.enable_debug(true);
 
@@ -352,10 +340,10 @@ TEST_F(DebugModeTest, DebugOpcodeTriggersBreakWhenEnabled) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_nop(),         // PC=0
-        make_debug(),       // PC=1 (explicit DEBUG opcode)
-        make_nop(),         // PC=2
-        make_halt()         // PC=3
+        make_nop(),    // PC=0
+        make_debug(),  // PC=1 (explicit DEBUG opcode)
+        make_nop(),    // PC=2
+        make_halt()    // PC=3
     };
 
     engine.enable_debug(true);
@@ -379,10 +367,10 @@ TEST_F(DebugModeTest, DebugOpcodeBehavesLikeNopWhenDisabled) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_movi(1, 42),   // PC=0
-        make_debug(),       // PC=1 (treated as NOP)
-        make_addi(1, 8),    // PC=2
-        make_halt()         // PC=3
+        make_movi(1, 42),  // PC=0
+        make_debug(),      // PC=1 (treated as NOP)
+        make_addi(1, 8),   // PC=2
+        make_halt()        // PC=3
     };
 
     // Debug mode disabled (default)
@@ -416,9 +404,9 @@ TEST_F(DebugModeTest, InspectRegisterDuringExecution) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_movi(1, 42),   // PC=0
-        make_nop(),         // PC=1 (breakpoint)
-        make_halt()         // PC=2
+        make_movi(1, 42),  // PC=0
+        make_nop(),        // PC=1 (breakpoint)
+        make_halt()        // PC=2
     };
 
     engine.enable_debug(true);
@@ -475,18 +463,14 @@ TEST_F(DebugModeTest, CallbackReceivesCorrectEvent) {
     VmContext ctx;
     ExecutionEngine engine{ctx};
 
-    std::vector<std::uint32_t> code = {
-        make_nop(),
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_nop(), make_halt()};
 
     engine.enable_debug(true);
     engine.set_breakpoint(0);
 
     DebugEvent received_event = DebugEvent::Step;  // Initialize to different value
-    engine.set_debug_callback([&received_event](DebugEvent event, ExecutionContext&) {
-        received_event = event;
-    });
+    engine.set_debug_callback(
+        [&received_event](DebugEvent event, ExecutionContext&) { received_event = event; });
 
     (void)engine.execute(code.data(), code.size(), 0, {});
 
@@ -497,20 +481,17 @@ TEST_F(DebugModeTest, CallbackReceivesCorrectPC) {
     VmContext ctx;
     ExecutionEngine engine{ctx};
 
-    std::vector<std::uint32_t> code = {
-        make_nop(),         // PC=0
-        make_nop(),         // PC=1
-        make_nop(),         // PC=2 (breakpoint)
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_nop(),  // PC=0
+                                       make_nop(),  // PC=1
+                                       make_nop(),  // PC=2 (breakpoint)
+                                       make_halt()};
 
     engine.enable_debug(true);
     engine.set_breakpoint(2);
 
     std::size_t received_pc = 999;
-    engine.set_debug_callback([&received_pc](DebugEvent, ExecutionContext& ctx) {
-        received_pc = ctx.pc;
-    });
+    engine.set_debug_callback(
+        [&received_pc](DebugEvent, ExecutionContext& ctx) { received_pc = ctx.pc; });
 
     (void)engine.execute(code.data(), code.size(), 0, {});
 
@@ -525,18 +506,15 @@ TEST_F(DebugModeTest, ExceptionCallbackOnInvalidOpcode) {
     VmContext ctx;
     ExecutionEngine engine{ctx};
 
-    std::vector<std::uint32_t> code = {
-        make_nop(),
-        0xFF000000,  // Invalid opcode
-        make_halt()
-    };
+    std::vector<std::uint32_t> code = {make_nop(),
+                                       0xFF000000,  // Invalid opcode
+                                       make_halt()};
 
     engine.enable_debug(true);
 
     DebugEvent received_event = DebugEvent::Step;
-    engine.set_debug_callback([&received_event](DebugEvent event, ExecutionContext&) {
-        received_event = event;
-    });
+    engine.set_debug_callback(
+        [&received_event](DebugEvent event, ExecutionContext&) { received_event = event; });
 
     auto result = engine.execute(code.data(), code.size(), 0, {});
 

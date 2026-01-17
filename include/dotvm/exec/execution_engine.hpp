@@ -8,17 +8,17 @@
 /// The dispatch mechanism achieves <10 cycles per instruction dispatch
 /// on modern x86-64 processors.
 
-#include <dotvm/core/vm_context.hpp>
-#include <dotvm/core/instruction.hpp>
-#include <dotvm/core/value.hpp>
-#include <dotvm/exec/execution_context.hpp>
-#include <dotvm/exec/debug_context.hpp>
-#include <dotvm/exec/dispatch_macros.hpp>
-
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <vector>
+
+#include <dotvm/core/instruction.hpp>
+#include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
+#include <dotvm/exec/debug_context.hpp>
+#include <dotvm/exec/dispatch_macros.hpp>
+#include <dotvm/exec/execution_context.hpp>
 
 namespace dotvm::exec {
 
@@ -68,11 +68,9 @@ public:
     /// @param entry_point Starting instruction index
     /// @param const_pool Constant pool for LOADK instructions
     /// @return Execution result code
-    [[nodiscard]] ExecResult execute(
-        const std::uint32_t* code,
-        std::size_t code_size,
-        std::size_t entry_point,
-        std::span<const core::Value> const_pool) noexcept;
+    [[nodiscard]] ExecResult execute(const std::uint32_t* code, std::size_t code_size,
+                                     std::size_t entry_point,
+                                     std::span<const core::Value> const_pool) noexcept;
 
     /// Execute a single instruction (single-step mode)
     ///
@@ -87,24 +85,16 @@ public:
     ///
     /// Provides access to the lightweight execution state for
     /// debugging and introspection.
-    [[nodiscard]] const ExecutionContext& context() const noexcept {
-        return exec_ctx_;
-    }
+    [[nodiscard]] const ExecutionContext& context() const noexcept { return exec_ctx_; }
 
     /// Get current program counter
-    [[nodiscard]] std::size_t pc() const noexcept {
-        return exec_ctx_.pc;
-    }
+    [[nodiscard]] std::size_t pc() const noexcept { return exec_ctx_.pc; }
 
     /// Check if execution has halted
-    [[nodiscard]] bool halted() const noexcept {
-        return exec_ctx_.halted;
-    }
+    [[nodiscard]] bool halted() const noexcept { return exec_ctx_.halted; }
 
     /// Get the halt reason (if halted)
-    [[nodiscard]] ExecResult error() const noexcept {
-        return exec_ctx_.error;
-    }
+    [[nodiscard]] ExecResult error() const noexcept { return exec_ctx_.error; }
 
     /// Get number of instructions executed
     [[nodiscard]] std::uint64_t instructions_executed() const noexcept {
@@ -118,14 +108,10 @@ public:
     void reset() noexcept;
 
     /// Get the underlying VM context
-    [[nodiscard]] core::VmContext& vm_context() noexcept {
-        return vm_ctx_;
-    }
+    [[nodiscard]] core::VmContext& vm_context() noexcept { return vm_ctx_; }
 
     /// Get the underlying VM context (const)
-    [[nodiscard]] const core::VmContext& vm_context() const noexcept {
-        return vm_ctx_;
-    }
+    [[nodiscard]] const core::VmContext& vm_context() const noexcept { return vm_ctx_; }
 
     // =========================================================================
     // Debug API (EXEC-010)
@@ -138,33 +124,23 @@ public:
     /// overhead to execution but targets <5x slower than non-debug mode.
     ///
     /// @param enable True to enable debug mode, false to disable
-    void enable_debug(bool enable = true) noexcept {
-        debug_ctx_.enabled = enable;
-    }
+    void enable_debug(bool enable = true) noexcept { debug_ctx_.enabled = enable; }
 
     /// Check if debug mode is enabled
-    [[nodiscard]] bool debug_enabled() const noexcept {
-        return debug_ctx_.enabled;
-    }
+    [[nodiscard]] bool debug_enabled() const noexcept { return debug_ctx_.enabled; }
 
     /// Set a breakpoint at the given program counter
     ///
     /// @param pc Program counter value where execution should pause
-    void set_breakpoint(std::size_t pc) {
-        debug_ctx_.set_breakpoint(pc);
-    }
+    void set_breakpoint(std::size_t pc) { debug_ctx_.set_breakpoint(pc); }
 
     /// Remove a breakpoint at the given program counter
     ///
     /// @param pc Program counter value to remove breakpoint from
-    void remove_breakpoint(std::size_t pc) {
-        debug_ctx_.remove_breakpoint(pc);
-    }
+    void remove_breakpoint(std::size_t pc) { debug_ctx_.remove_breakpoint(pc); }
 
     /// Clear all breakpoints
-    void clear_breakpoints() {
-        debug_ctx_.clear_breakpoints();
-    }
+    void clear_breakpoints() { debug_ctx_.clear_breakpoints(); }
 
     /// Check if a breakpoint exists at the given program counter
     [[nodiscard]] bool has_breakpoint(std::size_t pc) const noexcept {
@@ -182,9 +158,7 @@ public:
     /// step completed, exception, etc.).
     ///
     /// @param callback Function to call on debug events (nullptr to clear)
-    void set_debug_callback(DebugCallback callback) {
-        debug_ctx_.callback = std::move(callback);
-    }
+    void set_debug_callback(DebugCallback callback) { debug_ctx_.callback = std::move(callback); }
 
     /// Execute a single instruction in stepping mode
     ///
@@ -215,15 +189,11 @@ public:
     /// @param offset Byte offset within the allocation
     /// @param size Number of bytes to read
     /// @return Vector containing the memory bytes
-    [[nodiscard]] std::vector<std::uint8_t> inspect_memory(
-        core::Handle handle,
-        std::size_t offset,
-        std::size_t size) const;
+    [[nodiscard]] std::vector<std::uint8_t> inspect_memory(core::Handle handle, std::size_t offset,
+                                                           std::size_t size) const;
 
     /// Get the debug context (readonly)
-    [[nodiscard]] const DebugContext& debug_context() const noexcept {
-        return debug_ctx_;
-    }
+    [[nodiscard]] const DebugContext& debug_context() const noexcept { return debug_ctx_; }
 
     // =========================================================================
     // JIT Integration (EXEC-012)
@@ -241,10 +211,7 @@ public:
     /// @param entry_pc PC of function entry
     /// @param end_pc PC past last instruction
     /// @return Function ID for tracking
-    std::uint32_t jit_register_function(
-        std::size_t entry_pc,
-        std::size_t end_pc
-    ) noexcept;
+    std::uint32_t jit_register_function(std::size_t entry_pc, std::size_t end_pc) noexcept;
 
     /// Register a loop for OSR tracking
     ///
@@ -252,11 +219,8 @@ public:
     /// @param header_pc PC of loop header
     /// @param backedge_pc PC of backward edge
     /// @return Loop ID for tracking
-    std::uint64_t jit_register_loop(
-        std::uint32_t func_id,
-        std::size_t header_pc,
-        std::size_t backedge_pc
-    ) noexcept;
+    std::uint64_t jit_register_loop(std::uint32_t func_id, std::size_t header_pc,
+                                    std::size_t backedge_pc) noexcept;
 
     /// Check if a function has compiled code available
     ///

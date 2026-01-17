@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include <dotvm/core/register_file.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace dotvm::core;
 
@@ -13,7 +14,7 @@ TEST_F(RegisterFileTest, SizeAndAlignment) {
     EXPECT_EQ(RegisterFile::size(), 256u);
     // Allow for alignment padding (256 * 8 = 2048, rounded up to cache line)
     EXPECT_LE(RegisterFile::byte_size(), 256u * 8u + 64u);
-    EXPECT_EQ(alignof(RegisterFile), 64u); // Cache-line aligned
+    EXPECT_EQ(alignof(RegisterFile), 64u);  // Cache-line aligned
 }
 
 // R0 hardwired zero behavior - read
@@ -97,8 +98,7 @@ TEST_F(RegisterFileTest, RegisterClassification) {
     }
 
     for (int i = 32; i <= 255; ++i) {
-        EXPECT_EQ(classify_register(static_cast<std::uint8_t>(i)),
-                  RegisterClass::General);
+        EXPECT_EQ(classify_register(static_cast<std::uint8_t>(i)), RegisterClass::General);
         EXPECT_TRUE(is_general(static_cast<std::uint8_t>(i)));
     }
 }

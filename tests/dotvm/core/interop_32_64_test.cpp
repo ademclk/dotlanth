@@ -5,18 +5,18 @@
 /// within a 64-bit VM, and that the architecture boundary behaviors
 /// are consistent across all components.
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <limits>
 
-#include "dotvm/core/arch_config.hpp"
+#include <gtest/gtest.h>
+
 #include "dotvm/core/alu.hpp"
-#include "dotvm/core/register_file.hpp"
-#include "dotvm/core/memory.hpp"
-#include "dotvm/core/vm_context.hpp"
+#include "dotvm/core/arch_config.hpp"
 #include "dotvm/core/bytecode.hpp"
 #include "dotvm/core/instruction.hpp"
+#include "dotvm/core/memory.hpp"
+#include "dotvm/core/register_file.hpp"
+#include "dotvm/core/vm_context.hpp"
 
 namespace dotvm::core {
 namespace {
@@ -153,16 +153,14 @@ class AddressInteropTest : public ::testing::Test {};
 
 TEST_F(AddressInteropTest, AddressComputation_Arch32_Wraps) {
     // Address at 4GB boundary should wrap in 32-bit mode
-    auto addr = MemoryManager::compute_address(
-        0xFFFF'0000, 0x2'0000, Architecture::Arch32);
+    auto addr = MemoryManager::compute_address(0xFFFF'0000, 0x2'0000, Architecture::Arch32);
 
     // 0xFFFF'0000 + 0x2'0000 = 0x1'0001'0000 -> masked to 0x0001'0000
     EXPECT_EQ(addr, 0x0001'0000u);
 }
 
 TEST_F(AddressInteropTest, AddressComputation_Arch64_NoWrap) {
-    auto addr = MemoryManager::compute_address(
-        0xFFFF'0000, 0x2'0000, Architecture::Arch64);
+    auto addr = MemoryManager::compute_address(0xFFFF'0000, 0x2'0000, Architecture::Arch64);
 
     // In 64-bit mode, no wrapping
     EXPECT_EQ(addr, 0x1'0001'0000u);
@@ -170,22 +168,18 @@ TEST_F(AddressInteropTest, AddressComputation_Arch64_NoWrap) {
 
 TEST_F(AddressInteropTest, AddressRange_Arch32_Limited) {
     // 4GB exactly is out of range for 32-bit
-    EXPECT_FALSE(MemoryManager::address_in_range(
-        0x1'0000'0000ULL, 0, Architecture::Arch32));
+    EXPECT_FALSE(MemoryManager::address_in_range(0x1'0000'0000ULL, 0, Architecture::Arch32));
 
     // Just under 4GB is valid
-    EXPECT_TRUE(MemoryManager::address_in_range(
-        0xFFFF'FFFF, 0, Architecture::Arch32));
+    EXPECT_TRUE(MemoryManager::address_in_range(0xFFFF'FFFF, 0, Architecture::Arch32));
 }
 
 TEST_F(AddressInteropTest, AddressRange_Arch64_Extended) {
     // Values above 4GB are valid in 64-bit mode
-    EXPECT_TRUE(MemoryManager::address_in_range(
-        0x1'0000'0000ULL, 0, Architecture::Arch64));
+    EXPECT_TRUE(MemoryManager::address_in_range(0x1'0000'0000ULL, 0, Architecture::Arch64));
 
     // Up to 48-bit range
-    EXPECT_TRUE(MemoryManager::address_in_range(
-        0xFFFF'FFFF'FFFFULL, 0, Architecture::Arch64));
+    EXPECT_TRUE(MemoryManager::address_in_range(0xFFFF'FFFF'FFFFULL, 0, Architecture::Arch64));
 }
 
 // ============================================================================
@@ -229,11 +223,7 @@ TEST_F(VmContextModeTest, ALU_FollowsContextArchitecture) {
 class BytecodeHeaderInteropTest : public ::testing::Test {};
 
 TEST_F(BytecodeHeaderInteropTest, ExtractConfig_Arch32) {
-    auto header = make_header(
-        Architecture::Arch32,
-        bytecode::FLAG_DEBUG,
-        0, 48, 0, 48, 0
-    );
+    auto header = make_header(Architecture::Arch32, bytecode::FLAG_DEBUG, 0, 48, 0, 48, 0);
 
     auto config = extract_vm_config(header);
     EXPECT_EQ(config.arch, Architecture::Arch32);
@@ -241,11 +231,7 @@ TEST_F(BytecodeHeaderInteropTest, ExtractConfig_Arch32) {
 }
 
 TEST_F(BytecodeHeaderInteropTest, ExtractConfig_Arch64) {
-    auto header = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_NONE,
-        0, 48, 0, 48, 0
-    );
+    auto header = make_header(Architecture::Arch64, bytecode::FLAG_NONE, 0, 48, 0, 48, 0);
 
     auto config = extract_vm_config(header);
     EXPECT_EQ(config.arch, Architecture::Arch64);
@@ -273,7 +259,8 @@ TEST_F(EndToEndInteropTest, FullProgram_Arch32_Overflow) {
 
     // Result should wrap around
     // INT32_MAX + 100 wraps to INT32_MIN + 99
-    std::int64_t expected = static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::min()) + 99;
+    std::int64_t expected =
+        static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::min()) + 99;
     EXPECT_EQ(ctx.registers().read(3).as_integer(), expected);
 }
 
@@ -291,8 +278,7 @@ TEST_F(EndToEndInteropTest, FullProgram_Arch64_NoOverflow) {
     ctx.registers().write(3, result);
 
     // No overflow in 64-bit mode
-    auto expected = static_cast<std::int64_t>(
-        std::numeric_limits<std::int32_t>::max()) + 100;
+    auto expected = static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max()) + 100;
     EXPECT_EQ(ctx.registers().read(3).as_integer(), expected);
 }
 

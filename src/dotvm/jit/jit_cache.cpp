@@ -5,13 +5,9 @@
 
 namespace dotvm::jit {
 
-JitCache::JitCache(const JitConfig& config)
-    : max_size_(config.max_code_cache)
-{}
+JitCache::JitCache(const JitConfig& config) : max_size_(config.max_code_cache) {}
 
-JitCache::JitCache()
-    : max_size_(thresholds::DEFAULT_MAX_CODE_CACHE)
-{}
+JitCache::JitCache() : max_size_(thresholds::DEFAULT_MAX_CODE_CACHE) {}
 
 const CompiledEntry* JitCache::lookup(FunctionId func_id) noexcept {
     auto it = entries_.find(func_id);
@@ -40,13 +36,8 @@ const CompiledEntry* JitCache::lookup_by_pc(std::size_t entry_pc) noexcept {
     return lookup(it->second);
 }
 
-bool JitCache::store(
-    FunctionId func_id,
-    const std::uint8_t* code,
-    std::size_t code_size,
-    std::size_t entry_pc,
-    std::size_t end_pc
-) noexcept {
+bool JitCache::store(FunctionId func_id, const std::uint8_t* code, std::size_t code_size,
+                     std::size_t entry_pc, std::size_t end_pc) noexcept {
     // Check if we already have this entry
     auto existing = entries_.find(func_id);
     if (existing != entries_.end()) {
@@ -77,12 +68,8 @@ bool JitCache::store(
     return true;
 }
 
-void JitCache::register_osr_entry(
-    LoopId loop_id,
-    const std::uint8_t* entry_point,
-    std::size_t bytecode_pc,
-    FunctionId func_id
-) noexcept {
+void JitCache::register_osr_entry(LoopId loop_id, const std::uint8_t* entry_point,
+                                  std::size_t bytecode_pc, FunctionId func_id) noexcept {
     OsrEntry entry;
     entry.loop_id = loop_id;
     entry.entry_point = entry_point;
@@ -131,7 +118,8 @@ void JitCache::invalidate_range(std::size_t start_pc, std::size_t end_pc) noexce
     std::vector<FunctionId> to_invalidate;
 
     for (const auto& [func_id, entry] : entries_) {
-        if (!entry.valid) continue;
+        if (!entry.valid)
+            continue;
 
         // Check if function overlaps with the range
         bool overlaps = (entry.entry_pc < end_pc && entry.end_pc > start_pc);
@@ -176,4 +164,4 @@ CacheStats JitCache::stats() const noexcept {
     return s;
 }
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

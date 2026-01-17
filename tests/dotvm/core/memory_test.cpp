@@ -1,11 +1,11 @@
+#include <array>
+#include <cstdint>
+#include <vector>
+
 #include <dotvm/core/memory.hpp>
 #include <dotvm/core/value.hpp>
 
 #include <gtest/gtest.h>
-
-#include <array>
-#include <cstdint>
-#include <vector>
 
 namespace dotvm::core {
 namespace {
@@ -214,7 +214,7 @@ TEST_F(HandleTableTest, ReuseSlot) {
 
     auto idx1 = table.allocate_slot();
 
-    EXPECT_EQ(idx1, idx0);  // Same slot reused
+    EXPECT_EQ(idx1, idx0);                 // Same slot reused
     EXPECT_EQ(table[idx1].generation, 6);  // Generation incremented
     EXPECT_TRUE(table[idx1].is_active);
 }
@@ -575,7 +575,8 @@ TEST_F(MemoryManagerTest, ReadWriteBytes) {
     ASSERT_TRUE(result.has_value());
 
     std::array<char, 100> src;
-    for (std::size_t i = 0; i < 100; ++i) src[i] = static_cast<char>(i);
+    for (std::size_t i = 0; i < 100; ++i)
+        src[i] = static_cast<char>(i);
 
     EXPECT_EQ(mm.write_bytes(*result, 0, src.data(), src.size()), MemoryError::Success);
 
@@ -590,7 +591,8 @@ TEST_F(MemoryManagerTest, ReadWriteBytesPartial) {
     ASSERT_TRUE(result.has_value());
 
     std::array<char, 50> src;
-    for (std::size_t i = 0; i < 50; ++i) src[i] = static_cast<char>(i + 10);
+    for (std::size_t i = 0; i < 50; ++i)
+        src[i] = static_cast<char>(i + 10);
 
     // Write at offset 100
     EXPECT_EQ(mm.write_bytes(*result, 100, src.data(), src.size()), MemoryError::Success);
@@ -834,5 +836,5 @@ TEST(MemoryManagerDestructorTest, FreesAllAllocations) {
     // If sanitizers are enabled, they would catch leaks here
 }
 
-} // namespace
-} // namespace dotvm::core
+}  // namespace
+}  // namespace dotvm::core

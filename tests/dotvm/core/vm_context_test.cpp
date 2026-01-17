@@ -1,10 +1,10 @@
 /// @file vm_context_test.cpp
 /// @brief Unit tests for the VM execution context
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <limits>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/vm_context.hpp"
 
@@ -79,10 +79,7 @@ TEST_F(VmContextConstructionTest, ConstructWithArchitecture) {
 }
 
 TEST_F(VmContextConstructionTest, ConfigAccessible) {
-    VmConfig config{
-        .arch = Architecture::Arch32,
-        .strict_overflow = true
-    };
+    VmConfig config{.arch = Architecture::Arch32, .strict_overflow = true};
     VmContext ctx{config};
 
     EXPECT_EQ(ctx.config().arch, Architecture::Arch32);

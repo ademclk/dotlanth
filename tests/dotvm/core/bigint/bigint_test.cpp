@@ -1,11 +1,12 @@
-#include <gtest/gtest.h>
-#include <dotvm/core/bigint/bigint.hpp>
-
 #include <cstdint>
 #include <limits>
 #include <random>
 #include <string>
 #include <vector>
+
+#include <dotvm/core/bigint/bigint.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace dotvm::core::bigint;
 
@@ -135,8 +136,7 @@ TEST_F(BigIntTest, ParseInvalidHexCharacter) {
 
 TEST_F(BigIntTest, EqualityPositive) {
     EXPECT_EQ(BigInt(42), BigInt(42));
-    EXPECT_EQ(BigInt("123456789012345678901234567890"),
-              BigInt("123456789012345678901234567890"));
+    EXPECT_EQ(BigInt("123456789012345678901234567890"), BigInt("123456789012345678901234567890"));
 }
 
 TEST_F(BigIntTest, EqualityNegative) {
@@ -788,14 +788,12 @@ TEST_F(BigIntTest, ToHexStringNegative) {
 }
 
 TEST_F(BigIntTest, StringRoundTrip) {
-    std::vector<std::string> test_values = {
-        "0",
-        "42",
-        "-42",
-        "123456789012345678901234567890",
-        "-123456789012345678901234567890",
-        "99999999999999999999999999999999999999999999999999"
-    };
+    std::vector<std::string> test_values = {"0",
+                                            "42",
+                                            "-42",
+                                            "123456789012345678901234567890",
+                                            "-123456789012345678901234567890",
+                                            "99999999999999999999999999999999999999999999999999"};
 
     for (const auto& s : test_values) {
         BigInt a(s);
@@ -804,12 +802,8 @@ TEST_F(BigIntTest, StringRoundTrip) {
 }
 
 TEST_F(BigIntTest, HexStringRoundTrip) {
-    std::vector<std::string> test_values = {
-        "0x0",
-        "0xFF",
-        "0x123456789ABCDEF",
-        "0xFFFFFFFFFFFFFFFFFFFFFFFF"
-    };
+    std::vector<std::string> test_values = {"0x0", "0xFF", "0x123456789ABCDEF",
+                                            "0xFFFFFFFFFFFFFFFFFFFFFFFF"};
 
     for (const auto& s : test_values) {
         BigInt a(s);
@@ -1013,7 +1007,8 @@ TEST_F(BigIntTest, RandomArithmeticConsistency) {
         std::int64_t y = dist(rng);
 
         // Skip zero divisor
-        if (y == 0) continue;
+        if (y == 0)
+            continue;
 
         BigInt a(x);
         BigInt b(y);

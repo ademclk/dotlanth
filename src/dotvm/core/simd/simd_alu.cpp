@@ -194,9 +194,9 @@ float vdot_avx2_f32(const Vector256f32& a, const Vector256f32& b) noexcept {
     // Horizontal sum: reduce 8 floats to 1
     __m128 lo = _mm256_castps256_ps128(prod);
     __m128 hi = _mm256_extractf128_ps(prod, 1);
-    __m128 sum = _mm_add_ps(lo, hi);        // 4 floats
-    sum = _mm_hadd_ps(sum, sum);            // 2 floats
-    sum = _mm_hadd_ps(sum, sum);            // 1 float
+    __m128 sum = _mm_add_ps(lo, hi);  // 4 floats
+    sum = _mm_hadd_ps(sum, sum);      // 2 floats
+    sum = _mm_hadd_ps(sum, sum);      // 1 float
 
     return _mm_cvtss_f32(sum);
 }
@@ -209,15 +209,16 @@ double vdot_avx2_f64(const Vector256f64& a, const Vector256f64& b) noexcept {
     // Horizontal sum: reduce 4 doubles to 1
     __m128d lo = _mm256_castpd256_pd128(prod);
     __m128d hi = _mm256_extractf128_pd(prod, 1);
-    __m128d sum = _mm_add_pd(lo, hi);       // 2 doubles
-    sum = _mm_hadd_pd(sum, sum);            // 1 double
+    __m128d sum = _mm_add_pd(lo, hi);  // 2 doubles
+    sum = _mm_hadd_pd(sum, sum);       // 1 double
 
     return _mm_cvtsd_f64(sum);
 }
 
 // --- VFMA AVX2 ---
 
-Vector256f32 vfma_avx2_f32(const Vector256f32& a, const Vector256f32& b, const Vector256f32& c) noexcept {
+Vector256f32 vfma_avx2_f32(const Vector256f32& a, const Vector256f32& b,
+                           const Vector256f32& c) noexcept {
     Vector256f32 result;
     __m256 va = _mm256_loadu_ps(a.data());
     __m256 vb = _mm256_loadu_ps(b.data());
@@ -227,7 +228,8 @@ Vector256f32 vfma_avx2_f32(const Vector256f32& a, const Vector256f32& b, const V
     return result;
 }
 
-Vector256f64 vfma_avx2_f64(const Vector256f64& a, const Vector256f64& b, const Vector256f64& c) noexcept {
+Vector256f64 vfma_avx2_f64(const Vector256f64& a, const Vector256f64& b,
+                           const Vector256f64& c) noexcept {
     Vector256f64 result;
     __m256d va = _mm256_loadu_pd(a.data());
     __m256d vb = _mm256_loadu_pd(b.data());
@@ -445,7 +447,8 @@ Vector256f64 vcmplt_avx2_f64(const Vector256f64& a, const Vector256f64& b) noexc
 
 // --- VBLEND AVX2 ---
 
-Vector256i32 vblend_avx2_i32(const Vector256i32& mask, const Vector256i32& a, const Vector256i32& b) noexcept {
+Vector256i32 vblend_avx2_i32(const Vector256i32& mask, const Vector256i32& a,
+                             const Vector256i32& b) noexcept {
     Vector256i32 result;
     __m256i vm = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(mask.data()));
     __m256i va = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(a.data()));
@@ -455,7 +458,8 @@ Vector256i32 vblend_avx2_i32(const Vector256i32& mask, const Vector256i32& a, co
     return result;
 }
 
-Vector256f32 vblend_avx2_f32(const Vector256f32& mask, const Vector256f32& a, const Vector256f32& b) noexcept {
+Vector256f32 vblend_avx2_f32(const Vector256f32& mask, const Vector256f32& a,
+                             const Vector256f32& b) noexcept {
     Vector256f32 result;
     __m256 vm = _mm256_loadu_ps(mask.data());
     __m256 va = _mm256_loadu_ps(a.data());
@@ -465,7 +469,8 @@ Vector256f32 vblend_avx2_f32(const Vector256f32& mask, const Vector256f32& a, co
     return result;
 }
 
-Vector256f64 vblend_avx2_f64(const Vector256f64& mask, const Vector256f64& a, const Vector256f64& b) noexcept {
+Vector256f64 vblend_avx2_f64(const Vector256f64& mask, const Vector256f64& a,
+                             const Vector256f64& b) noexcept {
     Vector256f64 result;
     __m256d vm = _mm256_loadu_pd(mask.data());
     __m256d va = _mm256_loadu_pd(a.data());
@@ -664,7 +669,8 @@ Vector512f64 vdiv_avx512_f64(const Vector512f64& a, const Vector512f64& b) noexc
 
 // --- VFMA AVX-512 ---
 
-Vector512f32 vfma_avx512_f32(const Vector512f32& a, const Vector512f32& b, const Vector512f32& c) noexcept {
+Vector512f32 vfma_avx512_f32(const Vector512f32& a, const Vector512f32& b,
+                             const Vector512f32& c) noexcept {
     Vector512f32 result;
     __m512 va = _mm512_loadu_ps(a.data());
     __m512 vb = _mm512_loadu_ps(b.data());
@@ -674,7 +680,8 @@ Vector512f32 vfma_avx512_f32(const Vector512f32& a, const Vector512f32& b, const
     return result;
 }
 
-Vector512f64 vfma_avx512_f64(const Vector512f64& a, const Vector512f64& b, const Vector512f64& c) noexcept {
+Vector512f64 vfma_avx512_f64(const Vector512f64& a, const Vector512f64& b,
+                             const Vector512f64& c) noexcept {
     Vector512f64 result;
     __m512d va = _mm512_loadu_pd(a.data());
     __m512d vb = _mm512_loadu_pd(b.data());
@@ -1007,7 +1014,8 @@ double vdot_neon_f64(const Vector128f64& a, const Vector128f64& b) noexcept {
 
 // --- VFMA NEON ---
 
-Vector128f32 vfma_neon_f32(const Vector128f32& a, const Vector128f32& b, const Vector128f32& c) noexcept {
+Vector128f32 vfma_neon_f32(const Vector128f32& a, const Vector128f32& b,
+                           const Vector128f32& c) noexcept {
     Vector128f32 result;
     float32x4_t va = vld1q_f32(a.data());
     float32x4_t vb = vld1q_f32(b.data());
@@ -1017,7 +1025,8 @@ Vector128f32 vfma_neon_f32(const Vector128f32& a, const Vector128f32& b, const V
     return result;
 }
 
-Vector128f64 vfma_neon_f64(const Vector128f64& a, const Vector128f64& b, const Vector128f64& c) noexcept {
+Vector128f64 vfma_neon_f64(const Vector128f64& a, const Vector128f64& b,
+                           const Vector128f64& c) noexcept {
     Vector128f64 result;
     float64x2_t va = vld1q_f64(a.data());
     float64x2_t vb = vld1q_f64(b.data());
@@ -1235,7 +1244,8 @@ Vector128f64 vcmplt_neon_f64(const Vector128f64& a, const Vector128f64& b) noexc
 
 // --- VBLEND NEON ---
 
-Vector128i32 vblend_neon_i32(const Vector128i32& mask, const Vector128i32& a, const Vector128i32& b) noexcept {
+Vector128i32 vblend_neon_i32(const Vector128i32& mask, const Vector128i32& a,
+                             const Vector128i32& b) noexcept {
     Vector128i32 result;
     int32x4_t vm = vld1q_s32(mask.data());
     int32x4_t va = vld1q_s32(a.data());
@@ -1245,7 +1255,8 @@ Vector128i32 vblend_neon_i32(const Vector128i32& mask, const Vector128i32& a, co
     return result;
 }
 
-Vector128f32 vblend_neon_f32(const Vector128f32& mask, const Vector128f32& a, const Vector128f32& b) noexcept {
+Vector128f32 vblend_neon_f32(const Vector128f32& mask, const Vector128f32& a,
+                             const Vector128f32& b) noexcept {
     Vector128f32 result;
     float32x4_t vm = vld1q_f32(mask.data());
     float32x4_t va = vld1q_f32(a.data());
@@ -1255,7 +1266,8 @@ Vector128f32 vblend_neon_f32(const Vector128f32& mask, const Vector128f32& a, co
     return result;
 }
 
-Vector128f64 vblend_neon_f64(const Vector128f64& mask, const Vector128f64& a, const Vector128f64& b) noexcept {
+Vector128f64 vblend_neon_f64(const Vector128f64& mask, const Vector128f64& a,
+                             const Vector128f64& b) noexcept {
     Vector128f64 result;
     float64x2_t vm = vld1q_f64(mask.data());
     float64x2_t va = vld1q_f64(a.data());

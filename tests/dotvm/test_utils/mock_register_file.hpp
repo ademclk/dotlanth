@@ -6,13 +6,13 @@
 /// Provides a simple mock implementation that satisfies RegisterFileInterface
 /// concept, useful for unit testing components in isolation.
 
-#include <dotvm/core/value.hpp>
+#include <array>
+#include <cstddef>
+#include <vector>
+
 #include <dotvm/core/arch_config.hpp>
 #include <dotvm/core/concepts/register_file_concept.hpp>
-
-#include <array>
-#include <vector>
-#include <cstddef>
+#include <dotvm/core/value.hpp>
 
 namespace dotvm::test {
 
@@ -39,8 +39,7 @@ public:
     MockRegisterFile() : registers_(256, core::Value::nil()) {}
 
     /// Construct with specific size
-    explicit MockRegisterFile(std::size_t size)
-        : registers_(size, core::Value::nil()) {}
+    explicit MockRegisterFile(std::size_t size) : registers_(size, core::Value::nil()) {}
 
     /// Read a register value
     [[nodiscard]] core::Value read(RegIdx idx) const noexcept {
@@ -62,9 +61,7 @@ public:
     }
 
     /// Get number of registers
-    [[nodiscard]] std::size_t size() const noexcept {
-        return registers_.size();
-    }
+    [[nodiscard]] std::size_t size() const noexcept { return registers_.size(); }
 
     /// Clear all registers to nil
     void reset() noexcept {
@@ -77,14 +74,10 @@ public:
     // ========== Test Helpers ==========
 
     /// Get the access log for verification
-    [[nodiscard]] const std::vector<AccessLog>& access_log() const noexcept {
-        return access_log_;
-    }
+    [[nodiscard]] const std::vector<AccessLog>& access_log() const noexcept { return access_log_; }
 
     /// Clear the access log
-    void clear_log() noexcept {
-        access_log_.clear();
-    }
+    void clear_log() noexcept { access_log_.clear(); }
 
     /// Get read count for a specific register
     [[nodiscard]] std::size_t read_count(RegIdx idx) const noexcept {
@@ -109,9 +102,7 @@ public:
     }
 
     /// Get total access count
-    [[nodiscard]] std::size_t total_accesses() const noexcept {
-        return access_log_.size();
-    }
+    [[nodiscard]] std::size_t total_accesses() const noexcept { return access_log_.size(); }
 
 private:
     std::vector<core::Value> registers_;
@@ -152,13 +143,9 @@ public:
         }
     }
 
-    [[nodiscard]] std::size_t size() const noexcept {
-        return registers_.size();
-    }
+    [[nodiscard]] std::size_t size() const noexcept { return registers_.size(); }
 
-    [[nodiscard]] core::Architecture arch() const noexcept {
-        return arch_;
-    }
+    [[nodiscard]] core::Architecture arch() const noexcept { return arch_; }
 
     void reset() noexcept {
         for (auto& reg : registers_) {
@@ -177,4 +164,4 @@ static_assert(core::concepts::RegisterFileInterface<MockArchRegisterFile>,
 static_assert(core::concepts::ArchAwareRegisterFile<MockArchRegisterFile>,
               "MockArchRegisterFile must satisfy ArchAwareRegisterFile");
 
-} // namespace dotvm::test
+}  // namespace dotvm::test

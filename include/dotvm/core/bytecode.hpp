@@ -9,8 +9,8 @@
 #include <string_view>
 #include <vector>
 
-#include "value.hpp"
 #include "arch_types.hpp"  // for Architecture enum
+#include "value.hpp"
 
 namespace dotvm::core {
 
@@ -19,40 +19,40 @@ namespace dotvm::core {
 // ============================================================================
 
 namespace bytecode {
-    // Magic bytes "DOTM" as little-endian u32
-    inline constexpr std::uint32_t MAGIC = 0x4D54'4F44U;  // "DOTM" LE
-    inline constexpr std::array<std::uint8_t, 4> MAGIC_BYTES = {'D', 'O', 'T', 'M'};
+// Magic bytes "DOTM" as little-endian u32
+inline constexpr std::uint32_t MAGIC = 0x4D54'4F44U;  // "DOTM" LE
+inline constexpr std::array<std::uint8_t, 4> MAGIC_BYTES = {'D', 'O', 'T', 'M'};
 
-    // Version
-    inline constexpr std::uint8_t CURRENT_VERSION = 26;
-    inline constexpr std::uint8_t MIN_SUPPORTED_VERSION = 26;
-    inline constexpr std::uint8_t MAX_SUPPORTED_VERSION = 26;
+// Version
+inline constexpr std::uint8_t CURRENT_VERSION = 26;
+inline constexpr std::uint8_t MIN_SUPPORTED_VERSION = 26;
+inline constexpr std::uint8_t MAX_SUPPORTED_VERSION = 26;
 
-    // Header size
-    inline constexpr std::size_t HEADER_SIZE = 48;
+// Header size
+inline constexpr std::size_t HEADER_SIZE = 48;
 
-    // Flags (bitfield)
-    inline constexpr std::uint16_t FLAG_NONE = 0x0000;
-    inline constexpr std::uint16_t FLAG_DEBUG = 0x0001;
-    inline constexpr std::uint16_t FLAG_OPTIMIZED = 0x0002;
+// Flags (bitfield)
+inline constexpr std::uint16_t FLAG_NONE = 0x0000;
+inline constexpr std::uint16_t FLAG_DEBUG = 0x0001;
+inline constexpr std::uint16_t FLAG_OPTIMIZED = 0x0002;
 
-    // Constant pool type tags
-    inline constexpr std::uint8_t CONST_TYPE_I64 = 0x01;
-    inline constexpr std::uint8_t CONST_TYPE_F64 = 0x02;
-    inline constexpr std::uint8_t CONST_TYPE_STRING = 0x03;
+// Constant pool type tags
+inline constexpr std::uint8_t CONST_TYPE_I64 = 0x01;
+inline constexpr std::uint8_t CONST_TYPE_F64 = 0x02;
+inline constexpr std::uint8_t CONST_TYPE_STRING = 0x03;
 
-    // Maximum string length in constant pool (16 MB)
-    inline constexpr std::uint32_t MAX_STRING_LENGTH = 0x01'00'00'00U;
+// Maximum string length in constant pool (16 MB)
+inline constexpr std::uint32_t MAX_STRING_LENGTH = 0x01'00'00'00U;
 
-    // Maximum number of constant pool entries (prevents DoS via memory exhaustion)
-    inline constexpr std::uint32_t MAX_CONST_POOL_ENTRIES = 0x00'10'00'00U;  // 1M entries
+// Maximum number of constant pool entries (prevents DoS via memory exhaustion)
+inline constexpr std::uint32_t MAX_CONST_POOL_ENTRIES = 0x00'10'00'00U;  // 1M entries
 
-    // Maximum bytecode file size (2 GB)
-    inline constexpr std::size_t MAX_FILE_SIZE = 0x80'00'00'00ULL;  // 2GB
+// Maximum bytecode file size (2 GB)
+inline constexpr std::size_t MAX_FILE_SIZE = 0x80'00'00'00ULL;  // 2GB
 
-    // Instruction alignment requirement (4 bytes)
-    inline constexpr std::size_t INSTRUCTION_ALIGNMENT = 4;
-} // namespace bytecode
+// Instruction alignment requirement (4 bytes)
+inline constexpr std::size_t INSTRUCTION_ALIGNMENT = 4;
+}  // namespace bytecode
 
 // ============================================================================
 // Enumerations
@@ -61,11 +61,7 @@ namespace bytecode {
 // Note: Architecture enum is defined in arch_types.hpp
 
 /// Constant entry type tag
-enum class ConstantType : std::uint8_t {
-    Int64 = 0x01,
-    Float64 = 0x02,
-    String = 0x03
-};
+enum class ConstantType : std::uint8_t { Int64 = 0x01, Float64 = 0x02, String = 0x03 };
 
 /// Error codes for bytecode validation and parsing
 enum class BytecodeError : std::uint8_t {
@@ -149,7 +145,7 @@ enum class BytecodeError : std::uint8_t {
 }
 
 /// Result type alias for bytecode operations
-template<typename T>
+template <typename T>
 using BytecodeResult = std::expected<T, BytecodeError>;
 
 // ============================================================================
@@ -158,25 +154,19 @@ using BytecodeResult = std::expected<T, BytecodeError>;
 
 namespace endian {
 
-[[nodiscard]] constexpr std::uint16_t read_u16_le(
-    const std::uint8_t* data) noexcept {
-    return static_cast<std::uint16_t>(
-        static_cast<unsigned>(data[0]) |
-        (static_cast<unsigned>(data[1]) << 8));
+[[nodiscard]] constexpr std::uint16_t read_u16_le(const std::uint8_t* data) noexcept {
+    return static_cast<std::uint16_t>(static_cast<unsigned>(data[0]) |
+                                      (static_cast<unsigned>(data[1]) << 8));
 }
 
-[[nodiscard]] constexpr std::uint32_t read_u32_le(
-    const std::uint8_t* data) noexcept {
-    return static_cast<std::uint32_t>(data[0]) |
-           (static_cast<std::uint32_t>(data[1]) << 8) |
+[[nodiscard]] constexpr std::uint32_t read_u32_le(const std::uint8_t* data) noexcept {
+    return static_cast<std::uint32_t>(data[0]) | (static_cast<std::uint32_t>(data[1]) << 8) |
            (static_cast<std::uint32_t>(data[2]) << 16) |
            (static_cast<std::uint32_t>(data[3]) << 24);
 }
 
-[[nodiscard]] constexpr std::uint64_t read_u64_le(
-    const std::uint8_t* data) noexcept {
-    return static_cast<std::uint64_t>(data[0]) |
-           (static_cast<std::uint64_t>(data[1]) << 8) |
+[[nodiscard]] constexpr std::uint64_t read_u64_le(const std::uint8_t* data) noexcept {
+    return static_cast<std::uint64_t>(data[0]) | (static_cast<std::uint64_t>(data[1]) << 8) |
            (static_cast<std::uint64_t>(data[2]) << 16) |
            (static_cast<std::uint64_t>(data[3]) << 24) |
            (static_cast<std::uint64_t>(data[4]) << 32) |
@@ -185,8 +175,7 @@ namespace endian {
            (static_cast<std::uint64_t>(data[7]) << 56);
 }
 
-[[nodiscard]] constexpr std::int64_t read_i64_le(
-    const std::uint8_t* data) noexcept {
+[[nodiscard]] constexpr std::int64_t read_i64_le(const std::uint8_t* data) noexcept {
     return static_cast<std::int64_t>(read_u64_le(data));
 }
 
@@ -225,7 +214,7 @@ constexpr void write_f64_le(std::uint8_t* data, double value) noexcept {
     write_u64_le(data, std::bit_cast<std::uint64_t>(value));
 }
 
-} // namespace endian
+}  // namespace endian
 
 // ============================================================================
 // BytecodeHeader Structure
@@ -297,18 +286,14 @@ static_assert(sizeof(ConstantPoolHeader) == 4, "ConstantPoolHeader must be exact
 // ============================================================================
 
 /// Validate magic bytes
-[[nodiscard]] constexpr bool validate_magic(
-    std::span<const std::uint8_t, 4> magic) noexcept {
-    return magic[0] == bytecode::MAGIC_BYTES[0] &&
-           magic[1] == bytecode::MAGIC_BYTES[1] &&
-           magic[2] == bytecode::MAGIC_BYTES[2] &&
-           magic[3] == bytecode::MAGIC_BYTES[3];
+[[nodiscard]] constexpr bool validate_magic(std::span<const std::uint8_t, 4> magic) noexcept {
+    return magic[0] == bytecode::MAGIC_BYTES[0] && magic[1] == bytecode::MAGIC_BYTES[1] &&
+           magic[2] == bytecode::MAGIC_BYTES[2] && magic[3] == bytecode::MAGIC_BYTES[3];
 }
 
 /// Validate version compatibility
 [[nodiscard]] constexpr bool validate_version(std::uint8_t version) noexcept {
-    return version >= bytecode::MIN_SUPPORTED_VERSION &&
-           version <= bytecode::MAX_SUPPORTED_VERSION;
+    return version >= bytecode::MIN_SUPPORTED_VERSION && version <= bytecode::MAX_SUPPORTED_VERSION;
 }
 
 /// Validate architecture value
@@ -318,29 +303,32 @@ static_assert(sizeof(ConstantPoolHeader) == 4, "ConstantPoolHeader must be exact
 }
 
 /// Check if section bounds are valid (no overflow, within file size)
-[[nodiscard]] constexpr bool validate_section_bounds(
-    std::uint64_t offset,
-    std::uint64_t size,
-    std::size_t total_file_size) noexcept {
+[[nodiscard]] constexpr bool validate_section_bounds(std::uint64_t offset, std::uint64_t size,
+                                                     std::size_t total_file_size) noexcept {
     // Check for overflow
-    if (offset > static_cast<std::uint64_t>(total_file_size)) return false;
-    if (size > static_cast<std::uint64_t>(total_file_size)) return false;
-    if (offset + size < offset) return false;  // Overflow check
+    if (offset > static_cast<std::uint64_t>(total_file_size))
+        return false;
+    if (size > static_cast<std::uint64_t>(total_file_size))
+        return false;
+    if (offset + size < offset)
+        return false;  // Overflow check
     return offset + size <= static_cast<std::uint64_t>(total_file_size);
 }
 
 /// Check if two sections overlap
 /// @note Overflow in offset + size is treated as overlap (conservative approach).
-[[nodiscard]] constexpr bool sections_overlap(
-    std::uint64_t offset1, std::uint64_t size1,
-    std::uint64_t offset2, std::uint64_t size2) noexcept {
+[[nodiscard]] constexpr bool sections_overlap(std::uint64_t offset1, std::uint64_t size1,
+                                              std::uint64_t offset2, std::uint64_t size2) noexcept {
     // Empty sections never overlap
-    if (size1 == 0 || size2 == 0) return false;
+    if (size1 == 0 || size2 == 0)
+        return false;
 
     // Check for overflow in end calculations
     // If overflow occurs, treat as overlap (conservative/safe)
-    if (offset1 > UINT64_MAX - size1) return true;
-    if (offset2 > UINT64_MAX - size2) return true;
+    if (offset1 > UINT64_MAX - size1)
+        return true;
+    if (offset2 > UINT64_MAX - size2)
+        return true;
 
     std::uint64_t end1 = offset1 + size1;
     std::uint64_t end2 = offset2 + size2;
@@ -350,13 +338,11 @@ static_assert(sizeof(ConstantPoolHeader) == 4, "ConstantPoolHeader must be exact
 }
 
 /// Mask of valid flag bits
-inline constexpr std::uint16_t VALID_FLAGS_MASK =
-    bytecode::FLAG_DEBUG | bytecode::FLAG_OPTIMIZED;
+inline constexpr std::uint16_t VALID_FLAGS_MASK = bytecode::FLAG_DEBUG | bytecode::FLAG_OPTIMIZED;
 
 /// Full header validation against file size
-[[nodiscard]] constexpr BytecodeError validate_header(
-    const BytecodeHeader& header,
-    std::size_t total_file_size) noexcept {
+[[nodiscard]] constexpr BytecodeError validate_header(const BytecodeHeader& header,
+                                                      std::size_t total_file_size) noexcept {
     // Validate file size isn't too large (prevents DoS)
     if (total_file_size > bytecode::MAX_FILE_SIZE) {
         return BytecodeError::FileTooLarge;
@@ -383,26 +369,21 @@ inline constexpr std::uint16_t VALID_FLAGS_MASK =
     }
 
     // Validate constant pool bounds
-    if (!validate_section_bounds(header.const_pool_offset,
-                                  header.const_pool_size,
-                                  total_file_size)) {
+    if (!validate_section_bounds(header.const_pool_offset, header.const_pool_size,
+                                 total_file_size)) {
         return BytecodeError::ConstPoolOutOfBounds;
     }
 
     // Validate code section bounds
-    if (!validate_section_bounds(header.code_offset,
-                                  header.code_size,
-                                  total_file_size)) {
+    if (!validate_section_bounds(header.code_offset, header.code_size, total_file_size)) {
         return BytecodeError::CodeSectionOutOfBounds;
     }
 
     // Validate sections don't overlap with header
-    if (header.const_pool_size > 0 &&
-        header.const_pool_offset < bytecode::HEADER_SIZE) {
+    if (header.const_pool_size > 0 && header.const_pool_offset < bytecode::HEADER_SIZE) {
         return BytecodeError::ConstPoolOutOfBounds;
     }
-    if (header.code_size > 0 &&
-        header.code_offset < bytecode::HEADER_SIZE) {
+    if (header.code_size > 0 && header.code_offset < bytecode::HEADER_SIZE) {
         return BytecodeError::CodeSectionOutOfBounds;
     }
 
@@ -422,8 +403,8 @@ inline constexpr std::uint16_t VALID_FLAGS_MASK =
     }
 
     // Check for section overlap between const_pool and code
-    if (sections_overlap(header.const_pool_offset, header.const_pool_size,
-                         header.code_offset, header.code_size)) {
+    if (sections_overlap(header.const_pool_offset, header.const_pool_size, header.code_offset,
+                         header.code_size)) {
         return BytecodeError::SectionsOverlap;
     }
 
@@ -435,8 +416,8 @@ inline constexpr std::uint16_t VALID_FLAGS_MASK =
 // ============================================================================
 
 /// Read header from raw bytes
-[[nodiscard]] constexpr BytecodeResult<BytecodeHeader> read_header(
-    std::span<const std::uint8_t> data) noexcept {
+[[nodiscard]] constexpr BytecodeResult<BytecodeHeader>
+read_header(std::span<const std::uint8_t> data) noexcept {
     if (data.size() < bytecode::HEADER_SIZE) {
         return std::unexpected(BytecodeError::FileTooSmall);
     }
@@ -518,25 +499,19 @@ write_header(const BytecodeHeader& header) noexcept {
 }
 
 /// Create a header with the given parameters and default magic/version
-[[nodiscard]] constexpr BytecodeHeader make_header(
-    Architecture arch,
-    std::uint16_t flags,
-    std::uint64_t entry_point,
-    std::uint64_t const_pool_offset,
-    std::uint64_t const_pool_size,
-    std::uint64_t code_offset,
-    std::uint64_t code_size) noexcept {
-    return BytecodeHeader{
-        .magic = bytecode::MAGIC_BYTES,
-        .version = bytecode::CURRENT_VERSION,
-        .arch = arch,
-        .flags = flags,
-        .entry_point = entry_point,
-        .const_pool_offset = const_pool_offset,
-        .const_pool_size = const_pool_size,
-        .code_offset = code_offset,
-        .code_size = code_size
-    };
+[[nodiscard]] constexpr BytecodeHeader
+make_header(Architecture arch, std::uint16_t flags, std::uint64_t entry_point,
+            std::uint64_t const_pool_offset, std::uint64_t const_pool_size,
+            std::uint64_t code_offset, std::uint64_t code_size) noexcept {
+    return BytecodeHeader{.magic = bytecode::MAGIC_BYTES,
+                          .version = bytecode::CURRENT_VERSION,
+                          .arch = arch,
+                          .flags = flags,
+                          .entry_point = entry_point,
+                          .const_pool_offset = const_pool_offset,
+                          .const_pool_size = const_pool_size,
+                          .code_offset = code_offset,
+                          .code_size = code_size};
 }
 
 // ============================================================================
@@ -561,10 +536,7 @@ inline auto extract_vm_config(const BytecodeHeader& header) noexcept {
         Architecture arch;
         bool strict_overflow;
     };
-    return VmConfigPartial{
-        .arch = header.arch,
-        .strict_overflow = header.is_debug()
-    };
+    return VmConfigPartial{.arch = header.arch, .strict_overflow = header.is_debug()};
 }
 
 // ============================================================================
@@ -708,21 +680,19 @@ write_const_pool_header(const ConstantPoolHeader& header) noexcept {
 
 /// Constraints extracted from bytecode header for execution validation
 struct ExecutionConstraints {
-    std::uint64_t code_size;       ///< Size of code section in bytes
-    std::uint64_t entry_point;     ///< Initial program counter
-    Architecture arch;              ///< Target architecture
-    bool debug_mode;                ///< Debug mode enabled (strict checks)
+    std::uint64_t code_size;    ///< Size of code section in bytes
+    std::uint64_t entry_point;  ///< Initial program counter
+    Architecture arch;          ///< Target architecture
+    bool debug_mode;            ///< Debug mode enabled (strict checks)
 };
 
 /// Extract execution constraints from a validated header
 [[nodiscard]] constexpr ExecutionConstraints
 extract_execution_constraints(const BytecodeHeader& header) noexcept {
-    return ExecutionConstraints{
-        .code_size = header.code_size,
-        .entry_point = header.entry_point,
-        .arch = header.arch,
-        .debug_mode = header.is_debug()
-    };
+    return ExecutionConstraints{.code_size = header.code_size,
+                                .entry_point = header.entry_point,
+                                .arch = header.arch,
+                                .debug_mode = header.is_debug()};
 }
 
 /// Validate that a program counter is within bounds and properly aligned
@@ -730,9 +700,8 @@ extract_execution_constraints(const BytecodeHeader& header) noexcept {
 /// @param pc Program counter (byte offset in code section)
 /// @param code_size Total size of code section
 /// @return BytecodeError::Success if valid, appropriate error otherwise
-[[nodiscard]] constexpr BytecodeError validate_pc(
-    std::uint64_t pc,
-    std::uint64_t code_size) noexcept {
+[[nodiscard]] constexpr BytecodeError validate_pc(std::uint64_t pc,
+                                                  std::uint64_t code_size) noexcept {
     if (pc >= code_size) {
         return BytecodeError::EntryPointOutOfBounds;
     }
@@ -747,9 +716,8 @@ extract_execution_constraints(const BytecodeHeader& header) noexcept {
 /// @param pc Program counter (byte offset in code section)
 /// @param constraints Execution constraints from bytecode header
 /// @return BytecodeError::Success if valid, appropriate error otherwise
-[[nodiscard]] constexpr BytecodeError validate_pc(
-    std::uint64_t pc,
-    const ExecutionConstraints& constraints) noexcept {
+[[nodiscard]] constexpr BytecodeError
+validate_pc(std::uint64_t pc, const ExecutionConstraints& constraints) noexcept {
     return validate_pc(pc, constraints.code_size);
 }
 
@@ -758,9 +726,8 @@ extract_execution_constraints(const BytecodeHeader& header) noexcept {
 /// @param index Index into the constant pool
 /// @param pool_size Number of entries in the constant pool
 /// @return true if index is valid, false otherwise
-[[nodiscard]] constexpr bool is_valid_const_index(
-    std::uint32_t index,
-    std::uint32_t pool_size) noexcept {
+[[nodiscard]] constexpr bool is_valid_const_index(std::uint32_t index,
+                                                  std::uint32_t pool_size) noexcept {
     return index < pool_size;
 }
 
@@ -770,10 +737,9 @@ extract_execution_constraints(const BytecodeHeader& header) noexcept {
 /// @param offset Signed offset to add (may be negative for backward jumps)
 /// @param code_size Total size of code section
 /// @return BytecodeError::Success if valid, appropriate error otherwise
-[[nodiscard]] constexpr BytecodeError validate_jump_target(
-    std::uint64_t current_pc,
-    std::int32_t offset,
-    std::uint64_t code_size) noexcept {
+[[nodiscard]] constexpr BytecodeError validate_jump_target(std::uint64_t current_pc,
+                                                           std::int32_t offset,
+                                                           std::uint64_t code_size) noexcept {
     // Compute target PC, handling signed offset
     std::int64_t target = static_cast<std::int64_t>(current_pc) + offset;
 
@@ -795,4 +761,4 @@ extract_execution_constraints(const BytecodeHeader& header) noexcept {
     return true;
 }
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

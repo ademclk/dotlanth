@@ -1,14 +1,14 @@
-#include <gtest/gtest.h>
-
-#include <dotvm/core/memory.hpp>
-#include <dotvm/core/bytecode.hpp>
-#include <dotvm/core/vm_context.hpp>
-#include <dotvm/core/cfi.hpp>
-#include <dotvm/core/security_stats.hpp>
-
 #include <array>
 #include <limits>
 #include <vector>
+
+#include <dotvm/core/bytecode.hpp>
+#include <dotvm/core/cfi.hpp>
+#include <dotvm/core/memory.hpp>
+#include <dotvm/core/security_stats.hpp>
+#include <dotvm/core/vm_context.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace dotvm::core;
 
@@ -137,7 +137,8 @@ TEST_F(MemoryBoundsTest, SpanWriteBoundsCheck) {
     EXPECT_EQ(err1, MemoryError::Success);
 
     // Write past end
-    auto err2 = mem.write_from(handle, mem_config::PAGE_SIZE - 8, std::span<const std::uint8_t>{buffer});
+    auto err2 =
+        mem.write_from(handle, mem_config::PAGE_SIZE - 8, std::span<const std::uint8_t>{buffer});
     EXPECT_EQ(err2, MemoryError::BoundsViolation);
 }
 
@@ -270,10 +271,10 @@ TEST_F(CfiTest, BackwardJumpLimitEnforced) {
     EXPECT_TRUE(limited_cfi.validate_jump(0, 16, CODE_SIZE));
 
     // Backward jumps count
-    EXPECT_TRUE(limited_cfi.validate_jump(100, 96, CODE_SIZE));  // 1
-    EXPECT_TRUE(limited_cfi.validate_jump(100, 92, CODE_SIZE));  // 2
-    EXPECT_TRUE(limited_cfi.validate_jump(100, 88, CODE_SIZE));  // 3
-    EXPECT_FALSE(limited_cfi.validate_jump(100, 84, CODE_SIZE)); // 4 - exceeds limit
+    EXPECT_TRUE(limited_cfi.validate_jump(100, 96, CODE_SIZE));   // 1
+    EXPECT_TRUE(limited_cfi.validate_jump(100, 92, CODE_SIZE));   // 2
+    EXPECT_TRUE(limited_cfi.validate_jump(100, 88, CODE_SIZE));   // 3
+    EXPECT_FALSE(limited_cfi.validate_jump(100, 84, CODE_SIZE));  // 4 - exceeds limit
 
     EXPECT_EQ(limited_cfi.last_violation(), cfi::CfiViolation::BackwardJumpLimit);
 }
@@ -311,7 +312,8 @@ TEST_F(CfiTest, MatchedCallReturnPasses) {
 
 TEST_F(CfiTest, ResetClearsState) {
     [[maybe_unused]] auto push_ok = cfi.push_call(100);
-    [[maybe_unused]] auto jump_ok = cfi.validate_jump(0, static_cast<std::uint32_t>(CODE_SIZE + 100), CODE_SIZE);  // Force violation
+    [[maybe_unused]] auto jump_ok = cfi.validate_jump(
+        0, static_cast<std::uint32_t>(CODE_SIZE + 100), CODE_SIZE);  // Force violation
 
     EXPECT_TRUE(cfi.has_violation());
     EXPECT_EQ(cfi.call_depth(), 1);
@@ -370,7 +372,8 @@ TEST_F(BytecodeConstraintTest, JumpTargetUnderflowFails) {
 }
 
 TEST_F(BytecodeConstraintTest, JumpTargetOverflowFails) {
-    EXPECT_EQ(validate_jump_target(CODE_SIZE - 4, 100, CODE_SIZE), BytecodeError::EntryPointOutOfBounds);
+    EXPECT_EQ(validate_jump_target(CODE_SIZE - 4, 100, CODE_SIZE),
+              BytecodeError::EntryPointOutOfBounds);
 }
 
 // ============================================================================
@@ -474,7 +477,7 @@ TEST_F(DoSResistanceTest, HandleTableExhaustionGraceful) {
             // Expected: either AllocationFailed or HandleTableFull
             auto err = result.error();
             EXPECT_TRUE(err == MemoryError::AllocationFailed ||
-                       err == MemoryError::HandleTableFull);
+                        err == MemoryError::HandleTableFull);
             break;
         }
         handles.push_back(*result);
@@ -608,9 +611,7 @@ protected:
     SecurityStats stats;
     CallbackState state;
 
-    void SetUp() override {
-        stats.set_event_callback(test_callback, &state);
-    }
+    void SetUp() override { stats.set_event_callback(test_callback, &state); }
 };
 
 TEST_F(SecurityEventCallbackTest, CallbackIsRegistered) {

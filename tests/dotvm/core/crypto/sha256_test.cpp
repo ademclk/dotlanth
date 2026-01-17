@@ -1,10 +1,11 @@
-#include "dotvm/core/crypto/sha256.hpp"
-
-#include <gtest/gtest.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include <gtest/gtest.h>
+
+#include "dotvm/core/crypto/sha256.hpp"
 
 namespace dotvm::core::crypto {
 namespace {
@@ -52,13 +53,12 @@ TEST(Sha256Test, OneMillion_A) {
     EXPECT_EQ(to_hex(digest), "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
 }
 
-/// Additional test: "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"
+/// Additional test:
+/// "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"
 /// Expected: cf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1
 TEST(Sha256Test, LongTwoBlockMessage) {
-    auto digest = Sha256::hash(
-        "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno"
-        "ijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"
-    );
+    auto digest = Sha256::hash("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno"
+                               "ijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu");
     EXPECT_EQ(to_hex(digest), "cf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1");
 }
 

@@ -99,108 +99,84 @@ union alignas(64) VectorRegister {
     // ========================================================================
 
     /// Get the lower 128 bits as a vector of the specified lane type
-    template<LaneType Lane>
+    template <LaneType Lane>
     [[nodiscard]] Vector<128, Lane> as_v128() const noexcept {
         return Vector<128, Lane>::from_bytes(bytes.data());
     }
 
     /// Set the lower 128 bits from a vector
-    template<LaneType Lane>
+    template <LaneType Lane>
     void set_v128(const Vector<128, Lane>& v) noexcept {
         std::copy_n(v.bytes(), 16, bytes.data());
     }
 
     /// Get i32 lanes from 128-bit portion
-    [[nodiscard]] Vector128i32 as_v128i32() const noexcept {
-        return as_v128<std::int32_t>();
-    }
+    [[nodiscard]] Vector128i32 as_v128i32() const noexcept { return as_v128<std::int32_t>(); }
 
     /// Get f32 lanes from 128-bit portion
-    [[nodiscard]] Vector128f32 as_v128f32() const noexcept {
-        return as_v128<float>();
-    }
+    [[nodiscard]] Vector128f32 as_v128f32() const noexcept { return as_v128<float>(); }
 
     /// Get i64 lanes from 128-bit portion
-    [[nodiscard]] Vector128i64 as_v128i64() const noexcept {
-        return as_v128<std::int64_t>();
-    }
+    [[nodiscard]] Vector128i64 as_v128i64() const noexcept { return as_v128<std::int64_t>(); }
 
     /// Get f64 lanes from 128-bit portion
-    [[nodiscard]] Vector128f64 as_v128f64() const noexcept {
-        return as_v128<double>();
-    }
+    [[nodiscard]] Vector128f64 as_v128f64() const noexcept { return as_v128<double>(); }
 
     // ========================================================================
     // 256-bit Access
     // ========================================================================
 
     /// Get the lower 256 bits as a vector of the specified lane type
-    template<LaneType Lane>
+    template <LaneType Lane>
     [[nodiscard]] Vector<256, Lane> as_v256() const noexcept {
         return Vector<256, Lane>::from_bytes(bytes.data());
     }
 
     /// Set the lower 256 bits from a vector
-    template<LaneType Lane>
+    template <LaneType Lane>
     void set_v256(const Vector<256, Lane>& v) noexcept {
         std::copy_n(v.bytes(), 32, bytes.data());
     }
 
     /// Get i32 lanes from 256-bit portion
-    [[nodiscard]] Vector256i32 as_v256i32() const noexcept {
-        return as_v256<std::int32_t>();
-    }
+    [[nodiscard]] Vector256i32 as_v256i32() const noexcept { return as_v256<std::int32_t>(); }
 
     /// Get f32 lanes from 256-bit portion
-    [[nodiscard]] Vector256f32 as_v256f32() const noexcept {
-        return as_v256<float>();
-    }
+    [[nodiscard]] Vector256f32 as_v256f32() const noexcept { return as_v256<float>(); }
 
     /// Get i64 lanes from 256-bit portion
-    [[nodiscard]] Vector256i64 as_v256i64() const noexcept {
-        return as_v256<std::int64_t>();
-    }
+    [[nodiscard]] Vector256i64 as_v256i64() const noexcept { return as_v256<std::int64_t>(); }
 
     /// Get f64 lanes from 256-bit portion
-    [[nodiscard]] Vector256f64 as_v256f64() const noexcept {
-        return as_v256<double>();
-    }
+    [[nodiscard]] Vector256f64 as_v256f64() const noexcept { return as_v256<double>(); }
 
     // ========================================================================
     // 512-bit Access
     // ========================================================================
 
     /// Get the full 512 bits as a vector of the specified lane type
-    template<LaneType Lane>
+    template <LaneType Lane>
     [[nodiscard]] Vector<512, Lane> as_v512() const noexcept {
         return Vector<512, Lane>::from_bytes(bytes.data());
     }
 
     /// Set all 512 bits from a vector
-    template<LaneType Lane>
+    template <LaneType Lane>
     void set_v512(const Vector<512, Lane>& v) noexcept {
         std::copy_n(v.bytes(), 64, bytes.data());
     }
 
     /// Get i32 lanes from full 512-bit register
-    [[nodiscard]] Vector512i32 as_v512i32() const noexcept {
-        return as_v512<std::int32_t>();
-    }
+    [[nodiscard]] Vector512i32 as_v512i32() const noexcept { return as_v512<std::int32_t>(); }
 
     /// Get f32 lanes from full 512-bit register
-    [[nodiscard]] Vector512f32 as_v512f32() const noexcept {
-        return as_v512<float>();
-    }
+    [[nodiscard]] Vector512f32 as_v512f32() const noexcept { return as_v512<float>(); }
 
     /// Get i64 lanes from full 512-bit register
-    [[nodiscard]] Vector512i64 as_v512i64() const noexcept {
-        return as_v512<std::int64_t>();
-    }
+    [[nodiscard]] Vector512i64 as_v512i64() const noexcept { return as_v512<std::int64_t>(); }
 
     /// Get f64 lanes from full 512-bit register
-    [[nodiscard]] Vector512f64 as_v512f64() const noexcept {
-        return as_v512<double>();
-    }
+    [[nodiscard]] Vector512f64 as_v512f64() const noexcept { return as_v512<double>(); }
 
     // ========================================================================
     // Comparison
@@ -293,7 +269,7 @@ public:
     /// @tparam Lane Lane element type
     /// @param idx Register index (0-31)
     /// @return 128-bit vector (zero for V0)
-    template<LaneType Lane>
+    template <LaneType Lane>
     [[nodiscard]] Vector<128, Lane> read_v128(std::uint8_t idx) const noexcept {
         return read(idx).template as_v128<Lane>();
     }
@@ -303,7 +279,7 @@ public:
     /// @tparam Lane Lane element type
     /// @param idx Register index (0-31)
     /// @param v Vector to write
-    template<LaneType Lane>
+    template <LaneType Lane>
     void write_v128(std::uint8_t idx, const Vector<128, Lane>& v) noexcept {
         if (idx == VREG_ZERO) [[unlikely]] {
             return;
@@ -322,7 +298,7 @@ public:
     /// @tparam Lane Lane element type
     /// @param idx Register index (0-31)
     /// @return 256-bit vector (zero for V0)
-    template<LaneType Lane>
+    template <LaneType Lane>
     [[nodiscard]] Vector<256, Lane> read_v256(std::uint8_t idx) const noexcept {
         return read(idx).template as_v256<Lane>();
     }
@@ -332,7 +308,7 @@ public:
     /// @tparam Lane Lane element type
     /// @param idx Register index (0-31)
     /// @param v Vector to write
-    template<LaneType Lane>
+    template <LaneType Lane>
     void write_v256(std::uint8_t idx, const Vector<256, Lane>& v) noexcept {
         if (idx == VREG_ZERO) [[unlikely]] {
             return;
@@ -351,7 +327,7 @@ public:
     /// @tparam Lane Lane element type
     /// @param idx Register index (0-31)
     /// @return 512-bit vector (zero for V0)
-    template<LaneType Lane>
+    template <LaneType Lane>
     [[nodiscard]] Vector<512, Lane> read_v512(std::uint8_t idx) const noexcept {
         return read(idx).template as_v512<Lane>();
     }
@@ -361,7 +337,7 @@ public:
     /// @tparam Lane Lane element type
     /// @param idx Register index (0-31)
     /// @param v Vector to write
-    template<LaneType Lane>
+    template <LaneType Lane>
     void write_v512(std::uint8_t idx, const Vector<512, Lane>& v) noexcept {
         if (idx == VREG_ZERO) [[unlikely]] {
             return;
@@ -486,9 +462,7 @@ public:
             : rf_{rf}, idx_{idx} {}
 
         /// Implicit conversion to const VectorRegister reference
-        operator const VectorRegister&() const noexcept {
-            return rf_.read(idx_);
-        }
+        operator const VectorRegister&() const noexcept { return rf_.read(idx_); }
 
         /// Assignment from VectorRegister
         VectorRegisterProxy& operator=(const VectorRegister& value) noexcept {
@@ -523,9 +497,7 @@ public:
     }
 
     /// Get the number of registers
-    [[nodiscard]] static constexpr std::size_t size() noexcept {
-        return register_count;
-    }
+    [[nodiscard]] static constexpr std::size_t size() noexcept { return register_count; }
 
     /// Get the byte size of the register file
     [[nodiscard]] static constexpr std::size_t byte_size() noexcept {
@@ -533,8 +505,7 @@ public:
     }
 
     /// Get raw view of all registers (for serialization/debugging)
-    [[nodiscard]] std::span<const VectorRegister, VECTOR_REGISTER_COUNT>
-    raw_view() const noexcept {
+    [[nodiscard]] std::span<const VectorRegister, VECTOR_REGISTER_COUNT> raw_view() const noexcept {
         return std::span<const VectorRegister, VECTOR_REGISTER_COUNT>{regs_};
     }
 
@@ -548,8 +519,7 @@ private:
 };
 
 // Static assertions for VectorRegisterFile
-static_assert(alignof(VectorRegisterFile) == 64,
-              "VectorRegisterFile must be cache-line aligned");
+static_assert(alignof(VectorRegisterFile) == 64, "VectorRegisterFile must be cache-line aligned");
 static_assert(sizeof(VectorRegisterFile) == 64 * VECTOR_REGISTER_COUNT,
               "VectorRegisterFile size must be 32 * 64 bytes");
 

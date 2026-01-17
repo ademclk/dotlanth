@@ -1,8 +1,9 @@
-#include <gtest/gtest.h>
+#include <cstring>
+#include <vector>
+
 #include <dotvm/core/bytecode.hpp>
 
-#include <vector>
-#include <cstring>
+#include <gtest/gtest.h>
 
 using namespace dotvm::core;
 
@@ -14,14 +15,12 @@ class BytecodeHeaderTest : public ::testing::Test {
 protected:
     // Helper to create valid header bytes
     static std::array<std::uint8_t, bytecode::HEADER_SIZE> make_valid_header_bytes() {
-        BytecodeHeader header = make_header(
-            Architecture::Arch64,
-            bytecode::FLAG_NONE,
-            0,      // entry_point
-            48,     // const_pool_offset (right after header)
-            100,    // const_pool_size
-            148,    // code_offset (after const pool)
-            200     // code_size
+        BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
+                                            0,    // entry_point
+                                            48,   // const_pool_offset (right after header)
+                                            100,  // const_pool_size
+                                            148,  // code_offset (after const pool)
+                                            200   // code_size
         );
         return write_header(header);
     }
@@ -40,8 +39,8 @@ protected:
         // Entry: type tag + i64 value
         pool.push_back(bytecode::CONST_TYPE_I64);
         for (int i = 0; i < 8; ++i) {
-            pool.push_back(static_cast<std::uint8_t>(
-                (static_cast<std::uint64_t>(value) >> (i * 8)) & 0xFF));
+            pool.push_back(
+                static_cast<std::uint8_t>((static_cast<std::uint64_t>(value) >> (i * 8)) & 0xFF));
         }
         return pool;
     }
@@ -209,15 +208,14 @@ TEST_F(EndianHelpersTest, ReadWriteRoundTrip) {
 // ============================================================================
 
 TEST_F(BytecodeHeaderTest, ReadWriteRoundTrip) {
-    BytecodeHeader original = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_DEBUG | bytecode::FLAG_OPTIMIZED,
-        0x1000,     // entry_point
-        48,         // const_pool_offset
-        0x500,      // const_pool_size
-        0x548,      // code_offset
-        0x2000      // code_size
-    );
+    BytecodeHeader original =
+        make_header(Architecture::Arch64, bytecode::FLAG_DEBUG | bytecode::FLAG_OPTIMIZED,
+                    0x1000,  // entry_point
+                    48,      // const_pool_offset
+                    0x500,   // const_pool_size
+                    0x548,   // code_offset
+                    0x2000   // code_size
+        );
 
     auto bytes = write_header(original);
     auto result = read_header(bytes);
@@ -244,13 +242,8 @@ TEST_F(BytecodeHeaderTest, ReadFromTooSmallDataFails) {
 }
 
 TEST_F(BytecodeHeaderTest, WriteProducesExpectedBytes) {
-    BytecodeHeader header = make_header(
-        Architecture::Arch32,
-        bytecode::FLAG_DEBUG,
-        0,
-        48, 0,
-        48, 4
-    );
+    BytecodeHeader header =
+        make_header(Architecture::Arch32, bytecode::FLAG_DEBUG, 0, 48, 0, 48, 4);
 
     auto bytes = write_header(header);
 
@@ -272,8 +265,7 @@ TEST_F(BytecodeHeaderTest, WriteProducesExpectedBytes) {
 }
 
 TEST_F(BytecodeHeaderTest, MakeHeaderSetsDefaults) {
-    auto header = make_header(
-        Architecture::Arch64, 0, 0, 48, 0, 48, 0);
+    auto header = make_header(Architecture::Arch64, 0, 0, 48, 0, 48, 0);
 
     EXPECT_EQ(header.magic, bytecode::MAGIC_BYTES);
     EXPECT_EQ(header.version, bytecode::CURRENT_VERSION);
@@ -375,44 +367,40 @@ TEST_F(BytecodeHeaderTest, InvalidArchReturnsError) {
 // ============================================================================
 
 TEST_F(BytecodeHeaderTest, DebugFlagDetected) {
-    auto header = make_header(Architecture::Arch64, bytecode::FLAG_DEBUG,
-                               0, 48, 0, 48, 0);
+    auto header = make_header(Architecture::Arch64, bytecode::FLAG_DEBUG, 0, 48, 0, 48, 0);
     EXPECT_TRUE(header.is_debug());
     EXPECT_FALSE(header.is_optimized());
 }
 
 TEST_F(BytecodeHeaderTest, OptimizedFlagDetected) {
-    auto header = make_header(Architecture::Arch64, bytecode::FLAG_OPTIMIZED,
-                               0, 48, 0, 48, 0);
+    auto header = make_header(Architecture::Arch64, bytecode::FLAG_OPTIMIZED, 0, 48, 0, 48, 0);
     EXPECT_FALSE(header.is_debug());
     EXPECT_TRUE(header.is_optimized());
 }
 
 TEST_F(BytecodeHeaderTest, CombinedFlagsWork) {
-    auto header = make_header(Architecture::Arch64,
-                               bytecode::FLAG_DEBUG | bytecode::FLAG_OPTIMIZED,
-                               0, 48, 0, 48, 0);
+    auto header = make_header(Architecture::Arch64, bytecode::FLAG_DEBUG | bytecode::FLAG_OPTIMIZED,
+                              0, 48, 0, 48, 0);
     EXPECT_TRUE(header.is_debug());
     EXPECT_TRUE(header.is_optimized());
 }
 
 TEST_F(BytecodeHeaderTest, NoFlagsIsValid) {
-    auto header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
-                               0, 48, 0, 48, 0);
+    auto header = make_header(Architecture::Arch64, bytecode::FLAG_NONE, 0, 48, 0, 48, 0);
     EXPECT_FALSE(header.is_debug());
     EXPECT_FALSE(header.is_optimized());
 }
 
 TEST_F(BytecodeHeaderTest, InvalidFlagsRejected) {
     auto header = make_header(Architecture::Arch64, 0x0004,  // Unknown flag
-                               0, 48, 0, 48, 0);
+                              0, 48, 0, 48, 0);
     auto error = validate_header(header, 100);
     EXPECT_EQ(error, BytecodeError::InvalidFlags);
 }
 
 TEST_F(BytecodeHeaderTest, ReservedFlagBitsRejected) {
     auto header = make_header(Architecture::Arch64, 0xFF00,  // High bits set
-                               0, 48, 0, 48, 0);
+                              0, 48, 0, 48, 0);
     auto error = validate_header(header, 100);
     EXPECT_EQ(error, BytecodeError::InvalidFlags);
 }
@@ -441,11 +429,11 @@ TEST_F(BytecodeHeaderTest, U64OverflowDetected) {
 
 TEST_F(BytecodeHeaderTest, ConstPoolOverflowReturnsError) {
     auto header = make_header(Architecture::Arch64, 0,
-                               0,    // entry_point
-                               48,   // const_pool_offset
-                               1000, // const_pool_size - too big
-                               1048, // code_offset
-                               0);   // code_size
+                              0,     // entry_point
+                              48,    // const_pool_offset
+                              1000,  // const_pool_size - too big
+                              1048,  // code_offset
+                              0);    // code_size
 
     auto error = validate_header(header, 100);  // File is only 100 bytes
     EXPECT_EQ(error, BytecodeError::ConstPoolOutOfBounds);
@@ -453,11 +441,11 @@ TEST_F(BytecodeHeaderTest, ConstPoolOverflowReturnsError) {
 
 TEST_F(BytecodeHeaderTest, CodeOverflowReturnsError) {
     auto header = make_header(Architecture::Arch64, 0,
-                               0,    // entry_point
-                               48,   // const_pool_offset
-                               0,    // const_pool_size
-                               48,   // code_offset
-                               1000);// code_size - too big
+                              0,      // entry_point
+                              48,     // const_pool_offset
+                              0,      // const_pool_size
+                              48,     // code_offset
+                              1000);  // code_size - too big
 
     auto error = validate_header(header, 100);
     EXPECT_EQ(error, BytecodeError::CodeSectionOutOfBounds);
@@ -465,11 +453,11 @@ TEST_F(BytecodeHeaderTest, CodeOverflowReturnsError) {
 
 TEST_F(BytecodeHeaderTest, EntryPointBeyondCodeRejected) {
     auto header = make_header(Architecture::Arch64, 0,
-                               100,  // entry_point - beyond code_size
-                               48,   // const_pool_offset
-                               0,    // const_pool_size
-                               48,   // code_offset
-                               50);  // code_size
+                              100,  // entry_point - beyond code_size
+                              48,   // const_pool_offset
+                              0,    // const_pool_size
+                              48,   // code_offset
+                              50);  // code_size
 
     auto error = validate_header(header, 200);
     EXPECT_EQ(error, BytecodeError::EntryPointOutOfBounds);
@@ -477,11 +465,11 @@ TEST_F(BytecodeHeaderTest, EntryPointBeyondCodeRejected) {
 
 TEST_F(BytecodeHeaderTest, ZeroSizeCodeWithZeroEntryPointValid) {
     auto header = make_header(Architecture::Arch64, 0,
-                               0,   // entry_point
-                               48,  // const_pool_offset
-                               0,   // const_pool_size
-                               48,  // code_offset
-                               0);  // code_size - empty is valid
+                              0,   // entry_point
+                              48,  // const_pool_offset
+                              0,   // const_pool_size
+                              48,  // code_offset
+                              0);  // code_size - empty is valid
 
     auto error = validate_header(header, 48);
     EXPECT_EQ(error, BytecodeError::Success);
@@ -489,11 +477,11 @@ TEST_F(BytecodeHeaderTest, ZeroSizeCodeWithZeroEntryPointValid) {
 
 TEST_F(BytecodeHeaderTest, ZeroSizeCodeWithNonZeroEntryPointRejected) {
     auto header = make_header(Architecture::Arch64, 0,
-                               100, // entry_point - non-zero with zero code
-                               48,  // const_pool_offset
-                               0,   // const_pool_size
-                               48,  // code_offset
-                               0);  // code_size
+                              100,  // entry_point - non-zero with zero code
+                              48,   // const_pool_offset
+                              0,    // const_pool_size
+                              48,   // code_offset
+                              0);   // code_size
 
     auto error = validate_header(header, 48);
     EXPECT_EQ(error, BytecodeError::EntryPointOutOfBounds);
@@ -501,11 +489,11 @@ TEST_F(BytecodeHeaderTest, ZeroSizeCodeWithNonZeroEntryPointRejected) {
 
 TEST_F(BytecodeHeaderTest, ConstPoolOverlapsHeaderRejected) {
     auto header = make_header(Architecture::Arch64, 0,
-                               0,   // entry_point
-                               0,   // const_pool_offset - overlaps header
-                               100, // const_pool_size
-                               100, // code_offset
-                               0);  // code_size
+                              0,    // entry_point
+                              0,    // const_pool_offset - overlaps header
+                              100,  // const_pool_size
+                              100,  // code_offset
+                              0);   // code_size
 
     auto error = validate_header(header, 200);
     EXPECT_EQ(error, BytecodeError::ConstPoolOutOfBounds);
@@ -513,11 +501,11 @@ TEST_F(BytecodeHeaderTest, ConstPoolOverlapsHeaderRejected) {
 
 TEST_F(BytecodeHeaderTest, CodeSectionOverlapsHeaderRejected) {
     auto header = make_header(Architecture::Arch64, 0,
-                               0,   // entry_point
-                               48,  // const_pool_offset
-                               0,   // const_pool_size
-                               16,  // code_offset - overlaps header
-                               100);// code_size
+                              0,     // entry_point
+                              48,    // const_pool_offset
+                              0,     // const_pool_size
+                              16,    // code_offset - overlaps header
+                              100);  // code_size
 
     auto error = validate_header(header, 200);
     EXPECT_EQ(error, BytecodeError::CodeSectionOutOfBounds);
@@ -553,11 +541,11 @@ TEST_F(BytecodeHeaderTest, EmptySectionsNeverOverlap) {
 
 TEST_F(BytecodeHeaderTest, OverlappingSectionsReturnError) {
     auto header = make_header(Architecture::Arch64, 0,
-                               0,    // entry_point
-                               48,   // const_pool_offset
-                               100,  // const_pool_size: [48, 148)
-                               100,  // code_offset: overlaps at [100, 148)
-                               100); // code_size
+                              0,     // entry_point
+                              48,    // const_pool_offset
+                              100,   // const_pool_size: [48, 148)
+                              100,   // code_offset: overlaps at [100, 148)
+                              100);  // code_size
 
     auto error = validate_header(header, 300);
     EXPECT_EQ(error, BytecodeError::SectionsOverlap);
@@ -568,13 +556,12 @@ TEST_F(BytecodeHeaderTest, OverlappingSectionsReturnError) {
 // ============================================================================
 
 TEST_F(BytecodeHeaderTest, FullValidHeaderPasses) {
-    auto header = make_header(Architecture::Arch64,
-                               bytecode::FLAG_DEBUG,
-                               0,     // entry_point
-                               48,    // const_pool_offset
-                               100,   // const_pool_size
-                               148,   // code_offset
-                               200);  // code_size
+    auto header = make_header(Architecture::Arch64, bytecode::FLAG_DEBUG,
+                              0,     // entry_point
+                              48,    // const_pool_offset
+                              100,   // const_pool_size
+                              148,   // code_offset
+                              200);  // code_size
 
     auto error = validate_header(header, 500);
     EXPECT_EQ(error, BytecodeError::Success);
@@ -635,14 +622,17 @@ TEST_F(ConstantPoolTest, MixedEntries) {
     std::vector<std::uint8_t> pool;
 
     // Header: 2 entries (i64 and f64 only)
-    pool.push_back(2); pool.push_back(0); pool.push_back(0); pool.push_back(0);
+    pool.push_back(2);
+    pool.push_back(0);
+    pool.push_back(0);
+    pool.push_back(0);
 
     // Entry 1: i64 = 100
     pool.push_back(bytecode::CONST_TYPE_I64);
     std::int64_t i64_val = 100;
     for (int i = 0; i < 8; ++i) {
-        pool.push_back(static_cast<std::uint8_t>(
-            (static_cast<std::uint64_t>(i64_val) >> (i * 8)) & 0xFF));
+        pool.push_back(
+            static_cast<std::uint8_t>((static_cast<std::uint64_t>(i64_val) >> (i * 8)) & 0xFF));
     }
 
     // Entry 2: f64 = 2.5
@@ -663,9 +653,9 @@ TEST_F(ConstantPoolTest, MixedEntries) {
 
 TEST_F(ConstantPoolTest, InvalidTypeTagRejected) {
     std::vector<std::uint8_t> pool = {
-        1, 0, 0, 0,     // entry_count = 1
-        0xFF,           // Invalid type tag
-        0, 0, 0, 0, 0, 0, 0, 0  // Padding
+        1,    0, 0, 0,             // entry_count = 1
+        0xFF,                      // Invalid type tag
+        0,    0, 0, 0, 0, 0, 0, 0  // Padding
     };
 
     auto result = load_constant_pool(pool);
@@ -675,9 +665,15 @@ TEST_F(ConstantPoolTest, InvalidTypeTagRejected) {
 
 TEST_F(ConstantPoolTest, TruncatedInt64Rejected) {
     std::vector<std::uint8_t> pool = {
-        1, 0, 0, 0,     // entry_count = 1
+        1,
+        0,
+        0,
+        0,  // entry_count = 1
         bytecode::CONST_TYPE_I64,
-        0, 0, 0, 0      // Only 4 bytes instead of 8
+        0,
+        0,
+        0,
+        0  // Only 4 bytes instead of 8
     };
 
     auto result = load_constant_pool(pool);
@@ -687,9 +683,13 @@ TEST_F(ConstantPoolTest, TruncatedInt64Rejected) {
 
 TEST_F(ConstantPoolTest, TruncatedFloat64Rejected) {
     std::vector<std::uint8_t> pool = {
-        1, 0, 0, 0,     // entry_count = 1
+        1,
+        0,
+        0,
+        0,  // entry_count = 1
         bytecode::CONST_TYPE_F64,
-        0, 0            // Only 2 bytes instead of 8
+        0,
+        0  // Only 2 bytes instead of 8
     };
 
     auto result = load_constant_pool(pool);
@@ -700,10 +700,18 @@ TEST_F(ConstantPoolTest, TruncatedFloat64Rejected) {
 TEST_F(ConstantPoolTest, TruncatedStringRejected) {
     // String constants now return StringNotSupported error before checking truncation
     std::vector<std::uint8_t> pool = {
-        1, 0, 0, 0,     // entry_count = 1
+        1,
+        0,
+        0,
+        0,  // entry_count = 1
         bytecode::CONST_TYPE_STRING,
-        10, 0, 0, 0,    // length = 10
-        'A', 'B', 'C'   // Only 3 bytes instead of 10
+        10,
+        0,
+        0,
+        0,  // length = 10
+        'A',
+        'B',
+        'C'  // Only 3 bytes instead of 10
     };
 
     auto result = load_constant_pool(pool);
@@ -715,9 +723,15 @@ TEST_F(ConstantPoolTest, TruncatedStringRejected) {
 TEST_F(ConstantPoolTest, StringTooLongRejected) {
     // String constants now return StringNotSupported error before checking length
     std::vector<std::uint8_t> pool = {
-        1, 0, 0, 0,     // entry_count = 1
+        1,
+        0,
+        0,
+        0,  // entry_count = 1
         bytecode::CONST_TYPE_STRING,
-        0xFF, 0xFF, 0xFF, 0x7F  // length > MAX_STRING_LENGTH
+        0xFF,
+        0xFF,
+        0xFF,
+        0x7F  // length > MAX_STRING_LENGTH
     };
 
     auto result = load_constant_pool(pool);
@@ -734,11 +748,19 @@ TEST_F(ConstantPoolTest, TruncatedHeaderRejected) {
 }
 
 TEST_F(ConstantPoolTest, TooManyEntriesRejected) {
-    std::vector<std::uint8_t> pool = {
-        5, 0, 0, 0,     // entry_count = 5, but only 1 entry follows
-        bytecode::CONST_TYPE_I64,
-        0, 0, 0, 0, 0, 0, 0, 0
-    };
+    std::vector<std::uint8_t> pool = {5,
+                                      0,
+                                      0,
+                                      0,  // entry_count = 5, but only 1 entry follows
+                                      bytecode::CONST_TYPE_I64,
+                                      0,
+                                      0,
+                                      0,
+                                      0,
+                                      0,
+                                      0,
+                                      0,
+                                      0};
 
     auto result = load_constant_pool(pool);
     ASSERT_FALSE(result.has_value());
@@ -810,9 +832,8 @@ TEST_F(BytecodeHeaderTest, ConstexprSectionsOverlap) {
 }
 
 TEST_F(BytecodeHeaderTest, ConstexprMakeHeader) {
-    constexpr auto header = make_header(
-        Architecture::Arch64, bytecode::FLAG_DEBUG,
-        0, 48, 100, 148, 200);
+    constexpr auto header =
+        make_header(Architecture::Arch64, bytecode::FLAG_DEBUG, 0, 48, 100, 148, 200);
 
     static_assert(header.magic == bytecode::MAGIC_BYTES);
     static_assert(header.version == 26);
@@ -823,8 +844,7 @@ TEST_F(BytecodeHeaderTest, ConstexprMakeHeader) {
 }
 
 TEST_F(BytecodeHeaderTest, ConstexprWriteHeader) {
-    constexpr auto header = make_header(
-        Architecture::Arch64, 0, 0, 48, 0, 48, 0);
+    constexpr auto header = make_header(Architecture::Arch64, 0, 0, 48, 0, 48, 0);
     constexpr auto bytes = write_header(header);
 
     static_assert(bytes[0] == 'D');
@@ -858,18 +878,15 @@ TEST_F(BytecodeHeaderTest, FullBytecodeFileSimulation) {
     std::vector<std::uint8_t> bytecode_file;
 
     // Create header
-    auto header = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_OPTIMIZED,
-        0,      // entry_point
-        48,     // const_pool_offset
-        13,     // const_pool_size (4 header + 9 for one i64)
-        64,     // code_offset (aligned to 16)
-        8       // code_size (2 instructions)
+    auto header = make_header(Architecture::Arch64, bytecode::FLAG_OPTIMIZED,
+                              0,   // entry_point
+                              48,  // const_pool_offset
+                              13,  // const_pool_size (4 header + 9 for one i64)
+                              64,  // code_offset (aligned to 16)
+                              8    // code_size (2 instructions)
     );
     auto header_bytes = write_header(header);
-    bytecode_file.insert(bytecode_file.end(),
-                         header_bytes.begin(), header_bytes.end());
+    bytecode_file.insert(bytecode_file.end(), header_bytes.begin(), header_bytes.end());
 
     // Add constant pool at offset 48
     bytecode_file.resize(48);
@@ -882,8 +899,8 @@ TEST_F(BytecodeHeaderTest, FullBytecodeFileSimulation) {
     bytecode_file.push_back(bytecode::CONST_TYPE_I64);
     std::int64_t val = 42;
     for (int i = 0; i < 8; ++i) {
-        bytecode_file.push_back(static_cast<std::uint8_t>(
-            (static_cast<std::uint64_t>(val) >> (i * 8)) & 0xFF));
+        bytecode_file.push_back(
+            static_cast<std::uint8_t>((static_cast<std::uint64_t>(val) >> (i * 8)) & 0xFF));
     }
 
     // Add code section at offset 64
@@ -902,8 +919,7 @@ TEST_F(BytecodeHeaderTest, FullBytecodeFileSimulation) {
 
     // Load constant pool
     auto pool_span = std::span<const std::uint8_t>(
-        bytecode_file.data() + parsed_header->const_pool_offset,
-        parsed_header->const_pool_size);
+        bytecode_file.data() + parsed_header->const_pool_offset, parsed_header->const_pool_size);
     auto constants = load_constant_pool(pool_span);
 
     ASSERT_TRUE(constants.has_value());
@@ -954,11 +970,14 @@ TEST_F(BytecodeSecurityTest, IntegerOutOfRangePositiveRejected) {
     std::int64_t too_large = (1LL << 47);  // One past max
 
     std::vector<std::uint8_t> pool;
-    pool.push_back(1); pool.push_back(0); pool.push_back(0); pool.push_back(0);
+    pool.push_back(1);
+    pool.push_back(0);
+    pool.push_back(0);
+    pool.push_back(0);
     pool.push_back(bytecode::CONST_TYPE_I64);
     for (int i = 0; i < 8; ++i) {
-        pool.push_back(static_cast<std::uint8_t>(
-            (static_cast<std::uint64_t>(too_large) >> (i * 8)) & 0xFF));
+        pool.push_back(
+            static_cast<std::uint8_t>((static_cast<std::uint64_t>(too_large) >> (i * 8)) & 0xFF));
     }
 
     auto result = load_constant_pool(pool);
@@ -972,11 +991,14 @@ TEST_F(BytecodeSecurityTest, IntegerOutOfRangeNegativeRejected) {
     std::int64_t too_small = -(1LL << 47) - 1;  // One past min
 
     std::vector<std::uint8_t> pool;
-    pool.push_back(1); pool.push_back(0); pool.push_back(0); pool.push_back(0);
+    pool.push_back(1);
+    pool.push_back(0);
+    pool.push_back(0);
+    pool.push_back(0);
     pool.push_back(bytecode::CONST_TYPE_I64);
     for (int i = 0; i < 8; ++i) {
-        pool.push_back(static_cast<std::uint8_t>(
-            (static_cast<std::uint64_t>(too_small) >> (i * 8)) & 0xFF));
+        pool.push_back(
+            static_cast<std::uint8_t>((static_cast<std::uint64_t>(too_small) >> (i * 8)) & 0xFF));
     }
 
     auto result = load_constant_pool(pool);
@@ -1003,44 +1025,44 @@ TEST_F(BytecodeSecurityTest, IntegerAtBoundaryAccepted) {
 // Test: Entry point alignment validation
 TEST_F(BytecodeSecurityTest, EntryPointAlignedAccepted) {
     auto header = make_header(Architecture::Arch64, 0,
-                               0,    // entry_point - aligned (0 % 4 == 0)
-                               48, 0, 48, 100);
+                              0,  // entry_point - aligned (0 % 4 == 0)
+                              48, 0, 48, 100);
     EXPECT_EQ(validate_header(header, 200), BytecodeError::Success);
 
     auto header2 = make_header(Architecture::Arch64, 0,
-                                4,    // entry_point - aligned (4 % 4 == 0)
-                                48, 0, 48, 100);
+                               4,  // entry_point - aligned (4 % 4 == 0)
+                               48, 0, 48, 100);
     EXPECT_EQ(validate_header(header2, 200), BytecodeError::Success);
 
     auto header3 = make_header(Architecture::Arch64, 0,
-                                96,   // entry_point - aligned (96 % 4 == 0)
-                                48, 0, 48, 100);
+                               96,  // entry_point - aligned (96 % 4 == 0)
+                               48, 0, 48, 100);
     EXPECT_EQ(validate_header(header3, 200), BytecodeError::Success);
 }
 
 TEST_F(BytecodeSecurityTest, EntryPointMisalignedRejected) {
     // Entry point 1 is not 4-byte aligned
     auto header1 = make_header(Architecture::Arch64, 0,
-                                1,    // entry_point - NOT aligned
-                                48, 0, 48, 100);
+                               1,  // entry_point - NOT aligned
+                               48, 0, 48, 100);
     EXPECT_EQ(validate_header(header1, 200), BytecodeError::EntryPointNotAligned);
 
     // Entry point 2 is not 4-byte aligned
     auto header2 = make_header(Architecture::Arch64, 0,
-                                2,    // entry_point - NOT aligned
-                                48, 0, 48, 100);
+                               2,  // entry_point - NOT aligned
+                               48, 0, 48, 100);
     EXPECT_EQ(validate_header(header2, 200), BytecodeError::EntryPointNotAligned);
 
     // Entry point 3 is not 4-byte aligned
     auto header3 = make_header(Architecture::Arch64, 0,
-                                3,    // entry_point - NOT aligned
-                                48, 0, 48, 100);
+                               3,  // entry_point - NOT aligned
+                               48, 0, 48, 100);
     EXPECT_EQ(validate_header(header3, 200), BytecodeError::EntryPointNotAligned);
 
     // Entry point 5 is not 4-byte aligned
     auto header5 = make_header(Architecture::Arch64, 0,
-                                5,    // entry_point - NOT aligned
-                                48, 0, 48, 100);
+                               5,  // entry_point - NOT aligned
+                               48, 0, 48, 100);
     EXPECT_EQ(validate_header(header5, 200), BytecodeError::EntryPointNotAligned);
 }
 
@@ -1079,11 +1101,15 @@ TEST_F(BytecodeSecurityTest, TooManyConstantsRejected) {
 TEST_F(BytecodeSecurityTest, EntryCountExceedsDataSizeRejected) {
     // Claim 1000 entries but only provide space for ~10
     std::vector<std::uint8_t> pool;
-    pool.push_back(0xE8); pool.push_back(0x03); pool.push_back(0); pool.push_back(0); // 1000 entries
+    pool.push_back(0xE8);
+    pool.push_back(0x03);
+    pool.push_back(0);
+    pool.push_back(0);  // 1000 entries
 
     // Only add data for one entry
     pool.push_back(bytecode::CONST_TYPE_I64);
-    for (int i = 0; i < 8; ++i) pool.push_back(0);
+    for (int i = 0; i < 8; ++i)
+        pool.push_back(0);
 
     auto result = load_constant_pool(pool);
     ASSERT_FALSE(result.has_value());

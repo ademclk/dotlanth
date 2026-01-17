@@ -113,15 +113,12 @@ TEST(PermissionHelperTest, HasPermissionMultiple) {
     Permission perms = Permission::Execute | Permission::ReadMemory;
     EXPECT_TRUE(has_permission(perms, Permission::Execute));
     EXPECT_TRUE(has_permission(perms, Permission::ReadMemory));
-    EXPECT_TRUE(
-        has_permission(perms, Permission::Execute | Permission::ReadMemory));
-    EXPECT_FALSE(has_permission(
-        perms, Permission::Execute | Permission::WriteMemory));
+    EXPECT_TRUE(has_permission(perms, Permission::Execute | Permission::ReadMemory));
+    EXPECT_FALSE(has_permission(perms, Permission::Execute | Permission::WriteMemory));
 }
 
 TEST(PermissionHelperTest, IsSubset) {
-    Permission parent = Permission::Execute | Permission::ReadMemory |
-                        Permission::WriteMemory;
+    Permission parent = Permission::Execute | Permission::ReadMemory | Permission::WriteMemory;
     Permission child = Permission::Execute | Permission::ReadMemory;
 
     EXPECT_TRUE(is_subset(parent, child));
@@ -226,10 +223,8 @@ TEST(PermissionSetTest, HasPermission) {
     EXPECT_FALSE(ps.has_permission(Permission::WriteMemory));
 
     // Check combined permission
-    EXPECT_TRUE(
-        ps.has_permission(Permission::Execute | Permission::ReadMemory));
-    EXPECT_FALSE(
-        ps.has_permission(Permission::Execute | Permission::WriteMemory));
+    EXPECT_TRUE(ps.has_permission(Permission::Execute | Permission::ReadMemory));
+    EXPECT_FALSE(ps.has_permission(Permission::Execute | Permission::WriteMemory));
 }
 
 TEST(PermissionSetTest, HasAny) {
@@ -267,9 +262,7 @@ TEST(PermissionSetTest, Grant) {
 TEST(PermissionSetTest, GrantChaining) {
     PermissionSet ps;
 
-    ps.grant(Permission::Execute)
-        .grant(Permission::ReadMemory)
-        .grant(Permission::WriteMemory);
+    ps.grant(Permission::Execute).grant(Permission::ReadMemory).grant(Permission::WriteMemory);
 
     EXPECT_TRUE(ps.has_permission(Permission::Execute));
     EXPECT_TRUE(ps.has_permission(Permission::ReadMemory));
@@ -277,8 +270,7 @@ TEST(PermissionSetTest, GrantChaining) {
 }
 
 TEST(PermissionSetTest, Revoke) {
-    PermissionSet ps{Permission::Execute | Permission::ReadMemory |
-                     Permission::WriteMemory};
+    PermissionSet ps{Permission::Execute | Permission::ReadMemory | Permission::WriteMemory};
 
     ps.revoke(Permission::WriteMemory);
     EXPECT_TRUE(ps.has_permission(Permission::Execute));
@@ -289,9 +281,7 @@ TEST(PermissionSetTest, Revoke) {
 TEST(PermissionSetTest, RevokeChaining) {
     auto ps = PermissionSet::full();
 
-    ps.revoke(Permission::SpawnDot)
-        .revoke(Permission::SendMessage)
-        .revoke(Permission::SystemCall);
+    ps.revoke(Permission::SpawnDot).revoke(Permission::SendMessage).revoke(Permission::SystemCall);
 
     EXPECT_FALSE(ps.has_permission(Permission::SpawnDot));
     EXPECT_FALSE(ps.has_permission(Permission::SendMessage));
@@ -325,31 +315,26 @@ TEST(PermissionSetTest, RequireSuccess) {
 
     EXPECT_NO_THROW(ps.require(Permission::Execute));
     EXPECT_NO_THROW(ps.require(Permission::ReadMemory));
-    EXPECT_NO_THROW(
-        ps.require(Permission::Execute | Permission::ReadMemory));
+    EXPECT_NO_THROW(ps.require(Permission::Execute | Permission::ReadMemory));
 }
 
 TEST(PermissionSetTest, RequireFailure) {
     PermissionSet ps{Permission::Execute};
 
-    EXPECT_THROW(ps.require(Permission::WriteMemory),
-                 PermissionDeniedException);
+    EXPECT_THROW(ps.require(Permission::WriteMemory), PermissionDeniedException);
 }
 
 TEST(PermissionSetTest, RequireExceptionDetails) {
     PermissionSet ps{Permission::Execute};
 
     try {
-        ps.require(Permission::WriteMemory | Permission::Crypto,
-                   "test_operation");
+        ps.require(Permission::WriteMemory | Permission::Crypto, "test_operation");
         FAIL() << "Expected PermissionDeniedException";
     } catch (const PermissionDeniedException& e) {
-        EXPECT_EQ(e.required(),
-                  Permission::WriteMemory | Permission::Crypto);
+        EXPECT_EQ(e.required(), Permission::WriteMemory | Permission::Crypto);
         EXPECT_EQ(e.actual(), Permission::Execute);
         EXPECT_EQ(e.context(), "test_operation");
-        EXPECT_EQ(e.missing(),
-                  Permission::WriteMemory | Permission::Crypto);
+        EXPECT_EQ(e.missing(), Permission::WriteMemory | Permission::Crypto);
 
         std::string msg = e.what();
         EXPECT_TRUE(msg.find("Permission denied") != std::string::npos);
@@ -493,8 +478,7 @@ TEST(PermissionSetTest, Equality) {
 // ============================================================================
 
 TEST(PermissionDeniedExceptionTest, Construction) {
-    PermissionDeniedException e(Permission::WriteMemory, Permission::Execute,
-                                "test_context");
+    PermissionDeniedException e(Permission::WriteMemory, Permission::Execute, "test_context");
 
     EXPECT_EQ(e.required(), Permission::WriteMemory);
     EXPECT_EQ(e.actual(), Permission::Execute);
@@ -511,8 +495,7 @@ TEST(PermissionDeniedExceptionTest, SourceLocation) {
 }
 
 TEST(PermissionDeniedExceptionTest, WhatMessage) {
-    PermissionDeniedException e(Permission::Crypto, Permission::Execute,
-                                "crypto_op");
+    PermissionDeniedException e(Permission::Crypto, Permission::Execute, "crypto_op");
 
     std::string msg = e.what();
     EXPECT_TRUE(msg.find("Permission denied") != std::string::npos);
@@ -521,10 +504,8 @@ TEST(PermissionDeniedExceptionTest, WhatMessage) {
 }
 
 TEST(PermissionDeniedExceptionTest, MissingCalculation) {
-    PermissionDeniedException e(
-        Permission::Execute | Permission::WriteMemory,
-        Permission::Execute,
-        "test");
+    PermissionDeniedException e(Permission::Execute | Permission::WriteMemory, Permission::Execute,
+                                "test");
 
     EXPECT_EQ(e.missing(), Permission::WriteMemory);
 }

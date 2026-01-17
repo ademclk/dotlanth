@@ -1,13 +1,13 @@
 /// @file vm_context_simd_test.cpp
 /// @brief Unit tests for VmContext SIMD integration
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 
-#include "dotvm/core/vm_context.hpp"
+#include <gtest/gtest.h>
+
 #include "dotvm/core/simd/cpu_features.hpp"
 #include "dotvm/core/simd/vector_types.hpp"
+#include "dotvm/core/vm_context.hpp"
 
 namespace dotvm::core {
 namespace {
@@ -131,10 +131,8 @@ TEST_F(VmContextSimdAutoDetectTest, AutoDetect_HasValidArchitecture) {
 
     auto arch = ctx.simd_architecture();
     // Should be one of the SIMD architectures (or Arch64 fallback)
-    EXPECT_TRUE(arch == Architecture::Arch64 ||
-                arch == Architecture::Arch128 ||
-                arch == Architecture::Arch256 ||
-                arch == Architecture::Arch512);
+    EXPECT_TRUE(arch == Architecture::Arch64 || arch == Architecture::Arch128 ||
+                arch == Architecture::Arch256 || arch == Architecture::Arch512);
 }
 
 TEST_F(VmContextSimdAutoDetectTest, AutoDetect_ArchMatchesCpuCapabilities) {
@@ -203,9 +201,7 @@ TEST_F(VmContextSimdForcedWidthTest, Simd512_FallbackIfNotSupported) {
 
 class VmContextVecRegisterTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        ctx_ = std::make_unique<VmContext>(VmConfig::simd128());
-    }
+    void SetUp() override { ctx_ = std::make_unique<VmContext>(VmConfig::simd128()); }
 
     std::unique_ptr<VmContext> ctx_;
 };
@@ -270,9 +266,7 @@ TEST_F(VmContextVecRegisterTest, ConstAccess_Works) {
 
 class VmContextSimdAluTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        ctx_ = std::make_unique<VmContext>(VmConfig::auto_detect());
-    }
+    void SetUp() override { ctx_ = std::make_unique<VmContext>(VmConfig::auto_detect()); }
 
     std::unique_ptr<VmContext> ctx_;
 };
@@ -348,9 +342,7 @@ TEST_F(VmContextSimdAluTest, SimdAlu_ConstAccess) {
 
 class VmContextSimdAluRegisterOpsTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        ctx_ = std::make_unique<VmContext>(VmConfig::simd128());
-    }
+    void SetUp() override { ctx_ = std::make_unique<VmContext>(VmConfig::simd128()); }
 
     std::unique_ptr<VmContext> ctx_;
 };
@@ -431,9 +423,7 @@ TEST_F(VmContextSimdAluRegisterOpsTest, WriteToV0_Ignored) {
 
 class VmContextSimdFloatTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        ctx_ = std::make_unique<VmContext>(VmConfig::auto_detect());
-    }
+    void SetUp() override { ctx_ = std::make_unique<VmContext>(VmConfig::auto_detect()); }
 
     std::unique_ptr<VmContext> ctx_;
 };

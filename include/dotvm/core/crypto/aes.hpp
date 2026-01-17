@@ -49,12 +49,14 @@ public:
     /// Encrypt a single 128-bit block
     /// @param plaintext 16-byte plaintext block
     /// @return 16-byte ciphertext block
-    [[nodiscard]] Block encrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> plaintext) const noexcept;
+    [[nodiscard]] Block
+    encrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> plaintext) const noexcept;
 
     /// Decrypt a single 128-bit block
     /// @param ciphertext 16-byte ciphertext block
     /// @return 16-byte plaintext block
-    [[nodiscard]] Block decrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> ciphertext) const noexcept;
+    [[nodiscard]] Block
+    decrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> ciphertext) const noexcept;
 
     /// Check if hardware acceleration is available
     /// @return true if AES-NI (x86) or ARM Crypto extensions are available

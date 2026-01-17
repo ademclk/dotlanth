@@ -3,12 +3,13 @@
  * @brief Unit tests for the DotVM C API
  */
 
-#include <gtest/gtest.h>
-#include <dotvm/dotvm_c.h>
-
 #include <cmath>
 #include <cstring>
 #include <limits>
+
+#include <dotvm/dotvm_c.h>
+
+#include <gtest/gtest.h>
 
 namespace {
 
@@ -85,9 +86,7 @@ protected:
         ASSERT_NE(vm, nullptr);
     }
 
-    void TearDown() override {
-        dotvm_destroy(vm);
-    }
+    void TearDown() override { dotvm_destroy(vm); }
 };
 
 TEST_F(DotVMCApiRegisterTest, SetGetRegister_Integer) {
@@ -300,9 +299,7 @@ protected:
         ASSERT_NE(vm, nullptr);
     }
 
-    void TearDown() override {
-        dotvm_destroy(vm);
-    }
+    void TearDown() override { dotvm_destroy(vm); }
 };
 
 TEST_F(DotVMCApiErrorTest, GetError_NoError_ReturnsNull) {
@@ -467,9 +464,7 @@ protected:
         ASSERT_NE(vm, nullptr);
     }
 
-    void TearDown() override {
-        dotvm_destroy(vm);
-    }
+    void TearDown() override { dotvm_destroy(vm); }
 };
 
 TEST_F(DotVMCApiQueryTest, IsLoaded_Initially_ReturnsFalse) {
@@ -532,10 +527,10 @@ TEST(DotVMCApiVersionTest, BytecodeVersion_Returns26) {
 TEST(DotVMCApiConfigTest, ConfigInit_HasCorrectDefaults) {
     dotvm_config_t config = DOTVM_CONFIG_INIT;
 
-    EXPECT_EQ(config.arch, 1);           // Arch64
+    EXPECT_EQ(config.arch, 1);  // Arch64
     EXPECT_EQ(config.strict_overflow, 0);
     EXPECT_EQ(config.cfi_enabled, 0);
-    EXPECT_EQ(config.max_memory, 0u);    // 0 means use default
+    EXPECT_EQ(config.max_memory, 0u);  // 0 means use default
 }
 
 }  // namespace

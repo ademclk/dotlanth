@@ -3,25 +3,17 @@
 
 #include "dotvm/jit/jit_compiler.hpp"
 
-#include <cstring>
 #include <algorithm>
+#include <cstring>
 
 namespace dotvm::jit {
 
-JitCompiler::JitCompiler(
-    const JitConfig& config,
-    JitCodeBuffer& buffer,
-    const StencilRegistry& stencils
-) noexcept
-    : config_(config)
-    , buffer_(buffer)
-    , stencils_(stencils)
-{}
+JitCompiler::JitCompiler(const JitConfig& config, JitCodeBuffer& buffer,
+                         const StencilRegistry& stencils) noexcept
+    : config_(config), buffer_(buffer), stencils_(stencils) {}
 
-CompileResult<CompiledFunction> JitCompiler::compile(
-    FunctionId func_id,
-    std::span<const BytecodeInstr> instructions
-) {
+CompileResult<CompiledFunction> JitCompiler::compile(FunctionId func_id,
+                                                     std::span<const BytecodeInstr> instructions) {
     if (!config_.enabled) [[unlikely]] {
         return std::unexpected(JitStatus::Disabled);
     }
@@ -103,9 +95,8 @@ bool JitCompiler::can_compile(std::span<const BytecodeInstr> instructions) const
     return true;
 }
 
-std::size_t JitCompiler::estimate_code_size(
-    std::span<const BytecodeInstr> instructions
-) const noexcept {
+std::size_t
+JitCompiler::estimate_code_size(std::span<const BytecodeInstr> instructions) const noexcept {
     // Start with prologue/epilogue overhead
     std::size_t size = 64;  // Conservative estimate for prologue + epilogue
 
@@ -125,10 +116,8 @@ std::size_t JitCompiler::estimate_code_size(
     return size;
 }
 
-CompileResult<std::size_t> JitCompiler::emit_prologue(
-    std::span<std::uint8_t> output,
-    std::size_t frame_size
-) {
+CompileResult<std::size_t> JitCompiler::emit_prologue(std::span<std::uint8_t> output,
+                                                      std::size_t frame_size) {
 #if defined(__x86_64__) || defined(_M_X64)
     const auto& prologue = stencils::x86_64::prologue;
 
@@ -151,10 +140,8 @@ CompileResult<std::size_t> JitCompiler::emit_prologue(
 #endif
 }
 
-CompileResult<std::size_t> JitCompiler::emit_epilogue(
-    std::span<std::uint8_t> output,
-    std::size_t frame_size
-) {
+CompileResult<std::size_t> JitCompiler::emit_epilogue(std::span<std::uint8_t> output,
+                                                      std::size_t frame_size) {
 #if defined(__x86_64__) || defined(_M_X64)
     const auto& epilogue = stencils::x86_64::epilogue;
 
@@ -177,10 +164,8 @@ CompileResult<std::size_t> JitCompiler::emit_epilogue(
 #endif
 }
 
-CompileResult<std::size_t> JitCompiler::emit_instruction(
-    std::span<std::uint8_t> output,
-    const BytecodeInstr& instr
-) {
+CompileResult<std::size_t> JitCompiler::emit_instruction(std::span<std::uint8_t> output,
+                                                         const BytecodeInstr& instr) {
     const auto* stencil = stencils_.get(instr.opcode);
     if (!stencil) [[unlikely]] {
         return std::unexpected(JitStatus::UnsupportedOpcode);
@@ -231,11 +216,9 @@ CompileResult<std::size_t> JitCompiler::emit_instruction(
     return emit_stencil(output, *stencil, std::span(operands.data(), stencil->hole_count));
 }
 
-CompileResult<std::size_t> JitCompiler::emit_stencil(
-    std::span<std::uint8_t> output,
-    const Stencil& stencil,
-    std::span<const std::int64_t> operands
-) {
+CompileResult<std::size_t> JitCompiler::emit_stencil(std::span<std::uint8_t> output,
+                                                     const Stencil& stencil,
+                                                     std::span<const std::int64_t> operands) {
     if (output.size() < stencil.code_size) [[unlikely]] {
         return std::unexpected(JitStatus::AllocationFailed);
     }
@@ -251,11 +234,8 @@ CompileResult<std::size_t> JitCompiler::emit_stencil(
     return stencil.code_size;
 }
 
-void JitCompiler::patch_hole(
-    std::span<std::uint8_t> code,
-    const StencilHole& hole,
-    std::int64_t value
-) noexcept {
+void JitCompiler::patch_hole(std::span<std::uint8_t> code, const StencilHole& hole,
+                             std::int64_t value) noexcept {
     if (hole.offset >= code.size()) [[unlikely]] {
         return;
     }
@@ -293,11 +273,8 @@ void JitCompiler::patch_hole(
 // Bytecode Parsing
 // ============================================================================
 
-std::vector<BytecodeInstr> parse_bytecode(
-    std::span<const std::uint8_t> bytecode,
-    std::size_t start_pc,
-    std::size_t end_pc
-) {
+std::vector<BytecodeInstr> parse_bytecode(std::span<const std::uint8_t> bytecode,
+                                          std::size_t start_pc, std::size_t end_pc) {
     std::vector<BytecodeInstr> instructions;
 
     // Simple 4-byte instruction format for now:
@@ -324,9 +301,8 @@ std::vector<BytecodeInstr> parse_bytecode(
                    instr.opcode == static_cast<std::uint8_t>(JitOpcode::JMP_Z) ||
                    instr.opcode == static_cast<std::uint8_t>(JitOpcode::JMP_NZ)) {
             // Jump target is signed 16-bit offset in src1:src2
-            auto offset = static_cast<std::int16_t>(
-                (static_cast<std::uint16_t>(instr.src2) << 8) | instr.src1
-            );
+            auto offset = static_cast<std::int16_t>((static_cast<std::uint16_t>(instr.src2) << 8) |
+                                                    instr.src1);
             instr.immediate = offset;
         }
 
@@ -336,4 +312,4 @@ std::vector<BytecodeInstr> parse_bytecode(
     return instructions;
 }
 
-} // namespace dotvm::jit
+}  // namespace dotvm::jit

@@ -1,19 +1,19 @@
 /// @file call_stack_test.cpp
 /// @brief Unit tests for EXEC-007 Call Stack & Frame Management
 
-#include <gtest/gtest.h>
+#include <array>
+#include <vector>
 
-#include <dotvm/exec/execution_engine.hpp>
-#include <dotvm/exec/execution_context.hpp>
-#include <dotvm/core/vm_context.hpp>
 #include <dotvm/core/call_stack.hpp>
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/opcode.hpp>
-#include <dotvm/core/value.hpp>
 #include <dotvm/core/register_conventions.hpp>
+#include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
+#include <dotvm/exec/execution_context.hpp>
+#include <dotvm/exec/execution_engine.hpp>
 
-#include <vector>
-#include <array>
+#include <gtest/gtest.h>
 
 using namespace dotvm;
 using namespace dotvm::exec;
@@ -154,19 +154,13 @@ protected:
     ExecutionEngine engine_{ctx_};
 
     // Helper to create Type C instruction (CALL, JMP)
-    static std::uint32_t make_call(std::int32_t offset) {
-        return encode_type_c(op::CALL, offset);
-    }
+    static std::uint32_t make_call(std::int32_t offset) { return encode_type_c(op::CALL, offset); }
 
     // Helper to create RET instruction
-    static std::uint32_t make_ret() {
-        return encode_type_c(op::RET, 0);
-    }
+    static std::uint32_t make_ret() { return encode_type_c(op::RET, 0); }
 
     // Helper to create HALT instruction
-    static std::uint32_t make_halt() {
-        return encode_type_c(op::HALT, 0);
-    }
+    static std::uint32_t make_halt() { return encode_type_c(op::HALT, 0); }
 
     // Helper to create Type B instruction (MOVI)
     // Note: MOVI (0x81) is in exec::opcode, not core::opcode
@@ -176,9 +170,7 @@ protected:
     }
 
     // Helper to create NOP instruction
-    static std::uint32_t make_nop() {
-        return encode_type_c(op::NOP, 0);
-    }
+    static std::uint32_t make_nop() { return encode_type_c(op::NOP, 0); }
 
     // Helper to run code
     ExecResult run(const std::vector<std::uint32_t>& code) {
@@ -189,8 +181,7 @@ protected:
 TEST_F(CallStackExecutionTest, CallAndRet_PreservesCalleeSavedRegisters) {
     // Setup: Set distinct values in callee-saved registers R16-R31
     for (std::uint8_t i = 0; i < 16; ++i) {
-        ctx_.registers().write(reg_range::CALLEE_SAVED_START + i,
-                               Value::from_int(1000 + i));
+        ctx_.registers().write(reg_range::CALLEE_SAVED_START + i, Value::from_int(1000 + i));
     }
 
     // Code:
@@ -199,10 +190,10 @@ TEST_F(CallStackExecutionTest, CallAndRet_PreservesCalleeSavedRegisters) {
     // 2: MOVI R16, 999 -> modifies R16 (callee-saved)
     // 3: RET           -> should restore R16-R31
     std::vector<std::uint32_t> code = {
-        make_call(2),       // 0: CALL to instruction 2
-        make_halt(),        // 1: HALT (return point)
-        make_movi(16, 999), // 2: function: modify R16
-        make_ret()          // 3: RET
+        make_call(2),        // 0: CALL to instruction 2
+        make_halt(),         // 1: HALT (return point)
+        make_movi(16, 999),  // 2: function: modify R16
+        make_ret()           // 3: RET
     };
 
     auto result = run(code);
@@ -210,8 +201,7 @@ TEST_F(CallStackExecutionTest, CallAndRet_PreservesCalleeSavedRegisters) {
 
     // Verify callee-saved registers are restored
     for (std::uint8_t i = 0; i < 16; ++i) {
-        EXPECT_EQ(ctx_.registers().read(reg_range::CALLEE_SAVED_START + i).as_integer(),
-                  1000 + i)
+        EXPECT_EQ(ctx_.registers().read(reg_range::CALLEE_SAVED_START + i).as_integer(), 1000 + i)
             << "Register R" << static_cast<int>(reg_range::CALLEE_SAVED_START + i)
             << " not properly restored";
     }
@@ -235,17 +225,17 @@ TEST_F(CallStackExecutionTest, NestedCalls_CorrectRegisterRestoration) {
     // 10: RET           ; return to func1 (R16 should be 2)
 
     std::vector<std::uint32_t> code = {
-        make_movi(16, 1),   // 0: main
-        make_call(4),       // 1: call func1 (at 5)
-        make_halt(),        // 2: end
-        make_nop(),  // 3: padding
-        make_nop(),  // 4: padding
-        make_movi(16, 2),   // 5: func1
-        make_call(3),       // 6: call func2 (at 9)
-        make_ret(),         // 7: return from func1
-        make_nop(),  // 8: padding
-        make_movi(16, 3),   // 9: func2
-        make_ret()          // 10: return from func2
+        make_movi(16, 1),  // 0: main
+        make_call(4),      // 1: call func1 (at 5)
+        make_halt(),       // 2: end
+        make_nop(),        // 3: padding
+        make_nop(),        // 4: padding
+        make_movi(16, 2),  // 5: func1
+        make_call(3),      // 6: call func2 (at 9)
+        make_ret(),        // 7: return from func1
+        make_nop(),        // 8: padding
+        make_movi(16, 3),  // 9: func2
+        make_ret()         // 10: return from func2
     };
 
     auto result = run(code);
@@ -266,8 +256,8 @@ TEST_F(CallStackExecutionTest, StackOverflow_ReturnsError) {
     // 0: CALL 0    ; call self (infinite recursion)
     // 1: HALT      ; never reached
     std::vector<std::uint32_t> code = {
-        make_call(0),   // 0: recursive call
-        make_halt()     // 1: unreached
+        make_call(0),  // 0: recursive call
+        make_halt()    // 1: unreached
     };
 
     auto result = small_engine.execute(code.data(), code.size(), 0, {});
@@ -301,9 +291,9 @@ TEST_F(CallStackExecutionTest, Call_StillWritesToR1ForCompatibility) {
     // 1: HALT      ; return point (instruction 1)
     // 2: HALT      ; function just halts immediately
     std::vector<std::uint32_t> code = {
-        make_call(2),   // 0: CALL
-        make_halt(),    // 1: return point
-        make_halt()     // 2: function
+        make_call(2),  // 0: CALL
+        make_halt(),   // 1: return point
+        make_halt()    // 2: function
     };
 
     // Run but stop immediately (function halts)
@@ -325,12 +315,12 @@ TEST_F(CallStackExecutionTest, CallStack_DepthTracking) {
     // 4: RET       ; return from func1
     // 5: RET       ; func2 returns immediately
     std::vector<std::uint32_t> code = {
-        make_call(3),   // 0
-        make_halt(),    // 1
-        make_nop(),  // 2
-        make_call(2),   // 3
-        make_ret(),     // 4
-        make_ret()      // 5
+        make_call(3),  // 0
+        make_halt(),   // 1
+        make_nop(),    // 2
+        make_call(2),  // 3
+        make_ret(),    // 4
+        make_ret()     // 5
     };
 
     auto result = run(code);

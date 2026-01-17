@@ -63,7 +63,7 @@ public:
     /// @brief Construct from any integral type
     /// @tparam T Any integral type (int, long, uint64_t, etc.)
     /// @param value The integer value
-    template<std::integral T>
+    template <std::integral T>
     constexpr explicit BigInt(T value) noexcept;
 
     /// @brief Construct from string representation
@@ -238,13 +238,13 @@ public:
     /// @brief Try to convert to built-in integer type
     /// @tparam T Target integer type
     /// @return The value if it fits, std::nullopt otherwise
-    template<std::integral T>
+    template <std::integral T>
     [[nodiscard]] constexpr std::optional<T> try_to() const noexcept;
 
     /// @brief Convert to built-in integer type (unchecked)
     /// @tparam T Target integer type
     /// @return The value truncated to type T
-    template<std::integral T>
+    template <std::integral T>
     [[nodiscard]] constexpr T to() const noexcept;
 
     // =========================================================================
@@ -298,7 +298,7 @@ private:
 
     /// @brief Divide using Knuth's Algorithm D
     [[nodiscard]] static std::pair<BigInt, BigInt> divide_knuth(const BigInt& dividend,
-                                                                  const BigInt& divisor);
+                                                                const BigInt& divisor);
 
     /// @brief Parse decimal string into BigInt
     void parse_decimal(std::string_view str);
@@ -323,7 +323,7 @@ private:
 // Template Implementation
 // =============================================================================
 
-template<std::integral T>
+template <std::integral T>
 constexpr BigInt::BigInt(T value) noexcept {
     if (value == 0) {
         // Default state is already zero
@@ -400,7 +400,8 @@ constexpr std::size_t BigInt::limb_count() const noexcept {
 }
 
 constexpr int BigInt::sign() const noexcept {
-    if (is_zero()) return 0;
+    if (is_zero())
+        return 0;
     return negative_ ? -1 : 1;
 }
 
@@ -453,7 +454,7 @@ constexpr bool BigInt::operator==(const BigInt& rhs) const noexcept {
     return negative_ == rhs.negative_ && limbs_ == rhs.limbs_;
 }
 
-template<std::integral T>
+template <std::integral T>
 constexpr std::optional<T> BigInt::try_to() const noexcept {
     if (is_zero()) {
         return T{0};
@@ -491,7 +492,7 @@ constexpr std::optional<T> BigInt::try_to() const noexcept {
     }
 }
 
-template<std::integral T>
+template <std::integral T>
 constexpr T BigInt::to() const noexcept {
     if (is_zero()) {
         return T{0};

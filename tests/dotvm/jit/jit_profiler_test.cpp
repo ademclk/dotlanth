@@ -470,5 +470,5 @@ TEST_F(StatusStringTest, OsrStatusString_AllValues) {
     EXPECT_STREQ(osr_status_string(OsrStatus::InvalidLoop), "InvalidLoop");
 }
 
-} // namespace
-} // namespace dotvm::jit
+}  // namespace
+}  // namespace dotvm::jit

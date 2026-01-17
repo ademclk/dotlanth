@@ -1,9 +1,9 @@
 /// @file jit_code_buffer_test.cpp
 /// @brief Unit tests for JIT code buffer
 
-#include <gtest/gtest.h>
-
 #include <cstring>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/jit/jit_code_buffer.hpp"
 
@@ -323,5 +323,5 @@ TEST_F(PageSizeTest, PageSize_IsAtLeast4K) {
     EXPECT_GE(JitCodeBuffer::page_size(), 4096u);
 }
 
-} // namespace
-} // namespace dotvm::jit
+}  // namespace
+}  // namespace dotvm::jit

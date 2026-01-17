@@ -3,8 +3,8 @@
 // to read_header, which triggers a false positive from GCC 14's optimizer
 // even though read_header has proper bounds checking.
 #if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
 
 #include <gtest/gtest.h>
@@ -12,13 +12,9 @@
 // GCC's -Warray-bounds warning has false positives with constexpr code
 // that has early size checks. Suppress for this fuzz test file.
 #if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
-
-#include <dotvm/core/bytecode.hpp>
-#include <dotvm/core/memory.hpp>
-#include <dotvm/core/value.hpp>
 
 #include <array>
 #include <bit>
@@ -26,6 +22,10 @@
 #include <cstring>
 #include <limits>
 #include <vector>
+
+#include <dotvm/core/bytecode.hpp>
+#include <dotvm/core/memory.hpp>
+#include <dotvm/core/value.hpp>
 
 using namespace dotvm::core;
 
@@ -40,7 +40,10 @@ protected:
         std::vector<std::uint8_t> data(bytecode::HEADER_SIZE, 0);
 
         // Magic
-        data[0] = 'D'; data[1] = 'O'; data[2] = 'T'; data[3] = 'M';
+        data[0] = 'D';
+        data[1] = 'O';
+        data[2] = 'T';
+        data[3] = 'M';
 
         // Version
         data[4] = bytecode::CURRENT_VERSION;
@@ -49,7 +52,8 @@ protected:
         data[5] = static_cast<std::uint8_t>(Architecture::Arch64);
 
         // Flags (none)
-        data[6] = 0; data[7] = 0;
+        data[6] = 0;
+        data[7] = 0;
 
         // Entry point = 0
         // const_pool_offset = 48, const_pool_size = 0
@@ -141,14 +145,17 @@ TEST_F(BytecodeFuzzTest, TruncatedHeaderRejected) {
     // Try reading headers of various truncated sizes
     for (std::size_t len = 0; len < bytecode::HEADER_SIZE; ++len) {
         std::vector<std::uint8_t> truncated(len, 0);
-        if (len > 0) truncated[0] = 'D';
-        if (len > 1) truncated[1] = 'O';
-        if (len > 2) truncated[2] = 'T';
-        if (len > 3) truncated[3] = 'M';
+        if (len > 0)
+            truncated[0] = 'D';
+        if (len > 1)
+            truncated[1] = 'O';
+        if (len > 2)
+            truncated[2] = 'T';
+        if (len > 3)
+            truncated[3] = 'M';
 
         auto result = read_header(std::span{truncated});
-        EXPECT_FALSE(result.has_value())
-            << "Header of size " << len << " should be rejected";
+        EXPECT_FALSE(result.has_value()) << "Header of size " << len << " should be rejected";
         EXPECT_EQ(result.error(), BytecodeError::FileTooSmall);
     }
 }
@@ -250,7 +257,7 @@ TEST_F(ConstantPoolFuzzTest, EntryCountExceedsDataRejected) {
 TEST_F(ConstantPoolFuzzTest, InvalidConstantTypeRejected) {
     auto data = make_pool_header(1);
     // Add entry with invalid type tag
-    data.push_back(0xFF);  // Invalid type
+    data.push_back(0xFF);             // Invalid type
     data.resize(data.size() + 8, 0);  // Pad with zeros
 
     auto result = load_constant_pool(std::span{data});
@@ -387,7 +394,8 @@ TEST_F(MemoryFuzzTest, AlternatingHandleReuse) {
             auto result = mem.allocate(mem_config::PAGE_SIZE);
             ASSERT_TRUE(result.has_value());
             // Generation should have increased
-            EXPECT_GT(result->generation, generations[i]) << "Generation should increase after realloc";
+            EXPECT_GT(result->generation, generations[i])
+                << "Generation should increase after realloc";
             handles[i] = *result;
             generations[i] = result->generation;
         }
@@ -531,10 +539,9 @@ TEST_F(ExecutionConstraintFuzzTest, LargeOffsetJumps) {
               BytecodeError::Success);
 
     // Large backward jump
-    EXPECT_EQ(validate_jump_target(1 << 24, -(1 << 20), LARGE_CODE_SIZE),
-              BytecodeError::Success);
+    EXPECT_EQ(validate_jump_target(1 << 24, -(1 << 20), LARGE_CODE_SIZE), BytecodeError::Success);
 }
 
 #if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
+    #pragma GCC diagnostic pop
 #endif

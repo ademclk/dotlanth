@@ -30,8 +30,7 @@ public:
     /// Construct an ALU for the specified architecture
     ///
     /// @param arch Target architecture (default: Arch64)
-    explicit constexpr ALU(Architecture arch = Architecture::Arch64) noexcept
-        : arch_{arch} {}
+    explicit constexpr ALU(Architecture arch = Architecture::Arch64) noexcept : arch_{arch} {}
 
     // =========================================================================
     // Configuration
@@ -254,8 +253,7 @@ public:
             // Use unsigned modulo for positive rotation amount
             auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 32U);
             auto result = std::rotl(val, rotate);
-            return Value::from_int(arch_config::mask_int(
-                static_cast<std::int64_t>(result), arch_));
+            return Value::from_int(arch_config::mask_int(static_cast<std::int64_t>(result), arch_));
         } else {
             auto val = static_cast<std::uint64_t>(a.as_integer());
             auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 64U);
@@ -278,8 +276,7 @@ public:
             auto val = static_cast<std::uint32_t>(a.as_integer());
             auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 32U);
             auto result = std::rotr(val, rotate);
-            return Value::from_int(arch_config::mask_int(
-                static_cast<std::int64_t>(result), arch_));
+            return Value::from_int(arch_config::mask_int(static_cast<std::int64_t>(result), arch_));
         } else {
             auto val = static_cast<std::uint64_t>(a.as_integer());
             auto rotate = static_cast<int>(static_cast<std::uint64_t>(b.as_integer()) % 64U);
@@ -365,10 +362,8 @@ public:
     /// @param b Second operand (integer, treated as unsigned)
     /// @return 1 if a < b (unsigned), 0 otherwise
     [[nodiscard]] constexpr Value cmp_ltu(Value a, Value b) const noexcept {
-        auto au = arch_config::mask_uint(
-            static_cast<std::uint64_t>(a.as_integer()), arch_);
-        auto bu = arch_config::mask_uint(
-            static_cast<std::uint64_t>(b.as_integer()), arch_);
+        auto au = arch_config::mask_uint(static_cast<std::uint64_t>(a.as_integer()), arch_);
+        auto bu = arch_config::mask_uint(static_cast<std::uint64_t>(b.as_integer()), arch_);
         return Value::from_int(au < bu ? 1 : 0);
     }
 
@@ -378,10 +373,8 @@ public:
     /// @param b Second operand (integer, treated as unsigned)
     /// @return 1 if a <= b (unsigned), 0 otherwise
     [[nodiscard]] constexpr Value cmp_leu(Value a, Value b) const noexcept {
-        auto au = arch_config::mask_uint(
-            static_cast<std::uint64_t>(a.as_integer()), arch_);
-        auto bu = arch_config::mask_uint(
-            static_cast<std::uint64_t>(b.as_integer()), arch_);
+        auto au = arch_config::mask_uint(static_cast<std::uint64_t>(a.as_integer()), arch_);
+        auto bu = arch_config::mask_uint(static_cast<std::uint64_t>(b.as_integer()), arch_);
         return Value::from_int(au <= bu ? 1 : 0);
     }
 
@@ -391,10 +384,8 @@ public:
     /// @param b Second operand (integer, treated as unsigned)
     /// @return 1 if a > b (unsigned), 0 otherwise
     [[nodiscard]] constexpr Value cmp_gtu(Value a, Value b) const noexcept {
-        auto au = arch_config::mask_uint(
-            static_cast<std::uint64_t>(a.as_integer()), arch_);
-        auto bu = arch_config::mask_uint(
-            static_cast<std::uint64_t>(b.as_integer()), arch_);
+        auto au = arch_config::mask_uint(static_cast<std::uint64_t>(a.as_integer()), arch_);
+        auto bu = arch_config::mask_uint(static_cast<std::uint64_t>(b.as_integer()), arch_);
         return Value::from_int(au > bu ? 1 : 0);
     }
 
@@ -404,10 +395,8 @@ public:
     /// @param b Second operand (integer, treated as unsigned)
     /// @return 1 if a >= b (unsigned), 0 otherwise
     [[nodiscard]] constexpr Value cmp_geu(Value a, Value b) const noexcept {
-        auto au = arch_config::mask_uint(
-            static_cast<std::uint64_t>(a.as_integer()), arch_);
-        auto bu = arch_config::mask_uint(
-            static_cast<std::uint64_t>(b.as_integer()), arch_);
+        auto au = arch_config::mask_uint(static_cast<std::uint64_t>(a.as_integer()), arch_);
+        auto bu = arch_config::mask_uint(static_cast<std::uint64_t>(b.as_integer()), arch_);
         return Value::from_int(au >= bu ? 1 : 0);
     }
 

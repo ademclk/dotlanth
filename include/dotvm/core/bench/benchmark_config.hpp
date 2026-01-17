@@ -55,7 +55,8 @@ struct BenchmarkResult {
 
     /// Calculate average time per operation in nanoseconds
     [[nodiscard]] double avg_ns_per_op() const noexcept {
-        if (iterations == 0) return 0.0;
+        if (iterations == 0)
+            return 0.0;
         return static_cast<double>(total_time.count()) / static_cast<double>(iterations);
     }
 
@@ -77,7 +78,7 @@ struct BenchmarkResult {
 ///
 /// @tparam T Type of value to preserve
 /// @param value Value that should not be optimized away
-template<typename T>
+template <typename T>
 inline void do_not_optimize(const T& value) noexcept {
 #if defined(__GNUC__) || defined(__clang__)
     // For non-trivial types, use memory constraint to prevent optimization
@@ -94,7 +95,7 @@ inline void do_not_optimize(const T& value) noexcept {
 }
 
 /// @brief Specialization for pointer types
-template<typename T>
+template <typename T>
 inline void do_not_optimize(T* ptr) noexcept {
 #if defined(__GNUC__) || defined(__clang__)
     asm volatile("" : : "g"(ptr) : "memory");
@@ -105,7 +106,7 @@ inline void do_not_optimize(T* ptr) noexcept {
 }
 
 /// @brief Specialization for integral types (can use register constraint)
-template<typename T>
+template <typename T>
     requires std::is_integral_v<std::remove_reference_t<T>>
 inline void do_not_optimize(T&& value) noexcept {
 #if defined(__GNUC__) || defined(__clang__)
@@ -119,7 +120,7 @@ inline void do_not_optimize(T&& value) noexcept {
 }
 
 /// @brief Specialization for floating-point types (can use register constraint)
-template<typename T>
+template <typename T>
     requires std::is_floating_point_v<std::remove_reference_t<T>>
 inline void do_not_optimize(T&& value) noexcept {
 #if defined(__GNUC__) || defined(__clang__)
@@ -151,11 +152,11 @@ inline void memory_fence() noexcept {
 inline void full_memory_fence() noexcept {
 #if defined(__GNUC__) || defined(__clang__)
     #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
-        asm volatile("mfence" : : : "memory");
+    asm volatile("mfence" : : : "memory");
     #elif defined(__aarch64__)
-        asm volatile("dmb ish" : : : "memory");
+    asm volatile("dmb ish" : : : "memory");
     #else
-        __sync_synchronize();
+    __sync_synchronize();
     #endif
 #elif defined(_MSC_VER)
     _mm_mfence();
@@ -194,7 +195,7 @@ public:
     /// @tparam Fn Callable type (function, lambda, functor)
     /// @param fn Function to execute during warmup
     /// @param iterations Number of warmup iterations (default: 1000)
-    template<typename Fn>
+    template <typename Fn>
     void warmup(Fn&& fn, std::size_t iterations = 1000) {
         for (std::size_t i = 0; i < iterations; ++i) {
             fn();
@@ -211,7 +212,7 @@ public:
     /// @param fn Function to benchmark
     /// @param iterations Number of iterations to run
     /// @return BenchmarkResult with timing statistics
-    template<typename Fn>
+    template <typename Fn>
     BenchmarkResult run(Fn&& fn, std::size_t iterations = 1000000) {
         BenchmarkResult result;
         result.name = name_;
@@ -240,12 +241,15 @@ public:
             memory_fence();
             auto batch_end = clock::now();
 
-            auto batch_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                batch_end - batch_start);
-            auto per_iter = std::chrono::nanoseconds(batch_time.count() / static_cast<std::int64_t>(batch_size));
+            auto batch_time =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(batch_end - batch_start);
+            auto per_iter = std::chrono::nanoseconds(batch_time.count() /
+                                                     static_cast<std::int64_t>(batch_size));
 
-            if (per_iter < result.min_time) result.min_time = per_iter;
-            if (per_iter > result.max_time) result.max_time = per_iter;
+            if (per_iter < result.min_time)
+                result.min_time = per_iter;
+            if (per_iter > result.max_time)
+                result.max_time = per_iter;
         }
 
         // Run remaining iterations
@@ -256,15 +260,17 @@ public:
             memory_fence();
             auto iter_end = clock::now();
 
-            auto iter_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                iter_end - iter_start);
-            if (iter_time < result.min_time) result.min_time = iter_time;
-            if (iter_time > result.max_time) result.max_time = iter_time;
+            auto iter_time =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(iter_end - iter_start);
+            if (iter_time < result.min_time)
+                result.min_time = iter_time;
+            if (iter_time > result.max_time)
+                result.max_time = iter_time;
         }
 
         auto total_end = clock::now();
-        result.total_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            total_end - total_start);
+        result.total_time =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(total_end - total_start);
 
         // Calculate ops/sec
         double total_seconds = static_cast<double>(result.total_time.count()) / 1e9;
@@ -285,9 +291,9 @@ public:
     /// @param bytes_per_op Number of bytes processed per operation
     /// @param iterations Number of iterations to run
     /// @return BenchmarkResult with timing and throughput statistics
-    template<typename Fn>
+    template <typename Fn>
     BenchmarkResult run_throughput(Fn&& fn, std::size_t bytes_per_op,
-                                    std::size_t iterations = 100000) {
+                                   std::size_t iterations = 100000) {
         auto result = run(std::forward<Fn>(fn), iterations);
 
         // Calculate throughput in MB/s
@@ -309,7 +315,7 @@ public:
     /// @param fn Function to benchmark
     /// @param min_runtime_ms Minimum total runtime in milliseconds
     /// @return BenchmarkResult with timing statistics
-    template<typename Fn>
+    template <typename Fn>
     BenchmarkResult run_auto(Fn&& fn, std::size_t min_runtime_ms = 1000) {
         using clock = std::chrono::high_resolution_clock;
 
@@ -324,10 +330,10 @@ public:
         }
         auto sample_end = clock::now();
 
-        auto sample_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            sample_end - sample_start);
-        double ns_per_op = static_cast<double>(sample_time.count()) /
-                           static_cast<double>(sample_size);
+        auto sample_time =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(sample_end - sample_start);
+        double ns_per_op =
+            static_cast<double>(sample_time.count()) / static_cast<double>(sample_size);
 
         // Calculate iterations needed for minimum runtime
         double target_ns = static_cast<double>(min_runtime_ms) * 1e6;
@@ -355,21 +361,16 @@ public:
     explicit BenchmarkSuite(std::string name) : name_(std::move(name)) {}
 
     /// @brief Add a benchmark result to the suite
-    void add_result(BenchmarkResult result) {
-        results_.push_back(std::move(result));
-    }
+    void add_result(BenchmarkResult result) { results_.push_back(std::move(result)); }
 
     /// @brief Get all results
-    [[nodiscard]] const std::vector<BenchmarkResult>& results() const noexcept {
-        return results_;
-    }
+    [[nodiscard]] const std::vector<BenchmarkResult>& results() const noexcept { return results_; }
 
     /// @brief Print all results with header
     void print_all() const;
 
     /// @brief Print a comparison between two results (speedup)
-    static void print_comparison(const BenchmarkResult& baseline,
-                                  const BenchmarkResult& optimized);
+    static void print_comparison(const BenchmarkResult& baseline, const BenchmarkResult& optimized);
 
 private:
     std::string name_;

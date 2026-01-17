@@ -1,10 +1,10 @@
 /// @file vector_register_file_test.cpp
 /// @brief Unit tests for the vector register file
 
-#include <gtest/gtest.h>
-
 #include <array>
 #include <cstdint>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/simd/vector_register_file.hpp"
 
@@ -572,7 +572,8 @@ TEST_F(VectorRegisterFileMixedWidthTest, Write512_Read256_ReturnsLowerBits) {
 
 TEST_F(VectorRegisterFileMixedWidthTest, DifferentLaneTypes_SameStorage) {
     // Write as i32
-    Vector128i32 vi{0x3F800000, 0x40000000, 0x40400000, 0x40800000};  // 1.0, 2.0, 3.0, 4.0 as bit patterns
+    Vector128i32 vi{0x3F800000, 0x40000000, 0x40400000,
+                    0x40800000};  // 1.0, 2.0, 3.0, 4.0 as bit patterns
     vrf.write_v128i32(7, vi);
 
     // Read as f32

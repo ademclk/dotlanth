@@ -68,8 +68,7 @@ struct AuditQuery {
     std::chrono::steady_clock::time_point since{};
 
     /// Filter events before this timestamp (default = end of time)
-    std::chrono::steady_clock::time_point until{
-        std::chrono::steady_clock::time_point::max()};
+    std::chrono::steady_clock::time_point until{std::chrono::steady_clock::time_point::max()};
 
     /// Maximum number of events to return
     std::size_t limit{100};
@@ -80,27 +79,24 @@ struct AuditQuery {
     }
 
     /// @brief Create a query for a specific event type
-    [[nodiscard]] static AuditQuery
-    by_type(AuditEventType t, std::size_t lim = 100) noexcept {
+    [[nodiscard]] static AuditQuery by_type(AuditEventType t, std::size_t lim = 100) noexcept {
         return AuditQuery{.type = t, .limit = lim};
     }
 
     /// @brief Create a query for events at or above a severity level
-    [[nodiscard]] static AuditQuery
-    by_severity(AuditSeverity min_sev, std::size_t lim = 100) noexcept {
+    [[nodiscard]] static AuditQuery by_severity(AuditSeverity min_sev,
+                                                std::size_t lim = 100) noexcept {
         return AuditQuery{.min_severity = min_sev, .limit = lim};
     }
 
     /// @brief Create a query for a specific Dot
-    [[nodiscard]] static AuditQuery by_dot(DotId dot,
-                                           std::size_t lim = 100) noexcept {
+    [[nodiscard]] static AuditQuery by_dot(DotId dot, std::size_t lim = 100) noexcept {
         return AuditQuery{.dot_id = dot, .limit = lim};
     }
 
     /// @brief Create a query for events since a timestamp
-    [[nodiscard]] static AuditQuery
-    since_time(std::chrono::steady_clock::time_point tp,
-               std::size_t lim = 100) noexcept {
+    [[nodiscard]] static AuditQuery since_time(std::chrono::steady_clock::time_point tp,
+                                               std::size_t lim = 100) noexcept {
         return AuditQuery{.since = tp, .limit = lim};
     }
 };
@@ -169,8 +165,7 @@ public:
     ///
     /// @param filter The query filter criteria
     /// @return Vector of matching events, sorted by timestamp (oldest first)
-    [[nodiscard]] virtual std::vector<AuditEvent>
-    query(const AuditQuery& filter) const = 0;
+    [[nodiscard]] virtual std::vector<AuditEvent> query(const AuditQuery& filter) const = 0;
 
     /// @brief Get the count of events matching criteria (without retrieving)
     ///
@@ -188,8 +183,7 @@ public:
     /// @param format The export format (JSON, Binary, Text)
     /// @param filter Optional filter criteria (default = all events)
     /// @return Number of events exported
-    virtual std::size_t export_to(std::ostream& out,
-                                  ExportFormat format = ExportFormat::Json,
+    virtual std::size_t export_to(std::ostream& out, ExportFormat format = ExportFormat::Json,
                                   const AuditQuery& filter = {}) const = 0;
 
     // === Retention Policy (SEC-006) ===
@@ -234,30 +228,19 @@ public:
 
     [[nodiscard]] bool is_enabled() const noexcept override { return false; }
 
-    [[nodiscard]] std::vector<AuditEvent>
-    query(const AuditQuery&) const override {
-        return {};
-    }
+    [[nodiscard]] std::vector<AuditEvent> query(const AuditQuery&) const override { return {}; }
 
-    [[nodiscard]] std::size_t count(const AuditQuery&) const override {
-        return 0;
-    }
+    [[nodiscard]] std::size_t count(const AuditQuery&) const override { return 0; }
 
-    std::size_t export_to(std::ostream&,
-                          ExportFormat,
-                          const AuditQuery&) const override {
+    std::size_t export_to(std::ostream&, ExportFormat, const AuditQuery&) const override {
         return 0;
     }
 
     void set_retention(std::uint32_t) noexcept override {}
 
-    [[nodiscard]] std::uint32_t retention() const noexcept override {
-        return 0;
-    }
+    [[nodiscard]] std::uint32_t retention() const noexcept override { return 0; }
 
-    [[nodiscard]] AuditLoggerStats stats() const noexcept override {
-        return {};
-    }
+    [[nodiscard]] AuditLoggerStats stats() const noexcept override { return {}; }
 
     void clear() noexcept override {}
 
@@ -297,20 +280,14 @@ public:
 
     [[nodiscard]] bool is_enabled() const noexcept override { return true; }
 
-    [[nodiscard]] std::vector<AuditEvent>
-    query(const AuditQuery& filter) const override;
+    [[nodiscard]] std::vector<AuditEvent> query(const AuditQuery& filter) const override;
 
-    std::size_t export_to(std::ostream& out,
-                          ExportFormat format,
+    std::size_t export_to(std::ostream& out, ExportFormat format,
                           const AuditQuery& filter) const override;
 
-    void set_retention(std::uint32_t hours) noexcept override {
-        retention_hours_ = hours;
-    }
+    void set_retention(std::uint32_t hours) noexcept override { retention_hours_ = hours; }
 
-    [[nodiscard]] std::uint32_t retention() const noexcept override {
-        return retention_hours_;
-    }
+    [[nodiscard]] std::uint32_t retention() const noexcept override { return retention_hours_; }
 
     [[nodiscard]] AuditLoggerStats stats() const noexcept override;
 

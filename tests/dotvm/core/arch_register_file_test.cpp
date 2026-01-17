@@ -1,10 +1,10 @@
 /// @file arch_register_file_test.cpp
 /// @brief Unit tests for the architecture-aware register file
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <limits>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/register_file.hpp"
 
@@ -184,7 +184,7 @@ TEST_F(ArchRegisterFileOperatorTest, OperatorBracket_Read) {
 
 TEST_F(ArchRegisterFileOperatorTest, OperatorBracket_Write_MasksValue) {
     rf_[1] = Value::from_int(0x1'0000'0000LL);
-    Value val = rf_[1];  // Implicit conversion via proxy
+    Value val = rf_[1];              // Implicit conversion via proxy
     EXPECT_EQ(val.as_integer(), 0);  // Masked to 32 bits
 }
 
@@ -292,7 +292,7 @@ TEST_F(ArchRegisterFileBoundaryTest, Arch32_INT32_MAX_Plus1_WrapsToMIN) {
     ArchRegisterFile rf{Architecture::Arch32};
 
     rf.write(1, Value::from_int(
-        static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max()) + 1));
+                    static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max()) + 1));
     EXPECT_EQ(rf.read(1).as_integer(), std::numeric_limits<std::int32_t>::min());
 }
 
@@ -305,8 +305,7 @@ TEST_F(ArchRegisterFileBoundaryTest, AllRegistersAccessible) {
     }
 
     for (std::uint16_t i = 1; i < 256; ++i) {
-        EXPECT_EQ(rf.read(static_cast<std::uint8_t>(i)).as_integer(),
-                  static_cast<std::int64_t>(i));
+        EXPECT_EQ(rf.read(static_cast<std::uint8_t>(i)).as_integer(), static_cast<std::int64_t>(i));
     }
 }
 

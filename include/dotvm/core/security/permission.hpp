@@ -73,22 +73,19 @@ enum class Permission : std::uint32_t {
 // ============================================================================
 
 /// @brief Combine two permission sets (union)
-[[nodiscard]] constexpr Permission operator|(Permission lhs,
-                                              Permission rhs) noexcept {
+[[nodiscard]] constexpr Permission operator|(Permission lhs, Permission rhs) noexcept {
     return static_cast<Permission>(static_cast<std::uint32_t>(lhs) |
                                    static_cast<std::uint32_t>(rhs));
 }
 
 /// @brief Intersect two permission sets
-[[nodiscard]] constexpr Permission operator&(Permission lhs,
-                                              Permission rhs) noexcept {
+[[nodiscard]] constexpr Permission operator&(Permission lhs, Permission rhs) noexcept {
     return static_cast<Permission>(static_cast<std::uint32_t>(lhs) &
                                    static_cast<std::uint32_t>(rhs));
 }
 
 /// @brief Symmetric difference of two permission sets
-[[nodiscard]] constexpr Permission operator^(Permission lhs,
-                                              Permission rhs) noexcept {
+[[nodiscard]] constexpr Permission operator^(Permission lhs, Permission rhs) noexcept {
     return static_cast<Permission>(static_cast<std::uint32_t>(lhs) ^
                                    static_cast<std::uint32_t>(rhs));
 }
@@ -130,8 +127,7 @@ inline constexpr Permission ReadOnly =
 /// @brief Read-write permission combination
 ///
 /// Includes all read-only permissions plus write access to memory and state.
-inline constexpr Permission ReadWrite =
-    ReadOnly | Permission::WriteMemory | Permission::WriteState;
+inline constexpr Permission ReadWrite = ReadOnly | Permission::WriteMemory | Permission::WriteState;
 
 // ============================================================================
 // Permission Helper Functions
@@ -142,8 +138,7 @@ inline constexpr Permission ReadWrite =
 /// @param perms The permission set to check
 /// @param required The permission(s) that must be present
 /// @return true if all required permissions are present
-[[nodiscard]] constexpr bool has_permission(Permission perms,
-                                            Permission required) noexcept {
+[[nodiscard]] constexpr bool has_permission(Permission perms, Permission required) noexcept {
     return (perms & required) == required;
 }
 
@@ -152,8 +147,7 @@ inline constexpr Permission ReadWrite =
 /// @param parent The parent permission set
 /// @param child The child permission set to validate
 /// @return true if child is a subset of parent
-[[nodiscard]] constexpr bool is_subset(Permission parent,
-                                       Permission child) noexcept {
+[[nodiscard]] constexpr bool is_subset(Permission parent, Permission child) noexcept {
     return (child & parent) == child;
 }
 
@@ -183,11 +177,8 @@ public:
     /// @param actual The permission(s) that were actually present
     /// @param context Optional context string (operation name)
     /// @param location Source location where the exception was thrown
-    PermissionDeniedException(
-        Permission required,
-        Permission actual,
-        std::string_view context = "",
-        std::source_location location = std::source_location::current());
+    PermissionDeniedException(Permission required, Permission actual, std::string_view context = "",
+                              std::source_location location = std::source_location::current());
 
     /// @brief Get the required permission(s)
     [[nodiscard]] Permission required() const noexcept { return required_; }
@@ -205,14 +196,10 @@ public:
     [[nodiscard]] std::string_view context() const noexcept { return context_; }
 
     /// @brief Get the source location where the exception was thrown
-    [[nodiscard]] const std::source_location& location() const noexcept {
-        return location_;
-    }
+    [[nodiscard]] const std::source_location& location() const noexcept { return location_; }
 
     /// @brief Get exception message
-    [[nodiscard]] const char* what() const noexcept override {
-        return message_.c_str();
-    }
+    [[nodiscard]] const char* what() const noexcept override { return message_.c_str(); }
 
 private:
     Permission required_;
@@ -260,14 +247,12 @@ public:
     /// @brief Construct with initial permissions
     ///
     /// @param perms Initial permission set
-    constexpr explicit PermissionSet(Permission perms) noexcept
-        : permissions_(perms) {}
+    constexpr explicit PermissionSet(Permission perms) noexcept : permissions_(perms) {}
 
     /// @brief Construct from raw bits (for interop)
     ///
     /// @param bits Raw permission bits
-    [[nodiscard]] static constexpr PermissionSet
-    from_bits(std::uint32_t bits) noexcept {
+    [[nodiscard]] static constexpr PermissionSet from_bits(std::uint32_t bits) noexcept {
         return PermissionSet{static_cast<Permission>(bits)};
     }
 
@@ -299,8 +284,7 @@ public:
     ///
     /// @param perm The permission(s) to check
     /// @return true if all requested permissions are present
-    [[nodiscard]] constexpr bool
-    has_permission(Permission perm) const noexcept {
+    [[nodiscard]] constexpr bool has_permission(Permission perm) const noexcept {
         return security::has_permission(permissions_, perm);
     }
 
@@ -313,14 +297,10 @@ public:
     }
 
     /// @brief Check if the set is empty (no permissions)
-    [[nodiscard]] constexpr bool empty() const noexcept {
-        return permissions_ == Permission::None;
-    }
+    [[nodiscard]] constexpr bool empty() const noexcept { return permissions_ == Permission::None; }
 
     /// @brief Get the raw permission value
-    [[nodiscard]] constexpr Permission value() const noexcept {
-        return permissions_;
-    }
+    [[nodiscard]] constexpr Permission value() const noexcept { return permissions_; }
 
     /// @brief Get the raw bits
     [[nodiscard]] constexpr std::uint32_t bits() const noexcept {
@@ -334,11 +314,8 @@ public:
     /// @param perm The permission(s) required
     /// @param context Optional context for error messages
     /// @throws PermissionDeniedException if permissions are not present
-    void require(
-        Permission perm,
-        std::string_view context = "",
-        std::source_location location =
-            std::source_location::current()) const;
+    void require(Permission perm, std::string_view context = "",
+                 std::source_location location = std::source_location::current()) const;
 
     /// @brief Check if the set satisfies requirements (non-throwing)
     ///
@@ -364,9 +341,8 @@ public:
     /// @param perm The permission(s) to revoke
     /// @return Reference to this for chaining
     constexpr PermissionSet& revoke(Permission perm) noexcept {
-        permissions_ = static_cast<Permission>(
-            static_cast<std::uint32_t>(permissions_) &
-            ~static_cast<std::uint32_t>(perm));
+        permissions_ = static_cast<Permission>(static_cast<std::uint32_t>(permissions_) &
+                                               ~static_cast<std::uint32_t>(perm));
         return *this;
     }
 
@@ -390,20 +366,17 @@ public:
     // ========== Set Operations ==========
 
     /// @brief Compute the union of two permission sets
-    [[nodiscard]] constexpr PermissionSet
-    operator|(PermissionSet other) const noexcept {
+    [[nodiscard]] constexpr PermissionSet operator|(PermissionSet other) const noexcept {
         return PermissionSet{permissions_ | other.permissions_};
     }
 
     /// @brief Compute the intersection of two permission sets
-    [[nodiscard]] constexpr PermissionSet
-    operator&(PermissionSet other) const noexcept {
+    [[nodiscard]] constexpr PermissionSet operator&(PermissionSet other) const noexcept {
         return PermissionSet{permissions_ & other.permissions_};
     }
 
     /// @brief Compute the symmetric difference of two permission sets
-    [[nodiscard]] constexpr PermissionSet
-    operator^(PermissionSet other) const noexcept {
+    [[nodiscard]] constexpr PermissionSet operator^(PermissionSet other) const noexcept {
         return PermissionSet{permissions_ ^ other.permissions_};
     }
 
@@ -433,27 +406,22 @@ public:
     // ========== Comparison ==========
 
     /// @brief Equality comparison
-    [[nodiscard]] constexpr bool
-    operator==(const PermissionSet&) const noexcept = default;
+    [[nodiscard]] constexpr bool operator==(const PermissionSet&) const noexcept = default;
 
     /// @brief Check if this set is a subset of another
-    [[nodiscard]] constexpr bool
-    is_subset_of(PermissionSet other) const noexcept {
+    [[nodiscard]] constexpr bool is_subset_of(PermissionSet other) const noexcept {
         return is_subset(other.permissions_, permissions_);
     }
 
     /// @brief Check if this set is a superset of another
-    [[nodiscard]] constexpr bool
-    is_superset_of(PermissionSet other) const noexcept {
+    [[nodiscard]] constexpr bool is_superset_of(PermissionSet other) const noexcept {
         return is_subset(permissions_, other.permissions_);
     }
 
     // ========== String Conversion ==========
 
     /// @brief Convert to human-readable string
-    [[nodiscard]] std::string to_string() const {
-        return security::to_string(permissions_);
-    }
+    [[nodiscard]] std::string to_string() const { return security::to_string(permissions_); }
 
 private:
     Permission permissions_{Permission::None};

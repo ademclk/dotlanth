@@ -1,9 +1,10 @@
-#include "dotvm/core/crypto/aes.hpp"
-
-#include <gtest/gtest.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
+
+#include <gtest/gtest.h>
+
+#include "dotvm/core/crypto/aes.hpp"
 
 namespace dotvm::core::crypto {
 namespace {
@@ -155,7 +156,7 @@ TEST(Aes128Test, NIST_ECB_AES128_Block2_Decrypt) {
 // ============================================================================
 
 TEST(Aes128Test, RoundTrip_AllZeros) {
-    Aes128::Key key = {};  // All zeros
+    Aes128::Key key = {};          // All zeros
     Aes128::Block plaintext = {};  // All zeros
 
     Aes128 cipher(key);
@@ -181,14 +182,10 @@ TEST(Aes128Test, RoundTrip_AllOnes) {
 }
 
 TEST(Aes128Test, RoundTrip_RandomLooking) {
-    Aes128::Key key = {
-        0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE,
-        0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0
-    };
-    Aes128::Block plaintext = {
-        0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
-        0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10
-    };
+    Aes128::Key key = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE,
+                       0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    Aes128::Block plaintext = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+                               0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
 
     Aes128 cipher(key);
     auto encrypted = cipher.encrypt_block(plaintext);

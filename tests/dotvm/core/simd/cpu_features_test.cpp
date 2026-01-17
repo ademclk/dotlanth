@@ -1,9 +1,9 @@
 /// @file cpu_features_test.cpp
 /// @brief Unit tests for CPU feature detection and architecture extension
 
-#include <gtest/gtest.h>
-
 #include <iostream>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/arch_types.hpp"
 #include "dotvm/core/simd/cpu_features.hpp"
@@ -310,8 +310,7 @@ TEST_F(HelperFunctionTest, SelectOptimalSimdArch_ReturnsValidArchitecture) {
     EXPECT_TRUE(is_valid_architecture(optimal));
 
     // Should be at least Arch64
-    EXPECT_GE(static_cast<std::uint8_t>(optimal),
-              static_cast<std::uint8_t>(Architecture::Arch64));
+    EXPECT_GE(static_cast<std::uint8_t>(optimal), static_cast<std::uint8_t>(Architecture::Arch64));
 }
 
 // ============================================================================
@@ -379,8 +378,8 @@ TEST_F(RuntimeSanityTest, PrintDetectedFeatures) {
     std::cout << "\n=== CPU Feature Detection Results ===" << std::endl;
     std::cout << features.feature_string() << std::endl;
     std::cout << "Max vector width: " << features.max_vector_width() << " bits" << std::endl;
-    std::cout << "Optimal SIMD arch: Arch"
-              << arch_bit_width(select_optimal_simd_arch()) << std::endl;
+    std::cout << "Optimal SIMD arch: Arch" << arch_bit_width(select_optimal_simd_arch())
+              << std::endl;
     std::cout << "======================================\n" << std::endl;
 
     // Just verify we can run this without crashing

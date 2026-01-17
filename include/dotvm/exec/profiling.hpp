@@ -7,8 +7,8 @@
 /// including CPU cycle counting and branch prediction statistics.
 
 #include <array>
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 
 namespace dotvm::exec {
 
@@ -37,13 +37,11 @@ inline std::uint64_t rdtsc() noexcept {
 /// ensuring all previous instructions have completed.
 inline std::uint64_t rdtsc_serialized() noexcept {
     std::uint32_t lo, hi;
-    __asm__ volatile(
-        "cpuid\n\t"
-        "rdtsc"
-        : "=a"(lo), "=d"(hi)
-        : "a"(0)
-        : "rbx", "rcx"
-    );
+    __asm__ volatile("cpuid\n\t"
+                     "rdtsc"
+                     : "=a"(lo), "=d"(hi)
+                     : "a"(0)
+                     : "rbx", "rcx");
     return (static_cast<std::uint64_t>(hi) << 32) | lo;
 }
 
@@ -76,9 +74,15 @@ inline std::uint64_t rdtscp() noexcept {
 
 #else
 // Fallback for unsupported platforms
-inline std::uint64_t rdtsc() noexcept { return 0; }
-inline std::uint64_t rdtsc_serialized() noexcept { return 0; }
-inline std::uint64_t rdtscp() noexcept { return 0; }
+inline std::uint64_t rdtsc() noexcept {
+    return 0;
+}
+inline std::uint64_t rdtsc_serialized() noexcept {
+    return 0;
+}
+inline std::uint64_t rdtscp() noexcept {
+    return 0;
+}
 #endif
 
 // ============================================================================
@@ -101,13 +105,10 @@ public:
     /// Start counting cycles
     /// @param accumulator Reference to counter to add cycles to
     explicit ScopedCycleCounter(std::uint64_t& accumulator) noexcept
-        : accumulator_{accumulator}
-        , start_{rdtsc()} {}
+        : accumulator_{accumulator}, start_{rdtsc()} {}
 
     /// Stop counting and add to accumulator
-    ~ScopedCycleCounter() noexcept {
-        accumulator_ += rdtsc() - start_;
-    }
+    ~ScopedCycleCounter() noexcept { accumulator_ += rdtsc() - start_; }
 
     // Non-copyable
     ScopedCycleCounter(const ScopedCycleCounter&) = delete;
@@ -154,30 +155,24 @@ struct DispatchStats {
     /// Calculate average cycles per instruction
     [[nodiscard]] double avg_cycles_per_instruction() const noexcept {
         return instructions_executed > 0
-            ? static_cast<double>(total_cycles) / static_cast<double>(instructions_executed)
-            : 0.0;
+                   ? static_cast<double>(total_cycles) / static_cast<double>(instructions_executed)
+                   : 0.0;
     }
 
     /// Calculate branch taken ratio
     [[nodiscard]] double branch_taken_ratio() const noexcept {
         auto total = taken_branches + not_taken_branches;
-        return total > 0
-            ? static_cast<double>(taken_branches) / static_cast<double>(total)
-            : 0.0;
+        return total > 0 ? static_cast<double>(taken_branches) / static_cast<double>(total) : 0.0;
     }
 
     /// Calculate backward jump ratio
     [[nodiscard]] double backward_jump_ratio() const noexcept {
         auto total = backward_jumps + forward_jumps;
-        return total > 0
-            ? static_cast<double>(backward_jumps) / static_cast<double>(total)
-            : 0.0;
+        return total > 0 ? static_cast<double>(backward_jumps) / static_cast<double>(total) : 0.0;
     }
 
     /// Reset all statistics
-    void reset() noexcept {
-        *this = DispatchStats{};
-    }
+    void reset() noexcept { *this = DispatchStats{}; }
 
     /// Merge statistics from another instance
     void merge(const DispatchStats& other) noexcept {
@@ -207,10 +202,9 @@ struct OpcodeStats {
 
     /// Calculate average cycles for an opcode
     [[nodiscard]] double avg_cycles(std::uint8_t opcode) const noexcept {
-        return execution_count[opcode] > 0
-            ? static_cast<double>(total_cycles[opcode]) /
-              static_cast<double>(execution_count[opcode])
-            : 0.0;
+        return execution_count[opcode] > 0 ? static_cast<double>(total_cycles[opcode]) /
+                                                 static_cast<double>(execution_count[opcode])
+                                           : 0.0;
     }
 
     /// Get most executed opcode
@@ -259,9 +253,7 @@ public:
     using Duration = std::chrono::nanoseconds;
 
     /// Start the timer
-    void start() noexcept {
-        start_ = Clock::now();
-    }
+    void start() noexcept { start_ = Clock::now(); }
 
     /// Stop the timer and return elapsed nanoseconds
     [[nodiscard]] std::uint64_t stop() noexcept {
@@ -291,13 +283,12 @@ private:
 /// @param instruction_count Number of instructions executed
 /// @param estimated_handler_cycles Estimated cycles per handler (default: 5)
 /// @return Estimated dispatch overhead in cycles
-[[nodiscard]] constexpr double estimate_dispatch_overhead(
-    std::uint64_t total_cycles,
-    std::uint64_t instruction_count,
-    double estimated_handler_cycles = 5.0) noexcept {
-    if (instruction_count == 0) return 0.0;
-    double avg = static_cast<double>(total_cycles) /
-                 static_cast<double>(instruction_count);
+[[nodiscard]] constexpr double
+estimate_dispatch_overhead(std::uint64_t total_cycles, std::uint64_t instruction_count,
+                           double estimated_handler_cycles = 5.0) noexcept {
+    if (instruction_count == 0)
+        return 0.0;
+    double avg = static_cast<double>(total_cycles) / static_cast<double>(instruction_count);
     return avg - estimated_handler_cycles;
 }
 
@@ -307,13 +298,12 @@ private:
 /// @param instruction_count Number of instructions executed
 /// @param target_cycles Target dispatch cycles (default: 10)
 /// @return true if average cycles per instruction is below target
-[[nodiscard]] constexpr bool meets_dispatch_target(
-    std::uint64_t total_cycles,
-    std::uint64_t instruction_count,
-    double target_cycles = 10.0) noexcept {
-    if (instruction_count == 0) return false;
-    double avg = static_cast<double>(total_cycles) /
-                 static_cast<double>(instruction_count);
+[[nodiscard]] constexpr bool meets_dispatch_target(std::uint64_t total_cycles,
+                                                   std::uint64_t instruction_count,
+                                                   double target_cycles = 10.0) noexcept {
+    if (instruction_count == 0)
+        return false;
+    double avg = static_cast<double>(total_cycles) / static_cast<double>(instruction_count);
     return avg < target_cycles;
 }
 

@@ -1,13 +1,13 @@
 /// @file vector_types_test.cpp
 /// @brief Unit tests for SIMD vector types
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <numeric>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/simd/vector_types.hpp"
 
@@ -585,12 +585,8 @@ TEST_F(VectorEdgeCasesTest, NegativeIntegers_WorkCorrectly) {
 }
 
 TEST_F(VectorEdgeCasesTest, MaxMinValues_WorkCorrectly) {
-    Vector128i32 v{
-        std::numeric_limits<std::int32_t>::min(),
-        std::numeric_limits<std::int32_t>::max(),
-        0,
-        -1
-    };
+    Vector128i32 v{std::numeric_limits<std::int32_t>::min(),
+                   std::numeric_limits<std::int32_t>::max(), 0, -1};
 
     EXPECT_EQ(v[0], std::numeric_limits<std::int32_t>::min());
     EXPECT_EQ(v[1], std::numeric_limits<std::int32_t>::max());
@@ -599,12 +595,8 @@ TEST_F(VectorEdgeCasesTest, MaxMinValues_WorkCorrectly) {
 }
 
 TEST_F(VectorEdgeCasesTest, FloatingPointSpecialValues_WorkCorrectly) {
-    Vector128f32 v{
-        0.0f,
-        -0.0f,
-        std::numeric_limits<float>::infinity(),
-        -std::numeric_limits<float>::infinity()
-    };
+    Vector128f32 v{0.0f, -0.0f, std::numeric_limits<float>::infinity(),
+                   -std::numeric_limits<float>::infinity()};
 
     EXPECT_EQ(v[0], 0.0f);
     EXPECT_EQ(v[2], std::numeric_limits<float>::infinity());

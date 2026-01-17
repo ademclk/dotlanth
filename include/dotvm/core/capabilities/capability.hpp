@@ -107,20 +107,20 @@ enum class Permission : std::uint32_t {
 
 /// Bitwise OR for combining permissions
 [[nodiscard]] constexpr Permission operator|(Permission lhs, Permission rhs) noexcept {
-    return static_cast<Permission>(
-        static_cast<std::uint32_t>(lhs) | static_cast<std::uint32_t>(rhs));
+    return static_cast<Permission>(static_cast<std::uint32_t>(lhs) |
+                                   static_cast<std::uint32_t>(rhs));
 }
 
 /// Bitwise AND for permission intersection
 [[nodiscard]] constexpr Permission operator&(Permission lhs, Permission rhs) noexcept {
-    return static_cast<Permission>(
-        static_cast<std::uint32_t>(lhs) & static_cast<std::uint32_t>(rhs));
+    return static_cast<Permission>(static_cast<std::uint32_t>(lhs) &
+                                   static_cast<std::uint32_t>(rhs));
 }
 
 /// Bitwise XOR for permission difference
 [[nodiscard]] constexpr Permission operator^(Permission lhs, Permission rhs) noexcept {
-    return static_cast<Permission>(
-        static_cast<std::uint32_t>(lhs) ^ static_cast<std::uint32_t>(rhs));
+    return static_cast<Permission>(static_cast<std::uint32_t>(lhs) ^
+                                   static_cast<std::uint32_t>(rhs));
 }
 
 /// Bitwise NOT for permission complement
@@ -174,33 +174,52 @@ constexpr Permission& operator^=(Permission& lhs, Permission rhs) noexcept {
 /// @param perm The permission to convert
 /// @return String representation (may be composite like "MemoryRead|Execute")
 [[nodiscard]] inline std::string to_string(Permission perm) {
-    if (perm == Permission::None) return "None";
-    if (perm == Permission::All) return "All";
+    if (perm == Permission::None)
+        return "None";
+    if (perm == Permission::All)
+        return "All";
 
     std::string result;
     auto append = [&result](const char* name) {
-        if (!result.empty()) result += "|";
+        if (!result.empty())
+            result += "|";
         result += name;
     };
 
     auto value = static_cast<std::uint32_t>(perm);
 
-    if (value & static_cast<std::uint32_t>(Permission::MemoryRead)) append("MemoryRead");
-    if (value & static_cast<std::uint32_t>(Permission::MemoryWrite)) append("MemoryWrite");
-    if (value & static_cast<std::uint32_t>(Permission::MemoryAllocate)) append("MemoryAllocate");
-    if (value & static_cast<std::uint32_t>(Permission::MemoryDeallocate)) append("MemoryDeallocate");
-    if (value & static_cast<std::uint32_t>(Permission::Execute)) append("Execute");
-    if (value & static_cast<std::uint32_t>(Permission::Call)) append("Call");
-    if (value & static_cast<std::uint32_t>(Permission::Simd)) append("Simd");
-    if (value & static_cast<std::uint32_t>(Permission::Jit)) append("Jit");
-    if (value & static_cast<std::uint32_t>(Permission::IoRead)) append("IoRead");
-    if (value & static_cast<std::uint32_t>(Permission::IoWrite)) append("IoWrite");
-    if (value & static_cast<std::uint32_t>(Permission::Network)) append("Network");
-    if (value & static_cast<std::uint32_t>(Permission::Filesystem)) append("Filesystem");
-    if (value & static_cast<std::uint32_t>(Permission::Derive)) append("Derive");
-    if (value & static_cast<std::uint32_t>(Permission::Revoke)) append("Revoke");
-    if (value & static_cast<std::uint32_t>(Permission::Crypto)) append("Crypto");
-    if (value & static_cast<std::uint32_t>(Permission::BypassCfi)) append("BypassCfi");
+    if (value & static_cast<std::uint32_t>(Permission::MemoryRead))
+        append("MemoryRead");
+    if (value & static_cast<std::uint32_t>(Permission::MemoryWrite))
+        append("MemoryWrite");
+    if (value & static_cast<std::uint32_t>(Permission::MemoryAllocate))
+        append("MemoryAllocate");
+    if (value & static_cast<std::uint32_t>(Permission::MemoryDeallocate))
+        append("MemoryDeallocate");
+    if (value & static_cast<std::uint32_t>(Permission::Execute))
+        append("Execute");
+    if (value & static_cast<std::uint32_t>(Permission::Call))
+        append("Call");
+    if (value & static_cast<std::uint32_t>(Permission::Simd))
+        append("Simd");
+    if (value & static_cast<std::uint32_t>(Permission::Jit))
+        append("Jit");
+    if (value & static_cast<std::uint32_t>(Permission::IoRead))
+        append("IoRead");
+    if (value & static_cast<std::uint32_t>(Permission::IoWrite))
+        append("IoWrite");
+    if (value & static_cast<std::uint32_t>(Permission::Network))
+        append("Network");
+    if (value & static_cast<std::uint32_t>(Permission::Filesystem))
+        append("Filesystem");
+    if (value & static_cast<std::uint32_t>(Permission::Derive))
+        append("Derive");
+    if (value & static_cast<std::uint32_t>(Permission::Revoke))
+        append("Revoke");
+    if (value & static_cast<std::uint32_t>(Permission::Crypto))
+        append("Crypto");
+    if (value & static_cast<std::uint32_t>(Permission::BypassCfi))
+        append("BypassCfi");
 
     return result.empty() ? "Unknown" : result;
 }
@@ -251,12 +270,12 @@ struct CapabilityLimits {
     /// - 1 second timeout
     [[nodiscard]] static constexpr CapabilityLimits untrusted() noexcept {
         return CapabilityLimits{
-            .max_memory = 1ULL * 1024 * 1024,           // 1MB
+            .max_memory = 1ULL * 1024 * 1024,  // 1MB
             .max_instructions = 100'000,
             .max_stack_depth = 64,
             .max_allocations = 100,
-            .max_allocation_size = 64ULL * 1024,        // 64KB
-            .max_execution_time_ms = 1000               // 1 second
+            .max_allocation_size = 64ULL * 1024,  // 64KB
+            .max_execution_time_ms = 1000         // 1 second
         };
     }
 
@@ -270,7 +289,7 @@ struct CapabilityLimits {
     /// - 10 second timeout
     [[nodiscard]] static constexpr CapabilityLimits sandbox() noexcept {
         return CapabilityLimits{
-            .max_memory = 16ULL * 1024 * 1024,          // 16MB
+            .max_memory = 16ULL * 1024 * 1024,  // 16MB
             .max_instructions = 1'000'000,
             .max_stack_depth = 256,
             .max_allocations = 1'000,
@@ -289,12 +308,12 @@ struct CapabilityLimits {
     /// - 5 minute timeout
     [[nodiscard]] static constexpr CapabilityLimits trusted() noexcept {
         return CapabilityLimits{
-            .max_memory = 256ULL * 1024 * 1024,         // 256MB
+            .max_memory = 256ULL * 1024 * 1024,  // 256MB
             .max_instructions = 100'000'000,
             .max_stack_depth = 4096,
             .max_allocations = 100'000,
-            .max_allocation_size = 64ULL * 1024 * 1024, // 64MB
-            .max_execution_time_ms = 300'000            // 5 minutes
+            .max_allocation_size = 64ULL * 1024 * 1024,  // 64MB
+            .max_execution_time_ms = 300'000             // 5 minutes
         };
     }
 
@@ -302,9 +321,8 @@ struct CapabilityLimits {
 
     /// Check if any limits are set
     [[nodiscard]] constexpr bool has_limits() const noexcept {
-        return max_memory > 0 || max_instructions > 0 ||
-               max_stack_depth > 0 || max_allocations > 0 ||
-               max_allocation_size > 0 || max_execution_time_ms > 0;
+        return max_memory > 0 || max_instructions > 0 || max_stack_depth > 0 ||
+               max_allocations > 0 || max_allocation_size > 0 || max_execution_time_ms > 0;
     }
 
     /// Check if these limits are within another set of limits
@@ -317,14 +335,18 @@ struct CapabilityLimits {
     /// @return true if this limit set is within the parent's limits
     [[nodiscard]] constexpr bool is_within(const CapabilityLimits& parent) const noexcept {
         auto within = [](std::uint64_t child, std::uint64_t parent_val) {
-            if (parent_val == 0) return true;  // Parent unlimited
-            if (child == 0) return false;      // Child unlimited but parent limited
+            if (parent_val == 0)
+                return true;  // Parent unlimited
+            if (child == 0)
+                return false;  // Child unlimited but parent limited
             return child <= parent_val;
         };
 
         auto within32 = [](std::uint32_t child, std::uint32_t parent_val) {
-            if (parent_val == 0) return true;
-            if (child == 0) return false;
+            if (parent_val == 0)
+                return true;
+            if (child == 0)
+                return false;
             return child <= parent_val;
         };
 
@@ -395,15 +417,15 @@ struct Capability {
     /// - It is active (not revoked)
     /// - It has not expired
     [[nodiscard]] bool is_valid() const noexcept {
-        if (!is_active) return false;
-        if (expires_at == NO_EXPIRATION) return true;
+        if (!is_active)
+            return false;
+        if (expires_at == NO_EXPIRATION)
+            return true;
         return std::chrono::system_clock::now() < expires_at;
     }
 
     /// Check if this is a root capability (no parent)
-    [[nodiscard]] bool is_root() const noexcept {
-        return granted_by == 0;
-    }
+    [[nodiscard]] bool is_root() const noexcept { return granted_by == 0; }
 
     /// Check if capability has a specific permission
     [[nodiscard]] bool has(Permission perm) const noexcept {
@@ -416,7 +438,8 @@ struct Capability {
     /// @return true if child_perms is a valid subset
     [[nodiscard]] bool can_derive(Permission child_perms) const noexcept {
         // Must have Derive permission to create children
-        if (!has(Permission::Derive)) return false;
+        if (!has(Permission::Derive))
+            return false;
         // Child must be a subset of our permissions
         return is_subset(permissions, child_perms);
     }
@@ -430,9 +453,7 @@ struct Capability {
     }
 
     /// Equality comparison (by ID only)
-    [[nodiscard]] bool operator==(const Capability& other) const noexcept {
-        return id == other.id;
-    }
+    [[nodiscard]] bool operator==(const Capability& other) const noexcept { return id == other.id; }
 };
 
 // ============================================================================
@@ -451,14 +472,10 @@ struct CapabilityHandle {
     std::uint32_t generation{0};
 
     /// Check if this is a null handle
-    [[nodiscard]] constexpr bool is_null() const noexcept {
-        return id == 0;
-    }
+    [[nodiscard]] constexpr bool is_null() const noexcept { return id == 0; }
 
     /// Create a null handle
-    [[nodiscard]] static constexpr CapabilityHandle null() noexcept {
-        return CapabilityHandle{};
-    }
+    [[nodiscard]] static constexpr CapabilityHandle null() noexcept { return CapabilityHandle{}; }
 
     /// Equality comparison
     [[nodiscard]] constexpr bool operator==(const CapabilityHandle&) const noexcept = default;

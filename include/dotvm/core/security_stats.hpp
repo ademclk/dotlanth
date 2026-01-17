@@ -59,9 +59,7 @@ enum class SecurityEvent : std::uint8_t {
 /// @param event The type of security event that occurred
 /// @param context Optional context string (may be nullptr)
 /// @param user_data User-provided data pointer
-using SecurityEventCallback = void (*)(SecurityEvent event,
-                                        const char* context,
-                                        void* user_data);
+using SecurityEventCallback = void (*)(SecurityEvent event, const char* context, void* user_data);
 
 /// Security event statistics for monitoring and auditing.
 ///
@@ -153,9 +151,7 @@ struct SecurityStats {
         invalid_handle_accesses.fetch_add(1, std::memory_order_relaxed);
     }
 
-    void record_cfi_violation() noexcept {
-        cfi_violations.fetch_add(1, std::memory_order_relaxed);
-    }
+    void record_cfi_violation() noexcept { cfi_violations.fetch_add(1, std::memory_order_relaxed); }
 
     void record_allocation_limit_hit() noexcept {
         allocation_limit_hits.fetch_add(1, std::memory_order_relaxed);
@@ -165,9 +161,7 @@ struct SecurityStats {
         handle_table_exhaustions.fetch_add(1, std::memory_order_relaxed);
     }
 
-    void record_allocation() noexcept {
-        total_allocations.fetch_add(1, std::memory_order_relaxed);
-    }
+    void record_allocation() noexcept { total_allocations.fetch_add(1, std::memory_order_relaxed); }
 
     void record_deallocation() noexcept {
         total_deallocations.fetch_add(1, std::memory_order_relaxed);
@@ -237,9 +231,11 @@ struct SecurityStats {
 
         // Saturating addition to prevent overflow
         std::size_t sum = bv;
-        if (sum > SIZE_MAX - iha) return SIZE_MAX;
+        if (sum > SIZE_MAX - iha)
+            return SIZE_MAX;
         sum += iha;
-        if (sum > SIZE_MAX - cfi) return SIZE_MAX;
+        if (sum > SIZE_MAX - cfi)
+            return SIZE_MAX;
         sum += cfi;
         return sum;
     }
@@ -294,8 +290,8 @@ struct SecurityStats {
             .limit_violations = limit_violations.load(std::memory_order_acquire),
             // Resource limiter counters (SEC-004)
             .stack_depth_limit_hits = stack_depth_limit_hits.load(std::memory_order_acquire),
-            .execution_time_expirations = execution_time_expirations.load(std::memory_order_acquire)
-        };
+            .execution_time_expirations =
+                execution_time_expirations.load(std::memory_order_acquire)};
     }
 
     /// Resets all counters to zero.
@@ -332,16 +328,13 @@ struct SecurityStats {
     ///
     /// @note NOT thread-safe. Set before starting concurrent operations.
     /// @note The callback is invoked synchronously from the recording thread.
-    void set_event_callback(SecurityEventCallback callback,
-                            void* user_data = nullptr) noexcept {
+    void set_event_callback(SecurityEventCallback callback, void* user_data = nullptr) noexcept {
         event_callback_ = callback;
         callback_user_data_ = user_data;
     }
 
     /// Check if an event callback is registered
-    [[nodiscard]] bool has_event_callback() const noexcept {
-        return event_callback_ != nullptr;
-    }
+    [[nodiscard]] bool has_event_callback() const noexcept { return event_callback_ != nullptr; }
 
 private:
     SecurityEventCallback event_callback_{nullptr};
@@ -359,4 +352,4 @@ private:
 static_assert(std::atomic<std::size_t>::is_always_lock_free,
               "SecurityStats requires lock-free atomics");
 
-} // namespace dotvm::core
+}  // namespace dotvm::core

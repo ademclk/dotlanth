@@ -6,15 +6,15 @@
 /// Provides a simplified mock implementation for testing components
 /// that depend on memory operations, without actual OS allocations.
 
-#include <dotvm/core/value.hpp>
-#include <dotvm/core/memory_config.hpp>
-#include <dotvm/core/memory.hpp>
-
+#include <cstddef>
 #include <cstring>
 #include <expected>
 #include <map>
 #include <vector>
-#include <cstddef>
+
+#include <dotvm/core/memory.hpp>
+#include <dotvm/core/memory_config.hpp>
+#include <dotvm/core/value.hpp>
 
 namespace dotvm::test {
 
@@ -30,7 +30,7 @@ public:
     using Handle = core::Handle;
     using MemoryError = core::MemoryError;
 
-    template<typename T>
+    template <typename T>
     using Result = std::expected<T, MemoryError>;
 
     /// Access log entry for verification
@@ -68,11 +68,9 @@ public:
         std::uint32_t index = next_index_++;
         std::uint32_t generation = 1;
 
-        allocations_[index] = Allocation{
-            .data = std::vector<std::uint8_t>(aligned_size, 0),
-            .generation = generation,
-            .active = true
-        };
+        allocations_[index] = Allocation{.data = std::vector<std::uint8_t>(aligned_size, 0),
+                                         .generation = generation,
+                                         .active = true};
 
         Handle h{index, generation};
         total_allocated_ += aligned_size;
@@ -100,15 +98,14 @@ public:
     /// Check if a handle is valid
     [[nodiscard]] bool is_valid(Handle h) const noexcept {
         auto it = allocations_.find(h.index);
-        return it != allocations_.end() &&
-               it->second.active &&
+        return it != allocations_.end() && it->second.active &&
                it->second.generation == h.generation;
     }
 
     // ========== Typed Read/Write ==========
 
     /// Read a value from memory
-    template<typename T>
+    template <typename T>
     [[nodiscard]] Result<T> read(Handle h, std::size_t offset) const noexcept {
         static_assert(std::is_trivially_copyable_v<T>);
 
@@ -129,7 +126,7 @@ public:
     }
 
     /// Write a value to memory
-    template<typename T>
+    template <typename T>
     [[nodiscard]] MemoryError write(Handle h, std::size_t offset, T value) noexcept {
         static_assert(std::is_trivially_copyable_v<T>);
 
@@ -153,9 +150,10 @@ public:
 
     // ========== Bulk Operations ==========
 
-    [[nodiscard]] MemoryError write_bytes(Handle h, std::size_t offset,
-                                           const void* src, std::size_t count) noexcept {
-        if (!src || count == 0) return MemoryError::Success;
+    [[nodiscard]] MemoryError write_bytes(Handle h, std::size_t offset, const void* src,
+                                          std::size_t count) noexcept {
+        if (!src || count == 0)
+            return MemoryError::Success;
 
         auto it = allocations_.find(h.index);
         if (it == allocations_.end() || !it->second.active ||
@@ -172,9 +170,10 @@ public:
         return MemoryError::Success;
     }
 
-    [[nodiscard]] MemoryError read_bytes(Handle h, std::size_t offset,
-                                          void* dst, std::size_t count) const noexcept {
-        if (!dst || count == 0) return MemoryError::Success;
+    [[nodiscard]] MemoryError read_bytes(Handle h, std::size_t offset, void* dst,
+                                         std::size_t count) const noexcept {
+        if (!dst || count == 0)
+            return MemoryError::Success;
 
         auto it = allocations_.find(h.index);
         if (it == allocations_.end() || !it->second.active ||
@@ -205,14 +204,13 @@ public:
     [[nodiscard]] std::size_t active_allocations() const noexcept {
         std::size_t count = 0;
         for (const auto& [idx, alloc] : allocations_) {
-            if (alloc.active) ++count;
+            if (alloc.active)
+                ++count;
         }
         return count;
     }
 
-    [[nodiscard]] std::size_t total_allocated_bytes() const noexcept {
-        return total_allocated_;
-    }
+    [[nodiscard]] std::size_t total_allocated_bytes() const noexcept { return total_allocated_; }
 
     [[nodiscard]] std::size_t max_allocation_size() const noexcept {
         return core::mem_config::MAX_ALLOCATION_SIZE;
@@ -229,14 +227,10 @@ public:
     // ========== Test Helpers ==========
 
     /// Get the access log
-    [[nodiscard]] const std::vector<AccessLog>& access_log() const noexcept {
-        return access_log_;
-    }
+    [[nodiscard]] const std::vector<AccessLog>& access_log() const noexcept { return access_log_; }
 
     /// Clear the access log
-    void clear_log() noexcept {
-        access_log_.clear();
-    }
+    void clear_log() noexcept { access_log_.clear(); }
 
     /// Reset all state
     void reset() noexcept {
@@ -254,9 +248,7 @@ private:
         bool active;
     };
 
-    void log(AccessLog entry) const {
-        access_log_.push_back(entry);
-    }
+    void log(AccessLog entry) const { access_log_.push_back(entry); }
 
     std::map<std::uint32_t, Allocation> allocations_;
     mutable std::vector<AccessLog> access_log_;
@@ -266,4 +258,4 @@ private:
     MemoryError inject_error_{MemoryError::AllocationFailed};
 };
 
-} // namespace dotvm::test
+}  // namespace dotvm::test

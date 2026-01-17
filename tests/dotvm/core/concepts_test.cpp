@@ -1,13 +1,13 @@
-#include <gtest/gtest.h>
-
-#include <dotvm/core/concepts/concepts.hpp>
-#include <dotvm/core/value.hpp>
-#include <dotvm/core/memory_config.hpp>
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
+
+#include <dotvm/core/concepts/concepts.hpp>
+#include <dotvm/core/memory_config.hpp>
+#include <dotvm/core/value.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace dotvm::core;
 using namespace dotvm::core::concepts;
@@ -21,17 +21,11 @@ using namespace dotvm::core::concepts;
 struct MockRegisterFile {
     std::array<Value, 256> regs_{};
 
-    Value read(std::uint8_t idx) const noexcept {
-        return regs_[idx];
-    }
+    Value read(std::uint8_t idx) const noexcept { return regs_[idx]; }
 
-    void write(std::uint8_t idx, Value val) noexcept {
-        regs_[idx] = val;
-    }
+    void write(std::uint8_t idx, Value val) noexcept { regs_[idx] = val; }
 
-    static constexpr std::size_t size() noexcept {
-        return 256;
-    }
+    static constexpr std::size_t size() noexcept { return 256; }
 };
 
 /// Mock ALU for testing
@@ -51,19 +45,15 @@ struct MockMinimalAlu {
 
     Value div(Value a, Value b) const noexcept {
         auto divisor = b.as_integer();
-        return divisor == 0 ? Value::from_int(0) :
-               Value::from_int(a.as_integer() / divisor);
+        return divisor == 0 ? Value::from_int(0) : Value::from_int(a.as_integer() / divisor);
     }
 
     Value mod(Value a, Value b) const noexcept {
         auto divisor = b.as_integer();
-        return divisor == 0 ? Value::from_int(0) :
-               Value::from_int(a.as_integer() % divisor);
+        return divisor == 0 ? Value::from_int(0) : Value::from_int(a.as_integer() % divisor);
     }
 
-    Value neg(Value a) const noexcept {
-        return Value::from_int(-a.as_integer());
-    }
+    Value neg(Value a) const noexcept { return Value::from_int(-a.as_integer()); }
 
     Value abs(Value a) const noexcept {
         auto val = a.as_integer();
@@ -89,8 +79,7 @@ TEST(ConceptsTest, MockRegisterFileSatisfiesInterface) {
 
 TEST(ConceptsTest, MockMinimalAluSatisfiesMinimalAlu) {
     // Compile-time verification
-    static_assert(MinimalAlu<MockMinimalAlu>,
-                  "MockMinimalAlu must satisfy MinimalAlu concept");
+    static_assert(MinimalAlu<MockMinimalAlu>, "MockMinimalAlu must satisfy MinimalAlu concept");
 
     // Runtime verification
     MockMinimalAlu alu;
@@ -123,7 +112,7 @@ TEST(ConceptsTest, StandardTypesSatisfyConcepts) {
 // ============================================================================
 
 /// Example template function constrained by RegisterFileInterface
-template<RegisterFileInterface RF>
+template <RegisterFileInterface RF>
 Value read_and_write(RF& rf, std::uint8_t src, std::uint8_t dst) {
     auto val = rf.read(src);
     rf.write(dst, val);
@@ -131,7 +120,7 @@ Value read_and_write(RF& rf, std::uint8_t src, std::uint8_t dst) {
 }
 
 /// Example template function constrained by MinimalAlu
-template<MinimalAlu A>
+template <MinimalAlu A>
 Value compute_expression(const A& alu, Value a, Value b, Value c) {
     // Compute (a + b) * c
     return alu.mul(alu.add(a, b), c);

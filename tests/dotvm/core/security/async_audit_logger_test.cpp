@@ -1,12 +1,12 @@
 /// @file async_audit_logger_test.cpp
 /// @brief Unit tests for SEC-006 Async Audit Logger
 
-#include "dotvm/core/security/async_audit_logger.hpp"
+#include <sstream>
+#include <thread>
 
 #include <gtest/gtest.h>
 
-#include <sstream>
-#include <thread>
+#include "dotvm/core/security/async_audit_logger.hpp"
 
 namespace dotvm::core::security::audit {
 namespace {
@@ -136,8 +136,7 @@ TEST(AsyncAuditLoggerTest, QueryByType) {
 
     logger.flush();
 
-    auto events =
-        logger.query(AuditQuery::by_type(AuditEventType::AllocationAttempt));
+    auto events = logger.query(AuditQuery::by_type(AuditEventType::AllocationAttempt));
 
     logger.stop();
 
@@ -151,12 +150,9 @@ TEST(AsyncAuditLoggerTest, QueryBySeverity) {
     AsyncAuditLogger logger(256);
     logger.start();
 
-    logger.log(
-        AuditEvent::now(AuditEventType::DotStarted, AuditSeverity::Info));
-    logger.log(
-        AuditEvent::now(AuditEventType::DotFailed, AuditSeverity::Error));
-    logger.log(AuditEvent::now(AuditEventType::SecurityViolation,
-                               AuditSeverity::Critical));
+    logger.log(AuditEvent::now(AuditEventType::DotStarted, AuditSeverity::Info));
+    logger.log(AuditEvent::now(AuditEventType::DotFailed, AuditSeverity::Error));
+    logger.log(AuditEvent::now(AuditEventType::SecurityViolation, AuditSeverity::Critical));
 
     logger.flush();
 
@@ -166,8 +162,7 @@ TEST(AsyncAuditLoggerTest, QueryBySeverity) {
 
     // Should get Error and Critical events
     for (const auto& e : events) {
-        EXPECT_GE(static_cast<int>(e.severity),
-                  static_cast<int>(AuditSeverity::Error));
+        EXPECT_GE(static_cast<int>(e.severity), static_cast<int>(AuditSeverity::Error));
     }
 }
 
@@ -299,9 +294,8 @@ TEST(AsyncAuditLoggerTest, ThroughputBenchmark) {
     auto start = std::chrono::steady_clock::now();
 
     for (std::size_t i = 0; i < EVENT_COUNT; ++i) {
-        logger->log(AuditEvent::now(AuditEventType::AllocationAttempt,
-                                    AuditSeverity::Debug)
-                        .with_value(i));
+        logger->log(
+            AuditEvent::now(AuditEventType::AllocationAttempt, AuditSeverity::Debug).with_value(i));
     }
 
     auto end_logging = std::chrono::steady_clock::now();
@@ -326,29 +320,24 @@ TEST(AsyncAuditLoggerTest, ThroughputBenchmark) {
     std::cout << "\n=== Throughput Benchmark Results ===" << std::endl;
     std::cout << "Events logged: " << stats.events_logged << std::endl;
     std::cout << "Events dropped: " << stats.events_dropped << std::endl;
-    std::cout << "Logging time: " << logging_time.count() * 1000 << " ms"
-              << std::endl;
-    std::cout << "Total time (with flush): " << total_time.count() * 1000
-              << " ms" << std::endl;
+    std::cout << "Logging time: " << logging_time.count() * 1000 << " ms" << std::endl;
+    std::cout << "Total time (with flush): " << total_time.count() * 1000 << " ms" << std::endl;
     std::cout << "Logging rate: " << logging_rate << " events/sec" << std::endl;
     std::cout << "Total rate: " << total_rate << " events/sec" << std::endl;
     std::cout << "===================================\n" << std::endl;
 
     // Target: >10K events/sec
     // Note: We check logging_rate (hot path performance) not total_rate
-    EXPECT_GT(logging_rate, 10'000.0)
-        << "Should exceed 10K events/sec on hot path";
+    EXPECT_GT(logging_rate, 10'000.0) << "Should exceed 10K events/sec on hot path";
 
     // Note: Drop rate may be high in burst scenarios (100K events in ~30ms)
     // This is expected - the buffer is designed to drop events rather than block
     // In real usage, event rate would be much lower and drop rate near zero
-    double drop_rate = static_cast<double>(stats.events_dropped) /
-                       static_cast<double>(EVENT_COUNT);
+    double drop_rate = static_cast<double>(stats.events_dropped) / static_cast<double>(EVENT_COUNT);
     std::cout << "Drop rate: " << (drop_rate * 100) << "%" << std::endl;
 
     // At minimum, verify we logged more than we dropped (unless extreme burst)
-    EXPECT_GT(stats.events_logged + stats.events_dropped, 0)
-        << "Should have processed some events";
+    EXPECT_GT(stats.events_logged + stats.events_dropped, 0) << "Should have processed some events";
 }
 
 TEST(AsyncAuditLoggerTest, ConcurrentLogging) {
@@ -383,8 +372,8 @@ TEST(AsyncAuditLoggerTest, ConcurrentLogging) {
 
     // Should have logged some events (may have drops due to contention)
     EXPECT_GT(stats.events_logged, 0);
-    std::cout << "Concurrent test: logged " << stats.events_logged
-              << ", dropped " << stats.events_dropped << std::endl;
+    std::cout << "Concurrent test: logged " << stats.events_logged << ", dropped "
+              << stats.events_dropped << std::endl;
 }
 
 TEST(AsyncAuditLoggerTest, FlushDuringHighLoad) {
@@ -450,8 +439,7 @@ TEST(AsyncAuditLoggerTest, LargeMetadata) {
     // Create event with lots of metadata
     auto event = AuditEvent::now(AuditEventType::DotStarted);
     for (int i = 0; i < 100; ++i) {
-        event.with_metadata("key" + std::to_string(i),
-                            "value" + std::to_string(i));
+        event.with_metadata("key" + std::to_string(i), "value" + std::to_string(i));
     }
 
     logger.log(std::move(event));

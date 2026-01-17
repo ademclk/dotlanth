@@ -1,13 +1,14 @@
 #include "dotvm/core/crypto/aes.hpp"
-#include "dotvm/core/simd/cpu_features.hpp"
 
 #include <algorithm>
 #include <cstring>
 
+#include "dotvm/core/simd/cpu_features.hpp"
+
 // Platform-specific intrinsics for hardware acceleration
 #if defined(__x86_64__) || defined(_M_X64)
-    #include <wmmintrin.h>  // AES-NI
     #include <emmintrin.h>  // SSE2
+    #include <wmmintrin.h>  // AES-NI
     #define DOTVM_X86_AES 1
 #endif
 
@@ -43,8 +44,7 @@ constexpr std::array<std::uint8_t, 256> SBOX = {
     0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
     0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
     0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
-    0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
-};
+    0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16};
 
 /// AES inverse S-box for InvSubBytes transformation
 constexpr std::array<std::uint8_t, 256> INV_SBOX = {
@@ -63,13 +63,11 @@ constexpr std::array<std::uint8_t, 256> INV_SBOX = {
     0x1f, 0xdd, 0xa8, 0x33, 0x88, 0x07, 0xc7, 0x31, 0xb1, 0x12, 0x10, 0x59, 0x27, 0x80, 0xec, 0x5f,
     0x60, 0x51, 0x7f, 0xa9, 0x19, 0xb5, 0x4a, 0x0d, 0x2d, 0xe5, 0x7a, 0x9f, 0x93, 0xc9, 0x9c, 0xef,
     0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
-    0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
-};
+    0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d};
 
 /// Round constants for key expansion
-constexpr std::array<std::uint8_t, 10> RCON = {
-    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36
-};
+constexpr std::array<std::uint8_t, 10> RCON = {0x01, 0x02, 0x04, 0x08, 0x10,
+                                               0x20, 0x40, 0x80, 0x1b, 0x36};
 
 /// Galois Field multiplication by 2
 constexpr std::uint8_t gf_mul2(std::uint8_t x) noexcept {
@@ -102,7 +100,8 @@ constexpr std::uint8_t gf_mul14(std::uint8_t x) noexcept {
 }
 
 /// XOR two 16-byte blocks
-inline void xor_block(std::uint8_t* dst, const std::uint8_t* src1, const std::uint8_t* src2) noexcept {
+inline void xor_block(std::uint8_t* dst, const std::uint8_t* src1,
+                      const std::uint8_t* src2) noexcept {
     for (int i = 0; i < 16; ++i) {
         dst[i] = static_cast<std::uint8_t>(src1[i] ^ src2[i]);
     }
@@ -195,7 +194,7 @@ inline void mix_columns(std::uint8_t* state) noexcept {
         // [1 2 3 1] * [b]
         // [1 1 2 3]   [c]
         // [3 1 1 2]   [d]
-        state[i]     = static_cast<std::uint8_t>(gf_mul2(a) ^ gf_mul3(b) ^ c ^ d);
+        state[i] = static_cast<std::uint8_t>(gf_mul2(a) ^ gf_mul3(b) ^ c ^ d);
         state[i + 1] = static_cast<std::uint8_t>(a ^ gf_mul2(b) ^ gf_mul3(c) ^ d);
         state[i + 2] = static_cast<std::uint8_t>(a ^ b ^ gf_mul2(c) ^ gf_mul3(d));
         state[i + 3] = static_cast<std::uint8_t>(gf_mul3(a) ^ b ^ c ^ gf_mul2(d));
@@ -216,10 +215,13 @@ inline void inv_mix_columns(std::uint8_t* state) noexcept {
         // [ 9 14 11 13] * [b]
         // [13  9 14 11]   [c]
         // [11 13  9 14]   [d]
-        state[i]     = static_cast<std::uint8_t>(gf_mul14(a) ^ gf_mul11(b) ^ gf_mul13(c) ^ gf_mul9(d));
-        state[i + 1] = static_cast<std::uint8_t>(gf_mul9(a) ^ gf_mul14(b) ^ gf_mul11(c) ^ gf_mul13(d));
-        state[i + 2] = static_cast<std::uint8_t>(gf_mul13(a) ^ gf_mul9(b) ^ gf_mul14(c) ^ gf_mul11(d));
-        state[i + 3] = static_cast<std::uint8_t>(gf_mul11(a) ^ gf_mul13(b) ^ gf_mul9(c) ^ gf_mul14(d));
+        state[i] = static_cast<std::uint8_t>(gf_mul14(a) ^ gf_mul11(b) ^ gf_mul13(c) ^ gf_mul9(d));
+        state[i + 1] =
+            static_cast<std::uint8_t>(gf_mul9(a) ^ gf_mul14(b) ^ gf_mul11(c) ^ gf_mul13(d));
+        state[i + 2] =
+            static_cast<std::uint8_t>(gf_mul13(a) ^ gf_mul9(b) ^ gf_mul14(c) ^ gf_mul11(d));
+        state[i + 3] =
+            static_cast<std::uint8_t>(gf_mul11(a) ^ gf_mul13(b) ^ gf_mul9(c) ^ gf_mul14(d));
     }
 }
 
@@ -256,13 +258,15 @@ void Aes128::key_expansion(const Key& key) noexcept {
 
         for (std::size_t word = 1; word < 4; ++word) {
             for (std::size_t i = 0; i < 4; ++i) {
-                curr[word * 4 + i] = static_cast<std::uint8_t>(curr[(word - 1) * 4 + i] ^ prev[word * 4 + i]);
+                curr[word * 4 + i] =
+                    static_cast<std::uint8_t>(curr[(word - 1) * 4 + i] ^ prev[word * 4 + i]);
             }
         }
     }
 }
 
-Aes128::Block Aes128::encrypt_block_scalar(std::span<const std::uint8_t, 16> plaintext) const noexcept {
+Aes128::Block
+Aes128::encrypt_block_scalar(std::span<const std::uint8_t, 16> plaintext) const noexcept {
     Block state;
     std::memcpy(state.data(), plaintext.data(), BLOCK_SIZE);
 
@@ -285,7 +289,8 @@ Aes128::Block Aes128::encrypt_block_scalar(std::span<const std::uint8_t, 16> pla
     return state;
 }
 
-Aes128::Block Aes128::decrypt_block_scalar(std::span<const std::uint8_t, 16> ciphertext) const noexcept {
+Aes128::Block
+Aes128::decrypt_block_scalar(std::span<const std::uint8_t, 16> ciphertext) const noexcept {
     Block state;
     std::memcpy(state.data(), ciphertext.data(), BLOCK_SIZE);
 
@@ -314,8 +319,8 @@ Aes128::Block Aes128::decrypt_block_scalar(std::span<const std::uint8_t, 16> cip
 
 #if defined(DOTVM_X86_AES)
 
-__attribute__((target("aes,sse2")))
-Aes128::Block Aes128::encrypt_block_aesni(std::span<const std::uint8_t, 16> plaintext) const noexcept {
+__attribute__((target("aes,sse2"))) Aes128::Block
+Aes128::encrypt_block_aesni(std::span<const std::uint8_t, 16> plaintext) const noexcept {
     __m128i block = _mm_loadu_si128(reinterpret_cast<const __m128i*>(plaintext.data()));
 
     // Load round keys
@@ -349,8 +354,8 @@ Aes128::Block Aes128::encrypt_block_aesni(std::span<const std::uint8_t, 16> plai
     return result;
 }
 
-__attribute__((target("aes,sse2")))
-Aes128::Block Aes128::decrypt_block_aesni(std::span<const std::uint8_t, 16> ciphertext) const noexcept {
+__attribute__((target("aes,sse2"))) Aes128::Block
+Aes128::decrypt_block_aesni(std::span<const std::uint8_t, 16> ciphertext) const noexcept {
     __m128i block = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ciphertext.data()));
 
     // Load round keys
@@ -404,7 +409,8 @@ Aes128::Block Aes128::decrypt_block_aesni(std::span<const std::uint8_t, 16> ciph
 
 #if defined(DOTVM_ARM_AES)
 
-Aes128::Block Aes128::encrypt_block_arm_crypto(std::span<const std::uint8_t, 16> plaintext) const noexcept {
+Aes128::Block
+Aes128::encrypt_block_arm_crypto(std::span<const std::uint8_t, 16> plaintext) const noexcept {
     uint8x16_t block = vld1q_u8(plaintext.data());
 
     // Load round keys
@@ -455,7 +461,8 @@ Aes128::Block Aes128::encrypt_block_arm_crypto(std::span<const std::uint8_t, 16>
     return result;
 }
 
-Aes128::Block Aes128::decrypt_block_arm_crypto(std::span<const std::uint8_t, 16> ciphertext) const noexcept {
+Aes128::Block
+Aes128::decrypt_block_arm_crypto(std::span<const std::uint8_t, 16> ciphertext) const noexcept {
     uint8x16_t block = vld1q_u8(ciphertext.data());
 
     // Load round keys
@@ -471,8 +478,8 @@ Aes128::Block Aes128::decrypt_block_arm_crypto(std::span<const std::uint8_t, 16>
     uint8x16_t k9 = vld1q_u8(round_keys_[9].data());
     uint8x16_t k10 = vld1q_u8(round_keys_[10].data());
 
-    // ARM AES decryption: vaesdq performs InvSubBytes + InvShiftRows, vaesimcq performs InvMixColumns
-    // Round 0: AddRoundKey with last round key
+    // ARM AES decryption: vaesdq performs InvSubBytes + InvShiftRows, vaesimcq performs
+    // InvMixColumns Round 0: AddRoundKey with last round key
     block = veorq_u8(block, k10);
 
     // Rounds 9-1: InvSubBytes + InvShiftRows, then AddRoundKey, then InvMixColumns
@@ -510,7 +517,8 @@ Aes128::Block Aes128::decrypt_block_arm_crypto(std::span<const std::uint8_t, 16>
 // Runtime Dispatch
 // ============================================================================
 
-Aes128::Block Aes128::encrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> plaintext) const noexcept {
+Aes128::Block
+Aes128::encrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> plaintext) const noexcept {
     const auto& features = simd::detect_cpu_features();
 
 #if defined(DOTVM_X86_AES)
@@ -530,7 +538,8 @@ Aes128::Block Aes128::encrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> pl
     return encrypt_block_scalar(plaintext);
 }
 
-Aes128::Block Aes128::decrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> ciphertext) const noexcept {
+Aes128::Block
+Aes128::decrypt_block(std::span<const std::uint8_t, BLOCK_SIZE> ciphertext) const noexcept {
     const auto& features = simd::detect_cpu_features();
 
 #if defined(DOTVM_X86_AES)

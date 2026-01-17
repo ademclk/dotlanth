@@ -4,11 +4,11 @@
 /// Verifies that the mock implementations work correctly and
 /// demonstrates their usage patterns for other test files.
 
-#include "mock_register_file.hpp"
-#include "mock_memory_manager.hpp"
-#include "test_fixtures.hpp"
-
 #include <gtest/gtest.h>
+
+#include "mock_memory_manager.hpp"
+#include "mock_register_file.hpp"
+#include "test_fixtures.hpp"
 
 namespace dotvm::test {
 namespace {
@@ -201,7 +201,7 @@ TEST_F(MockMemoryManagerTest, GetSize) {
 
     auto size_result = mem.get_size(*result);
     ASSERT_TRUE(size_result.has_value());
-    EXPECT_GE(*size_result, 100);  // At least requested
+    EXPECT_GE(*size_result, 100);       // At least requested
     EXPECT_EQ(*size_result % 4096, 0);  // Page aligned
 }
 
@@ -230,10 +230,14 @@ TEST_F(TestFixturesTest, GenerateTestValues) {
     // Should have variety of types
     bool has_int = false, has_float = false, has_bool = false, has_nil = false;
     for (const auto& v : values) {
-        if (v.is_integer()) has_int = true;
-        if (v.is_float()) has_float = true;
-        if (v.is_bool()) has_bool = true;
-        if (v.is_nil()) has_nil = true;
+        if (v.is_integer())
+            has_int = true;
+        if (v.is_float())
+            has_float = true;
+        if (v.is_bool())
+            has_bool = true;
+        if (v.is_nil())
+            has_nil = true;
     }
 
     EXPECT_TRUE(has_int);
@@ -291,5 +295,5 @@ TEST_F(TestFixturesTest, ScopedAllocation) {
     EXPECT_EQ(mm.active_allocations(), 0);
 }
 
-} // namespace
-} // namespace dotvm::test
+}  // namespace
+}  // namespace dotvm::test

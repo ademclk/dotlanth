@@ -20,8 +20,8 @@ void BenchmarkResult::print() const {
     double avg_ns = avg_ns_per_op();
 
     // Format the output
-    std::cout << std::setw(35) << std::left << name
-              << " | " << std::setw(12) << std::right << iterations << " iters"
+    std::cout << std::setw(35) << std::left << name << " | " << std::setw(12) << std::right
+              << iterations << " iters"
               << " | " << std::setw(10) << std::right << std::fixed << std::setprecision(1)
               << avg_ns << " ns/op"
               << " | " << std::setw(12) << std::right << std::scientific << std::setprecision(2)
@@ -51,7 +51,7 @@ void BenchmarkSuite::print_all() const {
 }
 
 void BenchmarkSuite::print_comparison(const BenchmarkResult& baseline,
-                                       const BenchmarkResult& optimized) {
+                                      const BenchmarkResult& optimized) {
     double baseline_ns = baseline.avg_ns_per_op();
     double optimized_ns = optimized.avg_ns_per_op();
 
@@ -61,9 +61,8 @@ void BenchmarkSuite::print_comparison(const BenchmarkResult& baseline,
     }
 
     std::cout << std::setw(35) << std::left << "Comparison"
-              << " | " << baseline.name << " -> " << optimized.name
-              << " | Speedup: " << std::fixed << std::setprecision(2) << speedup << "x"
-              << std::endl;
+              << " | " << baseline.name << " -> " << optimized.name << " | Speedup: " << std::fixed
+              << std::setprecision(2) << speedup << "x" << std::endl;
 }
 
 // ============================================================================
@@ -96,9 +95,11 @@ std::string format_time(std::chrono::nanoseconds ns) {
     } else if (count < 1000000) {
         oss << std::fixed << std::setprecision(2) << (static_cast<double>(count) / 1000.0) << " us";
     } else if (count < 1000000000) {
-        oss << std::fixed << std::setprecision(2) << (static_cast<double>(count) / 1000000.0) << " ms";
+        oss << std::fixed << std::setprecision(2) << (static_cast<double>(count) / 1000000.0)
+            << " ms";
     } else {
-        oss << std::fixed << std::setprecision(2) << (static_cast<double>(count) / 1000000000.0) << " s";
+        oss << std::fixed << std::setprecision(2) << (static_cast<double>(count) / 1000000000.0)
+            << " s";
     }
 
     return oss.str();

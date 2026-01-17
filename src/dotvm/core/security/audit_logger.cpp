@@ -14,8 +14,7 @@ namespace dotvm::core::security::audit {
 // SimpleBufferedAuditLogger Implementation
 // ============================================================================
 
-SimpleBufferedAuditLogger::SimpleBufferedAuditLogger(
-    std::size_t capacity) noexcept
+SimpleBufferedAuditLogger::SimpleBufferedAuditLogger(std::size_t capacity) noexcept
     : capacity_(capacity > 0 ? capacity : 1) {
     events_.reserve(capacity_);
 }
@@ -38,17 +37,16 @@ void SimpleBufferedAuditLogger::log(const AuditEvent& event) noexcept {
     }
 }
 
-bool SimpleBufferedAuditLogger::matches_filter(
-    const AuditEvent& event, const AuditQuery& filter) const noexcept {
+bool SimpleBufferedAuditLogger::matches_filter(const AuditEvent& event,
+                                               const AuditQuery& filter) const noexcept {
     // Type filter
     if (filter.type.has_value() && event.type != *filter.type) {
         return false;
     }
 
     // Severity filter (minimum level)
-    if (filter.min_severity.has_value() &&
-        static_cast<std::uint8_t>(event.severity) <
-            static_cast<std::uint8_t>(*filter.min_severity)) {
+    if (filter.min_severity.has_value() && static_cast<std::uint8_t>(event.severity) <
+                                               static_cast<std::uint8_t>(*filter.min_severity)) {
         return false;
     }
 
@@ -58,8 +56,7 @@ bool SimpleBufferedAuditLogger::matches_filter(
     }
 
     // Capability ID filter
-    if (filter.capability_id.has_value() &&
-        event.capability_id != *filter.capability_id) {
+    if (filter.capability_id.has_value() && event.capability_id != *filter.capability_id) {
         return false;
     }
 
@@ -71,8 +68,7 @@ bool SimpleBufferedAuditLogger::matches_filter(
     return true;
 }
 
-std::vector<AuditEvent>
-SimpleBufferedAuditLogger::query(const AuditQuery& filter) const {
+std::vector<AuditEvent> SimpleBufferedAuditLogger::query(const AuditQuery& filter) const {
     std::vector<AuditEvent> result;
     result.reserve(std::min(filter.limit, events_.size()));
 
@@ -91,8 +87,7 @@ SimpleBufferedAuditLogger::query(const AuditQuery& filter) const {
     return result;
 }
 
-std::size_t SimpleBufferedAuditLogger::export_to(std::ostream& out,
-                                                 ExportFormat format,
+std::size_t SimpleBufferedAuditLogger::export_to(std::ostream& out, ExportFormat format,
                                                  const AuditQuery& filter) const {
     auto events_to_export = query(filter);
 
@@ -109,8 +104,7 @@ std::size_t SimpleBufferedAuditLogger::export_to(std::ostream& out,
     }
 
     // Note: const_cast to update stats - stats are logically mutable
-    const_cast<SimpleBufferedAuditLogger*>(this)->total_exported_ +=
-        events_to_export.size();
+    const_cast<SimpleBufferedAuditLogger*>(this)->total_exported_ += events_to_export.size();
 
     return events_to_export.size();
 }
@@ -164,20 +158,18 @@ void SimpleBufferedAuditLogger::apply_retention() noexcept {
     }
 
     auto now = std::chrono::steady_clock::now();
-    auto cutoff =
-        now - std::chrono::hours(static_cast<std::int64_t>(retention_hours_));
+    auto cutoff = now - std::chrono::hours(static_cast<std::int64_t>(retention_hours_));
 
     // Remove events older than cutoff
     std::size_t removed = 0;
     auto new_end =
-        std::remove_if(events_.begin(), events_.end(),
-                       [cutoff, &removed](const AuditEvent& e) {
-                           if (e.timestamp < cutoff) {
-                               ++removed;
-                               return true;
-                           }
-                           return false;
-                       });
+        std::remove_if(events_.begin(), events_.end(), [cutoff, &removed](const AuditEvent& e) {
+            if (e.timestamp < cutoff) {
+                ++removed;
+                return true;
+            }
+            return false;
+        });
 
     events_.erase(new_end, events_.end());
     total_expired_ += removed;

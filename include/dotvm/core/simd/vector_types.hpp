@@ -29,23 +29,22 @@ namespace dotvm::core::simd {
 ///
 /// Lane types must be arithmetic types of specific sizes that map cleanly
 /// to SIMD hardware lanes.
-template<typename T>
-concept LaneType = std::is_arithmetic_v<T> && (
-    std::same_as<T, std::int8_t> || std::same_as<T, std::uint8_t> ||
-    std::same_as<T, std::int16_t> || std::same_as<T, std::uint16_t> ||
-    std::same_as<T, std::int32_t> || std::same_as<T, std::uint32_t> ||
-    std::same_as<T, std::int64_t> || std::same_as<T, std::uint64_t> ||
-    std::same_as<T, float> || std::same_as<T, double>
-);
+template <typename T>
+concept LaneType =
+    std::is_arithmetic_v<T> && (std::same_as<T, std::int8_t> || std::same_as<T, std::uint8_t> ||
+                                std::same_as<T, std::int16_t> || std::same_as<T, std::uint16_t> ||
+                                std::same_as<T, std::int32_t> || std::same_as<T, std::uint32_t> ||
+                                std::same_as<T, std::int64_t> || std::same_as<T, std::uint64_t> ||
+                                std::same_as<T, float> || std::same_as<T, double>);
 
 /// Concept for valid vector widths
-template<std::size_t Width>
+template <std::size_t Width>
 concept ValidVectorWidth = (Width == 128 || Width == 256 || Width == 512);
 
 /// Concept for valid lane count given width and lane type
-template<std::size_t Width, typename Lane>
+template <std::size_t Width, typename Lane>
 concept ValidLaneConfiguration = ValidVectorWidth<Width> && LaneType<Lane> &&
-    (Width >= sizeof(Lane) * 8) && ((Width / 8) % sizeof(Lane) == 0);
+                                 (Width >= sizeof(Lane) * 8) && ((Width / 8) % sizeof(Lane) == 0);
 
 // ============================================================================
 // Vector Template Class
@@ -66,7 +65,7 @@ concept ValidLaneConfiguration = ValidVectorWidth<Width> && LaneType<Lane> &&
 /// v[0] = 10;
 /// v[1] = 20;
 /// @endcode
-template<std::size_t Width, LaneType Lane>
+template <std::size_t Width, LaneType Lane>
     requires ValidLaneConfiguration<Width, Lane>
 class alignas(Width / 8) Vector {
 public:
@@ -132,11 +131,9 @@ public:
     /// Variadic constructor - initializes lanes from individual values
     ///
     /// @param args Lane values (must provide exactly lane_count values)
-    template<typename... Args>
-        requires (sizeof...(Args) == lane_count) &&
-                 (std::convertible_to<Args, Lane> && ...)
-    constexpr Vector(Args... args) noexcept
-        : lanes_{static_cast<Lane>(args)...} {}
+    template <typename... Args>
+        requires(sizeof...(Args) == lane_count) && (std::convertible_to<Args, Lane> && ...)
+    constexpr Vector(Args... args) noexcept : lanes_{static_cast<Lane>(args)...} {}
 
     /// Copy from raw bytes
     ///
@@ -152,9 +149,7 @@ public:
     }
 
     /// Create a zero vector
-    [[nodiscard]] static constexpr Vector zero() noexcept {
-        return Vector{};
-    }
+    [[nodiscard]] static constexpr Vector zero() noexcept { return Vector{}; }
 
     /// Create a vector with all lanes set to one
     [[nodiscard]] static constexpr Vector ones() noexcept {
@@ -199,9 +194,7 @@ public:
     ///
     /// @param idx Lane index
     /// @return Reference to the lane
-    [[nodiscard]] constexpr reference operator[](size_type idx) noexcept {
-        return lanes_[idx];
-    }
+    [[nodiscard]] constexpr reference operator[](size_type idx) noexcept { return lanes_[idx]; }
 
     /// Get lane by index (const)
     ///
@@ -236,38 +229,26 @@ public:
     }
 
     /// Get the first lane
-    [[nodiscard]] constexpr reference front() noexcept {
-        return lanes_.front();
-    }
+    [[nodiscard]] constexpr reference front() noexcept { return lanes_.front(); }
 
     /// Get the first lane (const)
-    [[nodiscard]] constexpr const_reference front() const noexcept {
-        return lanes_.front();
-    }
+    [[nodiscard]] constexpr const_reference front() const noexcept { return lanes_.front(); }
 
     /// Get the last lane
-    [[nodiscard]] constexpr reference back() noexcept {
-        return lanes_.back();
-    }
+    [[nodiscard]] constexpr reference back() noexcept { return lanes_.back(); }
 
     /// Get the last lane (const)
-    [[nodiscard]] constexpr const_reference back() const noexcept {
-        return lanes_.back();
-    }
+    [[nodiscard]] constexpr const_reference back() const noexcept { return lanes_.back(); }
 
     // ========================================================================
     // Data Access
     // ========================================================================
 
     /// Get pointer to lane data
-    [[nodiscard]] constexpr pointer data() noexcept {
-        return lanes_.data();
-    }
+    [[nodiscard]] constexpr pointer data() noexcept { return lanes_.data(); }
 
     /// Get const pointer to lane data
-    [[nodiscard]] constexpr const_pointer data() const noexcept {
-        return lanes_.data();
-    }
+    [[nodiscard]] constexpr const_pointer data() const noexcept { return lanes_.data(); }
 
     /// Get pointer to raw bytes
     [[nodiscard]] std::uint8_t* bytes() noexcept {
@@ -285,48 +266,32 @@ public:
     }
 
     /// Get mutable access to underlying array
-    [[nodiscard]] constexpr std::array<Lane, lane_count>& lanes() noexcept {
-        return lanes_;
-    }
+    [[nodiscard]] constexpr std::array<Lane, lane_count>& lanes() noexcept { return lanes_; }
 
     // ========================================================================
     // Size Information
     // ========================================================================
 
     /// Get the number of lanes
-    [[nodiscard]] static constexpr size_type size() noexcept {
-        return lane_count;
-    }
+    [[nodiscard]] static constexpr size_type size() noexcept { return lane_count; }
 
     /// Check if vector is empty (always false for valid vectors)
-    [[nodiscard]] static constexpr bool empty() noexcept {
-        return false;
-    }
+    [[nodiscard]] static constexpr bool empty() noexcept { return false; }
 
     /// Get the maximum number of lanes (same as size for fixed vectors)
-    [[nodiscard]] static constexpr size_type max_size() noexcept {
-        return lane_count;
-    }
+    [[nodiscard]] static constexpr size_type max_size() noexcept { return lane_count; }
 
     // ========================================================================
     // Iterators
     // ========================================================================
 
-    [[nodiscard]] constexpr iterator begin() noexcept {
-        return lanes_.data();
-    }
+    [[nodiscard]] constexpr iterator begin() noexcept { return lanes_.data(); }
 
-    [[nodiscard]] constexpr const_iterator begin() const noexcept {
-        return lanes_.data();
-    }
+    [[nodiscard]] constexpr const_iterator begin() const noexcept { return lanes_.data(); }
 
-    [[nodiscard]] constexpr const_iterator cbegin() const noexcept {
-        return lanes_.data();
-    }
+    [[nodiscard]] constexpr const_iterator cbegin() const noexcept { return lanes_.data(); }
 
-    [[nodiscard]] constexpr iterator end() noexcept {
-        return lanes_.data() + lane_count;
-    }
+    [[nodiscard]] constexpr iterator end() noexcept { return lanes_.data() + lane_count; }
 
     [[nodiscard]] constexpr const_iterator end() const noexcept {
         return lanes_.data() + lane_count;
@@ -336,9 +301,7 @@ public:
         return lanes_.data() + lane_count;
     }
 
-    [[nodiscard]] constexpr reverse_iterator rbegin() noexcept {
-        return reverse_iterator(end());
-    }
+    [[nodiscard]] constexpr reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
 
     [[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept {
         return const_reverse_iterator(end());
@@ -348,9 +311,7 @@ public:
         return const_reverse_iterator(end());
     }
 
-    [[nodiscard]] constexpr reverse_iterator rend() noexcept {
-        return reverse_iterator(begin());
-    }
+    [[nodiscard]] constexpr reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
 
     [[nodiscard]] constexpr const_reverse_iterator rend() const noexcept {
         return const_reverse_iterator(begin());
@@ -374,9 +335,7 @@ public:
     }
 
     /// Swap contents with another vector
-    constexpr void swap(Vector& other) noexcept {
-        lanes_.swap(other.lanes_);
-    }
+    constexpr void swap(Vector& other) noexcept { lanes_.swap(other.lanes_); }
 
     // ========================================================================
     // Comparison Operators
@@ -450,27 +409,21 @@ private:
 // Static Assertions for Alignment
 // ============================================================================
 
-static_assert(alignof(Vector<128, std::int32_t>) == 16,
-              "128-bit vector must be 16-byte aligned");
-static_assert(alignof(Vector<256, std::int32_t>) == 32,
-              "256-bit vector must be 32-byte aligned");
-static_assert(alignof(Vector<512, std::int32_t>) == 64,
-              "512-bit vector must be 64-byte aligned");
+static_assert(alignof(Vector<128, std::int32_t>) == 16, "128-bit vector must be 16-byte aligned");
+static_assert(alignof(Vector<256, std::int32_t>) == 32, "256-bit vector must be 32-byte aligned");
+static_assert(alignof(Vector<512, std::int32_t>) == 64, "512-bit vector must be 64-byte aligned");
 
-static_assert(sizeof(Vector<128, std::int32_t>) == 16,
-              "128-bit vector must be 16 bytes");
-static_assert(sizeof(Vector<256, std::int32_t>) == 32,
-              "256-bit vector must be 32 bytes");
-static_assert(sizeof(Vector<512, std::int32_t>) == 64,
-              "512-bit vector must be 64 bytes");
+static_assert(sizeof(Vector<128, std::int32_t>) == 16, "128-bit vector must be 16 bytes");
+static_assert(sizeof(Vector<256, std::int32_t>) == 32, "256-bit vector must be 32 bytes");
+static_assert(sizeof(Vector<512, std::int32_t>) == 64, "512-bit vector must be 64 bytes");
 
 // ============================================================================
 // Type Aliases for Common Vector Types
 // ============================================================================
 
 // 128-bit vectors
-using Vector128i8  = Vector<128, std::int8_t>;    ///< 16 x i8
-using Vector128u8  = Vector<128, std::uint8_t>;   ///< 16 x u8
+using Vector128i8 = Vector<128, std::int8_t>;     ///< 16 x i8
+using Vector128u8 = Vector<128, std::uint8_t>;    ///< 16 x u8
 using Vector128i16 = Vector<128, std::int16_t>;   ///< 8 x i16
 using Vector128u16 = Vector<128, std::uint16_t>;  ///< 8 x u16
 using Vector128i32 = Vector<128, std::int32_t>;   ///< 4 x i32
@@ -481,8 +434,8 @@ using Vector128f32 = Vector<128, float>;          ///< 4 x f32
 using Vector128f64 = Vector<128, double>;         ///< 2 x f64
 
 // 256-bit vectors
-using Vector256i8  = Vector<256, std::int8_t>;    ///< 32 x i8
-using Vector256u8  = Vector<256, std::uint8_t>;   ///< 32 x u8
+using Vector256i8 = Vector<256, std::int8_t>;     ///< 32 x i8
+using Vector256u8 = Vector<256, std::uint8_t>;    ///< 32 x u8
 using Vector256i16 = Vector<256, std::int16_t>;   ///< 16 x i16
 using Vector256u16 = Vector<256, std::uint16_t>;  ///< 16 x u16
 using Vector256i32 = Vector<256, std::int32_t>;   ///< 8 x i32
@@ -493,8 +446,8 @@ using Vector256f32 = Vector<256, float>;          ///< 8 x f32
 using Vector256f64 = Vector<256, double>;         ///< 4 x f64
 
 // 512-bit vectors
-using Vector512i8  = Vector<512, std::int8_t>;    ///< 64 x i8
-using Vector512u8  = Vector<512, std::uint8_t>;   ///< 64 x u8
+using Vector512i8 = Vector<512, std::int8_t>;     ///< 64 x i8
+using Vector512u8 = Vector<512, std::uint8_t>;    ///< 64 x u8
 using Vector512i16 = Vector<512, std::int16_t>;   ///< 32 x i16
 using Vector512u16 = Vector<512, std::uint16_t>;  ///< 32 x u16
 using Vector512i32 = Vector<512, std::int32_t>;   ///< 16 x i32
@@ -537,7 +490,7 @@ static_assert(Vector512f64::lane_count == 8, "Vector512f64 must have 8 lanes");
 // ============================================================================
 
 /// Swap two vectors
-template<std::size_t Width, LaneType Lane>
+template <std::size_t Width, LaneType Lane>
     requires ValidLaneConfiguration<Width, Lane>
 constexpr void swap(Vector<Width, Lane>& a, Vector<Width, Lane>& b) noexcept {
     a.swap(b);

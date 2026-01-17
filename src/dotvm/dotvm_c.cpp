@@ -6,19 +6,18 @@
  * the C++ VmContext and related classes.
  */
 
-#include <dotvm/dotvm_c.h>
-
-#include <dotvm/core/bytecode.hpp>
-#include <dotvm/core/executor.hpp>
-#include <dotvm/core/value.hpp>
-#include <dotvm/core/vm_context.hpp>
-#include <dotvm/exec/execution_engine.hpp>
-
 #include <cstring>
 #include <memory>
 #include <new>
 #include <string>
 #include <vector>
+
+#include <dotvm/core/bytecode.hpp>
+#include <dotvm/core/executor.hpp>
+#include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
+#include <dotvm/dotvm_c.h>
+#include <dotvm/exec/execution_engine.hpp>
 
 // ============================================================================
 // Internal VM State Structure
@@ -42,8 +41,7 @@ struct dotvm_vm {
     std::string last_error;
 
     // Constructor
-    explicit dotvm_vm(dotvm::core::VmConfig config)
-        : context{config} {}
+    explicit dotvm_vm(dotvm::core::VmConfig config) : context{config} {}
 };
 
 // ============================================================================
@@ -93,9 +91,8 @@ DOTVM_API dotvm_vm_t* dotvm_create(const dotvm_config_t* config) {
         dotvm::core::VmConfig vm_config{};
 
         if (config != nullptr) {
-            vm_config.arch = (config->arch == 0)
-                ? dotvm::core::Architecture::Arch32
-                : dotvm::core::Architecture::Arch64;
+            vm_config.arch = (config->arch == 0) ? dotvm::core::Architecture::Arch32
+                                                 : dotvm::core::Architecture::Arch64;
             vm_config.strict_overflow = (config->strict_overflow != 0);
             vm_config.cfi_enabled = (config->cfi_enabled != 0);
 
@@ -118,9 +115,7 @@ DOTVM_API void dotvm_destroy(dotvm_vm_t* vm) {
 // Bytecode Loading
 // ----------------------------------------------------------------------------
 
-DOTVM_API dotvm_result_t dotvm_load_bytecode(dotvm_vm_t* vm,
-                                              const uint8_t* data,
-                                              size_t size) {
+DOTVM_API dotvm_result_t dotvm_load_bytecode(dotvm_vm_t* vm, const uint8_t* data, size_t size) {
     if (vm == nullptr) {
         return DOTVM_INVALID_ARG;
     }
@@ -205,7 +200,7 @@ DOTVM_API dotvm_result_t dotvm_execute(dotvm_vm_t* vm) {
     const auto* code_bytes = vm->bytecode_data.data() + vm->header.code_offset;
     const auto* code = reinterpret_cast<const std::uint32_t*>(code_bytes);
     auto code_size = vm->header.code_size / 4;  // Convert bytes to instruction count
-    auto entry_point = vm->pc / 4;  // Convert byte offset to instruction index
+    auto entry_point = vm->pc / 4;              // Convert byte offset to instruction index
 
     // Create execution engine and execute
     dotvm::exec::ExecutionEngine engine(vm->context);
@@ -304,9 +299,7 @@ DOTVM_API dotvm_value_t dotvm_get_register(dotvm_vm_t* vm, uint8_t idx) {
     return to_c_value(vm->context.registers().read(idx));
 }
 
-DOTVM_API dotvm_result_t dotvm_set_register(dotvm_vm_t* vm,
-                                             uint8_t idx,
-                                             dotvm_value_t value) {
+DOTVM_API dotvm_result_t dotvm_set_register(dotvm_vm_t* vm, uint8_t idx, dotvm_value_t value) {
     if (vm == nullptr) {
         return DOTVM_INVALID_ARG;
     }
@@ -331,9 +324,7 @@ DOTVM_API void dotvm_clear_error(dotvm_vm_t* vm) {
     }
 }
 
-DOTVM_API size_t dotvm_get_error_copy(dotvm_vm_t* vm,
-                                       char* buffer,
-                                       size_t buffer_size) {
+DOTVM_API size_t dotvm_get_error_copy(dotvm_vm_t* vm, char* buffer, size_t buffer_size) {
     // Handle null VM or empty error
     if (vm == nullptr || vm->last_error.empty()) {
         if (buffer != nullptr && buffer_size > 0) {
@@ -380,11 +371,16 @@ DOTVM_API dotvm_value_t dotvm_value_bool(int b) {
 DOTVM_API dotvm_value_type_t dotvm_value_type(dotvm_value_t v) {
     auto val = from_c_value(v);
 
-    if (val.is_nil()) return DOTVM_TYPE_NIL;
-    if (val.is_integer()) return DOTVM_TYPE_INTEGER;
-    if (val.is_bool()) return DOTVM_TYPE_BOOL;
-    if (val.is_handle()) return DOTVM_TYPE_HANDLE;
-    if (val.is_pointer()) return DOTVM_TYPE_POINTER;
+    if (val.is_nil())
+        return DOTVM_TYPE_NIL;
+    if (val.is_integer())
+        return DOTVM_TYPE_INTEGER;
+    if (val.is_bool())
+        return DOTVM_TYPE_BOOL;
+    if (val.is_handle())
+        return DOTVM_TYPE_HANDLE;
+    if (val.is_pointer())
+        return DOTVM_TYPE_POINTER;
 
     // Default to float (includes actual floats and canonical NaN)
     return DOTVM_TYPE_FLOAT;

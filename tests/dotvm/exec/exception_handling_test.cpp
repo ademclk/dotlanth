@@ -1,19 +1,19 @@
 /// @file exception_handling_test.cpp
 /// @brief Unit tests for EXEC-011: Exception Handling
 
-#include <gtest/gtest.h>
-
-#include <dotvm/exec/execution_engine.hpp>
-#include <dotvm/exec/execution_context.hpp>
-#include <dotvm/core/vm_context.hpp>
-#include <dotvm/core/instruction.hpp>
-#include <dotvm/core/value.hpp>
-#include <dotvm/core/exception_types.hpp>
-#include <dotvm/core/exception_context.hpp>
-#include <dotvm/core/opcode.hpp>
-
-#include <vector>
 #include <array>
+#include <vector>
+
+#include <dotvm/core/exception_context.hpp>
+#include <dotvm/core/exception_types.hpp>
+#include <dotvm/core/instruction.hpp>
+#include <dotvm/core/opcode.hpp>
+#include <dotvm/core/value.hpp>
+#include <dotvm/core/vm_context.hpp>
+#include <dotvm/exec/execution_context.hpp>
+#include <dotvm/exec/execution_engine.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace dotvm;
 using namespace dotvm::exec;
@@ -29,14 +29,10 @@ namespace op = dotvm::exec::opcode;
 class ExceptionHandlingTest : public ::testing::Test {
 protected:
     // Helper to create NOP instruction
-    static std::uint32_t make_nop() {
-        return encode_type_c(op::NOP, 0);
-    }
+    static std::uint32_t make_nop() { return encode_type_c(op::NOP, 0); }
 
     // Helper to create HALT instruction
-    static std::uint32_t make_halt() {
-        return encode_type_c(op::HALT, 0);
-    }
+    static std::uint32_t make_halt() { return encode_type_c(op::HALT, 0); }
 
     // Helper to create TRY instruction
     // Format: [TRY][handler_offset16][catch_types8]
@@ -45,9 +41,7 @@ protected:
     }
 
     // Helper to create CATCH instruction
-    static std::uint32_t make_catch() {
-        return encode_type_c(op::CATCH, 0);
-    }
+    static std::uint32_t make_catch() { return encode_type_c(op::CATCH, 0); }
 
     // Helper to create THROW instruction
     // Format: [THROW][Rtype][Rpayload][unused]
@@ -56,9 +50,7 @@ protected:
     }
 
     // Helper to create ENDTRY instruction
-    static std::uint32_t make_endtry() {
-        return encode_type_c(op::ENDTRY, 0);
-    }
+    static std::uint32_t make_endtry() { return encode_type_c(op::ENDTRY, 0); }
 
     // Helper to create MOVI instruction (move immediate)
     static std::uint32_t make_movi(std::uint8_t rd, std::uint16_t imm) {
@@ -71,19 +63,13 @@ protected:
     }
 
     // Helper to create JMP instruction
-    static std::uint32_t make_jmp(std::int32_t offset) {
-        return encode_type_c(op::JMP, offset);
-    }
+    static std::uint32_t make_jmp(std::int32_t offset) { return encode_type_c(op::JMP, offset); }
 
     // Helper to create CALL instruction
-    static std::uint32_t make_call(std::int32_t offset) {
-        return encode_type_c(op::CALL, offset);
-    }
+    static std::uint32_t make_call(std::int32_t offset) { return encode_type_c(op::CALL, offset); }
 
     // Helper to create RET instruction
-    static std::uint32_t make_ret() {
-        return encode_type_c(op::RET, 0);
-    }
+    static std::uint32_t make_ret() { return encode_type_c(op::RET, 0); }
 };
 
 // ============================================================================
@@ -272,9 +258,9 @@ TEST_F(ExceptionHandlingTest, BasicTryEndtryNoException) {
 
     std::vector<std::uint32_t> code = {
         make_try(5, catch_mask::ALL),  // 0: TRY, handler at offset 5 (PC 5)
-        make_nop(),                     // 1: NOP
-        make_endtry(),                  // 2: ENDTRY
-        make_halt()                     // 3: HALT
+        make_nop(),                    // 1: NOP
+        make_endtry(),                 // 2: ENDTRY
+        make_halt()                    // 3: HALT
     };
 
     auto result = engine.execute(code.data(), code.size(), 0, {});
@@ -291,13 +277,13 @@ TEST_F(ExceptionHandlingTest, BasicThrowCatch) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_try(5, catch_mask::ALL),   // 0: TRY, handler at offset 5 (PC 5)
-        make_movi(2, 1),                // 1: R2 = 1 (DivByZero)
-        make_movi(3, 42),               // 2: R3 = 42 (payload)
-        make_throw(2, 3),               // 3: THROW R2, R3
-        make_halt(),                    // 4: HALT (should be skipped)
-        make_catch(),                   // 5: CATCH (handler entry)
-        make_halt()                     // 6: HALT
+        make_try(5, catch_mask::ALL),  // 0: TRY, handler at offset 5 (PC 5)
+        make_movi(2, 1),               // 1: R2 = 1 (DivByZero)
+        make_movi(3, 42),              // 2: R3 = 42 (payload)
+        make_throw(2, 3),              // 3: THROW R2, R3
+        make_halt(),                   // 4: HALT (should be skipped)
+        make_catch(),                  // 5: CATCH (handler entry)
+        make_halt()                    // 6: HALT
     };
 
     auto result = engine.execute(code.data(), code.size(), 0, {});
@@ -315,10 +301,10 @@ TEST_F(ExceptionHandlingTest, UnhandledException) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_movi(2, 1),    // 0: R2 = 1 (DivByZero)
-        make_movi(3, 0),    // 1: R3 = 0 (payload)
-        make_throw(2, 3),   // 2: THROW R2, R3
-        make_halt()         // 3: HALT (should not reach)
+        make_movi(2, 1),   // 0: R2 = 1 (DivByZero)
+        make_movi(3, 0),   // 1: R3 = 0 (payload)
+        make_throw(2, 3),  // 2: THROW R2, R3
+        make_halt()        // 3: HALT (should not reach)
     };
 
     auto result = engine.execute(code.data(), code.size(), 0, {});
@@ -331,7 +317,7 @@ TEST_F(ExceptionHandlingTest, TypeFilteredCatch) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_try(5, catch_mask::BOUNDS), // 0: TRY, only catches OutOfBounds
+        make_try(5, catch_mask::BOUNDS),  // 0: TRY, only catches OutOfBounds
         make_movi(2, 1),                  // 1: R2 = 1 (DivByZero)
         make_movi(3, 0),                  // 2: R3 = 0
         make_throw(2, 3),                 // 3: THROW DivByZero (not caught)
@@ -352,18 +338,18 @@ TEST_F(ExceptionHandlingTest, NestedTryCatch) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_try(9, catch_mask::ALL),      // 0: Outer TRY, handler at 9
-        make_try(6, catch_mask::BOUNDS),   // 1: Inner TRY, handler at 7 (offset 6)
-        make_movi(2, 1),                   // 2: R2 = 1 (DivByZero)
-        make_movi(3, 0),                   // 3: R3 = 0
-        make_throw(2, 3),                  // 4: THROW DivByZero
-        make_halt(),                       // 5: (skipped)
-        make_halt(),                       // 6: (skipped)
-        make_catch(),                      // 7: Inner CATCH (not reached - type mismatch)
-        make_halt(),                       // 8: (skipped)
-        make_catch(),                      // 9: Outer CATCH (reached)
-        make_movi(10, 99),                 // 10: R10 = 99 (marker)
-        make_halt()                        // 11: HALT
+        make_try(9, catch_mask::ALL),     // 0: Outer TRY, handler at 9
+        make_try(6, catch_mask::BOUNDS),  // 1: Inner TRY, handler at 7 (offset 6)
+        make_movi(2, 1),                  // 2: R2 = 1 (DivByZero)
+        make_movi(3, 0),                  // 3: R3 = 0
+        make_throw(2, 3),                 // 4: THROW DivByZero
+        make_halt(),                      // 5: (skipped)
+        make_halt(),                      // 6: (skipped)
+        make_catch(),                     // 7: Inner CATCH (not reached - type mismatch)
+        make_halt(),                      // 8: (skipped)
+        make_catch(),                     // 9: Outer CATCH (reached)
+        make_movi(10, 99),                // 10: R10 = 99 (marker)
+        make_halt()                       // 11: HALT
     };
 
     auto result = engine.execute(code.data(), code.size(), 0, {});
@@ -393,8 +379,8 @@ TEST_F(ExceptionHandlingTest, VmContextExceptionContextAccess) {
     EXPECT_FALSE(ctx.has_pending_exception());
 
     // Modify exception context
-    ASSERT_TRUE(ctx.exception_context().push_frame(
-        ExceptionFrame::make(100, 0, 0, catch_mask::ALL)));
+    ASSERT_TRUE(
+        ctx.exception_context().push_frame(ExceptionFrame::make(100, 0, 0, catch_mask::ALL)));
 
     EXPECT_FALSE(ctx.exception_context().empty());
     EXPECT_EQ(ctx.exception_context().depth(), 1);
@@ -451,16 +437,16 @@ TEST_F(ExceptionHandlingTest, MultipleExceptions) {
     ExecutionEngine engine{ctx};
 
     std::vector<std::uint32_t> code = {
-        make_try(8, catch_mask::ALL),    // 0: Outer TRY
-        make_try(5, catch_mask::ALL),    // 1: Inner TRY
-        make_movi(2, 1),                 // 2: R2 = 1 (DivByZero)
-        make_throw(2, 2),                // 3: THROW
-        make_halt(),                     // 4: (skipped)
-        make_catch(),                    // 5: Inner CATCH
-        make_movi(2, 2),                 // 6: R2 = 2 (OutOfBounds)
-        make_throw(2, 2),                // 7: THROW new exception
-        make_catch(),                    // 8: Outer CATCH
-        make_halt()                      // 9: HALT
+        make_try(8, catch_mask::ALL),  // 0: Outer TRY
+        make_try(5, catch_mask::ALL),  // 1: Inner TRY
+        make_movi(2, 1),               // 2: R2 = 1 (DivByZero)
+        make_throw(2, 2),              // 3: THROW
+        make_halt(),                   // 4: (skipped)
+        make_catch(),                  // 5: Inner CATCH
+        make_movi(2, 2),               // 6: R2 = 2 (OutOfBounds)
+        make_throw(2, 2),              // 7: THROW new exception
+        make_catch(),                  // 8: Outer CATCH
+        make_halt()                    // 9: HALT
     };
 
     auto result = engine.execute(code.data(), code.size(), 0, {});
@@ -532,4 +518,3 @@ TEST_F(ExceptionHandlingTest, ExceptionIsCustom) {
     exc.type_id = static_cast<ErrorCode>(0x1001);  // Custom + 1
     EXPECT_TRUE(exc.is_custom());
 }
-

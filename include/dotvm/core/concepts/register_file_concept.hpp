@@ -33,7 +33,7 @@ namespace dotvm::core::concepts {
 ///     regs.write(rd, add(regs.read(rs1), regs.read(rs2)));
 /// }
 /// ```
-template<typename T>
+template <typename T>
 concept RegisterFileInterface = requires(T& rf, const T& crf, std::uint8_t idx, Value val) {
     // Read a register value by index
     { crf.read(idx) } -> std::same_as<Value>;
@@ -48,7 +48,7 @@ concept RegisterFileInterface = requires(T& rf, const T& crf, std::uint8_t idx, 
 /// Concept for architecture-aware register files
 ///
 /// Extends RegisterFileInterface with architecture configuration
-template<typename T>
+template <typename T>
 concept ArchAwareRegisterFile = RegisterFileInterface<T> && requires(const T& crf) {
     // Get current architecture
     { crf.arch() } -> std::same_as<Architecture>;
@@ -56,7 +56,7 @@ concept ArchAwareRegisterFile = RegisterFileInterface<T> && requires(const T& cr
 
 /// Verify that a type satisfies the RegisterFileInterface concept at compile time
 /// @example static_assert(is_register_file<MyRegisterFile>);
-template<typename T>
+template <typename T>
 inline constexpr bool is_register_file = RegisterFileInterface<T>;
 
 }  // namespace dotvm::core::concepts
