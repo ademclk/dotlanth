@@ -215,20 +215,11 @@ jobs:
           sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-$LLVM_VERSION 100
           sudo update-alternatives --install /usr/bin/llvm-cov llvm-cov /usr/bin/llvm-cov-$LLVM_VERSION 100
 
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: v2-clang-coverage-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
-          restore-keys: |
-            v2-clang-coverage-llvm${{ env.LLVM_VERSION }}-${{ github.ref }}
-            v2-clang-coverage-llvm${{ env.LLVM_VERSION }}-refs/heads/main
-            v2-clang-coverage-llvm${{ env.LLVM_VERSION }}-
+      # Note: ccache disabled for coverage builds to ensure consistent
+      # profiling instrumentation across all compilation units
 
       - name: Configure
-        run: |
-          cmake --preset ci-clang-coverage \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset ci-clang-coverage
 
       - name: Build
         run: cmake --build --preset ci-clang-coverage
