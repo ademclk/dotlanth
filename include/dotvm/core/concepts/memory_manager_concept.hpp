@@ -15,6 +15,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "../fwd.hpp"
 #include "../memory_config.hpp"
 
 namespace dotvm::core::concepts {

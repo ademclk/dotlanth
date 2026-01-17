@@ -9,6 +9,7 @@
 ///
 /// Performance target: <10 cycles per dispatch
 
+#include <cstddef>
 #include <cstdint>
 
 namespace dotvm::exec {
