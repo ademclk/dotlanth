@@ -1,0 +1,168 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "DOTVM_BUILD_TESTS": "ON",
+        "DOTVM_BUILD_C_API": "ON",
+        "DOTVM_ENABLE_SIMD": "ON",
+        "DOTVM_ENABLE_JIT": "ON"
+      }
+    },
+    {
+      "name": "clang-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      },
+      "environment": {
+        "CC": "clang",
+        "CXX": "clang++"
+      }
+    },
+    {
+      "name": "ci-clang-release",
+      "displayName": "CI Clang Release",
+      "description": "Clang release build for CI",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "ci-clang-debug",
+      "displayName": "CI Clang Debug",
+      "description": "Clang debug build for CI",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "ci-clang-coverage",
+      "displayName": "CI Clang Coverage",
+      "description": "Clang build with code coverage instrumentation",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DOTVM_ENABLE_COVERAGE": "ON"
+      }
+    },
+    {
+      "name": "ci-clang-sanitizers",
+      "displayName": "CI Clang Sanitizers",
+      "description": "Clang build with AddressSanitizer and UndefinedBehaviorSanitizer",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DOTVM_ENABLE_SANITIZERS": "ON"
+      }
+    },
+    {
+      "name": "ci-clang-tidy",
+      "displayName": "CI Clang-Tidy",
+      "description": "Clang build for static analysis",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_CLANG_TIDY": "clang-tidy"
+      }
+    },
+    {
+      "name": "dev-gcc",
+      "displayName": "Development GCC",
+      "description": "Local development with GCC",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "ci-clang-release",
+      "configurePreset": "ci-clang-release",
+      "jobs": 0
+    },
+    {
+      "name": "ci-clang-debug",
+      "configurePreset": "ci-clang-debug",
+      "jobs": 0
+    },
+    {
+      "name": "ci-clang-coverage",
+      "configurePreset": "ci-clang-coverage",
+      "jobs": 0
+    },
+    {
+      "name": "ci-clang-sanitizers",
+      "configurePreset": "ci-clang-sanitizers",
+      "jobs": 0
+    },
+    {
+      "name": "ci-clang-tidy",
+      "configurePreset": "ci-clang-tidy",
+      "jobs": 0
+    },
+    {
+      "name": "dev-gcc",
+      "configurePreset": "dev-gcc",
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "ci-clang-release",
+      "configurePreset": "ci-clang-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-clang-debug",
+      "configurePreset": "ci-clang-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-clang-coverage",
+      "configurePreset": "ci-clang-coverage",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-clang-sanitizers",
+      "configurePreset": "ci-clang-sanitizers",
+      "output": {
+        "outputOnFailure": true
+      },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:check_initialization_order=1:strict_init_order=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+      }
+    },
+    {
+      "name": "dev-gcc",
+      "configurePreset": "dev-gcc",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

@@ -19,6 +19,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # Clang 19+ supports -std=c++26
     add_compile_options(-std=c++2c)
+    # Use libc++ for better C++26 standard library support
+    if(DOTVM_USE_LIBCXX)
+        add_compile_options(-stdlib=libc++)
+        add_link_options(-stdlib=libc++)
+    endif()
 endif()
 
 # Export compile commands for IDE integration
@@ -37,6 +42,7 @@ option(DOTVM_ENABLE_SIMD "Enable SIMD optimizations" ON)
 option(DOTVM_ENABLE_JIT "Enable JIT compilation (x86-64 only)" ON)
 option(DOTVM_ENABLE_SANITIZERS "Enable sanitizers in Debug builds" OFF)
 option(DOTVM_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
+option(DOTVM_USE_LIBCXX "Use libc++ instead of libstdc++ (Clang only)" OFF)
 
 # Define strict warning flags (applied only to our targets, not dependencies)
 set(DOTVM_WARNING_FLAGS "")
