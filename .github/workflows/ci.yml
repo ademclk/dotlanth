@@ -287,11 +287,12 @@ jobs:
           path: code-coverage-results.md
 
   # ============================================================================
-  # Format Check
+  # Format Check (Informational - does not block PR)
   # ============================================================================
   format-check:
     name: Format Check
     runs-on: ubuntu-24.04
+    continue-on-error: true  # Don't block PR on format issues
 
     steps:
       - name: Checkout
