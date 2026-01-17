@@ -53,19 +53,19 @@ enum class ExportFormat : std::uint8_t {
 /// Multiple filters are combined with AND logic.
 struct AuditQuery {
     /// Filter by specific event type (nullopt = all types)
-    std::optional<AuditEventType> type;
+    std::optional<AuditEventType> type = std::nullopt;
 
     /// Filter by minimum severity (nullopt = all severities)
-    std::optional<AuditSeverity> min_severity;
+    std::optional<AuditSeverity> min_severity = std::nullopt;
 
     /// Filter by Dot ID (nullopt = all Dots)
-    std::optional<DotId> dot_id;
+    std::optional<DotId> dot_id = std::nullopt;
 
     /// Filter by capability ID (nullopt = all capabilities)
-    std::optional<CapabilityId> capability_id;
+    std::optional<CapabilityId> capability_id = std::nullopt;
 
     /// Filter events after this timestamp (default = beginning of time)
-    std::chrono::steady_clock::time_point since;
+    std::chrono::steady_clock::time_point since = {};
 
     /// Filter events before this timestamp (default = end of time)
     std::chrono::steady_clock::time_point until{std::chrono::steady_clock::time_point::max()};

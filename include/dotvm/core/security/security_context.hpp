@@ -63,7 +63,7 @@ struct ResourceUsage {
     std::uint32_t max_stack_depth_reached{0};
 
     /// Execution start time
-    std::chrono::steady_clock::time_point start_time;
+    std::chrono::steady_clock::time_point start_time = {};
 
     /// Reset all counters to initial state
     constexpr void reset() noexcept {
@@ -240,7 +240,7 @@ struct AuditEvent {
     AuditEventType type{AuditEventType::ContextCreated};
 
     /// Timestamp when event occurred
-    std::chrono::steady_clock::time_point timestamp;
+    std::chrono::steady_clock::time_point timestamp = {};
 
     /// Associated permission (for permission events)
     Permission permission{Permission::None};
@@ -249,7 +249,7 @@ struct AuditEvent {
     std::uint64_t value{0};
 
     /// Optional context string
-    std::string_view context;
+    std::string_view context = {};
 
     /// Create an event with current timestamp
     [[nodiscard]] static AuditEvent now(AuditEventType type, Permission perm = Permission::None,

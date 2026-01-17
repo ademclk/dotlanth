@@ -142,7 +142,7 @@ struct AuditEvent {
     AuditEventType type{AuditEventType::ContextCreated};
 
     /// Timestamp when event occurred
-    std::chrono::steady_clock::time_point timestamp;
+    std::chrono::steady_clock::time_point timestamp = {};
 
     /// Associated permission (for permission events)
     Permission permission{Permission::None};
@@ -162,10 +162,10 @@ struct AuditEvent {
     CapabilityId capability_id{0};
 
     /// Human-readable message describing the event
-    std::string message;
+    std::string message = "";
 
     /// Extensible key-value metadata pairs
-    std::vector<std::pair<std::string, std::string>> metadata;
+    std::vector<std::pair<std::string, std::string>> metadata = {};
 
     // === Factory Methods ===
 
