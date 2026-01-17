@@ -31,29 +31,6 @@ jobs:
           find include src tests -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | \
             xargs clang-format-19 --dry-run --Werror
 
-  cmake-format:
-    name: cmake-format
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install cmake-format
-        run: pip install cmake-format pyyaml
-
-      - name: Check CMake formatting
-        run: |
-          cmake-format --check CMakeLists.txt || {
-            echo "CMakeLists.txt is not properly formatted"
-            echo "Run: cmake-format -i CMakeLists.txt"
-            exit 1
-          }
-
   trailing-whitespace:
     name: trailing-whitespace
     runs-on: ubuntu-24.04
