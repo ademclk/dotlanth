@@ -146,6 +146,9 @@ target_include_directories(dotvm_core PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+# Enable position-independent code for static lib to allow linking into shared lib
+set_property(TARGET dotvm_core PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_compile_options(dotvm_core PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
 # Suppress pedantic warning for computed-goto in execution engine
