@@ -35,9 +35,9 @@ jobs:
           sudo apt-get install -y clang-$LLVM_VERSION lld-$LLVM_VERSION libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev ninja-build
 
           # Set up alternatives
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
-          sudo update-alternatives --install /usr/bin/lld lld /usr/bin/lld-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/lld lld /usr/bin/lld-$LLVM_VERSION 1000
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -85,8 +85,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-$LLVM_VERSION lld-$LLVM_VERSION libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev ninja-build
 
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 1000
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -133,9 +133,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-$LLVM_VERSION clang-tidy-$LLVM_VERSION libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev ninja-build
 
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$LLVM_VERSION 1000
 
       - name: Download compile_commands.json
         uses: actions/download-artifact@v4
@@ -210,13 +210,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-$LLVM_VERSION llvm-$LLVM_VERSION libc++-$LLVM_VERSION-dev libc++abi-$LLVM_VERSION-dev ninja-build
 
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
-          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-$LLVM_VERSION 100
-          sudo update-alternatives --install /usr/bin/llvm-cov llvm-cov /usr/bin/llvm-cov-$LLVM_VERSION 100
+          # Use priority 1000 to override any pre-installed versions
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-$LLVM_VERSION 1000
+          sudo update-alternatives --install /usr/bin/llvm-cov llvm-cov /usr/bin/llvm-cov-$LLVM_VERSION 1000
 
-      # Note: ccache disabled for coverage builds to ensure consistent
-      # profiling instrumentation across all compilation units
+      - name: Verify LLVM Version
+        run: |
+          echo "=== Compiler versions ==="
+          clang --version
+          clang++ --version
+          llvm-profdata show --version
+          llvm-cov --version
+
+      # Ensure completely clean build for coverage to avoid stale profiling data
+      - name: Clean Build Environment
+        run: |
+          # Remove any stale build artifacts
+          rm -rf build/ci-clang-coverage
+          # Disable ccache to ensure fresh compilation
+          rm -rf ~/.ccache
+          mkdir -p ~/.ccache
+          echo "max_size = 0" > ~/.ccache/ccache.conf
+          echo "disable = true" >> ~/.ccache/ccache.conf
 
       - name: Configure
         run: cmake --preset ci-clang-coverage
@@ -299,7 +316,7 @@ jobs:
           echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-$LLVM_VERSION main" | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo apt-get update
           sudo apt-get install -y clang-format-$LLVM_VERSION
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-$LLVM_VERSION 1000
 
       - name: Check Formatting (Full - Push to main)
         if: github.event_name == 'push'
