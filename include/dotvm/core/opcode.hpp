@@ -341,6 +341,65 @@ inline constexpr std::uint8_t LEA = 0x68;
 inline constexpr std::uint8_t MEMORY_RESERVED_START = 0x69;
 
 // ============================================================================
+// Cryptographic Operations (0xB0-0xBF) - SEC-008
+// Type A format: [opcode(8)][Rd(8)][Rs1(8)][Rs2(8)]
+// - Rd: Destination handle (output buffer)
+// - Rs1: Input handle (data to process)
+// - Rs2: Key/signature handle (for keyed operations)
+// All crypto opcodes require Permission::Crypto
+// ============================================================================
+
+/// HASH_SHA256: Rd = SHA-256(data at Rs1)
+/// Output: 32-byte digest stored in memory referenced by Rd
+/// Rs2 is ignored for hash operations
+inline constexpr std::uint8_t HASH_SHA256 = 0xB0;
+
+/// HASH_BLAKE3: Rd = BLAKE3(data at Rs1)
+/// Output: 32-byte digest stored in memory referenced by Rd
+/// Rs2 is ignored for hash operations
+inline constexpr std::uint8_t HASH_BLAKE3 = 0xB1;
+
+/// HASH_KECCAK: Rd = Keccak-256(data at Rs1)
+/// Output: 32-byte digest stored in memory referenced by Rd
+/// Ethereum-compatible (0x01 padding), not NIST SHA-3
+/// Rs2 is ignored for hash operations
+inline constexpr std::uint8_t HASH_KECCAK = 0xB2;
+
+/// Reserved hash opcode
+inline constexpr std::uint8_t HASH_RESERVED = 0xB3;
+
+/// SIGN_ED25519: Rd = Ed25519_Sign(message at Rs1, private_key at Rs2)
+/// Output: 64-byte signature stored in memory referenced by Rd
+/// Rs2 must point to 64-byte private key (32-byte seed + 32-byte public)
+inline constexpr std::uint8_t SIGN_ED25519 = 0xB4;
+
+/// VERIFY_ED25519: Rd = Ed25519_Verify(message at Rs1, sig_pubkey at Rs2)
+/// Output: 1 (valid) or 0 (invalid) stored in register Rd
+/// Rs2 must point to 96-byte buffer (64-byte signature + 32-byte public key)
+inline constexpr std::uint8_t VERIFY_ED25519 = 0xB5;
+
+/// Reserved signature opcodes
+inline constexpr std::uint8_t SIG_RESERVED_START = 0xB6;
+inline constexpr std::uint8_t SIG_RESERVED_END = 0xB7;
+
+/// ENCRYPT_AES256: Rd = AES-256-GCM_Encrypt(plaintext at Rs1, key at Rs2)
+/// Output: nonce(12) + ciphertext + tag(16) stored in memory referenced by Rd
+/// Rs2 must point to 32-byte AES-256 key
+/// Nonce is randomly generated and prepended to output
+inline constexpr std::uint8_t ENCRYPT_AES256 = 0xB8;
+
+/// DECRYPT_AES256: Rd = AES-256-GCM_Decrypt(ciphertext at Rs1, key at Rs2)
+/// Input format: nonce(12) + ciphertext + tag(16) at Rs1
+/// Output: plaintext stored in memory referenced by Rd
+/// Rs2 must point to 32-byte AES-256 key
+/// Returns error if authentication tag verification fails
+inline constexpr std::uint8_t DECRYPT_AES256 = 0xB9;
+
+/// Reserved crypto opcodes (0xBA-0xBF)
+inline constexpr std::uint8_t CRYPTO_RESERVED_START = 0xBA;
+inline constexpr std::uint8_t CRYPTO_RESERVED_END = 0xBF;
+
+// ============================================================================
 // System opcodes (0xF0-0xFF) - Essential for execution
 // ============================================================================
 
@@ -465,6 +524,31 @@ inline constexpr std::uint8_t SYSCALL = 0xFE;
 /// Includes: jumps, branches, CALL, RET, exception handling, HALT
 [[nodiscard]] constexpr bool is_control_flow_op(std::uint8_t op) noexcept {
     return op >= opcode::JMP && op <= opcode::HALT;
+}
+
+/// Check if opcode is a cryptographic operation (0xB0-0xBF) - SEC-008
+/// Includes: HASH_SHA256, HASH_BLAKE3, HASH_KECCAK, SIGN_ED25519,
+///           VERIFY_ED25519, ENCRYPT_AES256, DECRYPT_AES256
+[[nodiscard]] constexpr bool is_crypto_op(std::uint8_t op) noexcept {
+    return op >= opcode::HASH_SHA256 && op <= opcode::CRYPTO_RESERVED_END;
+}
+
+/// Check if opcode is a hash operation (0xB0-0xB2)
+/// Includes: HASH_SHA256, HASH_BLAKE3, HASH_KECCAK
+[[nodiscard]] constexpr bool is_hash_op(std::uint8_t op) noexcept {
+    return op >= opcode::HASH_SHA256 && op <= opcode::HASH_KECCAK;
+}
+
+/// Check if opcode is an Ed25519 signature operation (0xB4-0xB5)
+/// Includes: SIGN_ED25519, VERIFY_ED25519
+[[nodiscard]] constexpr bool is_signature_op(std::uint8_t op) noexcept {
+    return op == opcode::SIGN_ED25519 || op == opcode::VERIFY_ED25519;
+}
+
+/// Check if opcode is an AES-256 encryption/decryption operation (0xB8-0xB9)
+/// Includes: ENCRYPT_AES256, DECRYPT_AES256
+[[nodiscard]] constexpr bool is_aes256_op(std::uint8_t op) noexcept {
+    return op == opcode::ENCRYPT_AES256 || op == opcode::DECRYPT_AES256;
 }
 
 }  // namespace dotvm::core

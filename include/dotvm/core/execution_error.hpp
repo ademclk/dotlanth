@@ -128,6 +128,29 @@ enum class ExecutionError : std::uint8_t {
 
     /// Unaligned memory access
     UnalignedAccess = 65,
+
+    /// Invalid memory handle
+    InvalidHandle = 66,
+
+    /// Out of memory
+    OutOfMemory = 67,
+
+    // =========================================================================
+    // Security/Permission errors (80-95)
+    // =========================================================================
+
+    /// Permission denied for operation
+    PermissionDenied = 80,
+
+    // =========================================================================
+    // Cryptographic errors (96-111) - SEC-008
+    // =========================================================================
+
+    /// Crypto authentication failed (GCM tag mismatch, signature invalid)
+    CryptoAuthFailed = 96,
+
+    /// Invalid operand for crypto operation
+    InvalidOperand = 97,
 };
 
 /// Convert ExecutionError to human-readable string
@@ -165,6 +188,16 @@ enum class ExecutionError : std::uint8_t {
             return "Memory out of bounds";
         case ExecutionError::UnalignedAccess:
             return "Unaligned memory access";
+        case ExecutionError::InvalidHandle:
+            return "Invalid memory handle";
+        case ExecutionError::OutOfMemory:
+            return "Out of memory";
+        case ExecutionError::PermissionDenied:
+            return "Permission denied";
+        case ExecutionError::CryptoAuthFailed:
+            return "Cryptographic authentication failed";
+        case ExecutionError::InvalidOperand:
+            return "Invalid operand";
         default:
             return "Unknown error";
     }

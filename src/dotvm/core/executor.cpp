@@ -522,6 +522,11 @@ StepResult Executor::dispatch(std::uint32_t instr) noexcept {
         return dispatch_system(instr, op);
     }
 
+    // Cryptographic opcodes (0xB0-0xBF) - SEC-008
+    if (is_crypto_op(op)) {
+        return dispatch_crypto(instr, op);
+    }
+
     // Reserved opcodes
     if (is_reserved_opcode(op)) [[unlikely]] {
         return StepResult::make_error(ExecutionError::ReservedOpcode);
@@ -674,6 +679,12 @@ StepResult Executor::dispatch_system(std::uint32_t /*instr*/, std::uint8_t op) n
         default:
             return StepResult::make_error(ExecutionError::NotImplemented);
     }
+}
+
+StepResult Executor::dispatch_crypto(std::uint32_t instr, std::uint8_t /*op*/) noexcept {
+    // All crypto instructions use Type A format: [opcode][Rd][Rs1][Rs2]
+    const auto decoded = decode_type_a(instr);
+    return crypto_exec_.execute_type_a(decoded);
 }
 
 }  // namespace dotvm::core

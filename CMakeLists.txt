@@ -117,6 +117,12 @@ add_library(dotvm_core STATIC
     # Crypto subsystem
     src/dotvm/core/crypto/sha256.cpp
     src/dotvm/core/crypto/aes.cpp
+    # SEC-008: Cryptographic Operations
+    src/dotvm/core/crypto/blake3.cpp
+    src/dotvm/core/crypto/keccak.cpp
+    src/dotvm/core/crypto/ed25519.cpp
+    src/dotvm/core/crypto/aes256gcm.cpp
+    src/dotvm/core/crypto/crypto_executor.cpp
     # Capability system (SEC-001)
     src/dotvm/core/capabilities.cpp
     # Permission model (SEC-002)
@@ -282,6 +288,12 @@ if(DOTVM_BUILD_TESTS)
         # Crypto subsystem tests
         tests/dotvm/core/crypto/sha256_test.cpp
         tests/dotvm/core/crypto/aes_test.cpp
+        # SEC-008: Cryptographic Operations tests
+        tests/dotvm/core/crypto/blake3_test.cpp
+        tests/dotvm/core/crypto/keccak_test.cpp
+        tests/dotvm/core/crypto/ed25519_test.cpp
+        tests/dotvm/core/crypto/aes256gcm_test.cpp
+        tests/dotvm/core/crypto/crypto_executor_test.cpp
         # Test utilities and mock tests
         tests/dotvm/test_utils/mock_test.cpp
         # Capability system tests (SEC-001)

@@ -17,23 +17,30 @@ namespace dotvm::core {
 struct HandleEntry {
     void* ptr;                 ///< Pointer to allocated memory (nullptr if inactive).
     std::size_t size;          ///< Allocated size in bytes (page-aligned).
+    std::size_t logical_size;  ///< Requested size in bytes (user-visible).
     std::uint32_t generation;  ///< Generation counter for use-after-free detection.
     bool is_active;            ///< Whether this entry is currently in use.
 
     constexpr bool operator==(const HandleEntry&) const noexcept = default;
 
     /// Creates an active entry with the given allocation.
-    [[nodiscard]] static HandleEntry create(void* p, std::size_t s, std::uint32_t gen) noexcept {
-        return HandleEntry{.ptr = p, .size = s, .generation = gen, .is_active = true};
+    [[nodiscard]] static HandleEntry create(void* p, std::size_t alloc_size, std::size_t req_size,
+                                            std::uint32_t gen) noexcept {
+        return HandleEntry{.ptr = p,
+                           .size = alloc_size,
+                           .logical_size = req_size,
+                           .generation = gen,
+                           .is_active = true};
     }
 
     /// Creates an inactive entry (for free list slots).
     [[nodiscard]] static constexpr HandleEntry inactive(std::uint32_t gen) noexcept {
-        return HandleEntry{.ptr = nullptr, .size = 0, .generation = gen, .is_active = false};
+        return HandleEntry{
+            .ptr = nullptr, .size = 0, .logical_size = 0, .generation = gen, .is_active = false};
     }
 };
 
-static_assert(sizeof(HandleEntry) <= 32, "HandleEntry should fit in half a cache line");
+static_assert(sizeof(HandleEntry) <= 48, "HandleEntry should fit within cache line");
 
 /// Table managing handle entries with a free list for efficient slot reuse.
 class HandleTable {
@@ -324,7 +331,9 @@ public:
 
     // ========== Query Operations ==========
 
-    /// Gets the allocated size for a handle (page-aligned size, not requested).
+    /// Gets the logical (requested) size for a handle.
+    /// This returns the size originally requested by the caller, not the
+    /// page-aligned physical allocation size.
     [[nodiscard]] Result<std::size_t> get_size(Handle h) const noexcept;
 
     /// Checks if a handle is valid without retrieving pointer.
