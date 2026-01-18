@@ -29,8 +29,10 @@ constexpr std::array<std::size_t, 25> PI_LANES = {0,  10, 20, 5, 15, 16, 1,  11,
                                                   12, 22, 23, 8, 18, 3,  13, 14, 24, 9, 19, 4};
 
 /// Rotate left 64-bit
+/// Note: n must be in range [0, 63]. When n=0, return x unchanged to avoid UB.
 constexpr std::uint64_t rotl64(std::uint64_t x, unsigned n) noexcept {
-    return (x << n) | (x >> (64 - n));
+    // Avoid undefined behavior when n=0 (shifting by 64 bits is UB)
+    return n == 0 ? x : (x << n) | (x >> (64 - n));
 }
 
 }  // namespace
