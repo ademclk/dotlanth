@@ -8,11 +8,11 @@
 /// - Hot-reload via explicit reload_policy() API
 /// - Thread-safe evaluation using RCU with atomic shared_ptr
 
-#include <atomic>
 #include <fstream>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <string_view>
 
@@ -137,8 +137,8 @@ private:
     [[nodiscard]] Result<Rule, PolicyErrorInfo> parse_rule(const JsonValue& rule_json);
 
     /// @brief Parse conditions from JSON "if" object
-    [[nodiscard]] Result<std::vector<Condition>, PolicyErrorInfo> parse_conditions(
-        const JsonValue& if_json);
+    [[nodiscard]] Result<std::vector<Condition>, PolicyErrorInfo>
+    parse_conditions(const JsonValue& if_json);
 
     /// @brief Parse action from JSON "then" object
     [[nodiscard]] Result<RuleAction, PolicyErrorInfo> parse_action(const JsonValue& then_json);
@@ -152,11 +152,10 @@ private:
     /// @brief Parse hex string "0xNNN" to uint64
     [[nodiscard]] std::optional<std::uint64_t> parse_hex(std::string_view hex_str);
 
-    // RCU-protected active tree
-    std::atomic<std::shared_ptr<PolicyState>> active_state_{nullptr};
-
-    // Serialization for writers
-    mutable std::mutex write_mutex_;
+    // Reader-writer lock protected active state
+    // Readers (evaluate) use shared_lock, writers (load/reload) use unique_lock
+    std::shared_ptr<PolicyState> active_state_{nullptr};
+    mutable std::shared_mutex state_mutex_;
 
     // Source for reload
     std::optional<std::string> source_path_;

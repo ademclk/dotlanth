@@ -132,9 +132,7 @@ const std::unordered_map<std::string_view, Decision> ACTION_MAP = {
 // ============================================================================
 
 Result<void, PolicyErrorInfo> PolicyEngine::load_policy(std::string_view json_string) {
-    std::lock_guard<std::mutex> lock{write_mutex_};
-
-    // Parse JSON
+    // Parse JSON (outside lock - read-only operation)
     auto parse_result = JsonParser::parse(json_string);
     if (!parse_result) {
         return parse_result.error();
@@ -142,7 +140,7 @@ Result<void, PolicyErrorInfo> PolicyEngine::load_policy(std::string_view json_st
 
     const JsonValue& root = parse_result.value();
 
-    // Parse policy structure
+    // Parse policy structure (outside lock - read-only operation)
     auto policy_result = parse_policy(root);
     if (!policy_result) {
         return policy_result.error();
@@ -150,26 +148,25 @@ Result<void, PolicyErrorInfo> PolicyEngine::load_policy(std::string_view json_st
 
     Policy policy = std::move(policy_result).value();
 
-    // Compile decision tree
+    // Compile decision tree (outside lock - creating new state)
     auto new_state = std::make_shared<PolicyState>();
     new_state->tree.compile(policy.rules, policy.default_action);
     new_state->name = policy.name;
     new_state->version = policy.version;
 
-    // Atomic swap
-    active_state_.store(new_state, std::memory_order_release);
-
-    // Store source for reload
-    source_json_ = std::string{json_string};
-    source_path_.reset();
+    // Swap under exclusive lock
+    {
+        std::unique_lock<std::shared_mutex> lock{state_mutex_};
+        active_state_ = new_state;
+        source_json_ = std::string{json_string};
+        source_path_.reset();
+    }
 
     return Result<void, PolicyErrorInfo>{};
 }
 
 Result<void, PolicyErrorInfo> PolicyEngine::load_policy_file(std::string_view path) {
-    std::lock_guard<std::mutex> lock{write_mutex_};
-
-    // Read file
+    // Read file (outside lock - IO operation)
     std::ifstream file{std::string{path}};
     if (!file) {
         return PolicyErrorInfo::err(PolicyError::FileNotFound,
@@ -186,7 +183,7 @@ Result<void, PolicyErrorInfo> PolicyEngine::load_policy_file(std::string_view pa
 
     std::string content = buffer.str();
 
-    // Parse JSON
+    // Parse JSON (outside lock - read-only operation)
     auto parse_result = JsonParser::parse(content);
     if (!parse_result) {
         return parse_result.error();
@@ -194,7 +191,7 @@ Result<void, PolicyErrorInfo> PolicyEngine::load_policy_file(std::string_view pa
 
     const JsonValue& root = parse_result.value();
 
-    // Parse policy structure
+    // Parse policy structure (outside lock - read-only operation)
     auto policy_result = parse_policy(root);
     if (!policy_result) {
         return policy_result.error();
@@ -202,31 +199,39 @@ Result<void, PolicyErrorInfo> PolicyEngine::load_policy_file(std::string_view pa
 
     Policy policy = std::move(policy_result).value();
 
-    // Compile decision tree
+    // Compile decision tree (outside lock - creating new state)
     auto new_state = std::make_shared<PolicyState>();
     new_state->tree.compile(policy.rules, policy.default_action);
     new_state->name = policy.name;
     new_state->version = policy.version;
 
-    // Atomic swap
-    active_state_.store(new_state, std::memory_order_release);
-
-    // Store source for reload
-    source_path_ = std::string{path};
-    source_json_.reset();
+    // Swap under exclusive lock
+    {
+        std::unique_lock<std::shared_mutex> lock{state_mutex_};
+        active_state_ = new_state;
+        source_path_ = std::string{path};
+        source_json_.reset();
+    }
 
     return Result<void, PolicyErrorInfo>{};
 }
 
 Result<void, PolicyErrorInfo> PolicyEngine::reload_policy() {
-    // Note: write_mutex_ will be acquired in load_policy/load_policy_file
-
-    if (source_path_.has_value()) {
-        return load_policy_file(*source_path_);
+    // Read source info under shared lock
+    std::optional<std::string> path;
+    std::optional<std::string> json;
+    {
+        std::shared_lock<std::shared_mutex> lock{state_mutex_};
+        path = source_path_;
+        json = source_json_;
     }
 
-    if (source_json_.has_value()) {
-        return load_policy(*source_json_);
+    if (path.has_value()) {
+        return load_policy_file(*path);
+    }
+
+    if (json.has_value()) {
+        return load_policy(*json);
     }
 
     return PolicyErrorInfo::err(PolicyError::NoPolicyLoaded, "No policy source to reload");
@@ -238,7 +243,8 @@ Result<void, PolicyErrorInfo> PolicyEngine::reload_policy() {
 
 PolicyDecision PolicyEngine::evaluate(const EvaluationContext& ctx, std::uint8_t opcode,
                                       std::string_view state_key) const {
-    auto state = active_state_.load(std::memory_order_acquire);
+    std::shared_lock<std::shared_mutex> lock{state_mutex_};
+    auto state = active_state_;
 
     if (!state) {
         // No policy loaded - default allow
@@ -253,24 +259,31 @@ PolicyDecision PolicyEngine::evaluate(const EvaluationContext& ctx, std::uint8_t
 // ============================================================================
 
 bool PolicyEngine::has_policy() const noexcept {
-    return active_state_.load(std::memory_order_acquire) != nullptr;
+    std::shared_lock<std::shared_mutex> lock{state_mutex_};
+    return active_state_ != nullptr;
 }
 
 std::size_t PolicyEngine::rule_count() const noexcept {
-    auto state = active_state_.load(std::memory_order_acquire);
-    if (!state) return 0;
+    std::shared_lock<std::shared_mutex> lock{state_mutex_};
+    auto state = active_state_;
+    if (!state)
+        return 0;
     return state->tree.rule_count();
 }
 
 std::optional<std::string> PolicyEngine::policy_name() const noexcept {
-    auto state = active_state_.load(std::memory_order_acquire);
-    if (!state || state->name.empty()) return std::nullopt;
+    std::shared_lock<std::shared_mutex> lock{state_mutex_};
+    auto state = active_state_;
+    if (!state || state->name.empty())
+        return std::nullopt;
     return state->name;
 }
 
 std::optional<std::string> PolicyEngine::policy_version() const noexcept {
-    auto state = active_state_.load(std::memory_order_acquire);
-    if (!state || state->version.empty()) return std::nullopt;
+    std::shared_lock<std::shared_mutex> lock{state_mutex_};
+    auto state = active_state_;
+    if (!state || state->version.empty())
+        return std::nullopt;
     return state->version;
 }
 
@@ -380,8 +393,8 @@ Result<Rule, PolicyErrorInfo> PolicyEngine::parse_rule(const JsonValue& rule_jso
     return rule;
 }
 
-Result<std::vector<Condition>, PolicyErrorInfo> PolicyEngine::parse_conditions(
-    const JsonValue& if_json) {
+Result<std::vector<Condition>, PolicyErrorInfo>
+PolicyEngine::parse_conditions(const JsonValue& if_json) {
     if (!if_json.is_object()) {
         return PolicyErrorInfo::err(PolicyError::InvalidFieldType, "'if' must be an object");
     }

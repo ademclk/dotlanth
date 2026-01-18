@@ -7,6 +7,7 @@
 #include <charconv>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 
 namespace dotvm::core::policy {
 
@@ -29,7 +30,8 @@ Result<JsonValue, PolicyErrorInfo> JsonParser::parse(std::string_view json) {
 
     parser.skip_whitespace();
     if (!parser.at_end()) {
-        return parser.make_error(PolicyError::JsonSyntaxError, "Unexpected content after JSON value");
+        return parser.make_error(PolicyError::JsonSyntaxError,
+                                 "Unexpected content after JSON value");
     }
 
     return result;
@@ -334,29 +336,36 @@ Result<JsonValue, PolicyErrorInfo> JsonParser::parse_number() {
     }
 
     std::string_view number_str = json_.substr(start, pos_ - start);
+    std::string number_string(number_str);  // Need null-terminated string for stod
 
     if (is_float) {
-        double value = 0.0;
-        auto [ptr, ec] = std::from_chars(number_str.data(), number_str.data() + number_str.size(), value);
-
-        if (ec == std::errc::result_out_of_range) {
+        try {
+            std::size_t processed = 0;
+            double value = std::stod(number_string, &processed);
+            if (processed != number_string.size()) {
+                return make_error(PolicyError::InvalidNumber, "Invalid number format");
+            }
+            return JsonValue{value};
+        } catch (const std::out_of_range&) {
             return make_error(PolicyError::InvalidNumber, "Number out of range");
-        }
-        if (ec != std::errc{}) {
+        } catch (const std::invalid_argument&) {
             return make_error(PolicyError::InvalidNumber, "Invalid number format");
         }
-
-        return JsonValue{value};
     } else {
         std::int64_t value = 0;
-        auto [ptr, ec] = std::from_chars(number_str.data(), number_str.data() + number_str.size(), value);
+        auto [ptr, ec] =
+            std::from_chars(number_str.data(), number_str.data() + number_str.size(), value);
 
         if (ec == std::errc::result_out_of_range) {
             // Try as double if too large for int64
-            double dvalue = 0.0;
-            auto [dptr, dec] = std::from_chars(number_str.data(), number_str.data() + number_str.size(), dvalue);
-            if (dec == std::errc{}) {
-                return JsonValue{dvalue};
+            try {
+                std::size_t processed = 0;
+                double dvalue = std::stod(number_string, &processed);
+                if (processed == number_string.size()) {
+                    return JsonValue{dvalue};
+                }
+            } catch (...) {
+                // Fall through to error
             }
             return make_error(PolicyError::InvalidNumber, "Number out of range");
         }
@@ -414,12 +423,14 @@ bool JsonParser::at_end() const noexcept {
 }
 
 char JsonParser::peek() const noexcept {
-    if (at_end()) return '\0';
+    if (at_end())
+        return '\0';
     return json_[pos_];
 }
 
 char JsonParser::advance() noexcept {
-    if (at_end()) return '\0';
+    if (at_end())
+        return '\0';
     char c = json_[pos_++];
     if (c == '\n') {
         ++line_;
@@ -431,14 +442,15 @@ char JsonParser::advance() noexcept {
 }
 
 bool JsonParser::match(char expected) noexcept {
-    if (at_end() || peek() != expected) return false;
+    if (at_end() || peek() != expected)
+        return false;
     advance();
     return true;
 }
 
 PolicyErrorInfo JsonParser::make_error(PolicyError code, std::string_view msg) const {
     return PolicyErrorInfo::err(code, msg, static_cast<std::uint32_t>(line_),
-                                 static_cast<std::uint32_t>(column_));
+                                static_cast<std::uint32_t>(column_));
 }
 
 }  // namespace dotvm::core::policy
