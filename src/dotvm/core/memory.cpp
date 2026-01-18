@@ -110,6 +110,7 @@ MemoryManager::Result<Handle> MemoryManager::allocate(std::size_t size) noexcept
     auto& entry = table_[index];
     entry.ptr = ptr;
     entry.size = aligned_size;
+    entry.logical_size = size;  // Store the requested size
     // Generation was set when slot was allocated
 
     total_allocated_ += aligned_size;
@@ -212,7 +213,8 @@ MemoryManager::Result<std::size_t> MemoryManager::get_size(Handle h) const noexc
         return std::unexpected{err};
     }
 
-    return table_[h.index].size;
+    // Return the logical (requested) size, not the page-aligned physical size
+    return table_[h.index].logical_size;
 }
 
 bool MemoryManager::is_valid(Handle h) const noexcept {

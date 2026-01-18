@@ -12,6 +12,7 @@
 #include <span>
 
 #include "alu.hpp"
+#include "crypto/crypto_executor.hpp"
 #include "execution_error.hpp"
 #include "instruction.hpp"
 #include "opcode.hpp"
@@ -346,7 +347,8 @@ public:
           state_{},
           arith_exec_{ctx},
           fp_exec_{ctx, state_},
-          bitwise_exec_{ctx} {}
+          bitwise_exec_{ctx},
+          crypto_exec_{ctx} {}
 
     // =========================================================================
     // Execution
@@ -386,6 +388,7 @@ private:
     ArithmeticExecutor arith_exec_;
     FloatingPointExecutor fp_exec_;
     BitwiseExecutor bitwise_exec_;
+    crypto::CryptoExecutor crypto_exec_;
 
     // -------------------------------------------------------------------------
     // Instruction Fetch and Decode
@@ -420,6 +423,9 @@ private:
 
     /// Handle system opcodes (NOP, etc.) at 0xF0-0xFF
     [[nodiscard]] StepResult dispatch_system(std::uint32_t instr, std::uint8_t opcode) noexcept;
+
+    /// Dispatch cryptographic opcode (0xB0-0xBF) - SEC-008
+    [[nodiscard]] StepResult dispatch_crypto(std::uint32_t instr, std::uint8_t opcode) noexcept;
 };
 
 }  // namespace dotvm::core

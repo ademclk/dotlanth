@@ -124,12 +124,12 @@ TEST(MemoryConfigTest, ConstexprFunctions) {
 // ============================================================================
 
 TEST(HandleEntryTest, SizeConstraint) {
-    EXPECT_LE(sizeof(HandleEntry), 32);
+    EXPECT_LE(sizeof(HandleEntry), 48);  // Size increased for logical_size field
 }
 
 TEST(HandleEntryTest, CreateActiveEntry) {
     int dummy = 42;
-    auto entry = HandleEntry::create(&dummy, 4096, 5);
+    auto entry = HandleEntry::create(&dummy, 4096, 100, 5);
 
     EXPECT_EQ(entry.ptr, &dummy);
     EXPECT_EQ(entry.size, 4096);
@@ -148,9 +148,9 @@ TEST(HandleEntryTest, CreateInactiveEntry) {
 
 TEST(HandleEntryTest, Equality) {
     int dummy = 42;
-    auto entry1 = HandleEntry::create(&dummy, 4096, 1);
-    auto entry2 = HandleEntry::create(&dummy, 4096, 1);
-    auto entry3 = HandleEntry::create(&dummy, 4096, 2);
+    auto entry1 = HandleEntry::create(&dummy, 4096, 100, 1);
+    auto entry2 = HandleEntry::create(&dummy, 4096, 100, 1);
+    auto entry3 = HandleEntry::create(&dummy, 4096, 100, 2);
 
     EXPECT_EQ(entry1, entry2);
     EXPECT_NE(entry1, entry3);
@@ -261,9 +261,10 @@ TEST_F(MemoryManagerTest, AllocateMinimumSize) {
     EXPECT_TRUE(result.has_value());
     EXPECT_NE(result->index, mem_config::INVALID_INDEX);
 
+    // get_size returns the logical (requested) size, not physical allocation
     auto size_result = mm.get_size(*result);
     EXPECT_TRUE(size_result.has_value());
-    EXPECT_EQ(*size_result, mem_config::PAGE_SIZE);  // Rounded up to page
+    EXPECT_EQ(*size_result, 1);  // Returns requested size
 }
 
 TEST_F(MemoryManagerTest, AllocateExactPageSize) {
@@ -280,8 +281,10 @@ TEST_F(MemoryManagerTest, AllocateRoundsUpToPage) {
 
     EXPECT_TRUE(result.has_value());
 
+    // get_size returns the logical (requested) size, not the physical allocation
+    // The underlying allocation is still page-aligned (8192 bytes internally)
     auto size_result = mm.get_size(*result);
-    EXPECT_EQ(*size_result, 8192);  // Rounded up to 2 pages
+    EXPECT_EQ(*size_result, 5000);
 }
 
 TEST_F(MemoryManagerTest, AllocateZeroSizeFails) {
