@@ -84,7 +84,8 @@ public:
     /// @brief Get child node (nullptr if not found)
     [[nodiscard]] const PrefixTrieNode* get_child(char c) const {
         auto it = children.find(c);
-        if (it == children.end()) return nullptr;
+        if (it == children.end())
+            return nullptr;
         return it->second.get();
     }
 };
@@ -167,25 +168,23 @@ private:
 
     /// @brief Check if all conditions in a rule match
     [[nodiscard]] bool matches_all_conditions(const CompiledRule& rule,
-                                              const EvaluationContext& ctx,
-                                              std::uint8_t opcode,
+                                              const EvaluationContext& ctx, std::uint8_t opcode,
                                               std::string_view state_key) const;
 
     /// @brief Check a single condition
-    [[nodiscard]] bool matches_condition(const Condition& condition,
-                                         const EvaluationContext& ctx,
-                                         std::uint8_t opcode,
-                                         std::string_view state_key) const;
+    [[nodiscard]] bool matches_condition(const Condition& condition, const EvaluationContext& ctx,
+                                         std::uint8_t opcode, std::string_view state_key) const;
 
     /// @brief Find matching rules in a trie path
-    [[nodiscard]] const CompiledRule* find_best_match_in_trie(
-        const PrefixTrieNode* node, std::string_view key, const EvaluationContext& ctx,
-        std::uint8_t opcode) const;
+    [[nodiscard]] const CompiledRule* find_best_match_in_trie(const PrefixTrieNode* node,
+                                                              std::string_view key,
+                                                              const EvaluationContext& ctx,
+                                                              std::uint8_t opcode) const;
 
     /// @brief Find best matching rule in a rule vector
-    [[nodiscard]] const CompiledRule* find_best_match_in_rules(
-        const std::vector<CompiledRule>& rules, const EvaluationContext& ctx, std::uint8_t opcode,
-        std::string_view state_key) const;
+    [[nodiscard]] const CompiledRule*
+    find_best_match_in_rules(const std::vector<CompiledRule>& rules, const EvaluationContext& ctx,
+                             std::uint8_t opcode, std::string_view state_key) const;
 
     /// @brief Create decision from rule action
     [[nodiscard]] PolicyDecision make_decision(const CompiledRule& rule) const;

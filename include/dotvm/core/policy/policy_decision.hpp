@@ -73,7 +73,7 @@ struct PolicyDecision {
 
     /// Create an Audit decision
     [[nodiscard]] static PolicyDecision audit(std::string reason = "",
-                                               std::uint64_t rule_id = 0) noexcept {
+                                              std::uint64_t rule_id = 0) noexcept {
         PolicyDecision d;
         d.decision = Decision::Audit;
         d.audit_reason = std::move(reason);
@@ -83,7 +83,7 @@ struct PolicyDecision {
 
     /// Create a RequireCapability decision
     [[nodiscard]] static PolicyDecision require_capability(std::string capability,
-                                                            std::uint64_t rule_id = 0) noexcept {
+                                                           std::uint64_t rule_id = 0) noexcept {
         PolicyDecision d;
         d.decision = Decision::RequireCapability;
         d.required_capability = std::move(capability);
@@ -93,7 +93,7 @@ struct PolicyDecision {
 
     /// Create a Deny decision
     [[nodiscard]] static PolicyDecision deny(std::string reason = "",
-                                              std::uint64_t rule_id = 0) noexcept {
+                                             std::uint64_t rule_id = 0) noexcept {
         PolicyDecision d;
         d.decision = Decision::Deny;
         d.audit_reason = std::move(reason);

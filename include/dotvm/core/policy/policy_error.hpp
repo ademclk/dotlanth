@@ -162,8 +162,8 @@ struct PolicyErrorInfo {
 
     /// Create an error result
     [[nodiscard]] static PolicyErrorInfo err(PolicyError code, std::string_view msg = "",
-                                              std::uint32_t line = 0,
-                                              std::uint32_t col = 0) noexcept {
+                                             std::uint32_t line = 0,
+                                             std::uint32_t col = 0) noexcept {
         return PolicyErrorInfo{code, line, col, std::string{msg}};
     }
 };

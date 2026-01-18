@@ -304,7 +304,7 @@ void SecurityContext::set_policy_engine(policy::PolicyEngine* engine) noexcept {
 }
 
 policy::PolicyDecision SecurityContext::check_policy(std::uint8_t opcode,
-                                                      std::string_view state_key) const {
+                                                     std::string_view state_key) const {
     if (policy_engine_ == nullptr) {
         // No policy engine - default allow
         return policy::PolicyDecision::allow();

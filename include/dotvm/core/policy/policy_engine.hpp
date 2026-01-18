@@ -62,11 +62,11 @@ public:
     PolicyEngine() = default;
     ~PolicyEngine() = default;
 
-    // Non-copyable, movable
+    // Non-copyable, non-movable (contains std::shared_mutex)
     PolicyEngine(const PolicyEngine&) = delete;
     PolicyEngine& operator=(const PolicyEngine&) = delete;
-    PolicyEngine(PolicyEngine&&) noexcept = default;
-    PolicyEngine& operator=(PolicyEngine&&) noexcept = default;
+    PolicyEngine(PolicyEngine&&) = delete;
+    PolicyEngine& operator=(PolicyEngine&&) = delete;
 
     // ========== Policy Loading ==========
 

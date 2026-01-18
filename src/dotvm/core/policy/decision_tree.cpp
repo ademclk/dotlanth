@@ -196,7 +196,8 @@ const CompiledRule* DecisionTree::find_best_match_in_trie(const PrefixTrieNode* 
                                                           std::string_view key,
                                                           const EvaluationContext& ctx,
                                                           std::uint8_t opcode) const {
-    if (!node) return nullptr;
+    if (!node)
+        return nullptr;
 
     const CompiledRule* best_match = nullptr;
     std::int32_t best_priority = std::numeric_limits<std::int32_t>::min();
@@ -214,7 +215,8 @@ const CompiledRule* DecisionTree::find_best_match_in_trie(const PrefixTrieNode* 
     const PrefixTrieNode* current = node;
     for (char c : key) {
         current = current->get_child(c);
-        if (!current) break;
+        if (!current)
+            break;
 
         // Check rules at each node along the path
         for (const auto& rule : current->rules) {

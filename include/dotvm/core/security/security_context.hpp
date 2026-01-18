@@ -667,7 +667,7 @@ public:
     /// @param state_key State key (for state operations)
     /// @return Policy decision
     [[nodiscard]] policy::PolicyDecision check_policy(std::uint8_t opcode,
-                                                       std::string_view state_key = "") const;
+                                                      std::string_view state_key = "") const;
 
     /// @brief Build evaluation context from current state
     ///

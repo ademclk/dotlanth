@@ -81,7 +81,8 @@ struct EvaluationContext {
 
     /// Get memory usage as percentage (0-100)
     [[nodiscard]] std::uint8_t memory_percent() const noexcept {
-        if (memory_limit == 0) return 0;
+        if (memory_limit == 0)
+            return 0;
         return static_cast<std::uint8_t>((memory_used * 100) / memory_limit);
     }
 
@@ -89,7 +90,8 @@ struct EvaluationContext {
     [[nodiscard]] std::uint16_t current_time_minutes() const {
         auto time_t = std::chrono::system_clock::to_time_t(timestamp);
         std::tm* tm = std::gmtime(&time_t);
-        if (!tm) return 0;
+        if (!tm)
+            return 0;
         return static_cast<std::uint16_t>(tm->tm_hour * 60 + tm->tm_min);
     }
 
