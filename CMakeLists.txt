@@ -137,6 +137,10 @@ add_library(dotvm_core STATIC
     src/dotvm/core/security/isolation_manager.cpp
     # Resource limiter (SEC-004)
     src/dotvm/core/resource_limiter.cpp
+    # Policy engine (SEC-009)
+    src/dotvm/core/policy/json_parser.cpp
+    src/dotvm/core/policy/decision_tree.cpp
+    src/dotvm/core/policy/policy_engine.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -311,6 +315,10 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/security/async_audit_logger_test.cpp
         # Resource limiter tests (SEC-004)
         tests/dotvm/core/resource_limiter_test.cpp
+        # Policy engine tests (SEC-009)
+        tests/dotvm/core/policy/json_parser_test.cpp
+        tests/dotvm/core/policy/decision_tree_test.cpp
+        tests/dotvm/core/policy/policy_engine_test.cpp
     )
 
     # JIT tests (EXEC-012)
