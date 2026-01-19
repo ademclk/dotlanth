@@ -3,6 +3,10 @@
 
 #include "dotvm/core/security/security_context.hpp"
 
+#include "dotvm/core/policy/evaluation_context.hpp"
+#include "dotvm/core/policy/policy_decision.hpp"
+#include "dotvm/core/policy/policy_engine.hpp"
+
 namespace dotvm::core::security {
 
 // ============================================================================
@@ -291,6 +295,46 @@ void SecurityContext::reset_usage() noexcept {
     if (logger_ != nullptr && logger_->is_enabled()) {
         log_event(AuditEventType::ContextReset);
     }
+}
+
+// ========== Policy Engine (SEC-009) ==========
+
+void SecurityContext::set_policy_engine(policy::PolicyEngine* engine) noexcept {
+    policy_engine_ = engine;
+}
+
+policy::PolicyDecision SecurityContext::check_policy(std::uint8_t opcode,
+                                                     std::string_view state_key) const {
+    if (policy_engine_ == nullptr) {
+        // No policy engine - default allow
+        return policy::PolicyDecision::allow();
+    }
+
+    auto ctx = build_evaluation_context();
+    ctx.state_key = state_key;
+
+    return policy_engine_->evaluate(ctx, opcode, state_key);
+}
+
+policy::EvaluationContext SecurityContext::build_evaluation_context() const {
+    policy::EvaluationContext ctx;
+
+    // Identity
+    ctx.dot_id = dot_id_;
+
+    // Resource usage
+    ctx.memory_used = usage_.memory_allocated;
+    ctx.memory_limit = limits_.max_memory;
+    ctx.instructions_executed = usage_.instructions_executed;
+
+    // Call chain
+    ctx.call_depth = usage_.current_stack_depth;
+    ctx.root_caller_dot = root_caller_dot_;
+
+    // Time
+    ctx.timestamp = std::chrono::system_clock::now();
+
+    return ctx;
 }
 
 }  // namespace dotvm::core::security

@@ -30,6 +30,12 @@
 #include "dotvm/core/capabilities/capability.hpp"
 #include "dotvm/core/security/permission.hpp"
 
+namespace dotvm::core::policy {
+class PolicyEngine;
+struct EvaluationContext;
+struct PolicyDecision;
+}  // namespace dotvm::core::policy
+
 namespace dotvm::core::security {
 
 // ============================================================================
@@ -642,6 +648,49 @@ public:
     /// @brief Reset usage counters (keeps limits and permissions)
     void reset_usage() noexcept;
 
+    // ========== Policy Engine (SEC-009) ==========
+
+    /// @brief Set the policy engine for policy-based access control
+    ///
+    /// @param engine Pointer to PolicyEngine (must outlive this context)
+    void set_policy_engine(policy::PolicyEngine* engine) noexcept;
+
+    /// @brief Get the policy engine
+    [[nodiscard]] policy::PolicyEngine* policy_engine() const noexcept { return policy_engine_; }
+
+    /// @brief Check policy for an operation
+    ///
+    /// Builds an EvaluationContext from current state and evaluates against
+    /// the loaded policy. Logs audit events as appropriate.
+    ///
+    /// @param opcode Operation opcode
+    /// @param state_key State key (for state operations)
+    /// @return Policy decision
+    [[nodiscard]] policy::PolicyDecision check_policy(std::uint8_t opcode,
+                                                      std::string_view state_key = "") const;
+
+    /// @brief Build evaluation context from current state
+    ///
+    /// Creates an EvaluationContext populated with current Dot ID,
+    /// capabilities, resource usage, and call depth.
+    ///
+    /// @return Populated evaluation context
+    [[nodiscard]] policy::EvaluationContext build_evaluation_context() const;
+
+    /// @brief Set the Dot ID for this context
+    ///
+    /// @param dot_id Dot ID for policy evaluation
+    void set_dot_id(std::uint64_t dot_id) noexcept { dot_id_ = dot_id; }
+
+    /// @brief Get the Dot ID
+    [[nodiscard]] std::uint64_t dot_id() const noexcept { return dot_id_; }
+
+    /// @brief Set the root caller Dot ID
+    void set_root_caller_dot(std::uint64_t root_dot) noexcept { root_caller_dot_ = root_dot; }
+
+    /// @brief Get the root caller Dot ID
+    [[nodiscard]] std::uint64_t root_caller_dot() const noexcept { return root_caller_dot_; }
+
     // ========== Factory Methods ==========
 
     /// @brief Create a context with unlimited resources
@@ -691,9 +740,12 @@ private:
     capabilities::CapabilityLimits limits_;
     PermissionSet permissions_;
     AuditLogger* logger_;
+    policy::PolicyEngine* policy_engine_{nullptr};
 
     // Runtime state
     ResourceUsage usage_;
+    std::uint64_t dot_id_{0};
+    std::uint64_t root_caller_dot_{0};
 
     // Diagnostics counters
     std::size_t permission_checks_{0};
