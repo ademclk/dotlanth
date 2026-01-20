@@ -6,6 +6,10 @@ project(dotlanth
     LANGUAGES CXX C
 )
 
+# Standard CMake modules for installation and packaging
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 # C++26 requirement - use Clang 19+ or GCC 14+
 # CMake may not recognize "26" as valid, so we fall back to 23 and add the flag manually
 set(CMAKE_CXX_STANDARD 23)
@@ -229,6 +233,17 @@ if(DOTVM_BUILD_C_API)
     endif()
 endif()
 
+# ============================================================================
+# Alias Targets for Namespace Consistency
+# ============================================================================
+# These aliases provide the Dotvm:: namespace for use in export sets and
+# allow consistent target naming in both build and install scenarios.
+
+add_library(Dotvm::Core ALIAS dotvm_core)
+if(DOTVM_BUILD_C_API)
+    add_library(Dotvm::CApi ALIAS dotvm_c)
+endif()
+
 # Main executable
 add_executable(dotlanth
     src/main.cpp
@@ -418,24 +433,143 @@ if(DOTVM_BUILD_FUZZERS)
     endif()
 endif()
 
-# Installation
-install(TARGETS dotvm_core dotlanth
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
+# ============================================================================
+# Installation and Packaging
+# ============================================================================
+
+# Determine JIT availability for package config (based on build-time detection)
+if(DOTVM_ENABLE_JIT AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    set(DOTVM_JIT_AVAILABLE TRUE)
+else()
+    set(DOTVM_JIT_AVAILABLE FALSE)
+endif()
+
+# Install core library with export
+install(TARGETS dotvm_core
+    EXPORT DotvmTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT Development
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT Runtime
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            COMPONENT Runtime
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
+# Install C API library (if enabled)
 if(DOTVM_BUILD_C_API)
     install(TARGETS dotvm_c
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
+        EXPORT DotvmTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                COMPONENT Development
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                COMPONENT Runtime
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+                COMPONENT Runtime
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 endif()
 
-install(DIRECTORY include/
-    DESTINATION include
+# Install main executable
+install(TARGETS dotlanth
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            COMPONENT Tools
 )
+
+# Install headers
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    COMPONENT Development
+    FILES_MATCHING
+        PATTERN "*.h"
+        PATTERN "*.hpp"
+)
+
+# Export targets for use by downstream projects
+install(EXPORT DotvmTargets
+    FILE DotvmTargets.cmake
+    NAMESPACE Dotvm::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Dotvm
+    COMPONENT Development
+)
+
+# Generate and install package config file
+configure_package_config_file(
+    ${CMAKE_SOURCE_DIR}/cmake/DotvmConfig.cmake.in
+    ${CMAKE_BINARY_DIR}/DotvmConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Dotvm
+)
+
+# Generate version file for compatibility checking
+write_basic_package_version_file(
+    ${CMAKE_BINARY_DIR}/DotvmConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+# Install config files
+install(FILES
+    ${CMAKE_BINARY_DIR}/DotvmConfig.cmake
+    ${CMAKE_BINARY_DIR}/DotvmConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Dotvm
+    COMPONENT Development
+)
+
+# ============================================================================
+# CPack Configuration
+# ============================================================================
+
+set(CPACK_PACKAGE_NAME "dotvm")
+set(CPACK_PACKAGE_VENDOR "Dotlanth")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
+set(CPACK_PACKAGE_CONTACT "dotlanth@example.com")
+
+# Component configuration
+set(CPACK_COMPONENTS_ALL Runtime Development Tools)
+
+set(CPACK_COMPONENT_RUNTIME_DISPLAY_NAME "Runtime Libraries")
+set(CPACK_COMPONENT_RUNTIME_DESCRIPTION "Shared libraries required to run DotVM applications")
+set(CPACK_COMPONENT_RUNTIME_REQUIRED ON)
+
+set(CPACK_COMPONENT_DEVELOPMENT_DISPLAY_NAME "Development Files")
+set(CPACK_COMPONENT_DEVELOPMENT_DESCRIPTION "Headers, static libraries, and CMake config files for development")
+set(CPACK_COMPONENT_DEVELOPMENT_DEPENDS Runtime)
+
+set(CPACK_COMPONENT_TOOLS_DISPLAY_NAME "Tools")
+set(CPACK_COMPONENT_TOOLS_DESCRIPTION "DotVM command-line tools and executables")
+set(CPACK_COMPONENT_TOOLS_DEPENDS Runtime)
+
+# Component groups
+set(CPACK_COMPONENT_RUNTIME_GROUP "Core")
+set(CPACK_COMPONENT_DEVELOPMENT_GROUP "Development")
+set(CPACK_COMPONENT_TOOLS_GROUP "Applications")
+
+set(CPACK_COMPONENT_GROUP_CORE_DISPLAY_NAME "Core Components")
+set(CPACK_COMPONENT_GROUP_DEVELOPMENT_DISPLAY_NAME "Development Components")
+set(CPACK_COMPONENT_GROUP_APPLICATIONS_DISPLAY_NAME "Application Tools")
+
+# Archive generators (cross-platform)
+set(CPACK_GENERATOR TGZ ZIP)
+
+# Source package configuration
+set(CPACK_SOURCE_GENERATOR TGZ ZIP)
+set(CPACK_SOURCE_IGNORE_FILES
+    /\\.git/
+    /build.*/
+    /\\.cache/
+    /\\.vscode/
+    /\\.idea/
+    \\.DS_Store
+    CMakeFiles/
+    CMakeCache.txt
+)
+
+include(CPack)
 
 # ============================================================================
 # Benchmarks
