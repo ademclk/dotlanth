@@ -25,28 +25,37 @@ bool Lexer::is_alpha(char c) noexcept {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-bool Lexer::is_digit(char c) noexcept { return c >= '0' && c <= '9'; }
+bool Lexer::is_digit(char c) noexcept {
+    return c >= '0' && c <= '9';
+}
 
-bool Lexer::is_alnum(char c) noexcept { return is_alpha(c) || is_digit(c); }
+bool Lexer::is_alnum(char c) noexcept {
+    return is_alpha(c) || is_digit(c);
+}
 
-bool Lexer::is_whitespace(char c) noexcept { return c == ' ' || c == '\t' || c == '\r'; }
+bool Lexer::is_whitespace(char c) noexcept {
+    return c == ' ' || c == '\t' || c == '\r';
+}
 
 // ============================================================================
 // Basic Scanning
 // ============================================================================
 
 char Lexer::peek_char() const noexcept {
-    if (pos_ >= source_.size()) return '\0';
+    if (pos_ >= source_.size())
+        return '\0';
     return source_[pos_];
 }
 
 char Lexer::peek_char(std::size_t n) const noexcept {
-    if (pos_ + n >= source_.size()) return '\0';
+    if (pos_ + n >= source_.size())
+        return '\0';
     return source_[pos_ + n];
 }
 
 char Lexer::advance() noexcept {
-    if (pos_ >= source_.size()) return '\0';
+    if (pos_ >= source_.size())
+        return '\0';
     char c = source_[pos_++];
     if (c == '\n') {
         line_++;
@@ -58,7 +67,8 @@ char Lexer::advance() noexcept {
 }
 
 bool Lexer::match(char expected) noexcept {
-    if (pos_ >= source_.size() || source_[pos_] != expected) return false;
+    if (pos_ >= source_.size() || source_[pos_] != expected)
+        return false;
     advance();
     return true;
 }
@@ -73,7 +83,9 @@ void Lexer::skip_comment() noexcept {
 // Public Interface
 // ============================================================================
 
-bool Lexer::at_end() const noexcept { return pos_ >= source_.size() && pending_dedents_ == 0; }
+bool Lexer::at_end() const noexcept {
+    return pos_ >= source_.size() && pending_dedents_ == 0;
+}
 
 SourceLocation Lexer::location() const noexcept {
     return SourceLocation{line_, column_, pos_};
@@ -147,7 +159,8 @@ Token Lexer::next_token() {
     // Newline
     if (c == '\n') {
         at_line_start_ = true;
-        return Token::make(TokenType::Newline, SourceSpan::from(token_start_loc_, location()), "\n");
+        return Token::make(TokenType::Newline, SourceSpan::from(token_start_loc_, location()),
+                           "\n");
     }
 
     // Identifier or keyword
@@ -184,14 +197,16 @@ Token Lexer::next_token() {
                 return Token::make(TokenType::PlusEquals,
                                    SourceSpan::from(token_start_loc_, location()), "+=");
             }
-            return Token::make(TokenType::Plus, SourceSpan::from(token_start_loc_, location()), "+");
+            return Token::make(TokenType::Plus, SourceSpan::from(token_start_loc_, location()),
+                               "+");
 
         case '*':
             if (match('=')) {
                 return Token::make(TokenType::StarEquals,
                                    SourceSpan::from(token_start_loc_, location()), "*=");
             }
-            return Token::make(TokenType::Star, SourceSpan::from(token_start_loc_, location()), "*");
+            return Token::make(TokenType::Star, SourceSpan::from(token_start_loc_, location()),
+                               "*");
 
         case '/':
             if (match('=')) {
@@ -222,7 +237,8 @@ Token Lexer::next_token() {
                 return Token::make(TokenType::LessEqual,
                                    SourceSpan::from(token_start_loc_, location()), "<=");
             }
-            return Token::make(TokenType::Less, SourceSpan::from(token_start_loc_, location()), "<");
+            return Token::make(TokenType::Less, SourceSpan::from(token_start_loc_, location()),
+                               "<");
 
         case '>':
             if (match('=')) {
@@ -442,7 +458,8 @@ Token Lexer::continue_string() {
 TokenType Lexer::lookup_keyword(std::string_view text) const noexcept {
     // Fast keyword lookup using switch on (length << 8) | first_char
     // This provides O(1) lookup without hash tables
-    if (text.empty()) return TokenType::Identifier;
+    if (text.empty())
+        return TokenType::Identifier;
 
     std::size_t len = text.size();
     char first = text[0];
@@ -453,45 +470,56 @@ TokenType Lexer::lookup_keyword(std::string_view text) const noexcept {
     switch (key) {
         // Length 2
         case (2 << 8) | 'd':  // "do"
-            if (text == "do") return TokenType::KwDo;
+            if (text == "do")
+                return TokenType::KwDo;
             break;
         case (2 << 8) | 'o':  // "or"
-            if (text == "or") return TokenType::KwOr;
+            if (text == "or")
+                return TokenType::KwOr;
             break;
 
         // Length 3
         case (3 << 8) | 'd':  // "dot"
-            if (text == "dot") return TokenType::KwDot;
+            if (text == "dot")
+                return TokenType::KwDot;
             break;
         case (3 << 8) | 'a':  // "and"
-            if (text == "and") return TokenType::KwAnd;
+            if (text == "and")
+                return TokenType::KwAnd;
             break;
         case (3 << 8) | 'n':  // "not"
-            if (text == "not") return TokenType::KwNot;
+            if (text == "not")
+                return TokenType::KwNot;
             break;
 
         // Length 4
         case (4 << 8) | 'w':  // "when"
-            if (text == "when") return TokenType::KwWhen;
+            if (text == "when")
+                return TokenType::KwWhen;
             break;
         case (4 << 8) | 'l':  // "link"
-            if (text == "link") return TokenType::KwLink;
+            if (text == "link")
+                return TokenType::KwLink;
             break;
         case (4 << 8) | 't':  // "true"
-            if (text == "true") return TokenType::KwTrue;
+            if (text == "true")
+                return TokenType::KwTrue;
             break;
 
         // Length 5
         case (5 << 8) | 's':  // "state"
-            if (text == "state") return TokenType::KwState;
+            if (text == "state")
+                return TokenType::KwState;
             break;
         case (5 << 8) | 'f':  // "false"
-            if (text == "false") return TokenType::KwFalse;
+            if (text == "false")
+                return TokenType::KwFalse;
             break;
 
         // Length 6
         case (6 << 8) | 'i':  // "import"
-            if (text == "import") return TokenType::KwImport;
+            if (text == "import")
+                return TokenType::KwImport;
             break;
 
         default:

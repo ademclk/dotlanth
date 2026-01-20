@@ -179,9 +179,9 @@ struct GroupExpr {
 };
 
 /// @brief Expression variant type
-using ExpressionVariant = std::variant<IdentifierExpr, MemberExpr, StringExpr, IntegerExpr,
-                                       FloatExpr, BoolExpr, BinaryExpr, UnaryExpr,
-                                       InterpolatedString, CallExpr, GroupExpr>;
+using ExpressionVariant =
+    std::variant<IdentifierExpr, MemberExpr, StringExpr, IntegerExpr, FloatExpr, BoolExpr,
+                 BinaryExpr, UnaryExpr, InterpolatedString, CallExpr, GroupExpr>;
 
 /// @brief Expression node wrapper
 struct Expression {

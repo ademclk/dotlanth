@@ -450,11 +450,14 @@ std::optional<ActionStmt> DslParser::parse_action() {
 // Expression Parsing
 // ============================================================================
 
-std::unique_ptr<Expression> DslParser::parse_expression() { return parse_or(); }
+std::unique_ptr<Expression> DslParser::parse_expression() {
+    return parse_or();
+}
 
 std::unique_ptr<Expression> DslParser::parse_or() {
     auto left = parse_and();
-    if (!left) return nullptr;
+    if (!left)
+        return nullptr;
 
     while (match(TokenType::KwOr)) {
         auto right = parse_and();
@@ -476,7 +479,8 @@ std::unique_ptr<Expression> DslParser::parse_or() {
 
 std::unique_ptr<Expression> DslParser::parse_and() {
     auto left = parse_equality();
-    if (!left) return nullptr;
+    if (!left)
+        return nullptr;
 
     while (match(TokenType::KwAnd)) {
         auto right = parse_equality();
@@ -498,7 +502,8 @@ std::unique_ptr<Expression> DslParser::parse_and() {
 
 std::unique_ptr<Expression> DslParser::parse_equality() {
     auto left = parse_comparison();
-    if (!left) return nullptr;
+    if (!left)
+        return nullptr;
 
     while (match_any(TokenType::EqualEqual, TokenType::NotEqual)) {
         BinaryOp op = (previous_.type == TokenType::EqualEqual) ? BinaryOp::Eq : BinaryOp::Ne;
@@ -521,7 +526,8 @@ std::unique_ptr<Expression> DslParser::parse_equality() {
 
 std::unique_ptr<Expression> DslParser::parse_comparison() {
     auto left = parse_term();
-    if (!left) return nullptr;
+    if (!left)
+        return nullptr;
 
     while (match_any(TokenType::Less, TokenType::LessEqual, TokenType::Greater,
                      TokenType::GreaterEqual)) {
@@ -562,7 +568,8 @@ std::unique_ptr<Expression> DslParser::parse_comparison() {
 
 std::unique_ptr<Expression> DslParser::parse_term() {
     auto left = parse_factor();
-    if (!left) return nullptr;
+    if (!left)
+        return nullptr;
 
     while (match_any(TokenType::Plus, TokenType::Minus)) {
         BinaryOp op = (previous_.type == TokenType::Plus) ? BinaryOp::Add : BinaryOp::Sub;
@@ -585,7 +592,8 @@ std::unique_ptr<Expression> DslParser::parse_term() {
 
 std::unique_ptr<Expression> DslParser::parse_factor() {
     auto left = parse_unary();
-    if (!left) return nullptr;
+    if (!left)
+        return nullptr;
 
     while (match_any(TokenType::Star, TokenType::Slash, TokenType::Percent)) {
         BinaryOp op;
@@ -674,9 +682,8 @@ std::unique_ptr<Expression> DslParser::parse_primary() {
     if (match(TokenType::Integer)) {
         IntegerExpr i;
         i.span = previous_.span;
-        auto result =
-            std::from_chars(previous_.lexeme.data(),
-                            previous_.lexeme.data() + previous_.lexeme.size(), i.value);
+        auto result = std::from_chars(previous_.lexeme.data(),
+                                      previous_.lexeme.data() + previous_.lexeme.size(), i.value);
         if (result.ec != std::errc{}) {
             error(DslError::InvalidNumber, "Invalid integer literal");
             return nullptr;
@@ -814,9 +821,13 @@ std::unique_ptr<Expression> DslParser::parse_interpolated_string() {
 // Token Helpers
 // ============================================================================
 
-const Token& DslParser::current() const noexcept { return current_; }
+const Token& DslParser::current() const noexcept {
+    return current_;
+}
 
-TokenType DslParser::peek() const noexcept { return current_.type; }
+TokenType DslParser::peek() const noexcept {
+    return current_.type;
+}
 
 Token DslParser::advance() {
     previous_ = current_;
@@ -826,7 +837,9 @@ Token DslParser::advance() {
     return previous_;
 }
 
-bool DslParser::check(TokenType type) const noexcept { return current_.type == type; }
+bool DslParser::check(TokenType type) const noexcept {
+    return current_.type == type;
+}
 
 bool DslParser::match(TokenType type) {
     if (check(type)) {
@@ -845,16 +858,21 @@ bool DslParser::expect(TokenType type, std::string_view error_msg) {
     return false;
 }
 
-bool DslParser::at_end() const noexcept { return current_.type == TokenType::Eof; }
+bool DslParser::at_end() const noexcept {
+    return current_.type == TokenType::Eof;
+}
 
 // ============================================================================
 // Error Handling
 // ============================================================================
 
-void DslParser::error(DslError code, std::string_view msg) { error_at(current_, code, msg); }
+void DslParser::error(DslError code, std::string_view msg) {
+    error_at(current_, code, msg);
+}
 
 void DslParser::error_at(const Token& token, DslError code, std::string_view msg) {
-    if (panic_mode_) return;  // Suppress cascading errors
+    if (panic_mode_)
+        return;  // Suppress cascading errors
     panic_mode_ = true;
     errors_.add(code, token.span, msg);
 }
