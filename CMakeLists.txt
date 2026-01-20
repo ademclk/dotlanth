@@ -148,6 +148,12 @@ add_library(dotvm_core STATIC
     # DSL parser (DSL-001)
     src/dotvm/core/dsl/lexer.cpp
     src/dotvm/core/dsl/parser.cpp
+    # DSL IR generator (DSL-002)
+    src/dotvm/core/dsl/compiler/ir_builder.cpp
+    src/dotvm/core/dsl/compiler/optimizer.cpp
+    src/dotvm/core/dsl/compiler/lowerer.cpp
+    src/dotvm/core/dsl/compiler/codegen.cpp
+    src/dotvm/core/dsl/compiler/dsl_compiler.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -342,6 +348,11 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/dsl/parser_test.cpp
         tests/dotvm/core/dsl/integration_test.cpp
         tests/dotvm/core/dsl/benchmark_test.cpp
+        # DSL IR generator tests (DSL-002)
+        tests/dsl/compiler/ir_builder_test.cpp
+        tests/dsl/compiler/optimizer_test.cpp
+        tests/dsl/compiler/codegen_test.cpp
+        tests/dsl/compiler/integration_test.cpp
     )
 
     # JIT tests (EXEC-012)
