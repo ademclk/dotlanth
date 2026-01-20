@@ -233,9 +233,9 @@ struct Jump {
 /// @brief Conditional branch
 /// if (condition) goto true_block else goto false_block
 struct Branch {
-    std::uint32_t condition_id;     ///< ID of boolean condition value
-    std::uint32_t true_block_id;    ///< Block to jump to if condition is true
-    std::uint32_t false_block_id;   ///< Block to jump to if condition is false
+    std::uint32_t condition_id;    ///< ID of boolean condition value
+    std::uint32_t true_block_id;   ///< Block to jump to if condition is true
+    std::uint32_t false_block_id;  ///< Block to jump to if condition is false
 };
 
 /// @brief Return from function
@@ -259,23 +259,11 @@ struct Unreachable {};
 /// @brief All possible instruction types
 using InstructionKind = std::variant<
     // Value-producing instructions
-    BinaryOp,
-    UnaryOp,
-    Compare,
-    LoadConst,
-    StateGet,
-    Call,
-    Cast,
-    Copy,
+    BinaryOp, UnaryOp, Compare, LoadConst, StateGet, Call, Cast, Copy,
     // Side-effect only
     StatePut,
     // Terminators
-    Jump,
-    Branch,
-    Return,
-    Halt,
-    Unreachable
->;
+    Jump, Branch, Return, Halt, Unreachable>;
 
 /// @brief An IR instruction
 struct Instruction {
@@ -284,43 +272,41 @@ struct Instruction {
 
     /// Check if this is a terminator instruction
     [[nodiscard]] bool is_terminator() const noexcept {
-        return std::holds_alternative<Jump>(kind) ||
-               std::holds_alternative<Branch>(kind) ||
-               std::holds_alternative<Return>(kind) ||
-               std::holds_alternative<Halt>(kind) ||
+        return std::holds_alternative<Jump>(kind) || std::holds_alternative<Branch>(kind) ||
+               std::holds_alternative<Return>(kind) || std::holds_alternative<Halt>(kind) ||
                std::holds_alternative<Unreachable>(kind);
     }
 
     /// Check if this instruction produces a value
     [[nodiscard]] bool produces_value() const noexcept {
-        return std::holds_alternative<BinaryOp>(kind) ||
-               std::holds_alternative<UnaryOp>(kind) ||
-               std::holds_alternative<Compare>(kind) ||
-               std::holds_alternative<LoadConst>(kind) ||
-               std::holds_alternative<StateGet>(kind) ||
-               std::holds_alternative<Call>(kind) ||
-               std::holds_alternative<Cast>(kind) ||
-               std::holds_alternative<Copy>(kind);
+        return std::holds_alternative<BinaryOp>(kind) || std::holds_alternative<UnaryOp>(kind) ||
+               std::holds_alternative<Compare>(kind) || std::holds_alternative<LoadConst>(kind) ||
+               std::holds_alternative<StateGet>(kind) || std::holds_alternative<Call>(kind) ||
+               std::holds_alternative<Cast>(kind) || std::holds_alternative<Copy>(kind);
     }
 
     /// Get the result value if this instruction produces one
     [[nodiscard]] const Value* get_result() const noexcept {
-        return std::visit([](const auto& inst) -> const Value* {
-            if constexpr (requires { inst.result; }) {
-                return &inst.result;
-            }
-            return nullptr;
-        }, kind);
+        return std::visit(
+            [](const auto& inst) -> const Value* {
+                if constexpr (requires { inst.result; }) {
+                    return &inst.result;
+                }
+                return nullptr;
+            },
+            kind);
     }
 
     /// Get mutable result value if this instruction produces one
     [[nodiscard]] Value* get_result_mut() noexcept {
-        return std::visit([](auto& inst) -> Value* {
-            if constexpr (requires { inst.result; }) {
-                return &inst.result;
-            }
-            return nullptr;
-        }, kind);
+        return std::visit(
+            [](auto& inst) -> Value* {
+                if constexpr (requires { inst.result; }) {
+                    return &inst.result;
+                }
+                return nullptr;
+            },
+            kind);
     }
 
     /// Create an instruction from any instruction kind
@@ -338,8 +324,7 @@ struct Instruction {
 // ============================================================================
 
 /// @brief Map DSL BinaryOp to IR BinaryOpKind
-[[nodiscard]] inline std::optional<BinaryOpKind>
-map_binary_op(dsl::AstBinaryOp op) noexcept {
+[[nodiscard]] inline std::optional<BinaryOpKind> map_binary_op(dsl::AstBinaryOp op) noexcept {
     switch (op) {
         case dsl::AstBinaryOp::Add:
             return BinaryOpKind::Add;
@@ -361,8 +346,7 @@ map_binary_op(dsl::AstBinaryOp op) noexcept {
 }
 
 /// @brief Map DSL comparison BinaryOp to IR CompareKind
-[[nodiscard]] inline std::optional<CompareKind>
-map_compare_op(dsl::AstBinaryOp op) noexcept {
+[[nodiscard]] inline std::optional<CompareKind> map_compare_op(dsl::AstBinaryOp op) noexcept {
     switch (op) {
         case dsl::AstBinaryOp::Eq:
             return CompareKind::Eq;
@@ -382,8 +366,7 @@ map_compare_op(dsl::AstBinaryOp op) noexcept {
 }
 
 /// @brief Map DSL UnaryOp to IR UnaryOpKind
-[[nodiscard]] inline std::optional<UnaryOpKind>
-map_unary_op(dsl::AstUnaryOp op) noexcept {
+[[nodiscard]] inline std::optional<UnaryOpKind> map_unary_op(dsl::AstUnaryOp op) noexcept {
     switch (op) {
         case dsl::AstUnaryOp::Neg:
             return UnaryOpKind::Neg;

@@ -18,10 +18,10 @@ namespace dotvm::core::dsl::ir {
 
 /// @brief Print options for IRPrinter
 struct PrintOptions {
-    bool show_types = true;      ///< Show type annotations
-    bool show_ids = true;        ///< Show value IDs
-    bool show_spans = false;     ///< Show source locations
-    std::string indent = "  ";   ///< Indentation string
+    bool show_types = true;     ///< Show type annotations
+    bool show_ids = true;       ///< Show value IDs
+    bool show_spans = false;    ///< Show source locations
+    std::string indent = "  ";  ///< Indentation string
 };
 
 /// @brief Printer for IR structures
@@ -60,8 +60,8 @@ public:
         if (!dot.state_slots.empty()) {
             os_ << opts_.indent << "; state slots\n";
             for (const auto& slot : dot.state_slots) {
-                os_ << opts_.indent << "state." << slot.index << " : "
-                    << to_string(slot.type) << " = \"" << slot.name << "\"";
+                os_ << opts_.indent << "state." << slot.index << " : " << to_string(slot.type)
+                    << " = \"" << slot.name << "\"";
                 if (slot.initial_value) {
                     os_ << " init " << format_value(*slot.initial_value);
                 }
@@ -75,10 +75,10 @@ public:
             os_ << opts_.indent << "; triggers: " << dot.triggers.size() << "\n";
             for (std::size_t i = 0; i < dot.triggers.size(); ++i) {
                 const auto& trigger = dot.triggers[i];
-                os_ << opts_.indent << "; trigger[" << i << "]: entry=bb"
-                    << trigger.entry_block_id << ", cond=%" << trigger.condition_value_id
-                    << ", action=bb" << trigger.action_block_id
-                    << ", cont=bb" << trigger.continuation_block_id << "\n";
+                os_ << opts_.indent << "; trigger[" << i << "]: entry=bb" << trigger.entry_block_id
+                    << ", cond=%" << trigger.condition_value_id << ", action=bb"
+                    << trigger.action_block_id << ", cont=bb" << trigger.continuation_block_id
+                    << "\n";
             }
             os_ << "\n";
         }
@@ -102,7 +102,8 @@ public:
         if (!block.predecessors.empty()) {
             os_ << " ; preds: ";
             for (std::size_t i = 0; i < block.predecessors.size(); ++i) {
-                if (i > 0) os_ << ", ";
+                if (i > 0)
+                    os_ << ", ";
                 os_ << "bb" << block.predecessors[i]->id;
             }
         }
@@ -136,9 +137,9 @@ public:
         }
         os_ << " [";
         for (std::size_t i = 0; i < phi.incoming.size(); ++i) {
-            if (i > 0) os_ << ", ";
-            os_ << "bb" << phi.incoming[i].first << ": %"
-                << phi.incoming[i].second;
+            if (i > 0)
+                os_ << ", ";
+            os_ << "bb" << phi.incoming[i].first << ": %" << phi.incoming[i].second;
         }
         os_ << "]\n";
     }
@@ -238,7 +239,8 @@ private:
         }
         os_ << "call @" << call.callee << "(";
         for (std::size_t i = 0; i < call.arg_ids.size(); ++i) {
-            if (i > 0) os_ << ", ";
+            if (i > 0)
+                os_ << ", ";
             os_ << "%" << call.arg_ids[i];
         }
         os_ << ")";
@@ -254,13 +256,11 @@ private:
         os_ << " = copy %" << copy.value_id;
     }
 
-    void print_instruction(const Jump& jmp) {
-        os_ << "jmp bb" << jmp.target_block_id;
-    }
+    void print_instruction(const Jump& jmp) { os_ << "jmp bb" << jmp.target_block_id; }
 
     void print_instruction(const Branch& br) {
-        os_ << "br %" << br.condition_id << ", bb" << br.true_block_id
-            << ", bb" << br.false_block_id;
+        os_ << "br %" << br.condition_id << ", bb" << br.true_block_id << ", bb"
+            << br.false_block_id;
     }
 
     void print_instruction(const Return& ret) {
@@ -277,15 +277,12 @@ private:
         }
     }
 
-    void print_instruction(const Unreachable&) {
-        os_ << "unreachable";
-    }
+    void print_instruction(const Unreachable&) { os_ << "unreachable"; }
 };
 
 /// @brief Print IR to a string
-[[nodiscard]] inline std::string print_to_string(
-    const DotIR& dot,
-    IRPrinter::Options opts = IRPrinter::Options{}) {
+[[nodiscard]] inline std::string print_to_string(const DotIR& dot,
+                                                 IRPrinter::Options opts = IRPrinter::Options{}) {
     std::ostringstream oss;
     IRPrinter printer(oss, std::move(opts));
     printer.print(dot);
@@ -293,9 +290,8 @@ private:
 }
 
 /// @brief Print IR to a string
-[[nodiscard]] inline std::string print_to_string(
-    const CompiledModule& module,
-    IRPrinter::Options opts = IRPrinter::Options{}) {
+[[nodiscard]] inline std::string print_to_string(const CompiledModule& module,
+                                                 IRPrinter::Options opts = IRPrinter::Options{}) {
     std::ostringstream oss;
     IRPrinter printer(oss, std::move(opts));
     printer.print(module);
@@ -303,9 +299,8 @@ private:
 }
 
 /// @brief Print a single instruction to a string
-[[nodiscard]] inline std::string print_to_string(
-    const Instruction& instr,
-    IRPrinter::Options opts = IRPrinter::Options{}) {
+[[nodiscard]] inline std::string print_to_string(const Instruction& instr,
+                                                 IRPrinter::Options opts = IRPrinter::Options{}) {
     std::ostringstream oss;
     IRPrinter printer(oss, std::move(opts));
     printer.print(instr);

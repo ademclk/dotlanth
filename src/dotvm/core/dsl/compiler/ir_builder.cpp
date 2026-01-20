@@ -102,7 +102,7 @@ Value IRBuilder::create_value(ValueType type, const std::string& name) {
 }
 
 Value IRBuilder::create_const_value(ValueType type, dotvm::core::Value val,
-                                     const std::string& name) {
+                                    const std::string& name) {
     return Value::make_const(current_dot_->alloc_value_id(), type, val, name);
 }
 
@@ -122,14 +122,11 @@ IRBuildResult<void> IRBuilder::build_state(const StateDef& state) {
             // Evaluate constant if possible
             const auto& expr_val = var.value->value;
             if (std::holds_alternative<IntegerExpr>(expr_val)) {
-                init_val = dotvm::core::Value::from_int(
-                    std::get<IntegerExpr>(expr_val).value);
+                init_val = dotvm::core::Value::from_int(std::get<IntegerExpr>(expr_val).value);
             } else if (std::holds_alternative<FloatExpr>(expr_val)) {
-                init_val = dotvm::core::Value::from_float(
-                    std::get<FloatExpr>(expr_val).value);
+                init_val = dotvm::core::Value::from_float(std::get<FloatExpr>(expr_val).value);
             } else if (std::holds_alternative<BoolExpr>(expr_val)) {
-                init_val = dotvm::core::Value::from_bool(
-                    std::get<BoolExpr>(expr_val).value);
+                init_val = dotvm::core::Value::from_bool(std::get<BoolExpr>(expr_val).value);
             }
         }
 
@@ -156,8 +153,7 @@ IRBuildResult<void> IRBuilder::build_state(const StateDef& state) {
     return {};
 }
 
-std::uint32_t IRBuilder::get_or_create_state_slot(const std::string& name,
-                                                   ValueType type) {
+std::uint32_t IRBuilder::get_or_create_state_slot(const std::string& name, ValueType type) {
     auto it = state_name_to_slot_.find(name);
     if (it != state_name_to_slot_.end()) {
         return it->second;
@@ -184,39 +180,31 @@ IRBuildResult<std::uint32_t> IRBuilder::build_expression(const Expression& expr)
             using T = std::decay_t<decltype(e)>;
 
             if constexpr (std::is_same_v<T, IntegerExpr>) {
-                auto val = create_const_value(
-                    ValueType::Int64,
-                    dotvm::core::Value::from_int(e.value));
+                auto val =
+                    create_const_value(ValueType::Int64, dotvm::core::Value::from_int(e.value));
                 emit(Instruction::make(
-                    LoadConst{.result = val,
-                              .constant = dotvm::core::Value::from_int(e.value)},
+                    LoadConst{.result = val, .constant = dotvm::core::Value::from_int(e.value)},
                     expr.span));
                 return val.id;
             } else if constexpr (std::is_same_v<T, FloatExpr>) {
-                auto val = create_const_value(
-                    ValueType::Float64,
-                    dotvm::core::Value::from_float(e.value));
+                auto val =
+                    create_const_value(ValueType::Float64, dotvm::core::Value::from_float(e.value));
                 emit(Instruction::make(
-                    LoadConst{.result = val,
-                              .constant = dotvm::core::Value::from_float(e.value)},
+                    LoadConst{.result = val, .constant = dotvm::core::Value::from_float(e.value)},
                     expr.span));
                 return val.id;
             } else if constexpr (std::is_same_v<T, BoolExpr>) {
-                auto val = create_const_value(
-                    ValueType::Bool,
-                    dotvm::core::Value::from_bool(e.value));
+                auto val =
+                    create_const_value(ValueType::Bool, dotvm::core::Value::from_bool(e.value));
                 emit(Instruction::make(
-                    LoadConst{.result = val,
-                              .constant = dotvm::core::Value::from_bool(e.value)},
+                    LoadConst{.result = val, .constant = dotvm::core::Value::from_bool(e.value)},
                     expr.span));
                 return val.id;
             } else if constexpr (std::is_same_v<T, StringExpr>) {
                 // Strings become handles (placeholder for now)
                 auto val = create_value(ValueType::Handle);
                 emit(Instruction::make(
-                    LoadConst{.result = val,
-                              .constant = dotvm::core::Value::nil()},
-                    expr.span));
+                    LoadConst{.result = val, .constant = dotvm::core::Value::nil()}, expr.span));
                 return val.id;
             } else if constexpr (std::is_same_v<T, IdentifierExpr>) {
                 return build_identifier(e);
@@ -232,10 +220,11 @@ IRBuildResult<std::uint32_t> IRBuilder::build_expression(const Expression& expr)
                 return build_expression(*e.inner);
             } else if constexpr (std::is_same_v<T, InterpolatedString>) {
                 // TODO: Implement string interpolation
-                return std::unexpected(IRBuildError::unsupported(
-                    "String interpolation not yet supported", expr.span));
+                return std::unexpected(
+                    IRBuildError::unsupported("String interpolation not yet supported", expr.span));
             } else {
-                return std::unexpected(IRBuildError::unsupported("Unknown expression type", expr.span));
+                return std::unexpected(
+                    IRBuildError::unsupported("Unknown expression type", expr.span));
             }
         },
         expr.value);
@@ -244,11 +233,13 @@ IRBuildResult<std::uint32_t> IRBuilder::build_expression(const Expression& expr)
 IRBuildResult<std::uint32_t> IRBuilder::build_binary_expr(const BinaryExpr& expr) {
     // Build left and right operands
     auto left_result = build_expression(*expr.left);
-    if (!left_result) return left_result;
+    if (!left_result)
+        return left_result;
     auto left_id = *left_result;
 
     auto right_result = build_expression(*expr.right);
-    if (!right_result) return right_result;
+    if (!right_result)
+        return right_result;
     auto right_id = *right_result;
 
     // Check if it's a comparison operator
@@ -260,10 +251,7 @@ IRBuildResult<std::uint32_t> IRBuilder::build_binary_expr(const BinaryExpr& expr
 
         auto result = create_value(ValueType::Bool);
         emit(Instruction::make(
-            Compare{.result = result,
-                    .op = *cmp_op,
-                    .left_id = left_id,
-                    .right_id = right_id},
+            Compare{.result = result, .op = *cmp_op, .left_id = left_id, .right_id = right_id},
             expr.span));
         return result.id;
     }
@@ -281,17 +269,15 @@ IRBuildResult<std::uint32_t> IRBuilder::build_binary_expr(const BinaryExpr& expr
 
     auto result = create_value(result_type);
     emit(Instruction::make(
-        ir::BinaryOp{.result = result,
-                     .op = *bin_op,
-                     .left_id = left_id,
-                     .right_id = right_id},
+        ir::BinaryOp{.result = result, .op = *bin_op, .left_id = left_id, .right_id = right_id},
         expr.span));
     return result.id;
 }
 
 IRBuildResult<std::uint32_t> IRBuilder::build_unary_expr(const UnaryExpr& expr) {
     auto operand_result = build_expression(*expr.operand);
-    if (!operand_result) return operand_result;
+    if (!operand_result)
+        return operand_result;
     auto operand_id = *operand_result;
 
     auto unary_op = map_unary_op(expr.op);
@@ -301,11 +287,8 @@ IRBuildResult<std::uint32_t> IRBuilder::build_unary_expr(const UnaryExpr& expr) 
 
     auto result_type = (expr.op == dsl::AstUnaryOp::Not) ? ValueType::Bool : ValueType::Any;
     auto result = create_value(result_type);
-    emit(Instruction::make(
-        ir::UnaryOp{.result = result,
-                    .op = *unary_op,
-                    .operand_id = operand_id},
-        expr.span));
+    emit(Instruction::make(ir::UnaryOp{.result = result, .op = *unary_op, .operand_id = operand_id},
+                           expr.span));
     return result.id;
 }
 
@@ -316,9 +299,7 @@ IRBuildResult<std::uint32_t> IRBuilder::build_identifier(const IdentifierExpr& e
         auto slot_idx = it->second;
         auto& slot = current_dot_->state_slots[slot_idx];
         auto result = create_value(slot.type, expr.name);
-        emit(Instruction::make(
-            StateGet{.result = result, .slot_index = slot_idx},
-            expr.span));
+        emit(Instruction::make(StateGet{.result = result, .slot_index = slot_idx}, expr.span));
         return result.id;
     }
 
@@ -340,16 +321,17 @@ IRBuildResult<std::uint32_t> IRBuilder::build_member_expr(const MemberExpr& expr
                 auto slot_idx = it->second;
                 auto& slot = current_dot_->state_slots[slot_idx];
                 auto result = create_value(slot.type, expr.member);
-                emit(Instruction::make(
-                    StateGet{.result = result, .slot_index = slot_idx},
-                    expr.span));
+                emit(Instruction::make(StateGet{.result = result, .slot_index = slot_idx},
+                                       expr.span));
                 return result.id;
             }
-            return std::unexpected(IRBuildError::unknown_identifier("state." + expr.member, expr.span));
+            return std::unexpected(
+                IRBuildError::unknown_identifier("state." + expr.member, expr.span));
         }
     }
 
-    return std::unexpected(IRBuildError::unsupported("Complex member access not yet supported", expr.span));
+    return std::unexpected(
+        IRBuildError::unsupported("Complex member access not yet supported", expr.span));
 }
 
 IRBuildResult<std::uint32_t> IRBuilder::build_call_expr(const CallExpr& expr) {
@@ -357,16 +339,14 @@ IRBuildResult<std::uint32_t> IRBuilder::build_call_expr(const CallExpr& expr) {
     std::vector<std::uint32_t> arg_ids;
     for (const auto& arg : expr.arguments) {
         auto arg_result = build_expression(*arg);
-        if (!arg_result) return arg_result;
+        if (!arg_result)
+            return arg_result;
         arg_ids.push_back(*arg_result);
     }
 
     auto result = create_value(ValueType::Any);
     emit(Instruction::make(
-        Call{.result = result,
-             .callee = expr.callee,
-             .arg_ids = std::move(arg_ids)},
-        expr.span));
+        Call{.result = result, .callee = expr.callee, .arg_ids = std::move(arg_ids)}, expr.span));
     return result.id;
 }
 
@@ -471,30 +451,25 @@ IRBuildResult<void> IRBuilder::build_assignment(const ActionStmt& action) {
                 if (obj->name == "state") {
                     auto it = state_name_to_slot_.find(member->member);
                     if (it == state_name_to_slot_.end()) {
-                        return std::unexpected(
-                            IRBuildError::unknown_identifier("state." + member->member,
-                                                             action.target->span));
+                        return std::unexpected(IRBuildError::unknown_identifier(
+                            "state." + member->member, action.target->span));
                     }
                     slot_idx = it->second;
                 } else {
-                    return std::unexpected(
-                        IRBuildError::invalid_target(action.target->span));
+                    return std::unexpected(IRBuildError::invalid_target(action.target->span));
                 }
             } else {
-                return std::unexpected(
-                    IRBuildError::invalid_target(action.target->span));
+                return std::unexpected(IRBuildError::invalid_target(action.target->span));
             }
         } else {
-            return std::unexpected(
-                IRBuildError::invalid_target(action.target->span));
+            return std::unexpected(IRBuildError::invalid_target(action.target->span));
         }
 
         // Load current value
         auto& slot = current_dot_->state_slots[slot_idx];
         auto current_val = create_value(slot.type);
-        emit(Instruction::make(
-            StateGet{.result = current_val, .slot_index = slot_idx},
-            action.span));
+        emit(Instruction::make(StateGet{.result = current_val, .slot_index = slot_idx},
+                               action.span));
         current_id = current_val.id;
 
         // Compute new value
@@ -518,17 +493,13 @@ IRBuildResult<void> IRBuilder::build_assignment(const ActionStmt& action) {
 
         auto result = create_value(slot.type);
         emit(Instruction::make(
-            ir::BinaryOp{.result = result,
-                         .op = op,
-                         .left_id = current_id,
-                         .right_id = value_id},
+            ir::BinaryOp{.result = result, .op = op, .left_id = current_id, .right_id = value_id},
             action.span));
         value_id = result.id;
 
         // Store result
-        emit(Instruction::make(
-            StatePut{.slot_index = slot_idx, .value_id = value_id},
-            action.span));
+        emit(
+            Instruction::make(StatePut{.slot_index = slot_idx, .value_id = value_id}, action.span));
         return {};
     }
 
@@ -536,13 +507,11 @@ IRBuildResult<void> IRBuilder::build_assignment(const ActionStmt& action) {
     if (auto* ident = std::get_if<IdentifierExpr>(&action.target->value)) {
         auto it = state_name_to_slot_.find(ident->name);
         if (it != state_name_to_slot_.end()) {
-            emit(Instruction::make(
-                StatePut{.slot_index = it->second, .value_id = value_id},
-                action.span));
+            emit(Instruction::make(StatePut{.slot_index = it->second, .value_id = value_id},
+                                   action.span));
             return {};
         }
-        return std::unexpected(
-            IRBuildError::unknown_identifier(ident->name, action.target->span));
+        return std::unexpected(IRBuildError::unknown_identifier(ident->name, action.target->span));
     }
 
     if (auto* member = std::get_if<MemberExpr>(&action.target->value)) {
@@ -550,14 +519,12 @@ IRBuildResult<void> IRBuilder::build_assignment(const ActionStmt& action) {
             if (obj->name == "state") {
                 auto it = state_name_to_slot_.find(member->member);
                 if (it != state_name_to_slot_.end()) {
-                    emit(Instruction::make(
-                        StatePut{.slot_index = it->second, .value_id = value_id},
-                        action.span));
+                    emit(Instruction::make(StatePut{.slot_index = it->second, .value_id = value_id},
+                                           action.span));
                     return {};
                 }
-                return std::unexpected(
-                    IRBuildError::unknown_identifier("state." + member->member,
-                                                     action.target->span));
+                return std::unexpected(IRBuildError::unknown_identifier("state." + member->member,
+                                                                        action.target->span));
             }
         }
     }
@@ -578,9 +545,7 @@ IRBuildResult<void> IRBuilder::build_call_action(const ActionStmt& action) {
 
     auto result = create_value(ValueType::Void);
     emit(Instruction::make(
-        Call{.result = result,
-             .callee = action.callee,
-             .arg_ids = std::move(arg_ids)},
+        Call{.result = result, .callee = action.callee, .arg_ids = std::move(arg_ids)},
         action.span));
 
     return {};
@@ -637,8 +602,7 @@ ValueType IRBuilder::infer_type(const Expression& expr) {
         expr.value);
 }
 
-ValueType IRBuilder::infer_binary_result_type(ValueType left, ValueType right,
-                                               BinaryOpKind op) {
+ValueType IRBuilder::infer_binary_result_type(ValueType left, ValueType right, BinaryOpKind op) {
     // Logical operators produce bool
     if (op == BinaryOpKind::And || op == BinaryOpKind::Or) {
         return ValueType::Bool;

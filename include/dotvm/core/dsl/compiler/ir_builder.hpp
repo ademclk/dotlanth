@@ -37,8 +37,7 @@ struct IRBuildError {
     SourceSpan span;
 
     static IRBuildError unknown_identifier(const std::string& name, SourceSpan span) {
-        return IRBuildError{Kind::UnknownIdentifier,
-                            "Unknown identifier: " + name, span};
+        return IRBuildError{Kind::UnknownIdentifier, "Unknown identifier: " + name, span};
     }
 
     static IRBuildError type_mismatch(const std::string& msg, SourceSpan span) {
@@ -46,8 +45,7 @@ struct IRBuildError {
     }
 
     static IRBuildError invalid_target(SourceSpan span) {
-        return IRBuildError{Kind::InvalidAssignmentTarget,
-                            "Invalid assignment target", span};
+        return IRBuildError{Kind::InvalidAssignmentTarget, "Invalid assignment target", span};
     }
 
     static IRBuildError unsupported(const std::string& msg, SourceSpan span) {
@@ -89,7 +87,7 @@ private:
     // Value management
     ir::Value create_value(ir::ValueType type, const std::string& name = "");
     ir::Value create_const_value(ir::ValueType type, dotvm::core::Value val,
-                                  const std::string& name = "");
+                                 const std::string& name = "");
 
     // State slot management
     IRBuildResult<void> build_state(const StateDef& state);
@@ -113,7 +111,7 @@ private:
     // Type inference
     ir::ValueType infer_type(const Expression& expr);
     ir::ValueType infer_binary_result_type(ir::ValueType left, ir::ValueType right,
-                                            ir::BinaryOpKind op);
+                                           ir::BinaryOpKind op);
 
     // Emit instructions
     void emit(std::unique_ptr<ir::Instruction> instr);

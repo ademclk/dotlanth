@@ -35,13 +35,13 @@ TEST_F(OptimizerTest, ConstantFolding) {
 
     // %0 = const 2
     auto v0 = Value::make(dot.alloc_value_id(), ValueType::Int64, "a");
-    block->instructions.push_back(Instruction::make(
-        LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(2)}));
+    block->instructions.push_back(
+        Instruction::make(LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(2)}));
 
     // %1 = const 3
     auto v1 = Value::make(dot.alloc_value_id(), ValueType::Int64, "b");
-    block->instructions.push_back(Instruction::make(
-        LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(3)}));
+    block->instructions.push_back(
+        Instruction::make(LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(3)}));
 
     // %2 = add %0, %1 (should fold to const 5)
     auto v2 = Value::make(dot.alloc_value_id(), ValueType::Int64, "sum");
@@ -83,12 +83,12 @@ TEST_F(OptimizerTest, ConstantFoldingSubtraction) {
     block->id = dot.alloc_block_id();
 
     auto v0 = Value::make(dot.alloc_value_id(), ValueType::Int64);
-    block->instructions.push_back(Instruction::make(
-        LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(10)}));
+    block->instructions.push_back(
+        Instruction::make(LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(10)}));
 
     auto v1 = Value::make(dot.alloc_value_id(), ValueType::Int64);
-    block->instructions.push_back(Instruction::make(
-        LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(3)}));
+    block->instructions.push_back(
+        Instruction::make(LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(3)}));
 
     auto v2 = Value::make(dot.alloc_value_id(), ValueType::Int64);
     block->instructions.push_back(Instruction::make(
@@ -120,12 +120,12 @@ TEST_F(OptimizerTest, ConstantFoldingComparison) {
     block->id = dot.alloc_block_id();
 
     auto v0 = Value::make(dot.alloc_value_id(), ValueType::Int64);
-    block->instructions.push_back(Instruction::make(
-        LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(5)}));
+    block->instructions.push_back(
+        Instruction::make(LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(5)}));
 
     auto v1 = Value::make(dot.alloc_value_id(), ValueType::Int64);
-    block->instructions.push_back(Instruction::make(
-        LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(3)}));
+    block->instructions.push_back(
+        Instruction::make(LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(3)}));
 
     // 5 < 3 should fold to false
     auto v2 = Value::make(dot.alloc_value_id(), ValueType::Bool);
@@ -161,18 +161,17 @@ TEST_F(OptimizerTest, DeadCodeElimination) {
 
     // Unused value (should be removed)
     auto v0 = Value::make(dot.alloc_value_id(), ValueType::Int64, "unused");
-    entry->instructions.push_back(Instruction::make(
-        LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(42)}));
+    entry->instructions.push_back(
+        Instruction::make(LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(42)}));
 
     // Used value
     auto v1 = Value::make(dot.alloc_value_id(), ValueType::Int64, "used");
-    entry->instructions.push_back(Instruction::make(
-        LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(1)}));
+    entry->instructions.push_back(
+        Instruction::make(LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(1)}));
 
     // StatePut uses v1 (so v1 should not be removed)
     dot.state_slots.push_back(StateSlot{0, ValueType::Int64, "x", std::nullopt});
-    entry->instructions.push_back(Instruction::make(
-        StatePut{.slot_index = 0, .value_id = v1.id}));
+    entry->instructions.push_back(Instruction::make(StatePut{.slot_index = 0, .value_id = v1.id}));
 
     entry->terminator = Instruction::make(Halt{});
     dot.blocks.push_back(std::unique_ptr<BasicBlock>(entry));
@@ -224,12 +223,12 @@ TEST_F(OptimizerTest, OptimizerLevel) {
     block->id = dot.alloc_block_id();
 
     auto v0 = Value::make(dot.alloc_value_id(), ValueType::Int64);
-    block->instructions.push_back(Instruction::make(
-        LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(1)}));
+    block->instructions.push_back(
+        Instruction::make(LoadConst{.result = v0, .constant = dotvm::core::Value::from_int(1)}));
 
     auto v1 = Value::make(dot.alloc_value_id(), ValueType::Int64);
-    block->instructions.push_back(Instruction::make(
-        LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(2)}));
+    block->instructions.push_back(
+        Instruction::make(LoadConst{.result = v1, .constant = dotvm::core::Value::from_int(2)}));
 
     auto v2 = Value::make(dot.alloc_value_id(), ValueType::Int64);
     block->instructions.push_back(Instruction::make(

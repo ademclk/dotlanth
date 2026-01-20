@@ -67,8 +67,7 @@ std::expected<CompileResult, CompileError> DslCompiler::compile(const DslModule&
     return result;
 }
 
-std::expected<CompileResult, CompileError>
-DslCompiler::compile_source(std::string_view source) {
+std::expected<CompileResult, CompileError> DslCompiler::compile_source(std::string_view source) {
     // Parse source
     auto parse_result = DslParser::parse(source);
     if (!parse_result.is_ok()) {
@@ -76,7 +75,8 @@ DslCompiler::compile_source(std::string_view source) {
         const auto& error_list = parse_result.error();
         std::string msg;
         for (const auto& err : error_list) {
-            if (!msg.empty()) msg += "; ";
+            if (!msg.empty())
+                msg += "; ";
             msg += err.message;
         }
         return std::unexpected(CompileError{

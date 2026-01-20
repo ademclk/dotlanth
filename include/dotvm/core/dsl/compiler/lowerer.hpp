@@ -21,11 +21,11 @@ namespace dotvm::core::dsl::compiler {
 /// @brief Linear IR instruction (post-lowering)
 struct LinearInstr {
     ir::InstructionKind kind;
-    std::uint8_t dest_reg{0};      ///< Destination register (if applicable)
-    std::uint8_t src1_reg{0};      ///< First source register
-    std::uint8_t src2_reg{0};      ///< Second source register
-    std::int32_t immediate{0};     ///< Immediate value or offset
-    std::string label;             ///< For jumps: target label
+    std::uint8_t dest_reg{0};   ///< Destination register (if applicable)
+    std::uint8_t src1_reg{0};   ///< First source register
+    std::uint8_t src2_reg{0};   ///< Second source register
+    std::int32_t immediate{0};  ///< Immediate value or offset
+    std::string label;          ///< For jumps: target label
     SourceSpan span;
 };
 
@@ -70,7 +70,7 @@ private:
 
     // Convert SSA instruction to linear instruction(s)
     std::vector<LinearInstr> lower_instruction(const ir::Instruction& instr,
-                                                const RegAllocation& alloc);
+                                               const RegAllocation& alloc);
 
     // Register lookup
     std::uint8_t get_reg(std::uint32_t value_id, const RegAllocation& alloc);

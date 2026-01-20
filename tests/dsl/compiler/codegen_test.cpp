@@ -107,8 +107,7 @@ TEST_F(CodegenTest, ConstantPoolGeneration) {
     // If there's a constant pool, validate it
     if (header_result->const_pool_size > 0) {
         auto pool_data = std::span<const std::uint8_t>(
-            bytecode.data() + header_result->const_pool_offset,
-            header_result->const_pool_size);
+            bytecode.data() + header_result->const_pool_offset, header_result->const_pool_size);
 
         auto pool_result = load_constant_pool(pool_data);
         EXPECT_TRUE(pool_result.has_value());

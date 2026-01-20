@@ -81,11 +81,13 @@ bool ConstantFolder::try_fold_binary(ir::BinaryOp& op) {
             break;
         case BinaryOpKind::Div:
             result = value_ops::div(*left, *right);
-            if (result.is_nil()) return false;  // Division by zero
+            if (result.is_nil())
+                return false;  // Division by zero
             break;
         case BinaryOpKind::Mod:
             result = value_ops::mod(*left, *right);
-            if (result.is_nil()) return false;
+            if (result.is_nil())
+                return false;
             break;
         case BinaryOpKind::And:
             result = dotvm::core::Value::from_bool(left->is_truthy() && right->is_truthy());
@@ -200,7 +202,8 @@ std::size_t DeadCodeEliminator::run(DotIR& dot) {
 }
 
 void DeadCodeEliminator::mark_reachable_blocks(DotIR& dot) {
-    if (dot.blocks.empty()) return;
+    if (dot.blocks.empty())
+        return;
 
     std::queue<std::uint32_t> worklist;
     worklist.push(dot.entry_block_id);
@@ -211,25 +214,28 @@ void DeadCodeEliminator::mark_reachable_blocks(DotIR& dot) {
         worklist.pop();
 
         auto* block = dot.find_block(block_id);
-        if (!block || !block->terminator) continue;
+        if (!block || !block->terminator)
+            continue;
 
         // Add successors based on terminator
-        std::visit([&](const auto& term) {
-            using T = std::decay_t<decltype(term)>;
+        std::visit(
+            [&](const auto& term) {
+                using T = std::decay_t<decltype(term)>;
 
-            if constexpr (std::is_same_v<T, Jump>) {
-                if (reachable_blocks_.insert(term.target_block_id).second) {
-                    worklist.push(term.target_block_id);
+                if constexpr (std::is_same_v<T, Jump>) {
+                    if (reachable_blocks_.insert(term.target_block_id).second) {
+                        worklist.push(term.target_block_id);
+                    }
+                } else if constexpr (std::is_same_v<T, Branch>) {
+                    if (reachable_blocks_.insert(term.true_block_id).second) {
+                        worklist.push(term.true_block_id);
+                    }
+                    if (reachable_blocks_.insert(term.false_block_id).second) {
+                        worklist.push(term.false_block_id);
+                    }
                 }
-            } else if constexpr (std::is_same_v<T, Branch>) {
-                if (reachable_blocks_.insert(term.true_block_id).second) {
-                    worklist.push(term.true_block_id);
-                }
-                if (reachable_blocks_.insert(term.false_block_id).second) {
-                    worklist.push(term.false_block_id);
-                }
-            }
-        }, block->terminator->kind);
+            },
+            block->terminator->kind);
     }
 }
 
@@ -241,48 +247,52 @@ void DeadCodeEliminator::mark_used_values(DotIR& dot) {
         }
 
         for (auto& instr : block->instructions) {
-            std::visit([this](const auto& inst) {
-                using T = std::decay_t<decltype(inst)>;
+            std::visit(
+                [this](const auto& inst) {
+                    using T = std::decay_t<decltype(inst)>;
 
-                if constexpr (std::is_same_v<T, ir::BinaryOp>) {
-                    mark_value_used(inst.left_id);
-                    mark_value_used(inst.right_id);
-                } else if constexpr (std::is_same_v<T, ir::UnaryOp>) {
-                    mark_value_used(inst.operand_id);
-                } else if constexpr (std::is_same_v<T, Compare>) {
-                    mark_value_used(inst.left_id);
-                    mark_value_used(inst.right_id);
-                } else if constexpr (std::is_same_v<T, StatePut>) {
-                    mark_value_used(inst.value_id);
-                } else if constexpr (std::is_same_v<T, Call>) {
-                    for (auto arg_id : inst.arg_ids) {
-                        mark_value_used(arg_id);
+                    if constexpr (std::is_same_v<T, ir::BinaryOp>) {
+                        mark_value_used(inst.left_id);
+                        mark_value_used(inst.right_id);
+                    } else if constexpr (std::is_same_v<T, ir::UnaryOp>) {
+                        mark_value_used(inst.operand_id);
+                    } else if constexpr (std::is_same_v<T, Compare>) {
+                        mark_value_used(inst.left_id);
+                        mark_value_used(inst.right_id);
+                    } else if constexpr (std::is_same_v<T, StatePut>) {
+                        mark_value_used(inst.value_id);
+                    } else if constexpr (std::is_same_v<T, Call>) {
+                        for (auto arg_id : inst.arg_ids) {
+                            mark_value_used(arg_id);
+                        }
+                    } else if constexpr (std::is_same_v<T, Cast>) {
+                        mark_value_used(inst.value_id);
+                    } else if constexpr (std::is_same_v<T, Copy>) {
+                        mark_value_used(inst.value_id);
                     }
-                } else if constexpr (std::is_same_v<T, Cast>) {
-                    mark_value_used(inst.value_id);
-                } else if constexpr (std::is_same_v<T, Copy>) {
-                    mark_value_used(inst.value_id);
-                }
-            }, instr->kind);
+                },
+                instr->kind);
         }
 
         // Mark values used in terminator
         if (block->terminator) {
-            std::visit([this](const auto& term) {
-                using T = std::decay_t<decltype(term)>;
+            std::visit(
+                [this](const auto& term) {
+                    using T = std::decay_t<decltype(term)>;
 
-                if constexpr (std::is_same_v<T, Branch>) {
-                    mark_value_used(term.condition_id);
-                } else if constexpr (std::is_same_v<T, Return>) {
-                    if (term.value_id) {
-                        mark_value_used(*term.value_id);
+                    if constexpr (std::is_same_v<T, Branch>) {
+                        mark_value_used(term.condition_id);
+                    } else if constexpr (std::is_same_v<T, Return>) {
+                        if (term.value_id) {
+                            mark_value_used(*term.value_id);
+                        }
+                    } else if constexpr (std::is_same_v<T, Halt>) {
+                        if (term.exit_code_id) {
+                            mark_value_used(*term.exit_code_id);
+                        }
                     }
-                } else if constexpr (std::is_same_v<T, Halt>) {
-                    if (term.exit_code_id) {
-                        mark_value_used(*term.exit_code_id);
-                    }
-                }
-            }, block->terminator->kind);
+                },
+                block->terminator->kind);
         }
 
         // Mark values used in phi nodes
@@ -320,22 +330,22 @@ std::size_t DeadCodeEliminator::remove_dead_instructions(DotIR& dot) {
 
         auto& instrs = block->instructions;
         auto new_end = std::remove_if(instrs.begin(), instrs.end(),
-            [this, &removed](const std::unique_ptr<Instruction>& instr) {
-                // Don't remove side-effecting instructions
-                if (std::holds_alternative<StatePut>(instr->kind) ||
-                    std::holds_alternative<Call>(instr->kind)) {
-                    return false;
-                }
+                                      [this, &removed](const std::unique_ptr<Instruction>& instr) {
+                                          // Don't remove side-effecting instructions
+                                          if (std::holds_alternative<StatePut>(instr->kind) ||
+                                              std::holds_alternative<Call>(instr->kind)) {
+                                              return false;
+                                          }
 
-                // Check if result is used
-                if (auto* result = instr->get_result()) {
-                    if (!is_value_used(result->id)) {
-                        ++removed;
-                        return true;
-                    }
-                }
-                return false;
-            });
+                                          // Check if result is used
+                                          if (auto* result = instr->get_result()) {
+                                              if (!is_value_used(result->id)) {
+                                                  ++removed;
+                                                  return true;
+                                              }
+                                          }
+                                          return false;
+                                      });
 
         instrs.erase(new_end, instrs.end());
     }
@@ -346,14 +356,15 @@ std::size_t DeadCodeEliminator::remove_dead_instructions(DotIR& dot) {
 std::size_t DeadCodeEliminator::remove_dead_blocks(DotIR& dot) {
     std::size_t removed = 0;
 
-    auto new_end = std::remove_if(dot.blocks.begin(), dot.blocks.end(),
-        [this, &removed](const std::unique_ptr<BasicBlock>& block) {
-            if (reachable_blocks_.find(block->id) == reachable_blocks_.end()) {
-                ++removed;
-                return true;
-            }
-            return false;
-        });
+    auto new_end =
+        std::remove_if(dot.blocks.begin(), dot.blocks.end(),
+                       [this, &removed](const std::unique_ptr<BasicBlock>& block) {
+                           if (reachable_blocks_.find(block->id) == reachable_blocks_.end()) {
+                               ++removed;
+                               return true;
+                           }
+                           return false;
+                       });
 
     dot.blocks.erase(new_end, dot.blocks.end());
     return removed;

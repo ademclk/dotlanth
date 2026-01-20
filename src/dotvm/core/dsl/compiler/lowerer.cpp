@@ -44,7 +44,8 @@ RegAllocation Lowerer::allocate_registers(const DotIR& dot) {
         for (const auto& phi : block->phis) {
             if (alloc.value_to_reg.find(phi->result.id) == alloc.value_to_reg.end()) {
                 alloc.value_to_reg[phi->result.id] = next_reg++;
-                if (next_reg > REG_MAX) next_reg = REG_FIRST_ALLOCATABLE;  // Wrap (spill would be needed)
+                if (next_reg > REG_MAX)
+                    next_reg = REG_FIRST_ALLOCATABLE;  // Wrap (spill would be needed)
             }
         }
 
@@ -53,7 +54,8 @@ RegAllocation Lowerer::allocate_registers(const DotIR& dot) {
             if (auto* result = instr->get_result()) {
                 if (alloc.value_to_reg.find(result->id) == alloc.value_to_reg.end()) {
                     alloc.value_to_reg[result->id] = next_reg++;
-                    if (next_reg > REG_MAX) next_reg = REG_FIRST_ALLOCATABLE;
+                    if (next_reg > REG_MAX)
+                        next_reg = REG_FIRST_ALLOCATABLE;
                 }
             }
         }
@@ -99,112 +101,114 @@ LinearBlock Lowerer::lower_block(const BasicBlock& block, const RegAllocation& a
 }
 
 std::vector<LinearInstr> Lowerer::lower_instruction(const Instruction& instr,
-                                                     const RegAllocation& alloc) {
+                                                    const RegAllocation& alloc) {
     std::vector<LinearInstr> result;
 
-    std::visit([&](const auto& inst) {
-        using T = std::decay_t<decltype(inst)>;
+    std::visit(
+        [&](const auto& inst) {
+            using T = std::decay_t<decltype(inst)>;
 
-        if constexpr (std::is_same_v<T, ir::BinaryOp>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.dest_reg = get_reg(inst.result.id, alloc);
-            li.src1_reg = get_reg(inst.left_id, alloc);
-            li.src2_reg = get_reg(inst.right_id, alloc);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, ir::UnaryOp>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.dest_reg = get_reg(inst.result.id, alloc);
-            li.src1_reg = get_reg(inst.operand_id, alloc);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Compare>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.dest_reg = get_reg(inst.result.id, alloc);
-            li.src1_reg = get_reg(inst.left_id, alloc);
-            li.src2_reg = get_reg(inst.right_id, alloc);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, LoadConst>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.dest_reg = get_reg(inst.result.id, alloc);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, StateGet>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.dest_reg = get_reg(inst.result.id, alloc);
-            li.immediate = static_cast<std::int32_t>(inst.slot_index);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, StatePut>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.src1_reg = get_reg(inst.value_id, alloc);
-            li.immediate = static_cast<std::int32_t>(inst.slot_index);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Call>) {
-            LinearInstr li;
-            li.kind = inst;
-            if (inst.result.type != ValueType::Void) {
+            if constexpr (std::is_same_v<T, ir::BinaryOp>) {
+                LinearInstr li;
+                li.kind = inst;
                 li.dest_reg = get_reg(inst.result.id, alloc);
+                li.src1_reg = get_reg(inst.left_id, alloc);
+                li.src2_reg = get_reg(inst.right_id, alloc);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, ir::UnaryOp>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.dest_reg = get_reg(inst.result.id, alloc);
+                li.src1_reg = get_reg(inst.operand_id, alloc);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Compare>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.dest_reg = get_reg(inst.result.id, alloc);
+                li.src1_reg = get_reg(inst.left_id, alloc);
+                li.src2_reg = get_reg(inst.right_id, alloc);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, LoadConst>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.dest_reg = get_reg(inst.result.id, alloc);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, StateGet>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.dest_reg = get_reg(inst.result.id, alloc);
+                li.immediate = static_cast<std::int32_t>(inst.slot_index);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, StatePut>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.src1_reg = get_reg(inst.value_id, alloc);
+                li.immediate = static_cast<std::int32_t>(inst.slot_index);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Call>) {
+                LinearInstr li;
+                li.kind = inst;
+                if (inst.result.type != ValueType::Void) {
+                    li.dest_reg = get_reg(inst.result.id, alloc);
+                }
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Cast>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.dest_reg = get_reg(inst.result.id, alloc);
+                li.src1_reg = get_reg(inst.value_id, alloc);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Copy>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.dest_reg = get_reg(inst.result.id, alloc);
+                li.src1_reg = get_reg(inst.value_id, alloc);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Jump>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.label = "bb" + std::to_string(inst.target_block_id);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Branch>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.src1_reg = get_reg(inst.condition_id, alloc);
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Return>) {
+                LinearInstr li;
+                li.kind = inst;
+                if (inst.value_id) {
+                    li.src1_reg = get_reg(*inst.value_id, alloc);
+                }
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Halt>) {
+                LinearInstr li;
+                li.kind = inst;
+                if (inst.exit_code_id) {
+                    li.src1_reg = get_reg(*inst.exit_code_id, alloc);
+                }
+                li.span = instr.span;
+                result.push_back(li);
+            } else if constexpr (std::is_same_v<T, Unreachable>) {
+                LinearInstr li;
+                li.kind = inst;
+                li.span = instr.span;
+                result.push_back(li);
             }
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Cast>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.dest_reg = get_reg(inst.result.id, alloc);
-            li.src1_reg = get_reg(inst.value_id, alloc);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Copy>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.dest_reg = get_reg(inst.result.id, alloc);
-            li.src1_reg = get_reg(inst.value_id, alloc);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Jump>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.label = "bb" + std::to_string(inst.target_block_id);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Branch>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.src1_reg = get_reg(inst.condition_id, alloc);
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Return>) {
-            LinearInstr li;
-            li.kind = inst;
-            if (inst.value_id) {
-                li.src1_reg = get_reg(*inst.value_id, alloc);
-            }
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Halt>) {
-            LinearInstr li;
-            li.kind = inst;
-            if (inst.exit_code_id) {
-                li.src1_reg = get_reg(*inst.exit_code_id, alloc);
-            }
-            li.span = instr.span;
-            result.push_back(li);
-        } else if constexpr (std::is_same_v<T, Unreachable>) {
-            LinearInstr li;
-            li.kind = inst;
-            li.span = instr.span;
-            result.push_back(li);
-        }
-    }, instr.kind);
+        },
+        instr.kind);
 
     return result;
 }
