@@ -145,6 +145,9 @@ add_library(dotvm_core STATIC
     src/dotvm/core/policy/json_parser.cpp
     src/dotvm/core/policy/decision_tree.cpp
     src/dotvm/core/policy/policy_engine.cpp
+    # DSL parser (DSL-001)
+    src/dotvm/core/dsl/lexer.cpp
+    src/dotvm/core/dsl/parser.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -334,6 +337,11 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/policy/json_parser_test.cpp
         tests/dotvm/core/policy/decision_tree_test.cpp
         tests/dotvm/core/policy/policy_engine_test.cpp
+        # DSL parser tests (DSL-001)
+        tests/dotvm/core/dsl/lexer_test.cpp
+        tests/dotvm/core/dsl/parser_test.cpp
+        tests/dotvm/core/dsl/integration_test.cpp
+        tests/dotvm/core/dsl/benchmark_test.cpp
     )
 
     # JIT tests (EXEC-012)
