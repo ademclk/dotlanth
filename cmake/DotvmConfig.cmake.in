@@ -1,0 +1,100 @@
+# DotvmConfig.cmake - Package configuration for Dotvm
+#
+# This file is processed by configure_package_config_file() to create the
+# final DotvmConfig.cmake that downstream projects use via find_package().
+#
+# Usage:
+#   find_package(Dotvm 0.1 REQUIRED COMPONENTS Core)
+#   target_link_libraries(my_app PRIVATE Dotvm::Core)
+#
+# Available components:
+#   Core  - The main DotVM library (dotvm_core)
+#   CApi  - C API shared library for FFI (dotvm_c)
+#
+# Exported variables:
+#   Dotvm_FOUND           - TRUE if package was found
+#   Dotvm_VERSION         - Package version
+#   Dotvm_VERSION_MAJOR   - Major version component
+#   Dotvm_VERSION_MINOR   - Minor version component
+#   Dotvm_VERSION_PATCH   - Patch version component
+#   Dotvm_SIMD_ENABLED    - TRUE if SIMD optimizations are available
+#   Dotvm_JIT_ENABLED     - TRUE if JIT compilation is available
+#   Dotvm_CAPI_AVAILABLE  - TRUE if C API component is available
+
+@PACKAGE_INIT@
+
+# Feature flags from build configuration
+set(Dotvm_SIMD_ENABLED @DOTVM_ENABLE_SIMD@)
+set(Dotvm_JIT_ENABLED @DOTVM_JIT_AVAILABLE@)
+set(Dotvm_CAPI_AVAILABLE @DOTVM_BUILD_C_API@)
+
+# Version information
+set(Dotvm_VERSION "@PROJECT_VERSION@")
+set(Dotvm_VERSION_MAJOR @PROJECT_VERSION_MAJOR@)
+set(Dotvm_VERSION_MINOR @PROJECT_VERSION_MINOR@)
+set(Dotvm_VERSION_PATCH @PROJECT_VERSION_PATCH@)
+
+# Validate requested components
+set(_Dotvm_VALID_COMPONENTS Core CApi)
+set(_Dotvm_REQUIRED_COMPONENTS ${Dotvm_FIND_COMPONENTS})
+
+# If no components specified, default to Core
+if(NOT _Dotvm_REQUIRED_COMPONENTS)
+    set(_Dotvm_REQUIRED_COMPONENTS Core)
+endif()
+
+# Check for invalid components
+foreach(_comp IN LISTS _Dotvm_REQUIRED_COMPONENTS)
+    if(NOT _comp IN_LIST _Dotvm_VALID_COMPONENTS)
+        set(Dotvm_FOUND FALSE)
+        set(Dotvm_NOT_FOUND_MESSAGE "Unknown component: ${_comp}. Valid components: ${_Dotvm_VALID_COMPONENTS}")
+        return()
+    endif()
+endforeach()
+
+# Check CApi availability if requested
+if("CApi" IN_LIST _Dotvm_REQUIRED_COMPONENTS AND NOT Dotvm_CAPI_AVAILABLE)
+    set(Dotvm_FOUND FALSE)
+    set(Dotvm_NOT_FOUND_MESSAGE "CApi component requested but was not built. Rebuild Dotvm with -DDOTVM_BUILD_C_API=ON")
+    return()
+endif()
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/DotvmTargets.cmake")
+
+# Create user-friendly wrapper targets
+# The export creates Dotvm::dotvm_core, but we want users to use Dotvm::Core
+# We use INTERFACE IMPORTED libraries that link to the real targets
+if(TARGET Dotvm::dotvm_core AND NOT TARGET Dotvm::Core)
+    add_library(Dotvm::Core INTERFACE IMPORTED)
+    set_target_properties(Dotvm::Core PROPERTIES
+        INTERFACE_LINK_LIBRARIES Dotvm::dotvm_core
+    )
+endif()
+
+if(TARGET Dotvm::dotvm_c AND NOT TARGET Dotvm::CApi)
+    add_library(Dotvm::CApi INTERFACE IMPORTED)
+    set_target_properties(Dotvm::CApi PROPERTIES
+        INTERFACE_LINK_LIBRARIES Dotvm::dotvm_c
+    )
+endif()
+
+# Set component found flags
+foreach(_comp IN LISTS _Dotvm_REQUIRED_COMPONENTS)
+    if(_comp STREQUAL "Core")
+        if(TARGET Dotvm::Core)
+            set(Dotvm_Core_FOUND TRUE)
+        else()
+            set(Dotvm_Core_FOUND FALSE)
+        endif()
+    elseif(_comp STREQUAL "CApi")
+        if(TARGET Dotvm::CApi)
+            set(Dotvm_CApi_FOUND TRUE)
+        else()
+            set(Dotvm_CApi_FOUND FALSE)
+        endif()
+    endif()
+endforeach()
+
+# Standard CMake package validation
+check_required_components(Dotvm)
