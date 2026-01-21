@@ -6,6 +6,9 @@
 #include <CLI/CLI.hpp>
 #include <iostream>
 
+#include "dotvm/cli/commands/check_command.hpp"
+#include "dotvm/cli/commands/compile_command.hpp"
+
 namespace dotvm::cli {
 
 CliApp::CliApp() : app_(std::make_unique<CLI::App>("DotLanth DSL Compiler", "dotdsl")) {
@@ -96,27 +99,22 @@ ExitCode CliApp::run() {
         return ExitCode::Success;
     }
 
-    // Commands will be implemented in Phase 2
-    // For now, just return success
+    // Create terminal for output with color settings
+    Terminal term(std::cerr, global_opts_.no_color);
+
     if (cmd == "compile") {
-        if (global_opts_.verbose) {
-            std::cerr << "Compiling: " << compile_opts_.input_file << std::endl;
-        }
-        // TODO: Implement in Phase 2
-        return ExitCode::Success;
+        return commands::execute_compile(compile_opts_, global_opts_, term);
     }
 
     if (cmd == "check") {
-        if (global_opts_.verbose) {
-            std::cerr << "Checking: " << check_opts_.input_file << std::endl;
-        }
-        // TODO: Implement in Phase 2
-        return ExitCode::Success;
+        return commands::execute_check(check_opts_, global_opts_, term);
     }
 
     if (cmd == "format") {
         if (global_opts_.verbose) {
-            std::cerr << "Formatting: " << format_opts_.input_file << std::endl;
+            term.info("Formatting: ");
+            term.print(format_opts_.input_file);
+            term.newline();
         }
         // TODO: Implement in Phase 3
         return ExitCode::Success;
@@ -124,7 +122,9 @@ ExitCode CliApp::run() {
 
     if (cmd == "watch") {
         if (global_opts_.verbose) {
-            std::cerr << "Watching: " << watch_opts_.directory << std::endl;
+            term.info("Watching: ");
+            term.print(watch_opts_.directory);
+            term.newline();
         }
         // TODO: Implement in Phase 4
         return ExitCode::Success;
