@@ -72,7 +72,7 @@ const FunctionDef* StdlibRegistry::resolve_qualified_call(
         // e.g., "math" -> "std/math"
         std::string full_path = "std/" + std::string{qualifier};
         auto module = find_module(full_path);
-        if (module) {
+        if (module != nullptr) {
             return module->find_function(function_name);
         }
         return nullptr;
@@ -80,7 +80,7 @@ const FunctionDef* StdlibRegistry::resolve_qualified_call(
 
     // Found the module path, look up the function
     auto module = find_module(it->second);
-    if (!module) {
+    if (module == nullptr) {
         return nullptr;
     }
 
@@ -108,12 +108,12 @@ void StdlibRegistry::register_module(ModuleDef module) {
     }
 
     // Store the module (must be done after indexing to get stable pointers)
-    std::string path = module.path;
-    modules_.emplace(std::move(path), std::move(module));
+    // Save path_key before moving the module
+    std::string path_key = module.path;
+    modules_.emplace(path_key, std::move(module));
 
     // Re-index syscalls for the stored module (pointers were invalidated)
-    auto& stored_module =
-        modules_.at(modules_.find(path) != modules_.end() ? path : modules_.begin()->first);
+    auto& stored_module = modules_.at(path_key);
     for (const auto& fn : stored_module.functions) {
         if (fn.syscall_id != 0) {
             syscall_index_[fn.syscall_id] = &fn;

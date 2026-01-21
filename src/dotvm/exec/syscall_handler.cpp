@@ -193,24 +193,22 @@ void SyscallDispatcher::init_prelude_handlers() {
                          return SyscallResult::Success;
                      });
 
-    register_handler(syscall_id::PRELUDE_IS_STRING, "is_string",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         // Strings are handles with a specific tag - for now treat all handles
-                         auto val = ctx.arg(0);
-                         ctx.set_return(dest_reg, core::Value::from_bool(!val.is_integer() &&
-                                                                        !val.is_float() &&
-                                                                        !val.is_bool()));
-                         return SyscallResult::Success;
-                     });
+    register_handler(
+        syscall_id::PRELUDE_IS_STRING, "is_string", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+            // Strings are handles with a specific tag - for now treat all handles
+            auto val = ctx.arg(0);
+            ctx.set_return(dest_reg, core::Value::from_bool(!val.is_integer() && !val.is_float() &&
+                                                            !val.is_bool()));
+            return SyscallResult::Success;
+        });
 
-    register_handler(syscall_id::PRELUDE_IS_HANDLE, "is_handle",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto val = ctx.arg(0);
-                         ctx.set_return(
-                             dest_reg, core::Value::from_bool(!val.is_integer() && !val.is_float() &&
-                                                              !val.is_bool() && !val.is_nil()));
-                         return SyscallResult::Success;
-                     });
+    register_handler(
+        syscall_id::PRELUDE_IS_HANDLE, "is_handle", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+            auto val = ctx.arg(0);
+            ctx.set_return(dest_reg, core::Value::from_bool(!val.is_integer() && !val.is_float() &&
+                                                            !val.is_bool() && !val.is_nil()));
+            return SyscallResult::Success;
+        });
 }
 
 // ============================================================================
@@ -242,39 +240,36 @@ void SyscallDispatcher::init_math_handlers() {
     });
 
     // floor(x: float) -> int
-    register_handler(syscall_id::MATH_FLOOR, "floor",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto x = ctx.arg(0).as_float();
-                         ctx.set_return(dest_reg,
-                                        core::Value::from_int(static_cast<std::int64_t>(std::floor(x))));
-                         return SyscallResult::Success;
-                     });
+    register_handler(
+        syscall_id::MATH_FLOOR, "floor", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+            auto x = ctx.arg(0).as_float();
+            ctx.set_return(dest_reg,
+                           core::Value::from_int(static_cast<std::int64_t>(std::floor(x))));
+            return SyscallResult::Success;
+        });
 
     // ceil(x: float) -> int
-    register_handler(syscall_id::MATH_CEIL, "ceil",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto x = ctx.arg(0).as_float();
-                         ctx.set_return(dest_reg,
-                                        core::Value::from_int(static_cast<std::int64_t>(std::ceil(x))));
-                         return SyscallResult::Success;
-                     });
+    register_handler(syscall_id::MATH_CEIL, "ceil", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+        auto x = ctx.arg(0).as_float();
+        ctx.set_return(dest_reg, core::Value::from_int(static_cast<std::int64_t>(std::ceil(x))));
+        return SyscallResult::Success;
+    });
 
     // round(x: float) -> int
-    register_handler(syscall_id::MATH_ROUND, "round",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto x = ctx.arg(0).as_float();
-                         ctx.set_return(dest_reg,
-                                        core::Value::from_int(static_cast<std::int64_t>(std::round(x))));
-                         return SyscallResult::Success;
-                     });
+    register_handler(
+        syscall_id::MATH_ROUND, "round", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+            auto x = ctx.arg(0).as_float();
+            ctx.set_return(dest_reg,
+                           core::Value::from_int(static_cast<std::int64_t>(std::round(x))));
+            return SyscallResult::Success;
+        });
 
     // sqrt(x: float) -> float
-    register_handler(syscall_id::MATH_SQRT, "sqrt",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto x = ctx.arg(0).as_float();
-                         ctx.set_return(dest_reg, core::Value::from_float(std::sqrt(x)));
-                         return SyscallResult::Success;
-                     });
+    register_handler(syscall_id::MATH_SQRT, "sqrt", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+        auto x = ctx.arg(0).as_float();
+        ctx.set_return(dest_reg, core::Value::from_float(std::sqrt(x)));
+        return SyscallResult::Success;
+    });
 
     // pow(base: float, exp: float) -> float
     register_handler(syscall_id::MATH_POW, "pow", [](SyscallContext& ctx, std::uint8_t dest_reg) {
@@ -303,26 +298,23 @@ void SyscallDispatcher::init_math_handlers() {
         return SyscallResult::Success;
     });
 
-    register_handler(syscall_id::MATH_ASIN, "asin",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto x = ctx.arg(0).as_float();
-                         ctx.set_return(dest_reg, core::Value::from_float(std::asin(x)));
-                         return SyscallResult::Success;
-                     });
+    register_handler(syscall_id::MATH_ASIN, "asin", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+        auto x = ctx.arg(0).as_float();
+        ctx.set_return(dest_reg, core::Value::from_float(std::asin(x)));
+        return SyscallResult::Success;
+    });
 
-    register_handler(syscall_id::MATH_ACOS, "acos",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto x = ctx.arg(0).as_float();
-                         ctx.set_return(dest_reg, core::Value::from_float(std::acos(x)));
-                         return SyscallResult::Success;
-                     });
+    register_handler(syscall_id::MATH_ACOS, "acos", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+        auto x = ctx.arg(0).as_float();
+        ctx.set_return(dest_reg, core::Value::from_float(std::acos(x)));
+        return SyscallResult::Success;
+    });
 
-    register_handler(syscall_id::MATH_ATAN, "atan",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto x = ctx.arg(0).as_float();
-                         ctx.set_return(dest_reg, core::Value::from_float(std::atan(x)));
-                         return SyscallResult::Success;
-                     });
+    register_handler(syscall_id::MATH_ATAN, "atan", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+        auto x = ctx.arg(0).as_float();
+        ctx.set_return(dest_reg, core::Value::from_float(std::atan(x)));
+        return SyscallResult::Success;
+    });
 
     register_handler(syscall_id::MATH_ATAN2, "atan2",
                      [](SyscallContext& ctx, std::uint8_t dest_reg) {
@@ -346,12 +338,11 @@ void SyscallDispatcher::init_math_handlers() {
                          return SyscallResult::Success;
                      });
 
-    register_handler(syscall_id::MATH_LOG2, "log2",
-                     [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         auto x = ctx.arg(0).as_float();
-                         ctx.set_return(dest_reg, core::Value::from_float(std::log2(x)));
-                         return SyscallResult::Success;
-                     });
+    register_handler(syscall_id::MATH_LOG2, "log2", [](SyscallContext& ctx, std::uint8_t dest_reg) {
+        auto x = ctx.arg(0).as_float();
+        ctx.set_return(dest_reg, core::Value::from_float(std::log2(x)));
+        return SyscallResult::Success;
+    });
 
     register_handler(syscall_id::MATH_EXP, "exp", [](SyscallContext& ctx, std::uint8_t dest_reg) {
         auto x = ctx.arg(0).as_float();
@@ -412,8 +403,8 @@ void SyscallDispatcher::init_io_handlers() {
     register_handler(syscall_id::IO_FILE_READ, "file_read",
                      [](SyscallContext& ctx, std::uint8_t dest_reg) {
                          // Check capability
-                         if (!core::capabilities::has_permission(ctx.granted_caps,
-                                                           core::capabilities::Permission::Filesystem)) {
+                         if (!core::capabilities::has_permission(
+                                 ctx.granted_caps, core::capabilities::Permission::Filesystem)) {
                              return SyscallResult::PermissionDenied;
                          }
                          ctx.set_return(dest_reg, core::Value::nil());
@@ -422,8 +413,8 @@ void SyscallDispatcher::init_io_handlers() {
 
     register_handler(syscall_id::IO_FILE_WRITE, "file_write",
                      [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         if (!core::capabilities::has_permission(ctx.granted_caps,
-                                                           core::capabilities::Permission::Filesystem)) {
+                         if (!core::capabilities::has_permission(
+                                 ctx.granted_caps, core::capabilities::Permission::Filesystem)) {
                              return SyscallResult::PermissionDenied;
                          }
                          ctx.set_return(dest_reg, core::Value::from_bool(false));
@@ -432,8 +423,8 @@ void SyscallDispatcher::init_io_handlers() {
 
     register_handler(syscall_id::IO_FILE_EXISTS, "file_exists",
                      [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         if (!core::capabilities::has_permission(ctx.granted_caps,
-                                                           core::capabilities::Permission::Filesystem)) {
+                         if (!core::capabilities::has_permission(
+                                 ctx.granted_caps, core::capabilities::Permission::Filesystem)) {
                              return SyscallResult::PermissionDenied;
                          }
                          ctx.set_return(dest_reg, core::Value::from_bool(false));
@@ -448,8 +439,8 @@ void SyscallDispatcher::init_io_handlers() {
 void SyscallDispatcher::init_crypto_handlers() {
     register_handler(syscall_id::CRYPTO_HASH_BLAKE3, "hash_blake3",
                      [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         if (!core::capabilities::has_permission(ctx.granted_caps,
-                                                           core::capabilities::Permission::Crypto)) {
+                         if (!core::capabilities::has_permission(
+                                 ctx.granted_caps, core::capabilities::Permission::Crypto)) {
                              return SyscallResult::PermissionDenied;
                          }
                          ctx.set_return(dest_reg, core::Value::nil());
@@ -458,8 +449,8 @@ void SyscallDispatcher::init_crypto_handlers() {
 
     register_handler(syscall_id::CRYPTO_HASH_SHA256, "hash_sha256",
                      [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         if (!core::capabilities::has_permission(ctx.granted_caps,
-                                                           core::capabilities::Permission::Crypto)) {
+                         if (!core::capabilities::has_permission(
+                                 ctx.granted_caps, core::capabilities::Permission::Crypto)) {
                              return SyscallResult::PermissionDenied;
                          }
                          ctx.set_return(dest_reg, core::Value::nil());
@@ -474,8 +465,8 @@ void SyscallDispatcher::init_crypto_handlers() {
 void SyscallDispatcher::init_net_handlers() {
     register_handler(syscall_id::NET_HTTP_GET, "http_get",
                      [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         if (!core::capabilities::has_permission(ctx.granted_caps,
-                                                           core::capabilities::Permission::Network)) {
+                         if (!core::capabilities::has_permission(
+                                 ctx.granted_caps, core::capabilities::Permission::Network)) {
                              return SyscallResult::PermissionDenied;
                          }
                          ctx.set_return(dest_reg, core::Value::nil());
@@ -484,8 +475,8 @@ void SyscallDispatcher::init_net_handlers() {
 
     register_handler(syscall_id::NET_HTTP_POST, "http_post",
                      [](SyscallContext& ctx, std::uint8_t dest_reg) {
-                         if (!core::capabilities::has_permission(ctx.granted_caps,
-                                                           core::capabilities::Permission::Network)) {
+                         if (!core::capabilities::has_permission(
+                                 ctx.granted_caps, core::capabilities::Permission::Network)) {
                              return SyscallResult::PermissionDenied;
                          }
                          ctx.set_return(dest_reg, core::Value::nil());
@@ -517,12 +508,11 @@ void SyscallDispatcher::init_time_handlers() {
                      });
 
     // sleep(ms: int) -> void
-    register_handler(syscall_id::TIME_SLEEP, "sleep",
-                     [](SyscallContext& ctx, std::uint8_t) {
-                         // Note: sleep is impure and affects execution time
-                         // In a sandboxed environment, this should be limited
-                         return SyscallResult::NotImplemented;  // Disable for safety
-                     });
+    register_handler(syscall_id::TIME_SLEEP, "sleep", [](SyscallContext& ctx, std::uint8_t) {
+        // Note: sleep is impure and affects execution time
+        // In a sandboxed environment, this should be limited
+        return SyscallResult::NotImplemented;  // Disable for safety
+    });
 }
 
 // ============================================================================
@@ -550,15 +540,13 @@ void SyscallDispatcher::init_async_handlers() {
 void SyscallDispatcher::init_control_handlers() {
     // Control flow is typically handled at compile time
     // These are fallbacks for dynamic usage
-    register_handler(syscall_id::CONTROL_FOREACH, "foreach",
-                     [](SyscallContext& ctx, std::uint8_t) {
-                         return SyscallResult::NotImplemented;
-                     });
+    register_handler(syscall_id::CONTROL_FOREACH, "foreach", [](SyscallContext& ctx, std::uint8_t) {
+        return SyscallResult::NotImplemented;
+    });
 
-    register_handler(syscall_id::CONTROL_WHILE, "while_loop",
-                     [](SyscallContext& ctx, std::uint8_t) {
-                         return SyscallResult::NotImplemented;
-                     });
+    register_handler(
+        syscall_id::CONTROL_WHILE, "while_loop",
+        [](SyscallContext& ctx, std::uint8_t) { return SyscallResult::NotImplemented; });
 }
 
 }  // namespace dotvm::exec
