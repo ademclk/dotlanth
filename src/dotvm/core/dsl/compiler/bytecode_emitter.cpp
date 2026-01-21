@@ -151,8 +151,7 @@ EmitResult<std::vector<std::uint8_t>> BytecodeEmitter::finalize() {
     for (const auto& ref : pending_labels_) {
         auto it = label_offsets_.find(ref.label);
         if (it == label_offsets_.end()) {
-            return std::unexpected(
-                EmitterError::internal("Unresolved label: " + ref.label));
+            return std::unexpected(EmitterError::internal("Unresolved label: " + ref.label));
         }
 
         auto target = static_cast<std::int32_t>(it->second);
@@ -222,9 +221,8 @@ EmitResult<std::vector<std::uint8_t>> BytecodeEmitter::finalize() {
     std::uint64_t entry_point = 0;
 
     // Create header
-    auto header = make_header(config_.arch, config_.flags, entry_point,
-                              const_pool_offset, const_pool_size,
-                              code_offset, code_size);
+    auto header = make_header(config_.arch, config_.flags, entry_point, const_pool_offset,
+                              const_pool_size, code_offset, code_size);
 
     // Assemble output
     std::vector<std::uint8_t> output;

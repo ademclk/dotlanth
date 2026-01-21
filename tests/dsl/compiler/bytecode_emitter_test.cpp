@@ -7,19 +7,19 @@
 #include "dotvm/core/opcode.hpp"
 
 using namespace dotvm::core::dsl::compiler;
-using dotvm::core::dsl::DslParser;
-using dotvm::core::dsl::ir::DotIR;
-using dotvm::core::dsl::SourceSpan;
-using dotvm::core::dsl::SourceLocation;
 using dotvm::core::Architecture;
 using dotvm::core::BytecodeError;
+using dotvm::core::dsl::DslParser;
+using dotvm::core::dsl::SourceLocation;
+using dotvm::core::dsl::SourceSpan;
+using dotvm::core::dsl::ir::DotIR;
 using CoreValue = dotvm::core::Value;
 namespace bytecode = dotvm::core::bytecode;
 namespace opcode = dotvm::core::opcode;
-using dotvm::core::read_header;
-using dotvm::core::validate_header;
 using dotvm::core::load_constant_pool;
+using dotvm::core::read_header;
 using dotvm::core::sections_overlap;
+using dotvm::core::validate_header;
 
 // ============================================================================
 // Primary API Tests
@@ -235,8 +235,8 @@ TEST_F(BytecodeEmitterTest, IncrementalBuildWithConstants) {
     EXPECT_GT(header->const_pool_size, 0);
 
     // Load and verify constants
-    auto pool_data = std::span<const std::uint8_t>(
-        result->data() + header->const_pool_offset, header->const_pool_size);
+    auto pool_data = std::span<const std::uint8_t>(result->data() + header->const_pool_offset,
+                                                   header->const_pool_size);
     auto pool = load_constant_pool(pool_data);
     ASSERT_TRUE(pool.has_value());
     ASSERT_EQ(pool->size(), 2);
@@ -405,8 +405,8 @@ TEST_F(BytecodeEmitterTest, RoundTripConstantPool) {
     ASSERT_TRUE(header.has_value());
 
     if (header->const_pool_size > 0) {
-        auto pool_data = std::span<const std::uint8_t>(
-            result->data() + header->const_pool_offset, header->const_pool_size);
+        auto pool_data = std::span<const std::uint8_t>(result->data() + header->const_pool_offset,
+                                                       header->const_pool_size);
         auto pool = load_constant_pool(pool_data);
         EXPECT_TRUE(pool.has_value());
     }
@@ -464,8 +464,7 @@ TEST_F(BytecodeEmitterTest, ComplexDotCompilation) {
 
     // Verify sections don't overlap
     if (header->const_pool_size > 0 && header->code_size > 0) {
-        EXPECT_FALSE(sections_overlap(
-            header->const_pool_offset, header->const_pool_size,
-            header->code_offset, header->code_size));
+        EXPECT_FALSE(sections_overlap(header->const_pool_offset, header->const_pool_size,
+                                      header->code_offset, header->code_size));
     }
 }
