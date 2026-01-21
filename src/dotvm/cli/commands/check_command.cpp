@@ -24,6 +24,12 @@ void print_dsl_error(Terminal& term, std::string_view filename, std::string_view
 ExitCode execute_check(const CheckOptions& opts, const GlobalOptions& global, Terminal& term) {
     auto start_time = std::chrono::steady_clock::now();
 
+    // TODO(DSL-003): Use global.strict when parser produces warnings.
+    // Currently the parser only produces errors, so strict mode has no effect.
+    // When warnings are implemented, they should be promoted to errors when
+    // global.strict is true.
+    (void)global.strict;
+
     // Verbose: announce what we're doing
     if (global.verbose) {
         term.info("Checking: ");

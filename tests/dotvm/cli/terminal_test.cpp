@@ -140,10 +140,10 @@ TEST(TerminalTest, PrintErrorHeaderNoColors) {
     term.print_error_header("test.dsl", loc, "error");
 
     std::string output = oss.str();
-    EXPECT_TRUE(output.find("test.dsl") != std::string::npos);
-    EXPECT_TRUE(output.find("10") != std::string::npos);  // line
-    EXPECT_TRUE(output.find("5") != std::string::npos);   // column
+    // In spec format, print_error_header only outputs the "error: " label.
+    // The filename and location are printed by print_error() with the "-->" arrow line.
     EXPECT_TRUE(output.find("error:") != std::string::npos);
+    EXPECT_EQ(output, "error: ");
 }
 
 TEST(TerminalTest, PrintErrorHeaderWarning) {

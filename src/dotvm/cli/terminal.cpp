@@ -83,28 +83,36 @@ void Terminal::newline() {
 
 void Terminal::print_error_header(std::string_view filename, const core::dsl::SourceLocation& loc,
                                   std::string_view label) {
-    // Format: filename:line:column: error: message
-    apply_color(AnsiColor::Bold);
-    out_ << filename << ':' << loc.line << ':' << loc.column << ": ";
-    reset_color();
+    // Spec format:
+    // error: <message>
+    //    --> <file>:<line>:<column>
+    //
+    // This method prints only the "error:" label part.
+    // The message and location are printed by print_error().
 
     if (label == "error") {
         apply_color(AnsiColor::BrightRed);
         apply_color(AnsiColor::Bold);
-        out_ << "error: ";
+        out_ << "error";
     } else if (label == "warning") {
         apply_color(AnsiColor::BrightYellow);
         apply_color(AnsiColor::Bold);
-        out_ << "warning: ";
+        out_ << "warning";
     } else if (label == "note") {
         apply_color(AnsiColor::BrightCyan);
         apply_color(AnsiColor::Bold);
-        out_ << "note: ";
+        out_ << "note";
     } else {
         apply_color(AnsiColor::Bold);
-        out_ << label << ": ";
+        out_ << label;
     }
     reset_color();
+    out_ << ": ";
+
+    // Store filename and location for later use (not printed here anymore)
+    // The location arrow line "   --> file:line:column" is printed in print_error()
+    (void)filename;
+    (void)loc;
 }
 
 std::string_view Terminal::get_line(std::string_view source, std::uint32_t line) {
@@ -160,21 +168,32 @@ void Terminal::print_source_snippet(std::string_view source, const core::dsl::So
         return;
     }
 
+    // Spec format:
+    //     |
+    //  42 | some_code_here
+    //     |      ^^^^^ error description here
+
     // Calculate line number width (for alignment)
     std::string line_str = format_line_number(line_num, line_num + 1);
     std::size_t gutter_width = line_str.size();
 
-    // Print the source line
+    // Print empty gutter line first
+    std::string gutter_spaces(gutter_width, ' ');
     apply_color(AnsiColor::Blue);
-    out_ << line_str << " | ";
+    out_ << ' ' << gutter_spaces << " |";
+    reset_color();
+    out_ << '\n';
+
+    // Print the source line with line number
+    apply_color(AnsiColor::Blue);
+    out_ << ' ' << line_str << " | ";
     reset_color();
     out_ << line_text << '\n';
 
     // Print the error marker line
-    // Gutter spaces + " | " + column offset
-    std::string gutter_spaces(gutter_width, ' ');
+    // " " + gutter_spaces + " |" + column offset + carets
     apply_color(AnsiColor::Blue);
-    out_ << gutter_spaces << " | ";
+    out_ << ' ' << gutter_spaces << " |";
     reset_color();
 
     // Calculate column position (1-based column to 0-based offset)
@@ -193,8 +212,8 @@ void Terminal::print_source_snippet(std::string_view source, const core::dsl::So
         }
     }
 
-    // Print spaces to reach the error column
-    std::string spaces(visual_col, ' ');
+    // Print spaces to reach the error column (1 extra for the space after |)
+    std::string spaces(visual_col + 1, ' ');
     out_ << spaces;
 
     // Calculate error span length (minimum 1)
@@ -203,21 +222,17 @@ void Terminal::print_source_snippet(std::string_view source, const core::dsl::So
         span_length = span.end.column - span.start.column;
     }
 
-    // Print the caret(s)
-    apply_color(AnsiColor::BrightGreen);
-    out_ << '^';
-    for (std::size_t i = 1; i < span_length; ++i) {
-        out_ << '~';
+    // Print the caret(s) - all carets, no tildes per spec
+    apply_color(AnsiColor::BrightRed);
+    for (std::size_t i = 0; i < span_length; ++i) {
+        out_ << '^';
     }
-    reset_color();
 
     // Print message if provided
     if (!message.empty()) {
-        out_ << ' ';
-        apply_color(AnsiColor::BrightGreen);
-        out_ << message;
-        reset_color();
+        out_ << ' ' << message;
     }
+    reset_color();
 
     out_ << '\n';
 }
@@ -225,8 +240,24 @@ void Terminal::print_source_snippet(std::string_view source, const core::dsl::So
 void Terminal::print_error(std::string_view filename, std::string_view source,
                            const core::dsl::SourceSpan& span, std::string_view label,
                            std::string_view message) {
+    // Spec format:
+    // error: <message>
+    //    --> <file>:<line>:<column>
+    //     |
+    //  42 | some_code_here
+    //     |      ^^^^^ error description here
+
+    // Print "error: <message>"
     print_error_header(filename, span.start, label);
     out_ << message << '\n';
+
+    // Print location arrow line: "   --> <file>:<line>:<column>"
+    apply_color(AnsiColor::Blue);
+    out_ << "   --> ";
+    reset_color();
+    out_ << filename << ':' << span.start.line << ':' << span.start.column << '\n';
+
+    // Print source snippet (handles the remaining lines)
     print_source_snippet(source, span, {});
 }
 
