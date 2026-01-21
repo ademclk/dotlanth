@@ -31,9 +31,9 @@ struct GlobalOptions {
 
 /// @brief Options for the compile command
 struct CompileOptions {
-    std::string input_file;                  ///< Input .dsl file path
-    std::string output_file;                 ///< Output bytecode file path (default: input.dot)
-    std::vector<std::string> include_paths;  ///< Include search paths (-I)
+    std::string input_file;                     ///< Input .dsl file path
+    std::string output_file;                    ///< Output bytecode file path (default: input.dot)
+    std::vector<std::string> include_paths;     ///< Include search paths (-I)
     std::vector<std::string> capability_names;  ///< Capability names to grant (--cap)
 
     /// @brief Parse capability names into Permission bitmask

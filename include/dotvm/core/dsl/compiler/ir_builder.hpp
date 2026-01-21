@@ -87,8 +87,8 @@ struct IRBuildError {
         return IRBuildError{Kind::UnknownFunction, "Unknown function: " + name, span};
     }
 
-    static IRBuildError argument_count(const std::string& fn, std::size_t expected,
-                                       std::size_t got, SourceSpan span) {
+    static IRBuildError argument_count(const std::string& fn, std::size_t expected, std::size_t got,
+                                       SourceSpan span) {
         return IRBuildError{Kind::ArgumentCountMismatch,
                             "Function '" + fn + "' expects " + std::to_string(expected) +
                                 " arguments, got " + std::to_string(got),

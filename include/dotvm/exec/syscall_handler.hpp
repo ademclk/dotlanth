@@ -21,21 +21,21 @@ namespace dotvm::exec {
 
 /// @brief Result of a syscall execution
 enum class SyscallResult : std::uint8_t {
-    Success = 0,          ///< Syscall completed successfully
-    InvalidSyscallId,     ///< Unknown syscall ID
-    PermissionDenied,     ///< Missing required capability
-    InvalidArgument,      ///< Invalid argument value
-    AllocationFailed,     ///< Memory allocation failed
-    IoError,              ///< I/O operation failed
-    NotImplemented,       ///< Syscall not yet implemented
+    Success = 0,       ///< Syscall completed successfully
+    InvalidSyscallId,  ///< Unknown syscall ID
+    PermissionDenied,  ///< Missing required capability
+    InvalidArgument,   ///< Invalid argument value
+    AllocationFailed,  ///< Memory allocation failed
+    IoError,           ///< I/O operation failed
+    NotImplemented,    ///< Syscall not yet implemented
 };
 
 /// @brief Context passed to syscall handlers
 struct SyscallContext {
-    core::VmContext& vm_ctx;                             ///< Full VM context
-    core::ArchRegisterFile& regs;                        ///< Register file for args/return
-    core::capabilities::Permission granted_caps;         ///< Capabilities granted at compile time
-    std::span<const core::Value> const_pool;             ///< Constant pool
+    core::VmContext& vm_ctx;                      ///< Full VM context
+    core::ArchRegisterFile& regs;                 ///< Register file for args/return
+    core::capabilities::Permission granted_caps;  ///< Capabilities granted at compile time
+    std::span<const core::Value> const_pool;      ///< Constant pool
 
     /// Read argument from register (R1-R6 calling convention)
     [[nodiscard]] core::Value arg(std::size_t index) const {
@@ -43,9 +43,7 @@ struct SyscallContext {
     }
 
     /// Set return value in destination register
-    void set_return(std::uint8_t dest_reg, core::Value val) {
-        regs.write(dest_reg, val);
-    }
+    void set_return(std::uint8_t dest_reg, core::Value val) { regs.write(dest_reg, val); }
 };
 
 /// @brief Type for syscall handler functions
