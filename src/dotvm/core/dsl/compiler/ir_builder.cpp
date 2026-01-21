@@ -368,9 +368,11 @@ IRBuildResult<std::uint32_t> IRBuilder::build_call_expr(const CallExpr& expr) {
 
     // Regular function call (not stdlib)
     auto result = create_value(ValueType::Any);
-    emit(Instruction::make(
-        Call{.result = result, .callee = expr.callee, .arg_ids = std::move(arg_ids), .syscall_id = 0},
-        expr.span));
+    emit(Instruction::make(Call{.result = result,
+                                .callee = expr.callee,
+                                .arg_ids = std::move(arg_ids),
+                                .syscall_id = 0},
+                           expr.span));
     return result.id;
 }
 
@@ -675,9 +677,8 @@ IRBuildResult<void> IRBuilder::process_imports(const std::vector<ImportDef>& imp
 
         // Extract alias from path (e.g., "std/prelude" -> "prelude")
         auto slash_pos = module->path.rfind('/');
-        std::string alias = (slash_pos != std::string::npos)
-                                ? module->path.substr(slash_pos + 1)
-                                : module->path;
+        std::string alias =
+            (slash_pos != std::string::npos) ? module->path.substr(slash_pos + 1) : module->path;
         imported_modules_[alias] = module->path;
     }
 
@@ -780,17 +781,17 @@ IRBuildResult<std::uint32_t> IRBuilder::build_stdlib_call(const stdlib::Function
     auto result = create_value(result_type);
 
     // Emit Call with syscall_id
-    emit(Instruction::make(Call{.result = result,
-                                .callee = fn->name,
-                                .arg_ids = arg_ids,
-                                .syscall_id = fn->syscall_id},
-                           span));
+    emit(Instruction::make(
+        Call{
+            .result = result, .callee = fn->name, .arg_ids = arg_ids, .syscall_id = fn->syscall_id},
+        span));
 
     return result.id;
 }
 
-IRBuildResult<std::uint32_t> IRBuilder::build_inline_stdlib_call(
-    const stdlib::FunctionDef* fn, const std::vector<std::uint32_t>& arg_ids, SourceSpan span) {
+IRBuildResult<std::uint32_t>
+IRBuilder::build_inline_stdlib_call(const stdlib::FunctionDef* fn,
+                                    const std::vector<std::uint32_t>& arg_ids, SourceSpan span) {
     // Handle compile-time inline functions
 
     // Math constants
@@ -832,7 +833,8 @@ IRBuildResult<std::uint32_t> IRBuilder::build_inline_stdlib_call(
             syscall_id = stdlib::syscall_id::PRELUDE_IS_HANDLE;
 
         emit(Instruction::make(
-            Call{.result = result, .callee = fn->name, .arg_ids = arg_ids, .syscall_id = syscall_id},
+            Call{
+                .result = result, .callee = fn->name, .arg_ids = arg_ids, .syscall_id = syscall_id},
             span));
         return result.id;
     }

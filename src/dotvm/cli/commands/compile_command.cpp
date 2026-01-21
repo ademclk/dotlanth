@@ -262,7 +262,7 @@ ExitCode execute_compile(const CompileOptions& opts, const GlobalOptions& global
 
     // Configure compiler options
     core::dsl::compiler::CompileOptions compile_opts;
-    compile_opts.dump_ir = global.debug;  // Dump IR in debug mode
+    compile_opts.dump_ir = global.debug;              // Dump IR in debug mode
     compile_opts.granted_caps = opts.capabilities();  // DSL-004: Pass granted capabilities
 
     // Verbose: show granted capabilities
