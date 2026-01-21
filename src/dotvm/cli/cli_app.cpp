@@ -8,6 +8,7 @@
 
 #include "dotvm/cli/commands/check_command.hpp"
 #include "dotvm/cli/commands/compile_command.hpp"
+#include "dotvm/cli/commands/format_command.hpp"
 
 namespace dotvm::cli {
 
@@ -119,13 +120,7 @@ ExitCode CliApp::run() {
     }
 
     if (cmd == "format") {
-        if (global_opts_.verbose) {
-            term.info("Formatting: ");
-            term.print(format_opts_.input_file);
-            term.newline();
-        }
-        // TODO: Implement in Phase 3
-        return ExitCode::Success;
+        return commands::execute_format(format_opts_, global_opts_, term);
     }
 
     if (cmd == "watch") {
