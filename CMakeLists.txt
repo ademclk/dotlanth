@@ -253,6 +253,68 @@ if(DOTVM_BUILD_C_API)
     add_library(Dotvm::CApi ALIAS dotvm_c)
 endif()
 
+# ============================================================================
+# CLI Library (DSL-003)
+# ============================================================================
+
+option(DOTVM_BUILD_CLI "Build the CLI compiler tool (dotdsl)" ON)
+
+if(DOTVM_BUILD_CLI)
+    # Fetch CLI11
+    include(FetchContent)
+    FetchContent_Declare(
+        cli11
+        GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+        GIT_TAG v2.6.1
+    )
+    FetchContent_MakeAvailable(cli11)
+
+    # CLI library
+    add_library(dotvm_cli STATIC
+        src/dotvm/cli/terminal.cpp
+        src/dotvm/cli/cli_app.cpp
+        src/dotvm/cli/file_resolver.cpp
+        src/dotvm/cli/formatter.cpp
+        src/dotvm/cli/watcher.cpp
+        src/dotvm/cli/commands/compile_command.cpp
+        src/dotvm/cli/commands/check_command.cpp
+        src/dotvm/cli/commands/format_command.cpp
+        src/dotvm/cli/commands/watch_command.cpp
+    )
+
+    target_link_libraries(dotvm_cli PUBLIC
+        dotvm_core
+        CLI11::CLI11
+    )
+
+    target_include_directories(dotvm_cli PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    )
+
+    target_compile_options(dotvm_cli PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+    # Disable CLI11's use of deprecated std::codecvt (removed in C++26)
+    target_compile_definitions(dotvm_cli PRIVATE CLI11_HAS_CODECVT=0)
+
+    if(DOTVM_SANITIZER_FLAGS)
+        target_link_options(dotvm_cli PUBLIC ${DOTVM_SANITIZER_FLAGS})
+    endif()
+    if(DOTVM_COVERAGE_FLAGS)
+        target_link_options(dotvm_cli PUBLIC ${DOTVM_COVERAGE_FLAGS})
+    endif()
+
+    add_library(Dotvm::Cli ALIAS dotvm_cli)
+
+    # dotdsl CLI executable
+    add_executable(dotdsl
+        src/dotvm/cli/main.cpp
+    )
+
+    target_link_libraries(dotdsl PRIVATE dotvm_cli)
+    target_compile_options(dotdsl PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+endif()
+
 # Main executable
 add_executable(dotlanth
     src/main.cpp
@@ -377,6 +439,27 @@ if(DOTVM_BUILD_TESTS)
 
     include(GoogleTest)
     gtest_discover_tests(dotvm_tests)
+
+    # CLI tests (DSL-003) - only if CLI is enabled
+    if(DOTVM_BUILD_CLI)
+        add_executable(dotvm_cli_tests
+            tests/dotvm/cli/terminal_test.cpp
+            tests/dotvm/cli/cli_test.cpp
+            tests/dotvm/cli/file_resolver_test.cpp
+            tests/dotvm/cli/formatter_test.cpp
+            tests/dotvm/cli/watcher_test.cpp
+            tests/dotvm/cli/integration_test.cpp
+        )
+
+        target_link_libraries(dotvm_cli_tests PRIVATE
+            dotvm_cli
+            GTest::gtest_main
+        )
+
+        target_compile_options(dotvm_cli_tests PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+        gtest_discover_tests(dotvm_cli_tests)
+    endif()
 
     # C API tests (only if C API is enabled)
     if(DOTVM_BUILD_C_API)

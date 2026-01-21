@@ -215,6 +215,15 @@ struct ImportDef {
     SourceSpan span;
 };
 
+/// @brief Include definition: include: "path/to/file.dsl"
+///
+/// Unlike imports (which are module-level), includes physically include
+/// another DSL file's content into the current compilation unit.
+struct IncludeDef {
+    std::string path;
+    SourceSpan span;
+};
+
 /// @brief State variable definition: name: value
 struct StateVar {
     std::string name;
@@ -326,7 +335,10 @@ struct LinkDef {
 
 /// @brief Root module containing all definitions
 struct DslModule {
-    /// Import statements
+    /// Include directives (file-level physical inclusion)
+    std::vector<IncludeDef> includes;
+
+    /// Import statements (module-level logical import)
     std::vector<ImportDef> imports;
 
     /// Dot (agent) definitions

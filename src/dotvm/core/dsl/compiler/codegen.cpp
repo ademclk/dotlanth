@@ -211,7 +211,7 @@ CodegenResult<void> CodeGenerator::gen_instruction(const LinearInstr& instr,
             using T = std::decay_t<decltype(inst)>;
 
             if constexpr (std::is_same_v<T, ir::BinaryOp>) {
-                std::uint8_t op;
+                std::uint8_t op = opcode::NOP;
                 switch (inst.op) {
                     case BinaryOpKind::Add:
                         op = opcode::ADD;
@@ -251,11 +251,14 @@ CodegenResult<void> CodeGenerator::gen_instruction(const LinearInstr& instr,
                         // Logical ops: use bitwise AND/OR on booleans
                         op = (inst.op == BinaryOpKind::And) ? opcode::AND : opcode::OR;
                         break;
+                    default:
+                        return std::unexpected(
+                            CodegenError::unsupported("Unsupported binary operation"));
                 }
                 emit_type_a(code, op, instr.dest_reg, instr.src1_reg, instr.src2_reg);
                 return {};
             } else if constexpr (std::is_same_v<T, ir::UnaryOp>) {
-                std::uint8_t op;
+                std::uint8_t op = opcode::NOP;
                 switch (inst.op) {
                     case UnaryOpKind::Neg:
                         op = opcode::NEG;
@@ -264,11 +267,14 @@ CodegenResult<void> CodeGenerator::gen_instruction(const LinearInstr& instr,
                     case UnaryOpKind::Bnot:
                         op = opcode::NOT;
                         break;
+                    default:
+                        return std::unexpected(
+                            CodegenError::unsupported("Unsupported unary operation"));
                 }
                 emit_type_a(code, op, instr.dest_reg, instr.src1_reg, 0);
                 return {};
             } else if constexpr (std::is_same_v<T, Compare>) {
-                std::uint8_t op;
+                std::uint8_t op = opcode::NOP;
                 switch (inst.op) {
                     case CompareKind::Eq:
                         op = opcode::EQ;
@@ -300,6 +306,9 @@ CodegenResult<void> CodeGenerator::gen_instruction(const LinearInstr& instr,
                     case CompareKind::Geu:
                         op = opcode::GEU;
                         break;
+                    default:
+                        return std::unexpected(
+                            CodegenError::unsupported("Unsupported compare operation"));
                 }
                 emit_type_a(code, op, instr.dest_reg, instr.src1_reg, instr.src2_reg);
                 return {};

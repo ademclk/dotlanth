@@ -97,6 +97,9 @@ enum class TokenType : std::uint8_t {
     /// 'not' logical operator
     KwNot = 30,
 
+    /// 'include' keyword (file inclusion)
+    KwInclude = 31,
+
     // ===== Punctuation =====
 
     /// ':' colon
@@ -220,6 +223,8 @@ enum class TokenType : std::uint8_t {
             return "KwOr";
         case TokenType::KwNot:
             return "KwNot";
+        case TokenType::KwInclude:
+            return "KwInclude";
         // Punctuation
         case TokenType::Colon:
             return "Colon";
@@ -272,7 +277,7 @@ enum class TokenType : std::uint8_t {
 
 /// @brief Check if token type is a keyword
 [[nodiscard]] constexpr bool is_keyword(TokenType type) noexcept {
-    return static_cast<std::uint8_t>(type) >= 20 && static_cast<std::uint8_t>(type) <= 30;
+    return static_cast<std::uint8_t>(type) >= 20 && static_cast<std::uint8_t>(type) <= 31;
 }
 
 /// @brief Check if token type is an operator

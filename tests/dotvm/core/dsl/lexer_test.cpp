@@ -85,12 +85,19 @@ TEST(LexerTest, Identifiers) {
 }
 
 TEST(LexerTest, Keywords) {
-    auto tokens = tokenize("dot when do state link import true false and or not\n");
+    auto tokens = tokenize("dot when do state link import true false and or not include\n");
     check_token_types(
         tokens, {TokenType::KwDot, TokenType::KwWhen, TokenType::KwDo, TokenType::KwState,
                  TokenType::KwLink, TokenType::KwImport, TokenType::KwTrue, TokenType::KwFalse,
-                 TokenType::KwAnd, TokenType::KwOr, TokenType::KwNot, TokenType::Newline,
-                 TokenType::Eof});
+                 TokenType::KwAnd, TokenType::KwOr, TokenType::KwNot, TokenType::KwInclude,
+                 TokenType::Newline, TokenType::Eof});
+}
+
+TEST(LexerTest, IncludeKeyword) {
+    auto tokens = tokenize("include: \"stdlib/common.dsl\"\n");
+    check_token_types(tokens, {TokenType::KwInclude, TokenType::Colon, TokenType::String,
+                               TokenType::Newline, TokenType::Eof});
+    EXPECT_EQ(tokens[2].lexeme, "stdlib/common.dsl");
 }
 
 TEST(LexerTest, KeywordLikeIdentifiers) {

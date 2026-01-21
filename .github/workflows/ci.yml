@@ -67,6 +67,13 @@ jobs:
           path: build/ci-clang-release/compile_commands.json
           retention-days: 1
 
+      - name: Upload CLI11 headers (for static analysis)
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli11-headers
+          path: build/ci-clang-release/_deps/cli11-src/include
+          retention-days: 1
+
   # ============================================================================
   # Sanitizers (ASan + UBSan)
   # ============================================================================
@@ -142,6 +149,12 @@ jobs:
         with:
           name: compile-commands
           path: build/ci-clang-release
+
+      - name: Download CLI11 headers
+        uses: actions/download-artifact@v4
+        with:
+          name: cli11-headers
+          path: build/ci-clang-release/_deps/cli11-src/include
 
       - name: Clean compile_commands.json
         run: |
