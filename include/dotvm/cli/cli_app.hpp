@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "dotvm/cli/terminal.hpp"
 
@@ -29,13 +30,15 @@ struct GlobalOptions {
 
 /// @brief Options for the compile command
 struct CompileOptions {
-    std::string input_file;   ///< Input .dsl file path
-    std::string output_file;  ///< Output bytecode file path (default: input.dot)
+    std::string input_file;                  ///< Input .dsl file path
+    std::string output_file;                 ///< Output bytecode file path (default: input.dot)
+    std::vector<std::string> include_paths;  ///< Include search paths (-I)
 };
 
 /// @brief Options for the check command
 struct CheckOptions {
-    std::string input_file;  ///< Input .dsl file path
+    std::string input_file;                  ///< Input .dsl file path
+    std::vector<std::string> include_paths;  ///< Include search paths (-I)
 };
 
 /// @brief Options for the format command

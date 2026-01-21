@@ -44,6 +44,10 @@ void CliApp::setup_compile_command() {
 
     compile_cmd_->add_option("-o,--output", compile_opts_.output_file, "Output bytecode file")
         ->default_str("");
+
+    compile_cmd_->add_option("-I,--include", compile_opts_.include_paths, "Include search paths")
+        ->check(CLI::ExistingDirectory)
+        ->take_all();
 }
 
 void CliApp::setup_check_command() {
@@ -52,6 +56,10 @@ void CliApp::setup_check_command() {
     check_cmd_->add_option("file", check_opts_.input_file, "Input .dsl file")
         ->required()
         ->check(CLI::ExistingFile);
+
+    check_cmd_->add_option("-I,--include", check_opts_.include_paths, "Include search paths")
+        ->check(CLI::ExistingDirectory)
+        ->take_all();
 }
 
 void CliApp::setup_format_command() {

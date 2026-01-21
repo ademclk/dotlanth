@@ -55,6 +55,9 @@ private:
     /// Parse an import statement
     [[nodiscard]] std::optional<ImportDef> parse_import();
 
+    /// Parse an include directive
+    [[nodiscard]] std::optional<IncludeDef> parse_include();
+
     /// Parse a dot definition
     [[nodiscard]] std::optional<DotDef> parse_dot_def();
 

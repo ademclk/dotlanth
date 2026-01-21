@@ -48,7 +48,11 @@ DslModule DslParser::parse_module() {
     skip_newlines();
 
     while (!at_end()) {
-        if (check(TokenType::KwImport)) {
+        if (check(TokenType::KwInclude)) {
+            if (auto include_def = parse_include()) {
+                module.includes.push_back(std::move(*include_def));
+            }
+        } else if (check(TokenType::KwImport)) {
             if (auto import_def = parse_import()) {
                 module.imports.push_back(std::move(*import_def));
             }
@@ -64,7 +68,7 @@ DslModule DslParser::parse_module() {
             // Skip structural tokens at module level (blank lines, orphan indentation)
             advance();
         } else {
-            error(DslError::UnexpectedToken, "Expected 'import', 'dot', or 'link'");
+            error(DslError::UnexpectedToken, "Expected 'include', 'import', 'dot', or 'link'");
             // Advance at least once to make progress
             advance();
             synchronize();
@@ -95,6 +99,33 @@ std::optional<ImportDef> DslParser::parse_import() {
 
     import_def.span = SourceSpan::from(start.span.start, previous_.span.end);
     return import_def;
+}
+
+std::optional<IncludeDef> DslParser::parse_include() {
+    Token start = current_;
+    advance();  // consume 'include'
+
+    if (!expect(TokenType::Colon, "Expected ':' after 'include'")) {
+        synchronize();
+        return std::nullopt;
+    }
+
+    if (!check(TokenType::String)) {
+        error(DslError::ExpectedString, "Expected string path after 'include:'");
+        synchronize();
+        return std::nullopt;
+    }
+
+    IncludeDef include_def;
+    include_def.path = std::string{current_.lexeme};
+    advance();  // consume string
+
+    if (!match(TokenType::Newline) && !at_end()) {
+        error(DslError::ExpectedNewline, "Expected newline after include");
+    }
+
+    include_def.span = SourceSpan::from(start.span.start, previous_.span.end);
+    return include_def;
 }
 
 std::optional<DotDef> DslParser::parse_dot_def() {
@@ -894,6 +925,7 @@ void DslParser::synchronize() {
             case TokenType::KwState:
             case TokenType::KwLink:
             case TokenType::KwImport:
+            case TokenType::KwInclude:
             case TokenType::Dedent:
                 return;
             default:

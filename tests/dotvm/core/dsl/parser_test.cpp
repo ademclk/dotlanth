@@ -25,6 +25,50 @@ void parse_err(std::string_view source) {
 }
 
 // ============================================================================
+// Include Tests
+// ============================================================================
+
+TEST(ParserTest, SimpleInclude) {
+    auto module = parse_ok("include: \"stdlib/common.dsl\"\n");
+    ASSERT_EQ(module.includes.size(), 1);
+    EXPECT_EQ(module.includes[0].path, "stdlib/common.dsl");
+}
+
+TEST(ParserTest, MultipleIncludes) {
+    auto module = parse_ok(R"(
+include: "lib1.dsl"
+include: "lib2.dsl"
+include: "../shared/utils.dsl"
+)");
+    ASSERT_EQ(module.includes.size(), 3);
+    EXPECT_EQ(module.includes[0].path, "lib1.dsl");
+    EXPECT_EQ(module.includes[1].path, "lib2.dsl");
+    EXPECT_EQ(module.includes[2].path, "../shared/utils.dsl");
+}
+
+TEST(ParserTest, IncludeBeforeImport) {
+    auto module = parse_ok(R"(
+include: "stdlib/common.dsl"
+import "mymodule"
+
+dot Agent:
+    state:
+        x: 0
+)");
+    ASSERT_EQ(module.includes.size(), 1);
+    ASSERT_EQ(module.imports.size(), 1);
+    ASSERT_EQ(module.dots.size(), 1);
+}
+
+TEST(ParserTest, IncludeMissingColon) {
+    parse_err("include \"path.dsl\"\n");
+}
+
+TEST(ParserTest, IncludeMissingString) {
+    parse_err("include:\n");
+}
+
+// ============================================================================
 // Import Tests
 // ============================================================================
 

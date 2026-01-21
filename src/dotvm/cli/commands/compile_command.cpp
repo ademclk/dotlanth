@@ -10,6 +10,7 @@
 #include "dotvm/cli/file_resolver.hpp"
 #include "dotvm/core/dsl/compiler/dsl_compiler.hpp"
 #include "dotvm/core/dsl/ir/printer.hpp"
+#include "dotvm/core/dsl/parser.hpp"
 
 namespace dotvm::cli::commands {
 
@@ -67,6 +68,137 @@ bool write_bytecode(const std::filesystem::path& path, const std::vector<std::ui
     return true;
 }
 
+/// @brief Result of processing includes
+struct IncludeResult {
+    bool success = true;
+    ExitCode code = ExitCode::Success;
+    std::string merged_source;
+};
+
+/// @brief Process includes recursively and merge sources
+IncludeResult process_includes(FileResolver& resolver, const std::filesystem::path& file_path,
+                               std::string_view source, Terminal& term, bool verbose, bool debug,
+                               std::uint32_t include_line = 0) {
+    IncludeResult result;
+
+    // Check for circular include
+    if (resolver.would_create_cycle(file_path)) {
+        // Report circular include error with chain
+        std::string chain_info = FileError::format_include_chain(resolver.include_stack());
+        if (!chain_info.empty()) {
+            term.print(chain_info);
+            term.newline();
+        }
+        term.error("error: ");
+        term.print("circular include detected: " + file_path.string());
+        term.newline();
+        result.success = false;
+        result.code = ExitCode::CircularInclude;
+        return result;
+    }
+
+    // Push this file onto the include stack
+    resolver.push_include_stack(file_path, include_line);
+
+    // Parse to find includes
+    auto parse_result = core::dsl::DslParser::parse(source);
+    if (!parse_result.is_ok()) {
+        // Parse error - let the compiler handle detailed error reporting
+        result.merged_source = std::string(source);
+        resolver.pop_include_stack();
+        return result;
+    }
+
+    const auto& module = parse_result.value();
+
+    // If no includes, return the source as-is
+    if (module.includes.empty()) {
+        result.merged_source = std::string(source);
+        resolver.pop_include_stack();
+        return result;
+    }
+
+    // Process each include
+    for (const auto& include : module.includes) {
+        // Check if already included (prevents re-inclusion)
+        auto resolve_result = resolver.resolve_include(include.path, file_path);
+        if (!resolve_result.has_value()) {
+            const auto& err = resolve_result.error();
+            // Print include chain
+            std::string chain_info = FileError::format_include_chain(resolver.include_stack());
+            if (!chain_info.empty()) {
+                term.print(chain_info);
+                term.newline();
+            }
+            term.error("error: ");
+            term.print(err.message);
+            term.newline();
+            result.success = false;
+            result.code = err.code;
+            resolver.pop_include_stack();
+            return result;
+        }
+
+        const auto& resolved_path = *resolve_result;
+
+        // Skip if already included
+        if (resolver.is_included(resolved_path)) {
+            if (debug) {
+                term.info("[debug] ");
+                term.print("Skipping already included: " + resolved_path.string());
+                term.newline();
+            }
+            continue;
+        }
+
+        // Mark as included
+        resolver.mark_included(resolved_path);
+
+        if (verbose) {
+            term.info("Including: ");
+            term.print(resolved_path.string());
+            term.newline();
+        }
+
+        // Read the included file
+        auto file_result = resolver.read_file(resolved_path);
+        if (!file_result.has_value()) {
+            const auto& err = file_result.error();
+            std::string chain_info = FileError::format_include_chain(resolver.include_stack());
+            if (!chain_info.empty()) {
+                term.print(chain_info);
+                term.newline();
+            }
+            term.error("error: ");
+            term.print(err.message);
+            term.newline();
+            result.success = false;
+            result.code = err.code;
+            resolver.pop_include_stack();
+            return result;
+        }
+
+        // Process includes in the included file recursively
+        auto include_result = process_includes(resolver, resolved_path, *file_result, term, verbose,
+                                               debug, include.span.start.line);
+        if (!include_result.success) {
+            resolver.pop_include_stack();
+            return include_result;
+        }
+
+        // Add the processed included content (the actual merging happens at compile time
+        // since includes are directive-based, not textual inclusion)
+        // For now, we cache the processed file for later use
+        resolver.cache_file(resolved_path, include_result.merged_source);
+    }
+
+    // For now, return original source - the compiler will need to be updated
+    // to handle module merging. This phase focuses on the resolution infrastructure.
+    result.merged_source = std::string(source);
+    resolver.pop_include_stack();
+    return result;
+}
+
 }  // namespace
 
 ExitCode execute_compile(const CompileOptions& opts, const GlobalOptions& global, Terminal& term) {
@@ -90,6 +222,16 @@ ExitCode execute_compile(const CompileOptions& opts, const GlobalOptions& global
     FileResolver resolver(input_path.parent_path().empty() ? std::filesystem::current_path()
                                                            : input_path.parent_path());
 
+    // Add include search paths
+    for (const auto& path : opts.include_paths) {
+        resolver.add_search_path(path);
+        if (global.debug) {
+            term.info("[debug] ");
+            term.print("Added include path: " + path);
+            term.newline();
+        }
+    }
+
     auto file_result = resolver.read_file(input_path);
     if (!file_result.has_value()) {
         const auto& err = file_result.error();
@@ -109,13 +251,21 @@ ExitCode execute_compile(const CompileOptions& opts, const GlobalOptions& global
         term.newline();
     }
 
+    // Process includes
+    resolver.mark_included(input_path);  // Mark main file as included
+    auto include_result =
+        process_includes(resolver, input_path, source, term, global.verbose, global.debug);
+    if (!include_result.success) {
+        return include_result.code;
+    }
+
     // Configure compiler options
     core::dsl::compiler::CompileOptions compile_opts;
     compile_opts.dump_ir = global.debug;  // Dump IR in debug mode
 
     // Compile the source
     core::dsl::compiler::DslCompiler compiler(compile_opts);
-    auto compile_result = compiler.compile_source(source);
+    auto compile_result = compiler.compile_source(include_result.merged_source);
 
     if (!compile_result.has_value()) {
         print_compile_error(term, filename, source, compile_result.error());

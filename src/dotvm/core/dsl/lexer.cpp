@@ -522,6 +522,12 @@ TokenType Lexer::lookup_keyword(std::string_view text) const noexcept {
                 return TokenType::KwImport;
             break;
 
+        // Length 7
+        case (7 << 8) | 'i':  // "include"
+            if (text == "include")
+                return TokenType::KwInclude;
+            break;
+
         default:
             break;
     }
