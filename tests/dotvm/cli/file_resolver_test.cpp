@@ -428,3 +428,164 @@ TEST_F(FileResolverTest, FormatIncludeChainMultiple) {
     EXPECT_TRUE(result.find("lib.dsl") != std::string::npos);
     EXPECT_TRUE(result.find("nested.dsl") != std::string::npos);
 }
+
+// ============================================================================
+// Edge Case Tests
+// ============================================================================
+
+TEST_F(FileResolverTest, ReadEmptyFile) {
+    // Create an empty file
+    std::filesystem::path empty_file = test_dir_ / "empty.dsl";
+    create_file(empty_file, "");
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(empty_file);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
+
+TEST_F(FileResolverTest, ReadFileWithOnlyWhitespace) {
+    // Create a file with only whitespace
+    std::filesystem::path ws_file = test_dir_ / "whitespace.dsl";
+    create_file(ws_file, "   \n\t\n   \n");
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(ws_file);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "   \n\t\n   \n");
+}
+
+TEST_F(FileResolverTest, ReadFileWithOnlyComments) {
+    // Create a file with only comments
+    std::filesystem::path comment_file = test_dir_ / "comments.dsl";
+    create_file(comment_file, "# This is a comment\n# Another comment\n");
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(comment_file);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->find("# This is a comment") != std::string::npos);
+}
+
+TEST_F(FileResolverTest, ReadFileWithoutTrailingNewline) {
+    // Create a file without trailing newline
+    std::filesystem::path no_newline = test_dir_ / "no_newline.dsl";
+    create_file(no_newline, "dot NoNewline:\n    state:\n        x: 0");
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(no_newline);
+
+    ASSERT_TRUE(result.has_value());
+    // Verify file content is preserved exactly
+    EXPECT_EQ(result->back(), '0');  // No trailing newline
+}
+
+TEST_F(FileResolverTest, ReadFileWithVeryLongLine) {
+    // Create a file with a very long line (10000 characters)
+    std::filesystem::path long_line = test_dir_ / "long_line.dsl";
+    std::string long_content = "dot LongLine:\n    state:\n        x: \"";
+    long_content += std::string(10000, 'a');
+    long_content += "\"\n";
+    create_file(long_line, long_content);
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(long_line);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_GT(result->size(), 10000U);
+}
+
+TEST_F(FileResolverTest, ReadBinaryFileDetected) {
+    // Create a file with null bytes (binary content)
+    std::filesystem::path binary_file = test_dir_ / "binary.dsl";
+    {
+        std::ofstream file(binary_file, std::ios::binary);
+        file << "dot Binary:\n";
+        file << '\0';  // Null byte indicates binary
+        file << "state:\n";
+    }
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(binary_file);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ExitCode::IoError);
+    EXPECT_TRUE(result.error().message.find("Binary file") != std::string::npos);
+}
+
+TEST_F(FileResolverTest, ReadInvalidUtf8Detected) {
+    // Create a file with invalid UTF-8 sequences
+    std::filesystem::path invalid_utf8 = test_dir_ / "invalid_utf8.dsl";
+    {
+        std::ofstream file(invalid_utf8, std::ios::binary);
+        file << "dot Invalid:\n";
+        // Write invalid UTF-8: 0xFF is never valid as a start byte
+        file << static_cast<char>(0xFF);
+        file << static_cast<char>(0xFE);
+        file << "state:\n";
+    }
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(invalid_utf8);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ExitCode::IoError);
+    EXPECT_TRUE(result.error().message.find("UTF-8") != std::string::npos);
+}
+
+TEST_F(FileResolverTest, ReadValidUtf8WithUnicode) {
+    // Create a file with valid UTF-8 unicode characters
+    std::filesystem::path unicode_file = test_dir_ / "unicode.dsl";
+    // Using various valid UTF-8 sequences
+    create_file(unicode_file, "# Comment with unicode: Hello World!\n"
+                              "# Greek: \xCE\xB1\xCE\xB2\xCE\xB3\n"  // alpha beta gamma
+                              "# Japanese: \xE3\x81\x82\n"           // hiragana 'a'
+                              "dot Unicode:\n"
+                              "    state:\n"
+                              "        x: 0\n");
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(unicode_file);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->find("Unicode") != std::string::npos);
+}
+
+TEST_F(FileResolverTest, ReadFileWithBOM) {
+    // Create a file with UTF-8 BOM (Byte Order Mark)
+    std::filesystem::path bom_file = test_dir_ / "bom.dsl";
+    {
+        std::ofstream file(bom_file, std::ios::binary);
+        // UTF-8 BOM
+        file << static_cast<char>(0xEF);
+        file << static_cast<char>(0xBB);
+        file << static_cast<char>(0xBF);
+        file << "dot WithBOM:\n    state:\n        x: 0\n";
+    }
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(bom_file);
+
+    // UTF-8 BOM is valid UTF-8, so this should succeed
+    ASSERT_TRUE(result.has_value());
+}
+
+TEST_F(FileResolverTest, ReadFileTruncatedUtf8) {
+    // Create a file with truncated UTF-8 sequence at the end
+    std::filesystem::path truncated_file = test_dir_ / "truncated.dsl";
+    {
+        std::ofstream file(truncated_file, std::ios::binary);
+        file << "dot Truncated:\n    state:\n        x: 0\n";
+        // Write start of 3-byte sequence without completing it
+        file << static_cast<char>(0xE3);
+    }
+
+    FileResolver resolver(test_dir_);
+    auto result = resolver.read_file(truncated_file);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ExitCode::IoError);
+    EXPECT_TRUE(result.error().message.find("UTF-8") != std::string::npos);
+}

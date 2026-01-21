@@ -356,23 +356,22 @@ TEST_F(CliIntegrationTest, CheckMultipleErrorsInFile) {
 
 TEST_F(CliIntegrationTest, CompileComplexDslFile) {
     // Create a more complex DSL file with multiple dots and links
-    create_file(test_dir_ / "complex.dsl",
-                "dot Counter:\n"
-                "    state:\n"
-                "        count: 0\n"
-                "        max: 100\n"
-                "    when count < max:\n"
-                "        do:\n"
-                "            count += 1\n"
-                "\n"
-                "dot Logger:\n"
-                "    state:\n"
-                "        messages: 0\n"
-                "    when messages < 10:\n"
-                "        do:\n"
-                "            messages += 1\n"
-                "\n"
-                "link Counter -> Logger\n");
+    create_file(test_dir_ / "complex.dsl", "dot Counter:\n"
+                                           "    state:\n"
+                                           "        count: 0\n"
+                                           "        max: 100\n"
+                                           "    when count < max:\n"
+                                           "        do:\n"
+                                           "            count += 1\n"
+                                           "\n"
+                                           "dot Logger:\n"
+                                           "    state:\n"
+                                           "        messages: 0\n"
+                                           "    when messages < 10:\n"
+                                           "        do:\n"
+                                           "            messages += 1\n"
+                                           "\n"
+                                           "link Counter -> Logger\n");
 
     CliApp app;
     std::string filepath = (test_dir_ / "complex.dsl").string();
@@ -388,23 +387,22 @@ TEST_F(CliIntegrationTest, CompileComplexDslFile) {
 
 TEST_F(CliIntegrationTest, CheckComplexDslFile) {
     // Use the same complex file
-    create_file(test_dir_ / "complex_check.dsl",
-                "dot Counter:\n"
-                "    state:\n"
-                "        count: 0\n"
-                "        max: 100\n"
-                "    when count < max:\n"
-                "        do:\n"
-                "            count += 1\n"
-                "\n"
-                "dot Logger:\n"
-                "    state:\n"
-                "        messages: 0\n"
-                "    when messages < 10:\n"
-                "        do:\n"
-                "            messages += 1\n"
-                "\n"
-                "link Counter -> Logger\n");
+    create_file(test_dir_ / "complex_check.dsl", "dot Counter:\n"
+                                                 "    state:\n"
+                                                 "        count: 0\n"
+                                                 "        max: 100\n"
+                                                 "    when count < max:\n"
+                                                 "        do:\n"
+                                                 "            count += 1\n"
+                                                 "\n"
+                                                 "dot Logger:\n"
+                                                 "    state:\n"
+                                                 "        messages: 0\n"
+                                                 "    when messages < 10:\n"
+                                                 "        do:\n"
+                                                 "            messages += 1\n"
+                                                 "\n"
+                                                 "link Counter -> Logger\n");
 
     CliApp app;
     std::string filepath = (test_dir_ / "complex_check.dsl").string();
@@ -435,5 +433,237 @@ TEST_F(CliIntegrationTest, CheckWithNoColorFlag) {
 
     ASSERT_EQ(app.parse(4, argv), ExitCode::Success);
     EXPECT_TRUE(app.global_options().no_color);
+    EXPECT_EQ(app.run(), ExitCode::Success);
+}
+
+// ============================================================================
+// Edge Case Integration Tests
+// ============================================================================
+
+TEST_F(CliIntegrationTest, CompileBinaryFileReturnsError) {
+    // Create a file with null bytes (binary content)
+    std::filesystem::path binary_file = test_dir_ / "binary.dsl";
+    {
+        std::ofstream file(binary_file, std::ios::binary);
+        file << "dot Binary:\n";
+        file << '\0';  // Null byte indicates binary
+        file << "state:\n";
+    }
+
+    CliApp app;
+    std::string filepath = binary_file.string();
+    const char* argv[] = {"dotdsl", "compile", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    EXPECT_EQ(app.run(), ExitCode::IoError);
+}
+
+TEST_F(CliIntegrationTest, CheckBinaryFileReturnsError) {
+    // Create a file with null bytes (binary content)
+    std::filesystem::path binary_file = test_dir_ / "binary_check.dsl";
+    {
+        std::ofstream file(binary_file, std::ios::binary);
+        file << "dot Binary:\n";
+        file << '\0';  // Null byte
+        file << "state:\n";
+    }
+
+    CliApp app;
+    std::string filepath = binary_file.string();
+    const char* argv[] = {"dotdsl", "check", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    EXPECT_EQ(app.run(), ExitCode::IoError);
+}
+
+TEST_F(CliIntegrationTest, FormatBinaryFileReturnsError) {
+    // Create a file with null bytes (binary content)
+    std::filesystem::path binary_file = test_dir_ / "binary_format.dsl";
+    {
+        std::ofstream file(binary_file, std::ios::binary);
+        file << "dot Binary:\n";
+        file << '\0';  // Null byte
+        file << "state:\n";
+    }
+
+    CliApp app;
+    std::string filepath = binary_file.string();
+    const char* argv[] = {"dotdsl", "format", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    EXPECT_EQ(app.run(), ExitCode::IoError);
+}
+
+TEST_F(CliIntegrationTest, CompileInvalidUtf8ReturnsError) {
+    // Create a file with invalid UTF-8 sequences
+    std::filesystem::path invalid_utf8 = test_dir_ / "invalid_utf8.dsl";
+    {
+        std::ofstream file(invalid_utf8, std::ios::binary);
+        file << "dot Invalid:\n";
+        // Write invalid UTF-8: 0xFF is never valid as a start byte
+        file << static_cast<char>(0xFF);
+        file << static_cast<char>(0xFE);
+        file << "state:\n";
+    }
+
+    CliApp app;
+    std::string filepath = invalid_utf8.string();
+    const char* argv[] = {"dotdsl", "compile", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    EXPECT_EQ(app.run(), ExitCode::IoError);
+}
+
+TEST_F(CliIntegrationTest, CompileFileWithOnlyComments) {
+    // Create a file with only comments
+    std::filesystem::path comment_file = test_dir_ / "comments_only.dsl";
+    create_file(comment_file, "# This is a comment\n# Another comment\n");
+
+    CliApp app;
+    std::string filepath = comment_file.string();
+    const char* argv[] = {"dotdsl", "compile", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    // Empty module should compile successfully
+    ExitCode result = app.run();
+    EXPECT_TRUE(result == ExitCode::Success || result == ExitCode::CompilationError);
+}
+
+TEST_F(CliIntegrationTest, CheckFileWithOnlyComments) {
+    // Create a file with only comments
+    std::filesystem::path comment_file = test_dir_ / "comments_check.dsl";
+    create_file(comment_file, "# This is a comment\n# Another comment\n");
+
+    CliApp app;
+    std::string filepath = comment_file.string();
+    const char* argv[] = {"dotdsl", "check", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    EXPECT_EQ(app.run(), ExitCode::Success);
+}
+
+TEST_F(CliIntegrationTest, FormatFileWithOnlyComments) {
+    // Create a file with only comments
+    std::filesystem::path comment_file = test_dir_ / "comments_format.dsl";
+    create_file(comment_file, "# This is a comment\n# Another comment\n");
+
+    CliApp app;
+    std::string filepath = comment_file.string();
+    const char* argv[] = {"dotdsl", "format", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    EXPECT_EQ(app.run(), ExitCode::Success);
+}
+
+TEST_F(CliIntegrationTest, CompileFileWithoutTrailingNewline) {
+    // Create a file without trailing newline - the parser requires newlines
+    // after statements, so this should fail with a parse error
+    std::filesystem::path no_newline = test_dir_ / "no_newline.dsl";
+    create_file(no_newline, "dot NoNewline:\n    state:\n        x: 0");
+
+    CliApp app;
+    std::string filepath = no_newline.string();
+    const char* argv[] = {"dotdsl", "compile", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    // Parser requires trailing newline after state variable
+    EXPECT_EQ(app.run(), ExitCode::CompilationError);
+}
+
+TEST_F(CliIntegrationTest, CheckFileWithoutTrailingNewline) {
+    // Create a file without trailing newline - the parser requires newlines
+    // after statements, so this should fail with a parse error
+    std::filesystem::path no_newline = test_dir_ / "no_newline_check.dsl";
+    create_file(no_newline, "dot NoNewline:\n    state:\n        x: 0");
+
+    CliApp app;
+    std::string filepath = no_newline.string();
+    const char* argv[] = {"dotdsl", "check", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    // Parser requires trailing newline after state variable
+    EXPECT_EQ(app.run(), ExitCode::ParseError);
+}
+
+TEST_F(CliIntegrationTest, CompileFileWithTrailingNewline) {
+    // Create a valid file with proper trailing newline
+    std::filesystem::path with_newline = test_dir_ / "with_newline.dsl";
+    create_file(with_newline, "dot WithNewline:\n    state:\n        x: 0\n");
+
+    CliApp app;
+    std::string filepath = with_newline.string();
+    const char* argv[] = {"dotdsl", "compile", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    EXPECT_EQ(app.run(), ExitCode::Success);
+}
+
+TEST_F(CliIntegrationTest, CompileFileWithOnlyWhitespace) {
+    // Create a file with only whitespace
+    std::filesystem::path ws_file = test_dir_ / "whitespace.dsl";
+    create_file(ws_file, "   \n\t\n   \n");
+
+    CliApp app;
+    std::string filepath = ws_file.string();
+    const char* argv[] = {"dotdsl", "compile", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(3, argv), ExitCode::Success);
+    // Empty module should compile, or fail gracefully
+    ExitCode result = app.run();
+    EXPECT_TRUE(result == ExitCode::Success || result == ExitCode::CompilationError);
+}
+
+TEST_F(CliIntegrationTest, FormatFileInPlace) {
+    // Create a file to format in place
+    std::filesystem::path format_file = test_dir_ / "format_inplace.dsl";
+    create_file(format_file, "dot  Counter  :\n    state:\n        count:0\n");
+
+    CliApp app;
+    std::string filepath = format_file.string();
+    const char* argv[] = {"dotdsl", "format", "--in-place", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(4, argv), ExitCode::Success);
+    EXPECT_TRUE(app.format_options().in_place);
+    EXPECT_EQ(app.run(), ExitCode::Success);
+
+    // Verify file was modified
+    std::ifstream file(format_file);
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    EXPECT_TRUE(content.find("dot Counter:") != std::string::npos);
+}
+
+TEST_F(CliIntegrationTest, CompileWithMultipleIncludePaths) {
+    // Create include directories and files
+    std::filesystem::create_directories(test_dir_ / "lib1");
+    std::filesystem::create_directories(test_dir_ / "lib2");
+    create_file(test_dir_ / "lib1" / "util1.dsl", "dot Util1:\n    state:\n        u1: 0\n");
+    create_file(test_dir_ / "lib2" / "util2.dsl", "dot Util2:\n    state:\n        u2: 0\n");
+
+    // Create main file that includes from both (path must be quoted)
+    create_file(test_dir_ / "main_multi.dsl", "include: \"util1.dsl\"\n"
+                                              "include: \"util2.dsl\"\n"
+                                              "dot Main:\n"
+                                              "    state:\n"
+                                              "        x: 0\n");
+
+    CliApp app;
+    std::string filepath = (test_dir_ / "main_multi.dsl").string();
+    std::string lib1 = (test_dir_ / "lib1").string();
+    std::string lib2 = (test_dir_ / "lib2").string();
+    const char* argv[] = {"dotdsl",     "compile", filepath.c_str(), "-I",
+                          lib1.c_str(), "-I",      lib2.c_str()};
+
+    ASSERT_EQ(app.parse(7, argv), ExitCode::Success);
+    EXPECT_EQ(app.compile_options().include_paths.size(), 2U);
+    EXPECT_EQ(app.run(), ExitCode::Success);
+}
+
+TEST_F(CliIntegrationTest, CheckWithStrictMode) {
+    CliApp app;
+    std::string filepath = (test_dir_ / "valid.dsl").string();
+    const char* argv[] = {"dotdsl", "--strict", "check", filepath.c_str()};
+
+    ASSERT_EQ(app.parse(4, argv), ExitCode::Success);
+    EXPECT_TRUE(app.global_options().strict);
     EXPECT_EQ(app.run(), ExitCode::Success);
 }

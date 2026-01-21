@@ -4,10 +4,73 @@
 #include "dotvm/cli/file_resolver.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <fstream>
 #include <sstream>
 
 namespace dotvm::cli {
+
+namespace {
+
+/// @brief Check if a string contains null bytes (indicates binary content)
+/// @param data The string to check
+/// @return true if null bytes are found
+bool contains_null_bytes(const std::string& data) {
+    return data.find('\0') != std::string::npos;
+}
+
+/// @brief Check if a byte sequence is valid UTF-8
+/// @param data The data to validate
+/// @return true if valid UTF-8, false if invalid sequences found
+bool is_valid_utf8(const std::string& data) {
+    const auto* bytes = reinterpret_cast<const std::uint8_t*>(data.data());
+    std::size_t len = data.size();
+    std::size_t i = 0;
+
+    while (i < len) {
+        if (bytes[i] <= 0x7F) {
+            // ASCII character
+            ++i;
+        } else if ((bytes[i] & 0xE0) == 0xC0) {
+            // 2-byte sequence
+            if (i + 1 >= len || (bytes[i + 1] & 0xC0) != 0x80) {
+                return false;
+            }
+            // Check for overlong encoding
+            if ((bytes[i] & 0x1E) == 0) {
+                return false;
+            }
+            i += 2;
+        } else if ((bytes[i] & 0xF0) == 0xE0) {
+            // 3-byte sequence
+            if (i + 2 >= len || (bytes[i + 1] & 0xC0) != 0x80 || (bytes[i + 2] & 0xC0) != 0x80) {
+                return false;
+            }
+            // Check for overlong encoding
+            if (bytes[i] == 0xE0 && (bytes[i + 1] & 0x20) == 0) {
+                return false;
+            }
+            i += 3;
+        } else if ((bytes[i] & 0xF8) == 0xF0) {
+            // 4-byte sequence
+            if (i + 3 >= len || (bytes[i + 1] & 0xC0) != 0x80 || (bytes[i + 2] & 0xC0) != 0x80 ||
+                (bytes[i + 3] & 0xC0) != 0x80) {
+                return false;
+            }
+            // Check for overlong encoding
+            if (bytes[i] == 0xF0 && (bytes[i + 1] & 0x30) == 0) {
+                return false;
+            }
+            i += 4;
+        } else {
+            // Invalid UTF-8 start byte
+            return false;
+        }
+    }
+    return true;
+}
+
+}  // namespace
 
 // ============================================================================
 // FileError
@@ -97,7 +160,25 @@ FileResolver::read_file(const std::filesystem::path& path) const {
             FileError{ExitCode::IoError, "Failed to read file: " + path.string(), path});
     }
 
-    return contents.str();
+    std::string result = contents.str();
+
+    // Check for binary files (null bytes indicate binary content)
+    if (contains_null_bytes(result)) {
+        return std::unexpected(FileError{ExitCode::IoError,
+                                         "Binary file detected (contains null bytes): " +
+                                             path.string() + " - DSL source files must be text",
+                                         path});
+    }
+
+    // Check for valid UTF-8 encoding
+    if (!is_valid_utf8(result)) {
+        return std::unexpected(FileError{ExitCode::IoError,
+                                         "Invalid UTF-8 encoding in file: " + path.string() +
+                                             " - DSL source files must use UTF-8 encoding",
+                                         path});
+    }
+
+    return result;
 }
 
 // ============================================================================
