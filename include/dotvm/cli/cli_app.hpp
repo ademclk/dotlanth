@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "dotvm/cli/terminal.hpp"
+#include "dotvm/core/capabilities/capability.hpp"
 
 // Forward declare CLI11 types to avoid header pollution
 namespace CLI {
@@ -30,9 +31,13 @@ struct GlobalOptions {
 
 /// @brief Options for the compile command
 struct CompileOptions {
-    std::string input_file;                  ///< Input .dsl file path
-    std::string output_file;                 ///< Output bytecode file path (default: input.dot)
-    std::vector<std::string> include_paths;  ///< Include search paths (-I)
+    std::string input_file;                     ///< Input .dsl file path
+    std::string output_file;                    ///< Output bytecode file path (default: input.dot)
+    std::vector<std::string> include_paths;     ///< Include search paths (-I)
+    std::vector<std::string> capability_names;  ///< Capability names to grant (--cap)
+
+    /// @brief Parse capability names into Permission bitmask
+    [[nodiscard]] core::capabilities::Permission capabilities() const noexcept;
 };
 
 /// @brief Options for the check command

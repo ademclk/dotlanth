@@ -203,6 +203,7 @@ struct Call {
     Value result;  ///< Return value (Void if no return)
     std::string callee;
     std::vector<std::uint32_t> arg_ids;  ///< IDs of argument values
+    std::uint16_t syscall_id{0};         ///< Stdlib syscall ID (0 = not a syscall)
 };
 
 /// @brief Type cast instruction

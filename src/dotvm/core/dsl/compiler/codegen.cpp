@@ -353,9 +353,18 @@ CodegenResult<void> CodeGenerator::gen_instruction(const LinearInstr& instr,
                             static_cast<std::int8_t>(instr.immediate));
                 return {};
             } else if constexpr (std::is_same_v<T, Call>) {
-                // For now, emit NOP as a placeholder for function calls
+                // DSL-004: Check if this is a stdlib syscall
+                if (inst.syscall_id != 0) {
+                    // Emit SYSCALL instruction (Type B format)
+                    // Arguments are passed in registers R1-R6 (calling convention)
+                    // The lowerer should have arranged arguments in src registers
+                    // SYSCALL: [0xFE][Rd][syscall_id_lo][syscall_id_hi]
+                    emit_type_b(code, opcode::SYSCALL, instr.dest_reg,
+                                static_cast<std::int16_t>(inst.syscall_id));
+                    return {};
+                }
+                // Regular function call - emit NOP as placeholder
                 // Real implementation would resolve function addresses and emit proper CALL
-                // Built-in functions like "emit" and "log" are handled at runtime
                 emit_type_c(code, opcode::NOP, 0);
                 return {};
             } else if constexpr (std::is_same_v<T, Cast>) {

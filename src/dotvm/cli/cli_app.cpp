@@ -13,6 +13,40 @@
 
 namespace dotvm::cli {
 
+// Implementation of CompileOptions::capabilities()
+core::capabilities::Permission CompileOptions::capabilities() const noexcept {
+    using Permission = core::capabilities::Permission;
+    Permission caps = Permission::None;
+
+    for (const auto& name : capability_names) {
+        // Case-insensitive comparison
+        std::string lower;
+        lower.reserve(name.size());
+        for (char c : name) {
+            lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        }
+
+        if (lower == "filesystem" || lower == "fs") {
+            caps |= Permission::Filesystem;
+        } else if (lower == "network" || lower == "net") {
+            caps |= Permission::Network;
+        } else if (lower == "crypto") {
+            caps |= Permission::Crypto;
+        } else if (lower == "ioread" || lower == "io_read") {
+            caps |= Permission::IoRead;
+        } else if (lower == "iowrite" || lower == "io_write") {
+            caps |= Permission::IoWrite;
+        } else if (lower == "io") {
+            caps |= Permission::IoRead | Permission::IoWrite;
+        } else if (lower == "all") {
+            caps |= Permission::All;
+        }
+        // Unknown capabilities are silently ignored
+    }
+
+    return caps;
+}
+
 namespace {
 
 /// @brief Application description for help text
@@ -32,6 +66,9 @@ EXAMPLES:
 
     Compile with include search path:
         dotdsl compile main.dsl -I ./lib -I ./vendor
+
+    Compile with capability grants (for stdlib modules):
+        dotdsl compile app.dsl --cap filesystem --cap network
 
     Validate syntax without compilation:
         dotdsl check hello.dsl
@@ -111,6 +148,12 @@ void CliApp::setup_compile_command() {
                      "Add directory to include search path (can be specified multiple times)")
         ->check(CLI::ExistingDirectory)
         ->type_name("DIR")
+        ->take_all();
+
+    compile_cmd_
+        ->add_option("--cap", compile_opts_.capability_names,
+                     "Grant capability for stdlib modules (filesystem, network, crypto, io, all)")
+        ->type_name("CAP")
         ->take_all();
 }
 
