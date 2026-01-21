@@ -444,6 +444,7 @@ if(DOTVM_BUILD_TESTS)
             tests/dotvm/cli/cli_test.cpp
             tests/dotvm/cli/file_resolver_test.cpp
             tests/dotvm/cli/formatter_test.cpp
+            tests/dotvm/cli/watcher_test.cpp
             tests/dotvm/cli/integration_test.cpp
         )
 

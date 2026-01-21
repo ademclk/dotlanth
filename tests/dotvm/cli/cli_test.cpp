@@ -142,19 +142,19 @@ TEST(CliAppTest, FormatSubcommandRequiresFile) {
 // Watch Subcommand Tests
 // ============================================================================
 
-TEST(CliAppTest, WatchSubcommandRequiresDirectory) {
+TEST(CliAppTest, WatchSubcommandRequiresPath) {
     CliApp app;
     const char* argv[] = {"dotdsl", "watch"};
     ExitCode code = app.parse(2, argv);
-    // Should fail - missing required directory argument
+    // Should fail - missing required path argument
     EXPECT_EQ(code, ExitCode::ParseError);
 }
 
-TEST(CliAppTest, WatchSubcommandWithNonExistentDirectory) {
+TEST(CliAppTest, WatchSubcommandWithNonExistentPath) {
     CliApp app;
     const char* argv[] = {"dotdsl", "watch", "/nonexistent/path"};
     ExitCode code = app.parse(3, argv);
-    // CLI11 validates directory existence
+    // CLI11 validates path existence
     EXPECT_EQ(code, ExitCode::ParseError);
 }
 

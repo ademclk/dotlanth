@@ -9,6 +9,7 @@
 #include "dotvm/cli/commands/check_command.hpp"
 #include "dotvm/cli/commands/compile_command.hpp"
 #include "dotvm/cli/commands/format_command.hpp"
+#include "dotvm/cli/commands/watch_command.hpp"
 
 namespace dotvm::cli {
 
@@ -74,11 +75,11 @@ void CliApp::setup_format_command() {
 }
 
 void CliApp::setup_watch_command() {
-    watch_cmd_ = app_->add_subcommand("watch", "Watch directory for changes and recompile");
+    watch_cmd_ = app_->add_subcommand("watch", "Watch directory or file for changes and recompile");
 
-    watch_cmd_->add_option("dir", watch_opts_.directory, "Directory to watch")
+    watch_cmd_->add_option("path", watch_opts_.directory, "Directory or .dsl file to watch")
         ->required()
-        ->check(CLI::ExistingDirectory);
+        ->check(CLI::ExistingPath);
 }
 
 ExitCode CliApp::parse(int argc, const char* const* argv) {
@@ -124,13 +125,7 @@ ExitCode CliApp::run() {
     }
 
     if (cmd == "watch") {
-        if (global_opts_.verbose) {
-            term.info("Watching: ");
-            term.print(watch_opts_.directory);
-            term.newline();
-        }
-        // TODO: Implement in Phase 4
-        return ExitCode::Success;
+        return commands::execute_watch(watch_opts_, global_opts_, term);
     }
 
     return ExitCode::Success;
