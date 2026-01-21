@@ -8,6 +8,7 @@
 #include <fstream>
 
 #include "dotvm/cli/file_resolver.hpp"
+#include "dotvm/core/capabilities/capability.hpp"
 #include "dotvm/core/dsl/compiler/dsl_compiler.hpp"
 #include "dotvm/core/dsl/ir/printer.hpp"
 #include "dotvm/core/dsl/parser.hpp"
@@ -262,6 +263,14 @@ ExitCode execute_compile(const CompileOptions& opts, const GlobalOptions& global
     // Configure compiler options
     core::dsl::compiler::CompileOptions compile_opts;
     compile_opts.dump_ir = global.debug;  // Dump IR in debug mode
+    compile_opts.granted_caps = opts.capabilities();  // DSL-004: Pass granted capabilities
+
+    // Verbose: show granted capabilities
+    if (global.verbose && compile_opts.granted_caps != core::capabilities::Permission::None) {
+        term.info("Capabilities: ");
+        term.print(core::capabilities::to_string(compile_opts.granted_caps));
+        term.newline();
+    }
 
     // Compile the source
     core::dsl::compiler::DslCompiler compiler(compile_opts);

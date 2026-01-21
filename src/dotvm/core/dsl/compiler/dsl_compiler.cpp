@@ -10,8 +10,8 @@ namespace dotvm::core::dsl::compiler {
 std::expected<CompileResult, CompileError> DslCompiler::compile(const DslModule& module) {
     CompileResult result;
 
-    // Stage 1: Build IR from AST
-    IRBuilder builder;
+    // Stage 1: Build IR from AST (with granted capabilities for stdlib)
+    IRBuilder builder(CompileContext{opts_.granted_caps});
     auto ir_result = builder.build(module);
     if (!ir_result) {
         return std::unexpected(CompileError::from_ir_error(ir_result.error()));

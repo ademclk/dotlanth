@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "dotvm/core/arch_types.hpp"
+#include "dotvm/core/capabilities/capability.hpp"
 #include "dotvm/core/dsl/ast.hpp"
 #include "dotvm/core/dsl/compiler/codegen.hpp"
 #include "dotvm/core/dsl/compiler/ir_builder.hpp"
@@ -50,6 +51,9 @@ struct CompileOptions {
     Optimizer::Level opt_level = Optimizer::Level::Basic;
     bool emit_debug_info = false;
     bool dump_ir = false;  ///< Print IR to stderr for debugging
+
+    /// DSL-004: Capabilities granted for stdlib access
+    capabilities::Permission granted_caps = capabilities::Permission::None;
 };
 
 /// @brief Compilation result

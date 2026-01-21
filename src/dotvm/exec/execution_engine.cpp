@@ -7,12 +7,14 @@
 /// Uses X-macros from opcode_handlers.hpp to eliminate duplication between
 /// switch-based and computed-goto dispatch implementations.
 
+#include <dotvm/core/capabilities/capability.hpp>
 #include <dotvm/core/exception_context.hpp>
 #include <dotvm/core/exception_types.hpp>
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/value.hpp>
 #include <dotvm/exec/execution_engine.hpp>
 #include <dotvm/exec/opcode_handlers.hpp>
+#include <dotvm/exec/syscall_handler.hpp>
 #include <dotvm/jit/jit_context.hpp>
 
 namespace dotvm::exec {
@@ -1429,7 +1431,28 @@ op_BREAK: {
 }
 
 op_SYSCALL: {
-    // System call - not implemented yet
+    // DSL-004: System call dispatch
+    // Type B format: [0xFE][Rd][syscall_id_lo][syscall_id_hi]
+    auto d = dotvm::core::decode_type_b(instr);
+    std::uint16_t syscall_id = static_cast<std::uint16_t>(d.imm16 & 0xFFFF);
+
+    // Build syscall context
+    SyscallContext ctx{
+        .vm_ctx = vm_ctx_,
+        .regs = regs,
+        .granted_caps = core::capabilities::Permission::All,  // TODO: Get from compile context
+        .const_pool = const_pool_,
+    };
+
+    auto result = syscall_dispatcher().dispatch(syscall_id, ctx, d.rd);
+    if (result != SyscallResult::Success) {
+        // Handle syscall errors
+        if (result == SyscallResult::InvalidSyscallId) {
+            exec_ctx_.halt_with_error(ExecResult::InvalidOpcode);
+            return ExecResult::InvalidOpcode;
+        }
+        // For other errors, continue but log (or could halt)
+    }
     DOTVM_NEXT();
 }
 

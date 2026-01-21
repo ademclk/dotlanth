@@ -1,10 +1,16 @@
 #include "dotvm/core/dsl/compiler/ir_builder.hpp"
 
+#include <cmath>
+#include <numbers>
 #include <variant>
+
+#include "dotvm/core/dsl/stdlib/module_def.hpp"
+#include "dotvm/core/dsl/stdlib/stdlib_registry.hpp"
 
 namespace dotvm::core::dsl::compiler {
 
 using namespace ir;
+using capabilities::Permission;
 
 // ============================================================================
 // Public API
@@ -12,6 +18,16 @@ using namespace ir;
 
 IRBuildResult<CompiledModule> IRBuilder::build(const DslModule& module) {
     CompiledModule result;
+
+    // Clear module state
+    imported_modules_.clear();
+    module_cache_.clear();
+
+    // DSL-004: Process imports first (validates capabilities)
+    auto import_result = process_imports(module.imports);
+    if (!import_result) {
+        return std::unexpected(import_result.error());
+    }
 
     // Build each dot
     for (const auto& dot : module.dots) {
@@ -344,9 +360,17 @@ IRBuildResult<std::uint32_t> IRBuilder::build_call_expr(const CallExpr& expr) {
         arg_ids.push_back(*arg_result);
     }
 
+    // DSL-004: Try to resolve as stdlib function
+    const auto* fn = resolve_function(expr.callee);
+    if (fn) {
+        return build_stdlib_call(fn, arg_ids, expr.span);
+    }
+
+    // Regular function call (not stdlib)
     auto result = create_value(ValueType::Any);
     emit(Instruction::make(
-        Call{.result = result, .callee = expr.callee, .arg_ids = std::move(arg_ids)}, expr.span));
+        Call{.result = result, .callee = expr.callee, .arg_ids = std::move(arg_ids), .syscall_id = 0},
+        expr.span));
     return result.id;
 }
 
@@ -635,6 +659,205 @@ void IRBuilder::emit_terminator(std::unique_ptr<Instruction> term) {
     if (current_block_ && !current_block_->is_terminated()) {
         current_block_->terminator = std::move(term);
     }
+}
+
+// ============================================================================
+// DSL-004: Import Processing
+// ============================================================================
+
+IRBuildResult<void> IRBuilder::process_imports(const std::vector<ImportDef>& imports) {
+    auto& registry = stdlib::StdlibRegistry::instance();
+
+    // First, auto-import prelude modules
+    for (const auto* module : registry.auto_import_modules()) {
+        // Auto-import modules don't need capability checks (they have Permission::None)
+        module_cache_[module->path] = module;
+
+        // Extract alias from path (e.g., "std/prelude" -> "prelude")
+        auto slash_pos = module->path.rfind('/');
+        std::string alias = (slash_pos != std::string::npos)
+                                ? module->path.substr(slash_pos + 1)
+                                : module->path;
+        imported_modules_[alias] = module->path;
+    }
+
+    // Process explicit imports
+    for (const auto& import_def : imports) {
+        auto result = process_import(import_def);
+        if (!result) {
+            return result;
+        }
+    }
+
+    return {};
+}
+
+IRBuildResult<void> IRBuilder::process_import(const ImportDef& import_def) {
+    auto& registry = stdlib::StdlibRegistry::instance();
+
+    // Look up the module
+    const auto* module = registry.find_module(import_def.path);
+    if (!module) {
+        return std::unexpected(IRBuildError::unknown_module(import_def.path, import_def.span));
+    }
+
+    // Check capabilities
+    if (module->requires_caps()) {
+        if (!context_.has_permission(module->required_caps)) {
+            return std::unexpected(IRBuildError::capability_required(
+                import_def.path, module->required_caps, import_def.span));
+        }
+    }
+
+    // Cache the module
+    module_cache_[import_def.path] = module;
+
+    // Extract alias from path (e.g., "std/math" -> "math")
+    auto slash_pos = import_def.path.rfind('/');
+    std::string alias =
+        (slash_pos != std::string::npos) ? import_def.path.substr(slash_pos + 1) : import_def.path;
+    imported_modules_[alias] = import_def.path;
+
+    return {};
+}
+
+// ============================================================================
+// DSL-004: Stdlib Call Resolution
+// ============================================================================
+
+const stdlib::FunctionDef* IRBuilder::resolve_function(const std::string& callee) const {
+    auto& registry = stdlib::StdlibRegistry::instance();
+
+    // Check if it's a qualified call (e.g., "math.sqrt")
+    auto dot_pos = callee.find('.');
+    if (dot_pos != std::string::npos) {
+        std::string qualifier = callee.substr(0, dot_pos);
+        std::string func_name = callee.substr(dot_pos + 1);
+
+        // Look up the module by alias
+        auto alias_it = imported_modules_.find(qualifier);
+        if (alias_it != imported_modules_.end()) {
+            auto cache_it = module_cache_.find(alias_it->second);
+            if (cache_it != module_cache_.end()) {
+                return cache_it->second->find_function(func_name);
+            }
+        }
+
+        // Try as direct module path component (e.g., "math" -> "std/math")
+        return registry.resolve_qualified_call(qualifier, func_name, imported_modules_);
+    }
+
+    // Unqualified call - search in auto-imported modules (prelude)
+    for (const auto& [alias, path] : imported_modules_) {
+        auto cache_it = module_cache_.find(path);
+        if (cache_it != module_cache_.end()) {
+            const auto* fn = cache_it->second->find_function(callee);
+            if (fn) {
+                return fn;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+IRBuildResult<std::uint32_t> IRBuilder::build_stdlib_call(const stdlib::FunctionDef* fn,
+                                                          const std::vector<std::uint32_t>& arg_ids,
+                                                          SourceSpan span) {
+    // Validate argument count
+    if (!fn->valid_arg_count(arg_ids.size())) {
+        return std::unexpected(
+            IRBuildError::argument_count(fn->name, fn->min_params(), arg_ids.size(), span));
+    }
+
+    // Handle inline functions (compile-time evaluation)
+    if (fn->is_inline()) {
+        return build_inline_stdlib_call(fn, arg_ids, span);
+    }
+
+    // Convert stdlib return type to IR type
+    auto result_type = stdlib_type_to_ir(fn->return_type);
+    auto result = create_value(result_type);
+
+    // Emit Call with syscall_id
+    emit(Instruction::make(Call{.result = result,
+                                .callee = fn->name,
+                                .arg_ids = arg_ids,
+                                .syscall_id = fn->syscall_id},
+                           span));
+
+    return result.id;
+}
+
+IRBuildResult<std::uint32_t> IRBuilder::build_inline_stdlib_call(
+    const stdlib::FunctionDef* fn, const std::vector<std::uint32_t>& arg_ids, SourceSpan span) {
+    // Handle compile-time inline functions
+
+    // Math constants
+    if (fn->name == "pi") {
+        auto val = create_const_value(ValueType::Float64,
+                                      dotvm::core::Value::from_float(std::numbers::pi));
+        emit(Instruction::make(
+            LoadConst{.result = val, .constant = dotvm::core::Value::from_float(std::numbers::pi)},
+            span));
+        return val.id;
+    }
+
+    if (fn->name == "e") {
+        auto val =
+            create_const_value(ValueType::Float64, dotvm::core::Value::from_float(std::numbers::e));
+        emit(Instruction::make(
+            LoadConst{.result = val, .constant = dotvm::core::Value::from_float(std::numbers::e)},
+            span));
+        return val.id;
+    }
+
+    // Type checking functions - these check at runtime via type tag in Value
+    // For now, emit a syscall; future optimization could do static type analysis
+    if (fn->name == "is_int" || fn->name == "is_float" || fn->name == "is_bool" ||
+        fn->name == "is_string" || fn->name == "is_handle") {
+        auto result = create_value(ValueType::Bool);
+
+        // Determine syscall ID for type check
+        std::uint16_t syscall_id = 0;
+        if (fn->name == "is_int")
+            syscall_id = stdlib::syscall_id::PRELUDE_IS_INT;
+        else if (fn->name == "is_float")
+            syscall_id = stdlib::syscall_id::PRELUDE_IS_FLOAT;
+        else if (fn->name == "is_bool")
+            syscall_id = stdlib::syscall_id::PRELUDE_IS_BOOL;
+        else if (fn->name == "is_string")
+            syscall_id = stdlib::syscall_id::PRELUDE_IS_STRING;
+        else if (fn->name == "is_handle")
+            syscall_id = stdlib::syscall_id::PRELUDE_IS_HANDLE;
+
+        emit(Instruction::make(
+            Call{.result = result, .callee = fn->name, .arg_ids = arg_ids, .syscall_id = syscall_id},
+            span));
+        return result.id;
+    }
+
+    // Fallback - shouldn't reach here if registry is correct
+    return std::unexpected(IRBuildError::internal("Unknown inline function: " + fn->name));
+}
+
+ValueType IRBuilder::stdlib_type_to_ir(stdlib::StdlibType type) {
+    switch (type) {
+        case stdlib::StdlibType::Void:
+            return ValueType::Void;
+        case stdlib::StdlibType::Int:
+            return ValueType::Int64;
+        case stdlib::StdlibType::Float:
+            return ValueType::Float64;
+        case stdlib::StdlibType::Bool:
+            return ValueType::Bool;
+        case stdlib::StdlibType::String:
+        case stdlib::StdlibType::Handle:
+            return ValueType::Handle;
+        case stdlib::StdlibType::Any:
+            return ValueType::Any;
+    }
+    return ValueType::Any;
 }
 
 }  // namespace dotvm::core::dsl::compiler
