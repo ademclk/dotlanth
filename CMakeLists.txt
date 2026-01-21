@@ -265,7 +265,7 @@ if(DOTVM_BUILD_CLI)
     FetchContent_Declare(
         cli11
         GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-        GIT_TAG v2.4.2
+        GIT_TAG v2.6.1
     )
     FetchContent_MakeAvailable(cli11)
 
@@ -293,6 +293,9 @@ if(DOTVM_BUILD_CLI)
     )
 
     target_compile_options(dotvm_cli PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+    # Disable CLI11's use of deprecated std::codecvt (removed in C++26)
+    target_compile_definitions(dotvm_cli PRIVATE CLI11_HAS_CODECVT=0)
 
     if(DOTVM_SANITIZER_FLAGS)
         target_link_options(dotvm_cli PUBLIC ${DOTVM_SANITIZER_FLAGS})
