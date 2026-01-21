@@ -153,6 +153,7 @@ add_library(dotvm_core STATIC
     src/dotvm/core/dsl/compiler/optimizer.cpp
     src/dotvm/core/dsl/compiler/lowerer.cpp
     src/dotvm/core/dsl/compiler/codegen.cpp
+    src/dotvm/core/dsl/compiler/bytecode_emitter.cpp
     src/dotvm/core/dsl/compiler/dsl_compiler.cpp
     # DSL Standard Library (DSL-004)
     src/dotvm/core/dsl/stdlib/stdlib_registry.cpp
@@ -418,6 +419,7 @@ if(DOTVM_BUILD_TESTS)
         tests/dsl/compiler/ir_builder_test.cpp
         tests/dsl/compiler/optimizer_test.cpp
         tests/dsl/compiler/codegen_test.cpp
+        tests/dsl/compiler/bytecode_emitter_test.cpp
         tests/dsl/compiler/integration_test.cpp
         # DSL stdlib tests (DSL-004)
         tests/dsl/stdlib/registry_test.cpp
