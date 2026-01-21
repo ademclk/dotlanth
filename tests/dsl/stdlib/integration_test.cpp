@@ -19,8 +19,8 @@ using namespace dotvm::core::capabilities;
 
 class StdlibIntegrationTest : public ::testing::Test {
 protected:
-    [[nodiscard]] std::expected<CompileResult, CompileError> compile_with_caps(std::string_view source,
-                                                                               Permission caps) {
+    [[nodiscard]] std::expected<CompileResult, CompileError>
+    compile_with_caps(std::string_view source, Permission caps) {
         CompileOptions opts;
         opts.granted_caps = caps;
         DslCompiler compiler(opts);
@@ -28,8 +28,8 @@ protected:
     }
 
     // Helper to find SYSCALL instructions in bytecode
-    [[nodiscard]] static std::vector<std::uint16_t> find_syscalls(
-        const std::vector<std::uint8_t>& bytecode) {
+    [[nodiscard]] static std::vector<std::uint16_t>
+    find_syscalls(const std::vector<std::uint8_t>& bytecode) {
         std::vector<std::uint16_t> syscalls;
 
         // Skip header and find code section
@@ -42,8 +42,9 @@ protected:
         for (std::size_t i = header->code_offset; i + 3 < bytecode.size(); ++i) {
             if (bytecode[i] == static_cast<std::uint8_t>(opcode::SYSCALL)) {
                 // SYSCALL is Type B: [opcode][Rd][imm16_lo][imm16_hi]
-                std::uint16_t syscall_id = static_cast<std::uint16_t>(bytecode[i + 2]) |
-                                           (static_cast<std::uint16_t>(bytecode[i + 3]) << 8);
+                auto lo = static_cast<std::uint16_t>(bytecode[i + 2]);
+                auto hi = static_cast<std::uint16_t>(bytecode[i + 3]);
+                std::uint16_t syscall_id = static_cast<std::uint16_t>(lo | (hi << 8));
                 syscalls.push_back(syscall_id);
                 i += 3;  // Skip the instruction bytes
             }
@@ -310,7 +311,7 @@ TEST_F(StdlibIntegrationTest, BytecodeSizeIsReasonable) {
     ASSERT_TRUE(result.has_value()) << result.error().message;
 
     // Bytecode should have reasonable size (header + at least some code)
-    EXPECT_GE(result->bytecode.size(), 32);  // At least header size
+    EXPECT_GE(result->bytecode.size(), 32);     // At least header size
     EXPECT_LT(result->bytecode.size(), 10000);  // Not ridiculously large
 }
 

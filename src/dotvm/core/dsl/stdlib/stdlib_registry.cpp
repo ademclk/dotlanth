@@ -112,9 +112,8 @@ void StdlibRegistry::register_module(ModuleDef module) {
     modules_.emplace(std::move(path), std::move(module));
 
     // Re-index syscalls for the stored module (pointers were invalidated)
-    auto& stored_module = modules_.at(modules_.find(path) != modules_.end()
-        ? path
-        : modules_.begin()->first);
+    auto& stored_module =
+        modules_.at(modules_.find(path) != modules_.end() ? path : modules_.begin()->first);
     for (const auto& fn : stored_module.functions) {
         if (fn.syscall_id != 0) {
             syscall_index_[fn.syscall_id] = &fn;
@@ -135,16 +134,16 @@ void StdlibRegistry::init_prelude() {
     };
 
     // print(value: any) -> void
-    prelude.functions.push_back(FunctionDef::variadic(
-        "print", {StdlibType::Any}, StdlibType::Void, syscall_id::PRELUDE_PRINT, false));
+    prelude.functions.push_back(FunctionDef::variadic("print", {StdlibType::Any}, StdlibType::Void,
+                                                      syscall_id::PRELUDE_PRINT, false));
 
     // assert(condition: bool, message?: string) -> void
-    prelude.functions.push_back(FunctionDef::impure(
-        "assert", {StdlibType::Bool}, StdlibType::Void, syscall_id::PRELUDE_ASSERT));
+    prelude.functions.push_back(FunctionDef::impure("assert", {StdlibType::Bool}, StdlibType::Void,
+                                                    syscall_id::PRELUDE_ASSERT));
 
     // type_of(value: any) -> string
-    prelude.functions.push_back(FunctionDef::pure(
-        "type_of", {StdlibType::Any}, StdlibType::String, syscall_id::PRELUDE_TYPE_OF));
+    prelude.functions.push_back(FunctionDef::pure("type_of", {StdlibType::Any}, StdlibType::String,
+                                                  syscall_id::PRELUDE_TYPE_OF));
 
     // len(value: any) -> int (works on strings, lists, maps, etc.)
     prelude.functions.push_back(
@@ -159,8 +158,8 @@ void StdlibRegistry::init_prelude() {
         FunctionDef::pure("int", {StdlibType::Any}, StdlibType::Int, syscall_id::PRELUDE_INT));
 
     // float(value: any) -> float
-    prelude.functions.push_back(FunctionDef::pure(
-        "float", {StdlibType::Any}, StdlibType::Float, syscall_id::PRELUDE_FLOAT));
+    prelude.functions.push_back(FunctionDef::pure("float", {StdlibType::Any}, StdlibType::Float,
+                                                  syscall_id::PRELUDE_FLOAT));
 
     // Type checking functions (inline implementations)
     prelude.functions.push_back(
@@ -188,10 +187,10 @@ void StdlibRegistry::init_math() {
     // Basic math functions
     math.functions.push_back(
         FunctionDef::pure("abs", {StdlibType::Float}, StdlibType::Float, syscall_id::MATH_ABS));
-    math.functions.push_back(FunctionDef::pure(
-        "min", {StdlibType::Float, StdlibType::Float}, StdlibType::Float, syscall_id::MATH_MIN));
-    math.functions.push_back(FunctionDef::pure(
-        "max", {StdlibType::Float, StdlibType::Float}, StdlibType::Float, syscall_id::MATH_MAX));
+    math.functions.push_back(FunctionDef::pure("min", {StdlibType::Float, StdlibType::Float},
+                                               StdlibType::Float, syscall_id::MATH_MIN));
+    math.functions.push_back(FunctionDef::pure("max", {StdlibType::Float, StdlibType::Float},
+                                               StdlibType::Float, syscall_id::MATH_MAX));
     math.functions.push_back(
         FunctionDef::pure("floor", {StdlibType::Float}, StdlibType::Int, syscall_id::MATH_FLOOR));
     math.functions.push_back(
@@ -200,8 +199,8 @@ void StdlibRegistry::init_math() {
         FunctionDef::pure("round", {StdlibType::Float}, StdlibType::Int, syscall_id::MATH_ROUND));
     math.functions.push_back(
         FunctionDef::pure("sqrt", {StdlibType::Float}, StdlibType::Float, syscall_id::MATH_SQRT));
-    math.functions.push_back(FunctionDef::pure(
-        "pow", {StdlibType::Float, StdlibType::Float}, StdlibType::Float, syscall_id::MATH_POW));
+    math.functions.push_back(FunctionDef::pure("pow", {StdlibType::Float, StdlibType::Float},
+                                               StdlibType::Float, syscall_id::MATH_POW));
 
     // Trigonometric functions
     math.functions.push_back(
@@ -216,8 +215,8 @@ void StdlibRegistry::init_math() {
         FunctionDef::pure("acos", {StdlibType::Float}, StdlibType::Float, syscall_id::MATH_ACOS));
     math.functions.push_back(
         FunctionDef::pure("atan", {StdlibType::Float}, StdlibType::Float, syscall_id::MATH_ATAN));
-    math.functions.push_back(FunctionDef::pure(
-        "atan2", {StdlibType::Float, StdlibType::Float}, StdlibType::Float, syscall_id::MATH_ATAN2));
+    math.functions.push_back(FunctionDef::pure("atan2", {StdlibType::Float, StdlibType::Float},
+                                               StdlibType::Float, syscall_id::MATH_ATAN2));
 
     // Exponential/logarithmic functions
     math.functions.push_back(
@@ -244,41 +243,41 @@ void StdlibRegistry::init_string() {
         .auto_import = false,
     };
 
-    string_mod.functions.push_back(FunctionDef::pure(
-        "concat", {StdlibType::String, StdlibType::String}, StdlibType::String,
-        syscall_id::STRING_CONCAT));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "split", {StdlibType::String, StdlibType::String}, StdlibType::Handle,
-        syscall_id::STRING_SPLIT));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "join", {StdlibType::Handle, StdlibType::String}, StdlibType::String,
-        syscall_id::STRING_JOIN));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "trim", {StdlibType::String}, StdlibType::String, syscall_id::STRING_TRIM));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "upper", {StdlibType::String}, StdlibType::String, syscall_id::STRING_UPPER));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "lower", {StdlibType::String}, StdlibType::String, syscall_id::STRING_LOWER));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "starts_with", {StdlibType::String, StdlibType::String}, StdlibType::Bool,
-        syscall_id::STRING_STARTS_WITH));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "ends_with", {StdlibType::String, StdlibType::String}, StdlibType::Bool,
-        syscall_id::STRING_ENDS_WITH));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "contains", {StdlibType::String, StdlibType::String}, StdlibType::Bool,
-        syscall_id::STRING_CONTAINS));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "replace", {StdlibType::String, StdlibType::String, StdlibType::String}, StdlibType::String,
-        syscall_id::STRING_REPLACE));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "substr", {StdlibType::String, StdlibType::Int, StdlibType::Int}, StdlibType::String,
-        syscall_id::STRING_SUBSTR));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "len", {StdlibType::String}, StdlibType::Int, syscall_id::STRING_LEN));
-    string_mod.functions.push_back(FunctionDef::pure(
-        "char_at", {StdlibType::String, StdlibType::Int}, StdlibType::String,
-        syscall_id::STRING_CHAR_AT));
+    string_mod.functions.push_back(
+        FunctionDef::pure("concat", {StdlibType::String, StdlibType::String}, StdlibType::String,
+                          syscall_id::STRING_CONCAT));
+    string_mod.functions.push_back(FunctionDef::pure("split",
+                                                     {StdlibType::String, StdlibType::String},
+                                                     StdlibType::Handle, syscall_id::STRING_SPLIT));
+    string_mod.functions.push_back(FunctionDef::pure("join",
+                                                     {StdlibType::Handle, StdlibType::String},
+                                                     StdlibType::String, syscall_id::STRING_JOIN));
+    string_mod.functions.push_back(FunctionDef::pure("trim", {StdlibType::String},
+                                                     StdlibType::String, syscall_id::STRING_TRIM));
+    string_mod.functions.push_back(FunctionDef::pure("upper", {StdlibType::String},
+                                                     StdlibType::String, syscall_id::STRING_UPPER));
+    string_mod.functions.push_back(FunctionDef::pure("lower", {StdlibType::String},
+                                                     StdlibType::String, syscall_id::STRING_LOWER));
+    string_mod.functions.push_back(
+        FunctionDef::pure("starts_with", {StdlibType::String, StdlibType::String}, StdlibType::Bool,
+                          syscall_id::STRING_STARTS_WITH));
+    string_mod.functions.push_back(
+        FunctionDef::pure("ends_with", {StdlibType::String, StdlibType::String}, StdlibType::Bool,
+                          syscall_id::STRING_ENDS_WITH));
+    string_mod.functions.push_back(
+        FunctionDef::pure("contains", {StdlibType::String, StdlibType::String}, StdlibType::Bool,
+                          syscall_id::STRING_CONTAINS));
+    string_mod.functions.push_back(
+        FunctionDef::pure("replace", {StdlibType::String, StdlibType::String, StdlibType::String},
+                          StdlibType::String, syscall_id::STRING_REPLACE));
+    string_mod.functions.push_back(
+        FunctionDef::pure("substr", {StdlibType::String, StdlibType::Int, StdlibType::Int},
+                          StdlibType::String, syscall_id::STRING_SUBSTR));
+    string_mod.functions.push_back(
+        FunctionDef::pure("len", {StdlibType::String}, StdlibType::Int, syscall_id::STRING_LEN));
+    string_mod.functions.push_back(
+        FunctionDef::pure("char_at", {StdlibType::String, StdlibType::Int}, StdlibType::String,
+                          syscall_id::STRING_CHAR_AT));
 
     register_module(std::move(string_mod));
 }
@@ -292,19 +291,19 @@ void StdlibRegistry::init_collections() {
     };
 
     // List operations
-    collections.functions.push_back(FunctionDef::impure(
-        "list_new", {}, StdlibType::Handle, syscall_id::COLLECTIONS_LIST_NEW));
-    collections.functions.push_back(FunctionDef::impure(
-        "list_push", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
-        syscall_id::COLLECTIONS_LIST_PUSH));
+    collections.functions.push_back(
+        FunctionDef::impure("list_new", {}, StdlibType::Handle, syscall_id::COLLECTIONS_LIST_NEW));
+    collections.functions.push_back(
+        FunctionDef::impure("list_push", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
+                            syscall_id::COLLECTIONS_LIST_PUSH));
     collections.functions.push_back(FunctionDef::impure(
         "list_pop", {StdlibType::Handle}, StdlibType::Any, syscall_id::COLLECTIONS_LIST_POP));
-    collections.functions.push_back(FunctionDef::pure(
-        "list_get", {StdlibType::Handle, StdlibType::Int}, StdlibType::Any,
-        syscall_id::COLLECTIONS_LIST_GET));
-    collections.functions.push_back(FunctionDef::impure(
-        "list_set", {StdlibType::Handle, StdlibType::Int, StdlibType::Any}, StdlibType::Void,
-        syscall_id::COLLECTIONS_LIST_SET));
+    collections.functions.push_back(
+        FunctionDef::pure("list_get", {StdlibType::Handle, StdlibType::Int}, StdlibType::Any,
+                          syscall_id::COLLECTIONS_LIST_GET));
+    collections.functions.push_back(
+        FunctionDef::impure("list_set", {StdlibType::Handle, StdlibType::Int, StdlibType::Any},
+                            StdlibType::Void, syscall_id::COLLECTIONS_LIST_SET));
     collections.functions.push_back(FunctionDef::pure(
         "list_len", {StdlibType::Handle}, StdlibType::Int, syscall_id::COLLECTIONS_LIST_LEN));
     collections.functions.push_back(FunctionDef::impure(
@@ -313,35 +312,36 @@ void StdlibRegistry::init_collections() {
     // Map operations
     collections.functions.push_back(
         FunctionDef::impure("map_new", {}, StdlibType::Handle, syscall_id::COLLECTIONS_MAP_NEW));
-    collections.functions.push_back(FunctionDef::pure(
-        "map_get", {StdlibType::Handle, StdlibType::Any}, StdlibType::Any,
-        syscall_id::COLLECTIONS_MAP_GET));
-    collections.functions.push_back(FunctionDef::impure(
-        "map_set", {StdlibType::Handle, StdlibType::Any, StdlibType::Any}, StdlibType::Void,
-        syscall_id::COLLECTIONS_MAP_SET));
-    collections.functions.push_back(FunctionDef::pure(
-        "map_has", {StdlibType::Handle, StdlibType::Any}, StdlibType::Bool,
-        syscall_id::COLLECTIONS_MAP_HAS));
-    collections.functions.push_back(FunctionDef::impure(
-        "map_delete", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
-        syscall_id::COLLECTIONS_MAP_DELETE));
+    collections.functions.push_back(
+        FunctionDef::pure("map_get", {StdlibType::Handle, StdlibType::Any}, StdlibType::Any,
+                          syscall_id::COLLECTIONS_MAP_GET));
+    collections.functions.push_back(
+        FunctionDef::impure("map_set", {StdlibType::Handle, StdlibType::Any, StdlibType::Any},
+                            StdlibType::Void, syscall_id::COLLECTIONS_MAP_SET));
+    collections.functions.push_back(
+        FunctionDef::pure("map_has", {StdlibType::Handle, StdlibType::Any}, StdlibType::Bool,
+                          syscall_id::COLLECTIONS_MAP_HAS));
+    collections.functions.push_back(
+        FunctionDef::impure("map_delete", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
+                            syscall_id::COLLECTIONS_MAP_DELETE));
     collections.functions.push_back(FunctionDef::pure(
         "map_keys", {StdlibType::Handle}, StdlibType::Handle, syscall_id::COLLECTIONS_MAP_KEYS));
-    collections.functions.push_back(FunctionDef::pure(
-        "map_values", {StdlibType::Handle}, StdlibType::Handle, syscall_id::COLLECTIONS_MAP_VALUES));
+    collections.functions.push_back(FunctionDef::pure("map_values", {StdlibType::Handle},
+                                                      StdlibType::Handle,
+                                                      syscall_id::COLLECTIONS_MAP_VALUES));
 
     // Set operations
     collections.functions.push_back(
         FunctionDef::impure("set_new", {}, StdlibType::Handle, syscall_id::COLLECTIONS_SET_NEW));
-    collections.functions.push_back(FunctionDef::impure(
-        "set_add", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
-        syscall_id::COLLECTIONS_SET_ADD));
-    collections.functions.push_back(FunctionDef::pure(
-        "set_has", {StdlibType::Handle, StdlibType::Any}, StdlibType::Bool,
-        syscall_id::COLLECTIONS_SET_HAS));
-    collections.functions.push_back(FunctionDef::impure(
-        "set_remove", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
-        syscall_id::COLLECTIONS_SET_REMOVE));
+    collections.functions.push_back(
+        FunctionDef::impure("set_add", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
+                            syscall_id::COLLECTIONS_SET_ADD));
+    collections.functions.push_back(
+        FunctionDef::pure("set_has", {StdlibType::Handle, StdlibType::Any}, StdlibType::Bool,
+                          syscall_id::COLLECTIONS_SET_HAS));
+    collections.functions.push_back(
+        FunctionDef::impure("set_remove", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
+                            syscall_id::COLLECTIONS_SET_REMOVE));
     collections.functions.push_back(FunctionDef::pure(
         "set_len", {StdlibType::Handle}, StdlibType::Int, syscall_id::COLLECTIONS_SET_LEN));
 
@@ -356,22 +356,22 @@ void StdlibRegistry::init_io() {
         .auto_import = false,
     };
 
-    io.functions.push_back(FunctionDef::impure(
-        "file_read", {StdlibType::String}, StdlibType::String, syscall_id::IO_FILE_READ));
-    io.functions.push_back(FunctionDef::impure(
-        "file_write", {StdlibType::String, StdlibType::String}, StdlibType::Bool,
-        syscall_id::IO_FILE_WRITE));
-    io.functions.push_back(FunctionDef::pure(
-        "file_exists", {StdlibType::String}, StdlibType::Bool, syscall_id::IO_FILE_EXISTS));
-    io.functions.push_back(FunctionDef::impure(
-        "file_delete", {StdlibType::String}, StdlibType::Bool, syscall_id::IO_FILE_DELETE));
-    io.functions.push_back(FunctionDef::impure(
-        "file_append", {StdlibType::String, StdlibType::String}, StdlibType::Bool,
-        syscall_id::IO_FILE_APPEND));
-    io.functions.push_back(FunctionDef::impure(
-        "dir_create", {StdlibType::String}, StdlibType::Bool, syscall_id::IO_DIR_CREATE));
-    io.functions.push_back(FunctionDef::pure(
-        "dir_list", {StdlibType::String}, StdlibType::Handle, syscall_id::IO_DIR_LIST));
+    io.functions.push_back(FunctionDef::impure("file_read", {StdlibType::String},
+                                               StdlibType::String, syscall_id::IO_FILE_READ));
+    io.functions.push_back(FunctionDef::impure("file_write",
+                                               {StdlibType::String, StdlibType::String},
+                                               StdlibType::Bool, syscall_id::IO_FILE_WRITE));
+    io.functions.push_back(FunctionDef::pure("file_exists", {StdlibType::String}, StdlibType::Bool,
+                                             syscall_id::IO_FILE_EXISTS));
+    io.functions.push_back(FunctionDef::impure("file_delete", {StdlibType::String},
+                                               StdlibType::Bool, syscall_id::IO_FILE_DELETE));
+    io.functions.push_back(FunctionDef::impure("file_append",
+                                               {StdlibType::String, StdlibType::String},
+                                               StdlibType::Bool, syscall_id::IO_FILE_APPEND));
+    io.functions.push_back(FunctionDef::impure("dir_create", {StdlibType::String}, StdlibType::Bool,
+                                               syscall_id::IO_DIR_CREATE));
+    io.functions.push_back(FunctionDef::pure("dir_list", {StdlibType::String}, StdlibType::Handle,
+                                             syscall_id::IO_DIR_LIST));
 
     register_module(std::move(io));
 }
@@ -391,20 +391,20 @@ void StdlibRegistry::init_crypto() {
         "hash_sha256", {StdlibType::String}, StdlibType::String, syscall_id::CRYPTO_HASH_SHA256));
 
     // Ed25519 signatures
-    crypto.functions.push_back(FunctionDef::pure(
-        "sign_ed25519", {StdlibType::String, StdlibType::Handle}, StdlibType::String,
-        syscall_id::CRYPTO_SIGN_ED25519));
+    crypto.functions.push_back(
+        FunctionDef::pure("sign_ed25519", {StdlibType::String, StdlibType::Handle},
+                          StdlibType::String, syscall_id::CRYPTO_SIGN_ED25519));
     crypto.functions.push_back(FunctionDef::pure(
         "verify_ed25519", {StdlibType::String, StdlibType::String, StdlibType::Handle},
         StdlibType::Bool, syscall_id::CRYPTO_VERIFY_ED25519));
 
     // AES-256-GCM encryption
-    crypto.functions.push_back(FunctionDef::pure(
-        "encrypt_aes", {StdlibType::String, StdlibType::Handle}, StdlibType::String,
-        syscall_id::CRYPTO_ENCRYPT_AES));
-    crypto.functions.push_back(FunctionDef::pure(
-        "decrypt_aes", {StdlibType::String, StdlibType::Handle}, StdlibType::String,
-        syscall_id::CRYPTO_DECRYPT_AES));
+    crypto.functions.push_back(
+        FunctionDef::pure("encrypt_aes", {StdlibType::String, StdlibType::Handle},
+                          StdlibType::String, syscall_id::CRYPTO_ENCRYPT_AES));
+    crypto.functions.push_back(
+        FunctionDef::pure("decrypt_aes", {StdlibType::String, StdlibType::Handle},
+                          StdlibType::String, syscall_id::CRYPTO_DECRYPT_AES));
 
     // Random bytes generation
     crypto.functions.push_back(FunctionDef::impure(
@@ -421,16 +421,16 @@ void StdlibRegistry::init_net() {
         .auto_import = false,
     };
 
-    net.functions.push_back(FunctionDef::impure(
-        "http_get", {StdlibType::String}, StdlibType::String, syscall_id::NET_HTTP_GET));
-    net.functions.push_back(FunctionDef::impure(
-        "http_post", {StdlibType::String, StdlibType::String}, StdlibType::String,
-        syscall_id::NET_HTTP_POST));
-    net.functions.push_back(FunctionDef::impure(
-        "http_put", {StdlibType::String, StdlibType::String}, StdlibType::String,
-        syscall_id::NET_HTTP_PUT));
-    net.functions.push_back(FunctionDef::impure(
-        "http_delete", {StdlibType::String}, StdlibType::String, syscall_id::NET_HTTP_DELETE));
+    net.functions.push_back(FunctionDef::impure("http_get", {StdlibType::String},
+                                                StdlibType::String, syscall_id::NET_HTTP_GET));
+    net.functions.push_back(FunctionDef::impure("http_post",
+                                                {StdlibType::String, StdlibType::String},
+                                                StdlibType::String, syscall_id::NET_HTTP_POST));
+    net.functions.push_back(FunctionDef::impure("http_put",
+                                                {StdlibType::String, StdlibType::String},
+                                                StdlibType::String, syscall_id::NET_HTTP_PUT));
+    net.functions.push_back(FunctionDef::impure("http_delete", {StdlibType::String},
+                                                StdlibType::String, syscall_id::NET_HTTP_DELETE));
 
     register_module(std::move(net));
 }
@@ -443,17 +443,15 @@ void StdlibRegistry::init_time() {
         .auto_import = false,
     };
 
-    time.functions.push_back(
-        FunctionDef::impure("now", {}, StdlibType::Int, syscall_id::TIME_NOW));
+    time.functions.push_back(FunctionDef::impure("now", {}, StdlibType::Int, syscall_id::TIME_NOW));
     time.functions.push_back(
         FunctionDef::impure("timestamp", {}, StdlibType::Float, syscall_id::TIME_TIMESTAMP));
-    time.functions.push_back(FunctionDef::pure(
-        "duration", {StdlibType::Int, StdlibType::Int}, StdlibType::Int, syscall_id::TIME_DURATION));
+    time.functions.push_back(FunctionDef::pure("duration", {StdlibType::Int, StdlibType::Int},
+                                               StdlibType::Int, syscall_id::TIME_DURATION));
     time.functions.push_back(
         FunctionDef::impure("sleep", {StdlibType::Int}, StdlibType::Void, syscall_id::TIME_SLEEP));
-    time.functions.push_back(FunctionDef::pure(
-        "format", {StdlibType::Int, StdlibType::String}, StdlibType::String,
-        syscall_id::TIME_FORMAT));
+    time.functions.push_back(FunctionDef::pure("format", {StdlibType::Int, StdlibType::String},
+                                               StdlibType::String, syscall_id::TIME_FORMAT));
 
     register_module(std::move(time));
 }
@@ -467,17 +465,17 @@ void StdlibRegistry::init_async() {
     };
 
     // Stub implementations for now
-    async_mod.functions.push_back(FunctionDef::impure(
-        "spawn", {StdlibType::Handle}, StdlibType::Handle, syscall_id::ASYNC_SPAWN));
-    async_mod.functions.push_back(FunctionDef::impure(
-        "channel_new", {}, StdlibType::Handle, syscall_id::ASYNC_CHANNEL_NEW));
-    async_mod.functions.push_back(FunctionDef::impure(
-        "channel_send", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
-        syscall_id::ASYNC_CHANNEL_SEND));
+    async_mod.functions.push_back(FunctionDef::impure("spawn", {StdlibType::Handle},
+                                                      StdlibType::Handle, syscall_id::ASYNC_SPAWN));
+    async_mod.functions.push_back(
+        FunctionDef::impure("channel_new", {}, StdlibType::Handle, syscall_id::ASYNC_CHANNEL_NEW));
+    async_mod.functions.push_back(
+        FunctionDef::impure("channel_send", {StdlibType::Handle, StdlibType::Any}, StdlibType::Void,
+                            syscall_id::ASYNC_CHANNEL_SEND));
     async_mod.functions.push_back(FunctionDef::impure(
         "channel_recv", {StdlibType::Handle}, StdlibType::Any, syscall_id::ASYNC_CHANNEL_RECV));
-    async_mod.functions.push_back(FunctionDef::impure(
-        "await", {StdlibType::Handle}, StdlibType::Any, syscall_id::ASYNC_AWAIT));
+    async_mod.functions.push_back(FunctionDef::impure("await", {StdlibType::Handle},
+                                                      StdlibType::Any, syscall_id::ASYNC_AWAIT));
 
     register_module(std::move(async_mod));
 }
@@ -492,14 +490,14 @@ void StdlibRegistry::init_control() {
 
     // These are typically handled at compile time to generate control flow
     // The syscall IDs are for runtime fallback/dynamic behavior
-    control.functions.push_back(FunctionDef::impure(
-        "foreach", {StdlibType::Handle, StdlibType::Handle}, StdlibType::Void,
-        syscall_id::CONTROL_FOREACH));
-    control.functions.push_back(FunctionDef::impure(
-        "while_loop", {StdlibType::Handle, StdlibType::Handle}, StdlibType::Void,
-        syscall_id::CONTROL_WHILE));
-    control.functions.push_back(FunctionDef::pure(
-        "match", {StdlibType::Any, StdlibType::Handle}, StdlibType::Any, syscall_id::CONTROL_MATCH));
+    control.functions.push_back(FunctionDef::impure("foreach",
+                                                    {StdlibType::Handle, StdlibType::Handle},
+                                                    StdlibType::Void, syscall_id::CONTROL_FOREACH));
+    control.functions.push_back(FunctionDef::impure("while_loop",
+                                                    {StdlibType::Handle, StdlibType::Handle},
+                                                    StdlibType::Void, syscall_id::CONTROL_WHILE));
+    control.functions.push_back(FunctionDef::pure("match", {StdlibType::Any, StdlibType::Handle},
+                                                  StdlibType::Any, syscall_id::CONTROL_MATCH));
 
     register_module(std::move(control));
 }
