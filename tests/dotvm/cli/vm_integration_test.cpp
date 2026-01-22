@@ -63,11 +63,11 @@ protected:
 
         // Create header
         BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
-                                            0,                                  // entry_point
-                                            bytecode::HEADER_SIZE,              // const_pool_offset
-                                            0,                                  // const_pool_size
-                                            bytecode::HEADER_SIZE,              // code_offset
-                                            code.size() * sizeof(std::uint32_t) // code_size
+                                            0,                      // entry_point
+                                            bytecode::HEADER_SIZE,  // const_pool_offset
+                                            0,                      // const_pool_size
+                                            bytecode::HEADER_SIZE,  // code_offset
+                                            code.size() * sizeof(std::uint32_t)  // code_size
         );
 
         auto header_bytes = write_header(header);
@@ -111,16 +111,16 @@ protected:
 
         // Code: JMP +0 (jumps to itself)
         std::vector<std::uint32_t> code = {
-            encode_type_c(opcode::JMP, 0) // JMP +0 (infinite loop)
+            encode_type_c(opcode::JMP, 0)  // JMP +0 (infinite loop)
         };
 
         // Create header
         BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
-                                            0,                                  // entry_point
-                                            bytecode::HEADER_SIZE,              // const_pool_offset
-                                            0,                                  // const_pool_size
-                                            bytecode::HEADER_SIZE,              // code_offset
-                                            code.size() * sizeof(std::uint32_t) // code_size
+                                            0,                      // entry_point
+                                            bytecode::HEADER_SIZE,  // const_pool_offset
+                                            0,                      // const_pool_size
+                                            bytecode::HEADER_SIZE,  // code_offset
+                                            code.size() * sizeof(std::uint32_t)  // code_size
         );
 
         auto header_bytes = write_header(header);

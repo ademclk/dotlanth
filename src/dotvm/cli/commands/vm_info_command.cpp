@@ -46,8 +46,7 @@ read_file_bytes(const std::filesystem::path& path) {
     }
     if (bytes < 1024 * 1024) {
         std::ostringstream oss;
-        oss << std::fixed << std::setprecision(1) << (static_cast<double>(bytes) / 1024.0)
-            << " KB";
+        oss << std::fixed << std::setprecision(1) << (static_cast<double>(bytes) / 1024.0) << " KB";
         return oss.str();
     }
     std::ostringstream oss;
@@ -167,8 +166,8 @@ VmExitCode execute_info(const VmInfoOptions& opts, const VmGlobalOptions& global
 
     // Show instruction index
     if (header.entry_point % core::bytecode::INSTRUCTION_ALIGNMENT == 0) {
-        out << " (instruction "
-            << (header.entry_point / core::bytecode::INSTRUCTION_ALIGNMENT) << ")";
+        out << " (instruction " << (header.entry_point / core::bytecode::INSTRUCTION_ALIGNMENT)
+            << ")";
     }
     out << "\n";
 

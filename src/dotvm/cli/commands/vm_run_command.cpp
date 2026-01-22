@@ -248,23 +248,23 @@ VmExitCode execute_run(const VmRunOptions& opts, const VmGlobalOptions& global, 
         engine.enable_debug(true);
 
         // Set up debug callback for tracing
-        engine.set_debug_callback([code_ptr, code_size](exec::DebugEvent event,
-                                                         exec::ExecutionContext& ctx) {
-            if (event != exec::DebugEvent::Step && event != exec::DebugEvent::Break) {
-                return;
-            }
+        engine.set_debug_callback(
+            [code_ptr, code_size](exec::DebugEvent event, exec::ExecutionContext& ctx) {
+                if (event != exec::DebugEvent::Step && event != exec::DebugEvent::Break) {
+                    return;
+                }
 
-            if (ctx.pc >= code_size) {
-                return;
-            }
+                if (ctx.pc >= code_size) {
+                    return;
+                }
 
-            std::uint32_t instr = code_ptr[ctx.pc];
-            std::string instr_str = format_instruction(instr);
+                std::uint32_t instr = code_ptr[ctx.pc];
+                std::string instr_str = format_instruction(instr);
 
-            // Format: [NNNN] INSTR
-            std::cout << "[" << std::setw(4) << std::setfill('0') << ctx.pc << "] " << std::left
-                      << std::setw(25) << std::setfill(' ') << instr_str << std::endl;
-        });
+                // Format: [NNNN] INSTR
+                std::cout << "[" << std::setw(4) << std::setfill('0') << ctx.pc << "] " << std::left
+                          << std::setw(25) << std::setfill(' ') << instr_str << std::endl;
+            });
     }
 
     // Execute with timing

@@ -31,19 +31,19 @@ enum class VmExitCode : int {
 
 /// @brief Global options shared by all VM subcommands
 struct VmGlobalOptions {
-    bool verbose = false;             ///< Enable verbose output
-    bool quiet = false;               ///< Suppress non-essential output
-    std::string output_file;          ///< Write output to file (empty = stdout)
-    bool no_color = false;            ///< Disable ANSI color codes
-    bool force_color = false;         ///< Force colors (for piping to less -R)
-    std::uint8_t arch_override = 0;   ///< Architecture override: 0=use header, 32 or 64=override
+    bool verbose = false;            ///< Enable verbose output
+    bool quiet = false;              ///< Suppress non-essential output
+    std::string output_file;         ///< Write output to file (empty = stdout)
+    bool no_color = false;           ///< Disable ANSI color codes
+    bool force_color = false;        ///< Force colors (for piping to less -R)
+    std::uint8_t arch_override = 0;  ///< Architecture override: 0=use header, 32 or 64=override
 };
 
 /// @brief Options for the run command
 struct VmRunOptions {
-    std::string input_file;                ///< Input .dot bytecode file
-    bool debug = false;                    ///< Enable debug mode with full trace
-    std::uint64_t instruction_limit = 0;   ///< Instruction limit (0 = unlimited)
+    std::string input_file;               ///< Input .dot bytecode file
+    bool debug = false;                   ///< Enable debug mode with full trace
+    std::uint64_t instruction_limit = 0;  ///< Instruction limit (0 = unlimited)
 };
 
 /// @brief Options for the validate command
