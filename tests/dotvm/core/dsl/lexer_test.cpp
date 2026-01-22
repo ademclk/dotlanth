@@ -1,9 +1,9 @@
 /// @file lexer_test.cpp
 /// @brief DSL-001 Lexer unit tests
 
-#include <gtest/gtest.h>
-
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/dsl/lexer.hpp"
 
@@ -20,14 +20,14 @@ std::vector<Token> tokenize(std::string_view source) {
     while (true) {
         Token token = lexer.next_token();
         tokens.push_back(token);
-        if (token.type == TokenType::Eof) break;
+        if (token.type == TokenType::Eof)
+            break;
     }
     return tokens;
 }
 
 /// Check token sequence matches expected types
-void check_token_types(const std::vector<Token>& tokens,
-                       const std::vector<TokenType>& expected) {
+void check_token_types(const std::vector<Token>& tokens, const std::vector<TokenType>& expected) {
     ASSERT_EQ(tokens.size(), expected.size()) << "Token count mismatch";
     for (size_t i = 0; i < tokens.size(); ++i) {
         EXPECT_EQ(tokens[i].type, expected[i])
@@ -86,11 +86,11 @@ TEST(LexerTest, Identifiers) {
 
 TEST(LexerTest, Keywords) {
     auto tokens = tokenize("dot when do state link import true false and or not include\n");
-    check_token_types(
-        tokens, {TokenType::KwDot, TokenType::KwWhen, TokenType::KwDo, TokenType::KwState,
-                 TokenType::KwLink, TokenType::KwImport, TokenType::KwTrue, TokenType::KwFalse,
-                 TokenType::KwAnd, TokenType::KwOr, TokenType::KwNot, TokenType::KwInclude,
-                 TokenType::Newline, TokenType::Eof});
+    check_token_types(tokens,
+                      {TokenType::KwDot, TokenType::KwWhen, TokenType::KwDo, TokenType::KwState,
+                       TokenType::KwLink, TokenType::KwImport, TokenType::KwTrue,
+                       TokenType::KwFalse, TokenType::KwAnd, TokenType::KwOr, TokenType::KwNot,
+                       TokenType::KwInclude, TokenType::Newline, TokenType::Eof});
 }
 
 TEST(LexerTest, IncludeKeyword) {
@@ -163,10 +163,9 @@ TEST(LexerTest, InterpolatedString) {
 
 TEST(LexerTest, MultipleInterpolations) {
     auto tokens = tokenize("\"${a} and ${b}\"\n");
-    check_token_types(tokens,
-                      {TokenType::StringStart, TokenType::Identifier, TokenType::StringMiddle,
-                       TokenType::Identifier, TokenType::StringEnd, TokenType::Newline,
-                       TokenType::Eof});
+    check_token_types(tokens, {TokenType::StringStart, TokenType::Identifier,
+                               TokenType::StringMiddle, TokenType::Identifier, TokenType::StringEnd,
+                               TokenType::Newline, TokenType::Eof});
     EXPECT_EQ(tokens[0].lexeme, "");
     EXPECT_EQ(tokens[1].lexeme, "a");
     EXPECT_EQ(tokens[2].lexeme, " and ");
@@ -189,10 +188,9 @@ TEST(LexerTest, InterpolatedMemberAccess) {
 
 TEST(LexerTest, SingleCharOperators) {
     auto tokens = tokenize("+ - * / % = < >\n");
-    check_token_types(tokens,
-                      {TokenType::Plus, TokenType::Minus, TokenType::Star, TokenType::Slash,
-                       TokenType::Percent, TokenType::Equals, TokenType::Less, TokenType::Greater,
-                       TokenType::Newline, TokenType::Eof});
+    check_token_types(tokens, {TokenType::Plus, TokenType::Minus, TokenType::Star, TokenType::Slash,
+                               TokenType::Percent, TokenType::Equals, TokenType::Less,
+                               TokenType::Greater, TokenType::Newline, TokenType::Eof});
 }
 
 TEST(LexerTest, TwoCharOperators) {
@@ -205,8 +203,9 @@ TEST(LexerTest, TwoCharOperators) {
 
 TEST(LexerTest, Punctuation) {
     auto tokens = tokenize(": , . ( )\n");
-    check_token_types(tokens, {TokenType::Colon, TokenType::Comma, TokenType::Dot, TokenType::LParen,
-                               TokenType::RParen, TokenType::Newline, TokenType::Eof});
+    check_token_types(tokens,
+                      {TokenType::Colon, TokenType::Comma, TokenType::Dot, TokenType::LParen,
+                       TokenType::RParen, TokenType::Newline, TokenType::Eof});
 }
 
 // ============================================================================
@@ -222,20 +221,20 @@ TEST(LexerTest, BasicIndent) {
 
 TEST(LexerTest, MultipleIndentLevels) {
     auto tokens = tokenize("a:\n    b:\n        c\n");
-    check_token_types(
-        tokens, {TokenType::Identifier, TokenType::Colon, TokenType::Newline, TokenType::Indent,
-                 TokenType::Identifier, TokenType::Colon, TokenType::Newline, TokenType::Indent,
-                 TokenType::Identifier, TokenType::Newline, TokenType::Dedent, TokenType::Dedent,
-                 TokenType::Eof});
+    check_token_types(tokens,
+                      {TokenType::Identifier, TokenType::Colon, TokenType::Newline,
+                       TokenType::Indent, TokenType::Identifier, TokenType::Colon,
+                       TokenType::Newline, TokenType::Indent, TokenType::Identifier,
+                       TokenType::Newline, TokenType::Dedent, TokenType::Dedent, TokenType::Eof});
 }
 
 TEST(LexerTest, MultipleDedents) {
     auto tokens = tokenize("a:\n    b:\n        c\nd\n");
-    check_token_types(
-        tokens, {TokenType::Identifier, TokenType::Colon, TokenType::Newline, TokenType::Indent,
-                 TokenType::Identifier, TokenType::Colon, TokenType::Newline, TokenType::Indent,
-                 TokenType::Identifier, TokenType::Newline, TokenType::Dedent, TokenType::Dedent,
-                 TokenType::Identifier, TokenType::Newline, TokenType::Eof});
+    check_token_types(tokens, {TokenType::Identifier, TokenType::Colon, TokenType::Newline,
+                               TokenType::Indent, TokenType::Identifier, TokenType::Colon,
+                               TokenType::Newline, TokenType::Indent, TokenType::Identifier,
+                               TokenType::Newline, TokenType::Dedent, TokenType::Dedent,
+                               TokenType::Identifier, TokenType::Newline, TokenType::Eof});
 }
 
 TEST(LexerTest, BlankLinesInIndentation) {

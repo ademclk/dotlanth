@@ -1,9 +1,9 @@
 /// @file registry_test.cpp
 /// @brief DSL-004 Standard Library Registry Tests
 
-#include <gtest/gtest.h>
-
 #include <set>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/capabilities/capability.hpp"
 #include "dotvm/core/dsl/stdlib/module_def.hpp"
@@ -220,9 +220,9 @@ TEST_F(StdlibRegistryTest, ModulePathsReturnsAllModules) {
     EXPECT_GE(paths.size(), 10);  // At least 10 modules
 
     // Verify all expected modules are present
-    std::vector<std::string> expected = {"std/prelude", "std/math",   "std/string", "std/collections",
-                                         "std/io",      "std/crypto", "std/net",    "std/time",
-                                         "std/async",   "std/control"};
+    std::vector<std::string> expected = {
+        "std/prelude", "std/math", "std/string", "std/collections", "std/io",
+        "std/crypto",  "std/net",  "std/time",   "std/async",       "std/control"};
 
     for (const auto& path : expected) {
         auto it = std::find(paths.begin(), paths.end(), path);
@@ -255,8 +255,8 @@ TEST_F(StdlibRegistryTest, SyscallIdsAreUnique) {
         for (const auto& fn : module->functions) {
             if (fn.syscall_id != 0) {  // Skip inline functions
                 auto [it, inserted] = seen_ids.insert(fn.syscall_id);
-                EXPECT_TRUE(inserted) << "Duplicate syscall ID: " << fn.syscall_id << " for function "
-                                      << fn.name << " in " << module->path;
+                EXPECT_TRUE(inserted) << "Duplicate syscall ID: " << fn.syscall_id
+                                      << " for function " << fn.name << " in " << module->path;
             }
         }
     }

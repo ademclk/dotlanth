@@ -30,8 +30,8 @@ protected:
     }
 
     // Compile with specific capabilities
-    [[nodiscard]] std::expected<CompileResult, CompileError> compile_with_caps(std::string_view source,
-                                                                               Permission caps) {
+    [[nodiscard]] std::expected<CompileResult, CompileError>
+    compile_with_caps(std::string_view source, Permission caps) {
         CompileOptions opts;
         opts.granted_caps = caps;
         DslCompiler compiler(opts);

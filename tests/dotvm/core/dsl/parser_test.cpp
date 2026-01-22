@@ -440,9 +440,13 @@ link counter -> logger
 // Error Handling Tests
 // ============================================================================
 
-TEST(ParserTest, MissingColon) { parse_err("dot agent\n    state:\n        x: 0\n"); }
+TEST(ParserTest, MissingColon) {
+    parse_err("dot agent\n    state:\n        x: 0\n");
+}
 
-TEST(ParserTest, MissingIndent) { parse_err("dot agent:\nstate:\n    x: 0\n"); }
+TEST(ParserTest, MissingIndent) {
+    parse_err("dot agent:\nstate:\n    x: 0\n");
+}
 
 TEST(ParserTest, InvalidExpression) {
     parse_err(R"(
@@ -452,7 +456,9 @@ dot test:
 )");
 }
 
-TEST(ParserTest, MissingArrow) { parse_err("link agent1 agent2\n"); }
+TEST(ParserTest, MissingArrow) {
+    parse_err("link agent1 agent2\n");
+}
 
 // ============================================================================
 // Interpolated String Tests
