@@ -285,6 +285,11 @@ if(DOTVM_BUILD_CLI)
         src/dotvm/cli/commands/check_command.cpp
         src/dotvm/cli/commands/format_command.cpp
         src/dotvm/cli/commands/watch_command.cpp
+        # VM CLI Executor (TOOL-005)
+        src/dotvm/cli/vm_cli_app.cpp
+        src/dotvm/cli/commands/vm_run_command.cpp
+        src/dotvm/cli/commands/vm_validate_command.cpp
+        src/dotvm/cli/commands/vm_info_command.cpp
     )
 
     target_link_libraries(dotvm_cli PUBLIC
@@ -318,6 +323,16 @@ if(DOTVM_BUILD_CLI)
 
     target_link_libraries(dotdsl PRIVATE dotvm_cli)
     target_compile_options(dotdsl PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+    # dotvm CLI executor (TOOL-005)
+    add_executable(dotvm
+        src/dotvm/cli/vm_main.cpp
+    )
+
+    target_link_libraries(dotvm PRIVATE dotvm_cli)
+    target_compile_options(dotvm PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+    install(TARGETS dotvm RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 # Main executable
@@ -459,6 +474,9 @@ if(DOTVM_BUILD_TESTS)
             tests/dotvm/cli/formatter_test.cpp
             tests/dotvm/cli/watcher_test.cpp
             tests/dotvm/cli/integration_test.cpp
+            # VM CLI Executor tests (TOOL-005)
+            tests/dotvm/cli/vm_cli_test.cpp
+            tests/dotvm/cli/vm_integration_test.cpp
         )
 
         target_link_libraries(dotvm_cli_tests PRIVATE
