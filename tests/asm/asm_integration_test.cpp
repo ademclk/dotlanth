@@ -17,8 +17,7 @@ protected:
     AsmParseResult parse_success(std::string_view source) {
         AsmParser parser{source};
         auto result = parser.parse();
-        EXPECT_TRUE(result.success())
-            << "Parse failed with " << result.errors.size() << " errors";
+        EXPECT_TRUE(result.success()) << "Parse failed with " << result.errors.size() << " errors";
         return result;
     }
 
@@ -87,7 +86,7 @@ msg:
     auto result = parse_success(source);
 
     // Verify structure
-    EXPECT_EQ(count_labels(result.program), 4);      // main, loop, end, msg
+    EXPECT_EQ(count_labels(result.program), 4);  // main, loop, end, msg
     EXPECT_EQ(count_instructions(result.program), 7);
 
     // Verify specific instructions

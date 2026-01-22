@@ -316,11 +316,11 @@ AsmToken AsmLexer::next_token() {
     // Single-character tokens
     switch (c) {
         case ',':
-            return AsmToken::make(AsmTokenType::Comma, SourceSpan::from(token_start_loc_, location()),
-                                  ",");
+            return AsmToken::make(AsmTokenType::Comma,
+                                  SourceSpan::from(token_start_loc_, location()), ",");
         case ':':
-            return AsmToken::make(AsmTokenType::Colon, SourceSpan::from(token_start_loc_, location()),
-                                  ":");
+            return AsmToken::make(AsmTokenType::Colon,
+                                  SourceSpan::from(token_start_loc_, location()), ":");
         case '[':
             return AsmToken::make(AsmTokenType::LBracket,
                                   SourceSpan::from(token_start_loc_, location()), "[");
@@ -328,11 +328,11 @@ AsmToken AsmLexer::next_token() {
             return AsmToken::make(AsmTokenType::RBracket,
                                   SourceSpan::from(token_start_loc_, location()), "]");
         case '+':
-            return AsmToken::make(AsmTokenType::Plus, SourceSpan::from(token_start_loc_, location()),
-                                  "+");
+            return AsmToken::make(AsmTokenType::Plus,
+                                  SourceSpan::from(token_start_loc_, location()), "+");
         case '-':
-            return AsmToken::make(AsmTokenType::Minus, SourceSpan::from(token_start_loc_, location()),
-                                  "-");
+            return AsmToken::make(AsmTokenType::Minus,
+                                  SourceSpan::from(token_start_loc_, location()), "-");
 
         default:
             report_error(AsmError::UnexpectedCharacter);
@@ -357,8 +357,8 @@ AsmToken AsmLexer::scan_identifier() {
     if (pos_ < source_.size() && source_[pos_] == ':') {
         advance();  // consume ':'
         // Return as Label (include the colon in span, but not in lexeme)
-        return AsmToken::make(AsmTokenType::Label,
-                              SourceSpan::from(token_start_loc_, location()), text);
+        return AsmToken::make(AsmTokenType::Label, SourceSpan::from(token_start_loc_, location()),
+                              text);
     }
 
     // Classify as opcode, register, or identifier
@@ -379,8 +379,8 @@ AsmToken AsmLexer::classify_identifier(std::string_view text, SourceSpan span) {
         }
         if (all_digits && !num_part.empty()) {
             int reg_num = 0;
-            auto result = std::from_chars(num_part.data(), num_part.data() + num_part.size(),
-                                          reg_num);
+            auto result =
+                std::from_chars(num_part.data(), num_part.data() + num_part.size(), reg_num);
             if (result.ec == std::errc{} && reg_num >= 0 && reg_num <= 255) {
                 return AsmToken::make(AsmTokenType::Register, span, text,
                                       static_cast<std::uint8_t>(reg_num));

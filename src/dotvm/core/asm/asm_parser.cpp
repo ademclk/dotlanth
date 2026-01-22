@@ -43,9 +43,9 @@ AsmParseResult AsmParser::parse() {
 
     // Calculate program span
     if (!result.program.statements.empty()) {
-        result.program.span = SourceSpan::from(
-            statement_span(result.program.statements.front()).start,
-            statement_span(result.program.statements.back()).end);
+        result.program.span =
+            SourceSpan::from(statement_span(result.program.statements.front()).start,
+                             statement_span(result.program.statements.back()).end);
     }
 
     result.errors = errors_;

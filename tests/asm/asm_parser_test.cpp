@@ -1,10 +1,9 @@
 /// @file asm_parser_test.cpp
 /// @brief TOOL-004 Assembly parser unit tests
 
-#include "dotvm/core/asm/asm_parser.hpp"
-
 #include <gtest/gtest.h>
 
+#include "dotvm/core/asm/asm_parser.hpp"
 #include "dotvm/core/opcode.hpp"
 
 namespace dotvm::core::asm_ {
@@ -24,9 +23,7 @@ protected:
     }
 
     // Get label from statement
-    const AsmLabel& as_label(const AsmStatement& stmt) {
-        return std::get<AsmLabel>(stmt);
-    }
+    const AsmLabel& as_label(const AsmStatement& stmt) { return std::get<AsmLabel>(stmt); }
 
     // Get directive from statement
     const AsmDirective& as_directive(const AsmStatement& stmt) {
@@ -349,9 +346,9 @@ end:
         }
     }
 
-    EXPECT_EQ(labels, 3);       // main, loop, end
-    EXPECT_EQ(directives, 2);   // .section, .global
-    EXPECT_EQ(instructions, 7); // ADDI x2, LT, JZ, ADDI, JMP, HALT
+    EXPECT_EQ(labels, 3);        // main, loop, end
+    EXPECT_EQ(directives, 2);    // .section, .global
+    EXPECT_EQ(instructions, 7);  // ADDI x2, LT, JZ, ADDI, JMP, HALT
 }
 
 TEST_F(AsmParserTest, DataSection) {

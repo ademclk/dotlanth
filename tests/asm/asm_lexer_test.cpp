@@ -1,10 +1,9 @@
 /// @file asm_lexer_test.cpp
 /// @brief TOOL-004 Assembly lexer unit tests
 
-#include "dotvm/core/asm/asm_lexer.hpp"
-
 #include <gtest/gtest.h>
 
+#include "dotvm/core/asm/asm_lexer.hpp"
 #include "dotvm/core/opcode.hpp"
 
 namespace dotvm::core::asm_ {
@@ -457,9 +456,9 @@ end:
         }
     }
 
-    EXPECT_EQ(labels, 3);  // main, loop, end
+    EXPECT_EQ(labels, 3);      // main, loop, end
     EXPECT_EQ(directives, 2);  // .section, .global
-    EXPECT_GE(opcodes, 6);  // ADDI, ADDI, LT, JZ, ADDI, JMP, HALT
+    EXPECT_GE(opcodes, 6);     // ADDI, ADDI, LT, JZ, ADDI, JMP, HALT
 }
 
 // ============================================================================
