@@ -159,6 +159,9 @@ add_library(dotvm_core STATIC
     src/dotvm/core/dsl/stdlib/stdlib_registry.cpp
     # Syscall handler (DSL-004)
     src/dotvm/exec/syscall_handler.cpp
+    # Assembly lexer/parser (TOOL-004)
+    src/dotvm/core/asm/asm_lexer.cpp
+    src/dotvm/core/asm/asm_parser.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -425,6 +428,10 @@ if(DOTVM_BUILD_TESTS)
         tests/dsl/stdlib/registry_test.cpp
         tests/dsl/stdlib/capability_test.cpp
         tests/dsl/stdlib/integration_test.cpp
+        # Assembly lexer/parser tests (TOOL-004)
+        tests/asm/asm_lexer_test.cpp
+        tests/asm/asm_parser_test.cpp
+        tests/asm/asm_integration_test.cpp
     )
 
     # JIT tests (EXEC-012)
