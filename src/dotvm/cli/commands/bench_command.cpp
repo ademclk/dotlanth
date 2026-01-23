@@ -7,7 +7,7 @@
 #include <iostream>
 
 // Include the benchmark runner interface (no Google Benchmark dependency)
-#include "bench_runner.hpp"
+#include "dotvm/bench/bench_runner.hpp"
 
 namespace dotvm::cli::commands {
 

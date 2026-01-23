@@ -4,7 +4,7 @@
 /// This file contains all Google Benchmark-dependent code, keeping the
 /// benchmark library isolated from the CLI layer.
 
-#include "bench_runner.hpp"
+#include "dotvm/bench/bench_runner.hpp"
 
 #include <benchmark/benchmark.h>
 #include <chrono>
