@@ -304,6 +304,9 @@ if(DOTVM_BUILD_CLI)
         src/dotvm/cli/info_cli_app.cpp
         src/dotvm/cli/info_formatter.cpp
         src/dotvm/cli/commands/info_command.cpp
+        # Benchmark Suite CLI (TOOL-010) - core files that don't need benchmark lib
+        src/dotvm/cli/bench_cli_app.cpp
+        src/dotvm/cli/bench_formatter.cpp
     )
 
     target_link_libraries(dotvm_cli PUBLIC
@@ -522,6 +525,9 @@ if(DOTVM_BUILD_TESTS)
             # Disassembler CLI tests (TOOL-008)
             tests/dotvm/cli/dis_cli_test.cpp
             tests/dotvm/cli/dis_integration_test.cpp
+            # Benchmark CLI tests (TOOL-010)
+            tests/dotvm/cli/bench_cli_test.cpp
+            tests/dotvm/cli/bench_formatter_test.cpp
         )
 
         target_link_libraries(dotvm_cli_tests PRIVATE
@@ -828,8 +834,40 @@ if(DOTVM_BUILD_BENCHMARKS)
 
     target_compile_options(dotvm_crypto_benchmark PRIVATE ${DOTVM_WARNING_FLAGS})
 
+    # TOOL-010: Benchmark Suite CLI
+    add_executable(dotvm_bench_cli
+        benchmarks/vm_bench.cpp
+        src/dotvm/cli/bench_cli_app.cpp
+        src/dotvm/cli/bench_formatter.cpp
+        src/dotvm/cli/bench_main.cpp
+        src/dotvm/cli/commands/bench_command.cpp
+    )
+
+    # Set output name to dotvm_bench (executable name differs from target)
+    set_target_properties(dotvm_bench_cli PROPERTIES OUTPUT_NAME dotvm_bench)
+
+    target_link_libraries(dotvm_bench_cli PRIVATE
+        dotvm_core
+        dotvm_cli
+        CLI11::CLI11
+        benchmark::benchmark
+    )
+
+    target_include_directories(dotvm_bench_cli PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+    target_compile_options(dotvm_bench_cli PRIVATE
+        ${DOTVM_WARNING_FLAGS}
+    )
+
+    # Optimize for benchmarking
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        target_compile_options(dotvm_bench_cli PRIVATE -O3 -DNDEBUG)
+    endif()
+
     # Install benchmarks
-    install(TARGETS arithmetic_bench dotvm_simd_benchmark dotvm_bigint_benchmark dotvm_crypto_benchmark
+    install(TARGETS arithmetic_bench dotvm_simd_benchmark dotvm_bigint_benchmark dotvm_crypto_benchmark dotvm_bench_cli
         RUNTIME DESTINATION bin
     )
 endif()
