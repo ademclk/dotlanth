@@ -164,6 +164,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/asm/asm_parser.cpp
     # Disassembler (TOOL-008)
     src/dotvm/core/disassembler.cpp
+    # Bytecode Inspector (TOOL-009)
+    src/dotvm/core/inspector.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -298,6 +300,10 @@ if(DOTVM_BUILD_CLI)
         # Disassembler CLI (TOOL-008)
         src/dotvm/cli/dis_cli_app.cpp
         src/dotvm/cli/commands/dis_command.cpp
+        # Bytecode Inspector CLI (TOOL-009)
+        src/dotvm/cli/info_cli_app.cpp
+        src/dotvm/cli/info_formatter.cpp
+        src/dotvm/cli/commands/info_command.cpp
     )
 
     target_link_libraries(dotvm_cli PUBLIC
@@ -351,6 +357,16 @@ if(DOTVM_BUILD_CLI)
     target_compile_options(dotdis PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
     install(TARGETS dotdis RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+    # dotinfo bytecode inspector CLI (TOOL-009)
+    add_executable(dotinfo
+        src/dotvm/cli/info_main.cpp
+    )
+
+    target_link_libraries(dotinfo PRIVATE dotvm_cli)
+    target_compile_options(dotinfo PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+    install(TARGETS dotinfo RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 # Main executable
@@ -464,6 +480,8 @@ if(DOTVM_BUILD_TESTS)
         tests/asm/asm_integration_test.cpp
         # Disassembler tests (TOOL-008)
         tests/dotvm/core/disassembler_test.cpp
+        # Bytecode Inspector tests (TOOL-009)
+        tests/dotvm/core/inspector_test.cpp
     )
 
     # JIT tests (EXEC-012)
