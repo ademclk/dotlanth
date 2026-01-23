@@ -28,13 +28,13 @@ enum class InfoExitCode : int {
 
 /// @brief Options for the inspector
 struct InfoOptions {
-    std::string input_file;                            ///< Input .dot bytecode file
-    std::string output_file;                           ///< Output file (empty = stdout)
-    InfoOutputFormat format = InfoOutputFormat::Table; ///< Output format
-    bool detailed = false;                             ///< Show detailed breakdown
-    bool quiet = false;                                ///< Suppress non-essential output
-    bool no_color = false;                             ///< Disable ANSI color codes
-    bool force_color = false;                          ///< Force colors
+    std::string input_file;                             ///< Input .dot bytecode file
+    std::string output_file;                            ///< Output file (empty = stdout)
+    InfoOutputFormat format = InfoOutputFormat::Table;  ///< Output format
+    bool detailed = false;                              ///< Show detailed breakdown
+    bool quiet = false;                                 ///< Suppress non-essential output
+    bool no_color = false;                              ///< Disable ANSI color codes
+    bool force_color = false;                           ///< Force colors
 };
 
 /// @brief Main inspector CLI application class

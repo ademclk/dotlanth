@@ -48,11 +48,11 @@ InspectionResult BytecodeInspector::inspect(std::span<const std::uint8_t> data) 
     // Check minimum size
     if (data.size() < bytecode::HEADER_SIZE) {
         result.validation.all_passed = false;
-        result.validation.checks.push_back(ValidationCheck{
-            .name = "size",
-            .passed = false,
-            .error_message = to_string(BytecodeError::FileTooSmall),
-            .error_code = BytecodeError::FileTooSmall});
+        result.validation.checks.push_back(
+            ValidationCheck{.name = "size",
+                            .passed = false,
+                            .error_message = to_string(BytecodeError::FileTooSmall),
+                            .error_code = BytecodeError::FileTooSmall});
         return result;
     }
 
@@ -60,11 +60,11 @@ InspectionResult BytecodeInspector::inspect(std::span<const std::uint8_t> data) 
     auto header_result = read_header(data);
     if (!header_result.has_value()) {
         result.validation.all_passed = false;
-        result.validation.checks.push_back(ValidationCheck{
-            .name = "header",
-            .passed = false,
-            .error_message = to_string(header_result.error()),
-            .error_code = header_result.error()});
+        result.validation.checks.push_back(
+            ValidationCheck{.name = "header",
+                            .passed = false,
+                            .error_message = to_string(header_result.error()),
+                            .error_code = header_result.error()});
         return result;
     }
 
@@ -366,11 +366,10 @@ ValidationInfo BytecodeInspector::validate(std::span<const std::uint8_t> data,
         }
     }
 
-    info.checks.push_back(ValidationCheck{
-        .name = "entry_point",
-        .passed = entry_ok,
-        .error_message = entry_ok ? "" : to_string(entry_error),
-        .error_code = entry_error});
+    info.checks.push_back(ValidationCheck{.name = "entry_point",
+                                          .passed = entry_ok,
+                                          .error_message = entry_ok ? "" : to_string(entry_error),
+                                          .error_code = entry_error});
     if (!entry_ok) {
         info.all_passed = false;
     }
@@ -382,11 +381,11 @@ ValidationInfo BytecodeInspector::validate(std::span<const std::uint8_t> data,
         auto pool_result = load_constant_pool(pool_data);
         bool pool_ok = pool_result.has_value();
 
-        info.checks.push_back(ValidationCheck{
-            .name = "const_pool",
-            .passed = pool_ok,
-            .error_message = pool_ok ? "" : to_string(pool_result.error()),
-            .error_code = pool_ok ? BytecodeError::Success : pool_result.error()});
+        info.checks.push_back(
+            ValidationCheck{.name = "const_pool",
+                            .passed = pool_ok,
+                            .error_message = pool_ok ? "" : to_string(pool_result.error()),
+                            .error_code = pool_ok ? BytecodeError::Success : pool_result.error()});
         if (!pool_ok) {
             info.all_passed = false;
         }

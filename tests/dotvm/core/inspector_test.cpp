@@ -23,14 +23,12 @@ namespace {
 
 /// Create minimal valid bytecode with empty code section
 std::vector<std::uint8_t> make_minimal_bytecode() {
-    BytecodeHeader header = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_NONE,
-        0,   // entry_point
-        48,  // const_pool_offset (right after header)
-        0,   // const_pool_size (empty)
-        48,  // code_offset
-        0    // code_size (empty)
+    BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
+                                        0,   // entry_point
+                                        48,  // const_pool_offset (right after header)
+                                        0,   // const_pool_size (empty)
+                                        48,  // code_offset
+                                        0    // code_size (empty)
     );
     auto header_bytes = write_header(header);
     return std::vector<std::uint8_t>(header_bytes.begin(), header_bytes.end());
@@ -38,14 +36,12 @@ std::vector<std::uint8_t> make_minimal_bytecode() {
 
 /// Create bytecode with specified flags
 std::vector<std::uint8_t> make_bytecode_with_flags(std::uint16_t flags) {
-    BytecodeHeader header = make_header(
-        Architecture::Arch64,
-        flags,
-        0,   // entry_point
-        48,  // const_pool_offset
-        0,   // const_pool_size
-        48,  // code_offset
-        0    // code_size
+    BytecodeHeader header = make_header(Architecture::Arch64, flags,
+                                        0,   // entry_point
+                                        48,  // const_pool_offset
+                                        0,   // const_pool_size
+                                        48,  // code_offset
+                                        0    // code_size
     );
     auto header_bytes = write_header(header);
     return std::vector<std::uint8_t>(header_bytes.begin(), header_bytes.end());
@@ -58,15 +54,9 @@ std::vector<std::uint8_t> make_bytecode_with_code(std::span<const std::uint8_t> 
     const std::uint64_t code_offset = bytecode::HEADER_SIZE;
     const std::uint64_t code_size = code.size();
 
-    BytecodeHeader header = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_NONE,
-        0,  // entry_point
-        const_pool_offset,
-        const_pool_size,
-        code_offset,
-        code_size
-    );
+    BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
+                                        0,  // entry_point
+                                        const_pool_offset, const_pool_size, code_offset, code_size);
 
     auto header_bytes = write_header(header);
     std::vector<std::uint8_t> result(header_bytes.begin(), header_bytes.end());
@@ -75,8 +65,8 @@ std::vector<std::uint8_t> make_bytecode_with_code(std::span<const std::uint8_t> 
 }
 
 /// Create bytecode with constant pool
-std::vector<std::uint8_t> make_bytecode_with_const_pool(
-    std::uint32_t int_count, std::uint32_t float_count) {
+std::vector<std::uint8_t> make_bytecode_with_const_pool(std::uint32_t int_count,
+                                                        std::uint32_t float_count) {
     // Build constant pool data
     std::vector<std::uint8_t> pool_data;
 
@@ -113,15 +103,9 @@ std::vector<std::uint8_t> make_bytecode_with_const_pool(
     const std::uint64_t code_offset = const_pool_offset + const_pool_size;
     const std::uint64_t code_size = 0;
 
-    BytecodeHeader header = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_NONE,
-        0,  // entry_point
-        const_pool_offset,
-        const_pool_size,
-        code_offset,
-        code_size
-    );
+    BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
+                                        0,  // entry_point
+                                        const_pool_offset, const_pool_size, code_offset, code_size);
 
     auto header_bytes = write_header(header);
     std::vector<std::uint8_t> result(header_bytes.begin(), header_bytes.end());
@@ -200,11 +184,7 @@ TEST(InspectorTest, ArchNameReturns64Bit) {
 }
 
 TEST(InspectorTest, ArchNameReturns32Bit) {
-    BytecodeHeader header = make_header(
-        Architecture::Arch32,
-        bytecode::FLAG_NONE,
-        0, 48, 0, 48, 0
-    );
+    BytecodeHeader header = make_header(Architecture::Arch32, bytecode::FLAG_NONE, 0, 48, 0, 48, 0);
     auto header_bytes = write_header(header);
     std::vector<std::uint8_t> bytecode(header_bytes.begin(), header_bytes.end());
 
@@ -267,10 +247,8 @@ TEST(InspectorTest, InspectMixedConstants) {
 
 TEST(InspectorTest, InspectCorruptedPoolReportsError) {
     // Create bytecode with truncated constant pool
-    BytecodeHeader header = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_NONE,
-        0, 48, 10, 58, 0  // const_pool_size=10 but we won't provide enough data
+    BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE, 0, 48, 10, 58,
+                                        0  // const_pool_size=10 but we won't provide enough data
     );
     auto header_bytes = write_header(header);
     std::vector<std::uint8_t> bytecode(header_bytes.begin(), header_bytes.end());
@@ -461,14 +439,12 @@ TEST(InspectorTest, UnsupportedVersionDetected) {
 
 TEST(InspectorTest, SectionOverlapDetected) {
     // Create bytecode where const_pool and code overlap
-    BytecodeHeader header = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_NONE,
-        0,   // entry_point
-        48,  // const_pool_offset
-        20,  // const_pool_size
-        50,  // code_offset (overlaps with const_pool!)
-        10   // code_size
+    BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
+                                        0,   // entry_point
+                                        48,  // const_pool_offset
+                                        20,  // const_pool_size
+                                        50,  // code_offset (overlaps with const_pool!)
+                                        10   // code_size
     );
     auto header_bytes = write_header(header);
     std::vector<std::uint8_t> bytecode(header_bytes.begin(), header_bytes.end());
@@ -495,15 +471,9 @@ TEST(InspectorTest, EntryPointOutOfBoundsDetected) {
     const std::uint64_t code_offset = bytecode::HEADER_SIZE;
     const std::uint64_t code_size = code.size();
 
-    BytecodeHeader header = make_header(
-        Architecture::Arch64,
-        bytecode::FLAG_NONE,
-        100,  // entry_point (way beyond code_size of 4!)
-        code_offset,
-        0,
-        code_offset,
-        code_size
-    );
+    BytecodeHeader header = make_header(Architecture::Arch64, bytecode::FLAG_NONE,
+                                        100,  // entry_point (way beyond code_size of 4!)
+                                        code_offset, 0, code_offset, code_size);
 
     auto header_bytes = write_header(header);
     std::vector<std::uint8_t> bytecode(header_bytes.begin(), header_bytes.end());

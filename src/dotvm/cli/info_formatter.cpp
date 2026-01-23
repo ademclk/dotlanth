@@ -275,8 +275,8 @@ std::string format_info_json(const core::InspectionResult& result, bool detailed
     oss << "  \"stats\": {\n";
     oss << "    \"file_size\": " << result.stats.file_size << ",\n";
     oss << "    \"estimated_cost\": " << result.stats.estimated_cost << ",\n";
-    oss << "    \"code_density\": " << std::fixed << std::setprecision(4) << result.stats.code_density
-        << ",\n";
+    oss << "    \"code_density\": " << std::fixed << std::setprecision(4)
+        << result.stats.code_density << ",\n";
     oss << "    \"const_pool_density\": " << result.stats.const_pool_density << "\n";
     oss << "  },\n";
 
