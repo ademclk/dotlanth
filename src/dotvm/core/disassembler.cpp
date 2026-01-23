@@ -101,14 +101,6 @@ namespace {
     return static_cast<std::int32_t>(static_cast<std::int16_t>(value));
 }
 
-/// @brief Sign-extend 24-bit value to 32-bit
-[[nodiscard]] constexpr std::int32_t sign_extend_24(std::uint32_t value) noexcept {
-    if ((value & 0x800000U) != 0) {
-        return static_cast<std::int32_t>(value | 0xFF000000U);
-    }
-    return static_cast<std::int32_t>(value);
-}
-
 /// @brief Compute branch/jump target address
 [[nodiscard]] std::optional<std::uint32_t> compute_target(std::uint8_t op, std::uint32_t pc,
                                                           std::int32_t offset) noexcept {
@@ -219,7 +211,7 @@ DisasmInstruction decode_instruction(std::span<const std::uint8_t> code,
         }
         case InstructionType::TypeC: {
             auto decoded = decode_type_c(instr.raw_bytes);
-            instr.immediate = decoded.offset24;
+            instr.immediate = decoded.offset24;  // Already sign-extended by decoder
             break;
         }
         case InstructionType::TypeD: {
