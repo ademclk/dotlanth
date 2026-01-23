@@ -837,6 +837,7 @@ if(DOTVM_BUILD_BENCHMARKS)
     # TOOL-010: Benchmark Suite CLI
     add_executable(dotvm_bench_cli
         benchmarks/vm_bench.cpp
+        benchmarks/bench_runner.cpp
         src/dotvm/cli/bench_cli_app.cpp
         src/dotvm/cli/bench_formatter.cpp
         src/dotvm/cli/bench_main.cpp
@@ -855,6 +856,7 @@ if(DOTVM_BUILD_BENCHMARKS)
 
     target_include_directories(dotvm_bench_cli PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks
     )
 
     target_compile_options(dotvm_bench_cli PRIVATE
