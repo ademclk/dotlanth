@@ -3,6 +3,7 @@
 
 #include "dotvm/cli/info_formatter.hpp"
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 
