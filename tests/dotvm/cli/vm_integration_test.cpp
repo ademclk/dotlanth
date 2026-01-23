@@ -153,6 +153,10 @@ protected:
         for (int i = 0; i < 8; ++i) {
             const_pool.push_back(static_cast<std::uint8_t>((value >> (i * 8)) & 0xFF));
         }
+        // Pad to 4-byte alignment for code section (13 bytes -> 16 bytes)
+        while (const_pool.size() % 4 != 0) {
+            const_pool.push_back(0);
+        }
 
         // Code: LOADK R1, #0; HALT
         std::vector<std::uint32_t> code = {
