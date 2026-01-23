@@ -162,6 +162,8 @@ add_library(dotvm_core STATIC
     # Assembly lexer/parser (TOOL-004)
     src/dotvm/core/asm/asm_lexer.cpp
     src/dotvm/core/asm/asm_parser.cpp
+    # Disassembler (TOOL-008)
+    src/dotvm/core/disassembler.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -293,6 +295,9 @@ if(DOTVM_BUILD_CLI)
         src/dotvm/cli/commands/vm_run_command.cpp
         src/dotvm/cli/commands/vm_validate_command.cpp
         src/dotvm/cli/commands/vm_info_command.cpp
+        # Disassembler CLI (TOOL-008)
+        src/dotvm/cli/dis_cli_app.cpp
+        src/dotvm/cli/commands/dis_command.cpp
     )
 
     target_link_libraries(dotvm_cli PUBLIC
@@ -336,6 +341,16 @@ if(DOTVM_BUILD_CLI)
     target_compile_options(dotvm PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
     install(TARGETS dotvm RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+    # dotdis disassembler CLI (TOOL-008)
+    add_executable(dotdis
+        src/dotvm/cli/dis_main.cpp
+    )
+
+    target_link_libraries(dotdis PRIVATE dotvm_cli)
+    target_compile_options(dotdis PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+    install(TARGETS dotdis RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 # Main executable
@@ -447,6 +462,8 @@ if(DOTVM_BUILD_TESTS)
         tests/asm/asm_lexer_test.cpp
         tests/asm/asm_parser_test.cpp
         tests/asm/asm_integration_test.cpp
+        # Disassembler tests (TOOL-008)
+        tests/dotvm/core/disassembler_test.cpp
     )
 
     # JIT tests (EXEC-012)
@@ -484,6 +501,9 @@ if(DOTVM_BUILD_TESTS)
             # VM CLI Executor tests (TOOL-005)
             tests/dotvm/cli/vm_cli_test.cpp
             tests/dotvm/cli/vm_integration_test.cpp
+            # Disassembler CLI tests (TOOL-008)
+            tests/dotvm/cli/dis_cli_test.cpp
+            tests/dotvm/cli/dis_integration_test.cpp
         )
 
         target_link_libraries(dotvm_cli_tests PRIVATE
