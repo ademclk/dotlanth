@@ -166,6 +166,9 @@ add_library(dotvm_core STATIC
     src/dotvm/core/disassembler.cpp
     # Bytecode Inspector (TOOL-009)
     src/dotvm/core/inspector.cpp
+    # State backend (STATE-001)
+    src/dotvm/core/state/state_backend.cpp
+    src/dotvm/core/state/in_memory_backend.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -485,6 +488,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/disassembler_test.cpp
         # Bytecode Inspector tests (TOOL-009)
         tests/dotvm/core/inspector_test.cpp
+        # State backend tests (STATE-001)
+        tests/dotvm/core/state/state_backend_test.cpp
     )
 
     # JIT tests (EXEC-012)
