@@ -91,6 +91,19 @@
         "CMAKE_C_COMPILER": "gcc",
         "CMAKE_CXX_COMPILER": "g++"
       }
+    },
+    {
+      "name": "ci-clang-fuzz",
+      "displayName": "CI Clang Fuzz",
+      "description": "Clang build with fuzzing enabled",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DOTVM_BUILD_FUZZERS": "ON",
+        "DOTVM_ENABLE_COVERAGE": "ON",
+        "DOTVM_BUILD_TESTS": "OFF",
+        "DOTVM_BUILD_BENCHMARKS": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -122,6 +135,11 @@
     {
       "name": "dev-gcc",
       "configurePreset": "dev-gcc",
+      "jobs": 0
+    },
+    {
+      "name": "ci-clang-fuzz",
+      "configurePreset": "ci-clang-fuzz",
       "jobs": 0
     }
   ],

@@ -1,0 +1,351 @@
+# TOOL-011: Nightly fuzzing workflow
+#
+# Runs fuzzing targets nightly to find crashes and security issues.
+# Can also be triggered manually with custom duration.
+
+name: Fuzzing
+
+on:
+  # Nightly run at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * *'
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Fuzzing duration in seconds'
+        required: false
+        default: '3600'
+        type: string
+      fuzzer:
+        description: 'Specific fuzzer to run (or "all")'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - bytecode_fuzzer
+          - dsl_fuzzer
+          - asm_fuzzer
+          - execute_fuzzer
+          - capi_fuzzer
+
+# Cancel in-progress runs for the same workflow
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Default fuzzing duration for nightly runs (1 hour)
+  DEFAULT_DURATION: 3600
+
+jobs:
+  # Build fuzzers first
+  build:
+    name: Build Fuzzers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt-get install -y ninja-build
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDOTVM_BUILD_FUZZERS=ON \
+            -DDOTVM_ENABLE_COVERAGE=ON \
+            -DDOTVM_BUILD_TESTS=OFF \
+            -DDOTVM_BUILD_BENCHMARKS=OFF \
+            -DDOTVM_BUILD_C_API=ON
+
+      - name: Build Fuzzers
+        run: cmake --build build --target fuzzers
+
+      - name: Upload Fuzzers
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzzers
+          path: |
+            build/fuzz/*_fuzzer
+          retention-days: 1
+
+  # Run fuzzers in parallel
+  fuzz:
+    name: Fuzz ${{ matrix.fuzzer }}
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        fuzzer:
+          - bytecode_fuzzer
+          - dsl_fuzzer
+          - asm_fuzzer
+          - execute_fuzzer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Fuzzers
+        uses: actions/download-artifact@v4
+        with:
+          name: fuzzers
+          path: build/fuzz
+
+      - name: Make Fuzzers Executable
+        run: chmod +x build/fuzz/*
+
+      - name: Restore Corpus Cache
+        uses: actions/cache/restore@v4
+        with:
+          path: corpus-cache/${{ matrix.fuzzer }}
+          key: fuzz-corpus-${{ matrix.fuzzer }}-${{ github.run_number }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.fuzzer }}-
+
+      - name: Setup Corpus
+        env:
+          FUZZER_NAME: ${{ matrix.fuzzer }}
+        run: |
+          # Create corpus directory
+          mkdir -p "corpus-cache/$FUZZER_NAME"
+
+          # Copy seed corpus
+          CORPUS_DIR=""
+          case "$FUZZER_NAME" in
+            bytecode_fuzzer) CORPUS_DIR="fuzz/corpus/bytecode" ;;
+            dsl_fuzzer) CORPUS_DIR="fuzz/corpus/dsl" ;;
+            asm_fuzzer) CORPUS_DIR="fuzz/corpus/asm" ;;
+            execute_fuzzer) CORPUS_DIR="fuzz/corpus/execute" ;;
+          esac
+
+          if [ -d "$CORPUS_DIR" ]; then
+            cp -n "$CORPUS_DIR"/* "corpus-cache/$FUZZER_NAME/" 2>/dev/null || true
+          fi
+
+          echo "Corpus size: $(ls -1 "corpus-cache/$FUZZER_NAME" | wc -l) files"
+
+      - name: Determine Duration
+        id: duration
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_DURATION: ${{ inputs.duration }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_DURATION" ]; then
+            DURATION="$INPUT_DURATION"
+          else
+            DURATION="${DEFAULT_DURATION}"
+          fi
+          echo "duration=$DURATION" >> "$GITHUB_OUTPUT"
+          echo "Fuzzing for $DURATION seconds"
+
+      - name: Run Fuzzer
+        id: fuzz
+        continue-on-error: true
+        env:
+          FUZZER_NAME: ${{ matrix.fuzzer }}
+          DURATION: ${{ steps.duration.outputs.duration }}
+        run: |
+          mkdir -p artifacts
+
+          # Run fuzzer with timeout
+          # -max_total_time controls fuzzing duration
+          # -artifact_prefix specifies where to save crash files
+          "./build/fuzz/$FUZZER_NAME" \
+            "corpus-cache/$FUZZER_NAME" \
+            "-max_total_time=$DURATION" \
+            -artifact_prefix=artifacts/ \
+            -print_final_stats=1 \
+            2>&1 | tee fuzz.log
+
+          # Check for crashes
+          if ls artifacts/crash-* 1>/dev/null 2>&1; then
+            echo "found_crash=true" >> "$GITHUB_OUTPUT"
+            echo "::error::Crash found in $FUZZER_NAME"
+          else
+            echo "found_crash=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Crash Artifacts
+        if: steps.fuzz.outputs.found_crash == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-${{ matrix.fuzzer }}-${{ github.run_number }}
+          path: |
+            artifacts/
+            fuzz.log
+          retention-days: 30
+
+      - name: Minimize Corpus
+        if: success()
+        env:
+          FUZZER_NAME: ${{ matrix.fuzzer }}
+        run: |
+          # Minimize corpus to remove redundant inputs
+          mkdir -p corpus-minimized
+          "./build/fuzz/$FUZZER_NAME" \
+            -merge=1 \
+            corpus-minimized \
+            "corpus-cache/$FUZZER_NAME" \
+            2>/dev/null || true
+
+          # Replace with minimized if successful
+          if [ -d corpus-minimized ] && [ "$(ls -1 corpus-minimized | wc -l)" -gt 0 ]; then
+            rm -rf "corpus-cache/$FUZZER_NAME"
+            mv corpus-minimized "corpus-cache/$FUZZER_NAME"
+          fi
+
+          echo "Minimized corpus: $(ls -1 "corpus-cache/$FUZZER_NAME" | wc -l) files"
+
+      - name: Save Corpus Cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: corpus-cache/${{ matrix.fuzzer }}
+          key: fuzz-corpus-${{ matrix.fuzzer }}-${{ github.run_number }}
+
+      - name: Fail on Crash
+        if: steps.fuzz.outputs.found_crash == 'true'
+        run: exit 1
+
+  # Create issue on crash
+  report-crash:
+    name: Report Crashes
+    runs-on: ubuntu-latest
+    needs: fuzz
+    if: failure()
+    permissions:
+      issues: write
+
+    steps:
+      - name: Download All Crash Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: crash-*
+          path: crashes
+          merge-multiple: true
+
+      - name: Create Issue
+        if: hashFiles('crashes/*') != ''
+        uses: actions/github-script@v7
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Find crash files
+            const crashDir = 'crashes';
+            let crashFiles = [];
+            if (fs.existsSync(crashDir)) {
+              crashFiles = fs.readdirSync(crashDir)
+                .filter(f => f.startsWith('crash-') || f.endsWith('.log'));
+            }
+
+            if (crashFiles.length === 0) {
+              console.log('No crash files found');
+              return;
+            }
+
+            // Create issue body using environment variables (safe)
+            const runNumber = process.env.RUN_NUMBER;
+            const runId = process.env.RUN_ID;
+            const serverUrl = process.env.SERVER_URL;
+            const repository = process.env.REPOSITORY;
+
+            const body = `## Fuzzing Crash Report
+
+            **Run:** [#${runNumber}](${serverUrl}/${repository}/actions/runs/${runId})
+            **Date:** ${new Date().toISOString()}
+
+            ### Crashes Found
+
+            ${crashFiles.map(f => `- \`${f}\``).join('\n')}
+
+            ### Artifacts
+
+            Download crash artifacts from the workflow run to reproduce.
+
+            ### Reproduction
+
+            \`\`\`bash
+            # Download artifact and extract
+            # Then run:
+            ./fuzz/scripts/reproduce_crash.sh <fuzzer_name> <crash_file>
+            \`\`\`
+
+            ---
+            *This issue was automatically created by the fuzzing workflow.*
+            `;
+
+            // Check for existing open issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'fuzzing,crash',
+              state: 'open'
+            });
+
+            if (issues.data.length > 0) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `New crashes found in run #${runNumber}:\n\n${crashFiles.map(f => `- \`${f}\``).join('\n')}`
+              });
+              console.log(`Updated issue #${issues.data[0].number}`);
+            } else {
+              // Create new issue
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Fuzzing: Crash Detected',
+                body: body,
+                labels: ['fuzzing', 'crash', 'security']
+              });
+              console.log(`Created issue #${issue.data.number}`);
+            }
+
+  # Summary job
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: [build, fuzz]
+    if: always()
+
+    steps:
+      - name: Fuzzing Summary
+        env:
+          FUZZ_RESULT: ${{ needs.fuzz.result }}
+        run: |
+          echo "## Fuzzing Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Fuzzer | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|--------|" >> "$GITHUB_STEP_SUMMARY"
+
+          STATUS_ICON="❌"
+          if [ "$FUZZ_RESULT" = "success" ]; then
+            STATUS_ICON="✅"
+          fi
+
+          echo "| bytecode_fuzzer | $STATUS_ICON |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| dsl_fuzzer | $STATUS_ICON |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| asm_fuzzer | $STATUS_ICON |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| execute_fuzzer | $STATUS_ICON |" >> "$GITHUB_STEP_SUMMARY"
