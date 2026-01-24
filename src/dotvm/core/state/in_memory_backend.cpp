@@ -1,10 +1,20 @@
 /// @file in_memory_backend.cpp
-/// @brief STATE-001 In-memory StateBackend implementation
+/// @brief STATE-002 MVCC In-memory StateBackend implementation
+///
+/// Implements Multi-Version Concurrency Control (MVCC) with:
+/// - Snapshot isolation for concurrent transactions
+/// - Write-write conflict detection (first-committer-wins)
+/// - Garbage collection of old versions
+/// - Thread-safe operations with shared_mutex
 
 #include <algorithm>
+#include <atomic>
 #include <map>
+#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <unordered_map>
+#include <vector>
 
 #include "dotvm/core/state/state_backend.hpp"
 
@@ -32,44 +42,123 @@ struct ByteVectorCompare {
     return std::equal(prefix.begin(), prefix.end(), key.begin());
 }
 
-/// @brief Transaction state
-struct Transaction {
+// ============================================================================
+// MVCC Data Structures
+// ============================================================================
+
+/// @brief A single version of a value
+struct VersionEntry {
+    std::uint64_t version;         ///< Version number (commit timestamp)
+    std::vector<std::byte> value;  ///< The value data
+    bool deleted;                  ///< True if this version represents a deletion
+};
+
+/// @brief Versioned value holding multiple versions
+struct VersionedValue {
+    std::vector<VersionEntry> versions;  ///< Versions in ascending order by version
+    mutable std::shared_mutex mtx;       ///< Per-key lock for concurrent access
+
+    /// @brief Get the version visible at the given snapshot
+    /// @param snapshot The snapshot version to read at
+    /// @return Pointer to visible version entry, or nullptr if not visible
+    [[nodiscard]] const VersionEntry* get_visible(std::uint64_t snapshot) const noexcept {
+        // Binary search for the largest version <= snapshot
+        if (versions.empty()) {
+            return nullptr;
+        }
+
+        // Find the first version > snapshot
+        auto it = std::upper_bound(
+            versions.begin(), versions.end(), snapshot,
+            [](std::uint64_t snap, const VersionEntry& entry) { return snap < entry.version; });
+
+        // The version we want is the one before that
+        if (it == versions.begin()) {
+            return nullptr;  // All versions are > snapshot
+        }
+        --it;
+
+        return &(*it);
+    }
+
+    /// @brief Add a new version
+    /// @param ver Version number
+    /// @param val Value data
+    /// @param del True if this is a deletion marker
+    void add_version(std::uint64_t ver, std::vector<std::byte> val, bool del = false) {
+        versions.push_back(VersionEntry{ver, std::move(val), del});
+    }
+
+    /// @brief Garbage collect versions older than min_version
+    /// @param min_version Minimum version to keep
+    /// @return Number of bytes freed
+    [[nodiscard]] std::size_t gc(std::uint64_t min_version) {
+        std::size_t freed = 0;
+        auto it = versions.begin();
+        while (it != versions.end() && versions.size() > 1) {
+            if (it->version < min_version) {
+                // Check if next version is also < min_version or doesn't exist
+                auto next = it + 1;
+                if (next != versions.end() && next->version <= min_version) {
+                    freed += it->value.size();
+                    it = versions.erase(it);
+                    continue;
+                }
+            }
+            ++it;
+        }
+        return freed;
+    }
+
+    /// @brief Get the latest version entry
+    [[nodiscard]] const VersionEntry* latest() const noexcept {
+        if (versions.empty()) {
+            return nullptr;
+        }
+        return &versions.back();
+    }
+};
+
+/// @brief MVCC Transaction state
+struct MvccTransaction {
     TxId id;
+    std::uint64_t snapshot_version;  ///< Snapshot version at transaction start
     bool active{true};
-    // Change log: key -> optional<value> (nullopt = delete)
+    /// Write set: key -> optional<value> (nullopt = delete)
     std::map<std::vector<std::byte>, std::optional<std::vector<std::byte>>, ByteVectorCompare>
-        changes;
+        write_set;
 };
 
 }  // namespace
 
 // ============================================================================
-// InMemoryBackend Implementation
+// InMemoryBackend MVCC Implementation
 // ============================================================================
 
-/// @brief In-memory implementation of StateBackend
+/// @brief In-memory MVCC implementation of StateBackend
 ///
-/// Uses std::map for sorted key storage, enabling efficient prefix iteration.
-/// Transactions are tracked via a change log that's applied on commit.
+/// Uses Multi-Version Concurrency Control for transaction isolation:
+/// - Each write creates a new version instead of overwriting
+/// - Transactions read from a consistent snapshot
+/// - Write-write conflicts detected at commit time (first-committer-wins)
 ///
-/// Thread Safety: NOT thread-safe. Use one per thread or add external locking.
+/// Thread Safety: Thread-safe via shared_mutex for read/write separation.
 class InMemoryBackend final : public StateBackend {
 public:
-    explicit InMemoryBackend(StateBackendConfig config) noexcept : config_{std::move(config)} {
-        // Pre-allocate storage hint
-        // (std::map doesn't support reserve, but we store the hint anyway)
-    }
+    explicit InMemoryBackend(StateBackendConfig config) noexcept : config_{std::move(config)} {}
 
     // ========================================================================
     // CRUD Operations
     // ========================================================================
 
     [[nodiscard]] Result<std::vector<std::byte>> get(Key key) const override {
-        // Check active transaction first
+        auto key_vec = std::vector<std::byte>(key.begin(), key.end());
+
+        // Check active transaction's write set first (no lock needed - thread-local)
         if (active_tx_) {
             auto& tx = transactions_.at(active_tx_->id);
-            auto it = tx.changes.find(std::vector<std::byte>(key.begin(), key.end()));
-            if (it != tx.changes.end()) {
+            auto it = tx.write_set.find(key_vec);
+            if (it != tx.write_set.end()) {
                 if (it->second.has_value()) {
                     return it->second.value();
                 }
@@ -77,12 +166,26 @@ public:
             }
         }
 
-        auto key_vec = std::vector<std::byte>(key.begin(), key.end());
+        // Read from storage with shared lock
+        std::shared_lock lock(storage_mtx_);
+
         auto it = storage_.find(key_vec);
         if (it == storage_.end()) {
             return StateBackendError::KeyNotFound;
         }
-        return it->second;
+
+        // Get snapshot version
+        std::uint64_t read_version = active_tx_ ? transactions_.at(active_tx_->id).snapshot_version
+                                                : global_version_.load(std::memory_order_acquire);
+
+        // Read at snapshot version
+        std::shared_lock key_lock(it->second.mtx);
+        const VersionEntry* entry = it->second.get_visible(read_version);
+        if (entry == nullptr || entry->deleted) {
+            return StateBackendError::KeyNotFound;
+        }
+
+        return entry->value;
     }
 
     [[nodiscard]] Result<void> put(Key key, Value value) override {
@@ -100,69 +203,116 @@ public:
         auto key_vec = std::vector<std::byte>(key.begin(), key.end());
         auto value_vec = std::vector<std::byte>(value.begin(), value.end());
 
-        // If transaction active, log change
+        // If transaction active, buffer in write set
         if (active_tx_) {
             auto& tx = transactions_.at(active_tx_->id);
-            tx.changes[key_vec] = value_vec;
+            tx.write_set[key_vec] = value_vec;
             return {};
         }
 
-        // Direct storage
-        auto it = storage_.find(key_vec);
-        if (it == storage_.end()) {
-            storage_bytes_ += key_vec.size() + value_vec.size();
+        // Direct write with exclusive lock
+        std::unique_lock lock(storage_mtx_);
+        std::uint64_t version = global_version_.fetch_add(1, std::memory_order_acq_rel) + 1;
+
+        auto [it, inserted] = storage_.try_emplace(key_vec);
+        std::unique_lock key_lock(it->second.mtx);
+
+        if (inserted) {
+            storage_bytes_.fetch_add(key_vec.size() + value_vec.size(), std::memory_order_relaxed);
         } else {
-            storage_bytes_ -= it->second.size();
-            storage_bytes_ += value_vec.size();
+            // Update storage bytes for value change
+            const VersionEntry* latest = it->second.latest();
+            if (latest && !latest->deleted) {
+                storage_bytes_.fetch_sub(latest->value.size(), std::memory_order_relaxed);
+            }
+            storage_bytes_.fetch_add(value_vec.size(), std::memory_order_relaxed);
         }
-        storage_[std::move(key_vec)] = std::move(value_vec);
+
+        it->second.add_version(version, std::move(value_vec), false);
+
         return {};
     }
 
     [[nodiscard]] Result<void> remove(Key key) override {
         auto key_vec = std::vector<std::byte>(key.begin(), key.end());
 
-        // If transaction active, log deletion
+        // If transaction active, buffer deletion
         if (active_tx_) {
             auto& tx = transactions_.at(active_tx_->id);
 
-            // Check if key exists (in storage or pending changes)
-            bool exists_in_changes =
-                tx.changes.count(key_vec) > 0 && tx.changes.at(key_vec).has_value();
-            bool exists_in_storage = storage_.count(key_vec) > 0;
+            // Check if key exists (in write set or storage)
+            bool exists_in_write_set =
+                tx.write_set.count(key_vec) > 0 && tx.write_set.at(key_vec).has_value();
 
-            if (!exists_in_changes && !exists_in_storage) {
+            bool exists_in_storage = false;
+            {
+                std::shared_lock lock(storage_mtx_);
+                auto it = storage_.find(key_vec);
+                if (it != storage_.end()) {
+                    std::shared_lock key_lock(it->second.mtx);
+                    const VersionEntry* entry = it->second.get_visible(tx.snapshot_version);
+                    exists_in_storage = (entry != nullptr && !entry->deleted);
+                }
+            }
+
+            if (!exists_in_write_set && !exists_in_storage) {
                 return StateBackendError::KeyNotFound;
             }
 
-            tx.changes[key_vec] = std::nullopt;  // Mark as deleted
+            tx.write_set[key_vec] = std::nullopt;  // Mark as deleted
             return {};
         }
 
-        // Direct removal
+        // Direct removal with exclusive lock
+        std::unique_lock lock(storage_mtx_);
+
         auto it = storage_.find(key_vec);
         if (it == storage_.end()) {
             return StateBackendError::KeyNotFound;
         }
 
-        storage_bytes_ -= it->first.size() + it->second.size();
-        storage_.erase(it);
+        std::unique_lock key_lock(it->second.mtx);
+        const VersionEntry* latest = it->second.latest();
+        if (latest == nullptr || latest->deleted) {
+            return StateBackendError::KeyNotFound;
+        }
+
+        std::uint64_t version = global_version_.fetch_add(1, std::memory_order_acq_rel) + 1;
+
+        // Update storage bytes
+        storage_bytes_.fetch_sub(key_vec.size() + latest->value.size(), std::memory_order_relaxed);
+
+        it->second.add_version(version, {}, true);  // Add deletion marker
+
         return {};
     }
 
     [[nodiscard]] bool exists(Key key) const noexcept override {
         auto key_vec = std::vector<std::byte>(key.begin(), key.end());
 
-        // Check active transaction first
+        // Check active transaction's write set first
         if (active_tx_) {
             auto& tx = transactions_.at(active_tx_->id);
-            auto it = tx.changes.find(key_vec);
-            if (it != tx.changes.end()) {
-                return it->second.has_value();  // true if put, false if deleted
+            auto it = tx.write_set.find(key_vec);
+            if (it != tx.write_set.end()) {
+                return it->second.has_value();
             }
         }
 
-        return storage_.count(key_vec) > 0;
+        // Read from storage
+        std::shared_lock lock(storage_mtx_);
+
+        auto it = storage_.find(key_vec);
+        if (it == storage_.end()) {
+            return false;
+        }
+
+        std::uint64_t read_version = active_tx_ ? transactions_.at(active_tx_->id).snapshot_version
+                                                : global_version_.load(std::memory_order_acquire);
+
+        std::shared_lock key_lock(it->second.mtx);
+        const VersionEntry* entry = it->second.get_visible(read_version);
+        return entry != nullptr && !entry->deleted;
     }
 
     // ========================================================================
@@ -170,36 +320,62 @@ public:
     // ========================================================================
 
     [[nodiscard]] Result<void> iterate(Key prefix, const IterateCallback& callback) const override {
-        // Create merged view of storage + transaction changes
-        // For simplicity, we iterate storage directly (transaction changes visible)
-
         auto prefix_vec = std::vector<std::byte>(prefix.begin(), prefix.end());
 
-        // Find starting point using lower_bound
-        auto it = storage_.lower_bound(prefix_vec);
+        // Build snapshot of matching keys
+        std::map<std::vector<std::byte>, std::vector<std::byte>, ByteVectorCompare> snapshot;
 
-        while (it != storage_.end()) {
-            if (!starts_with(it->first, prefix)) {
-                break;  // Past prefix range
+        std::uint64_t read_version;
+        const MvccTransaction* tx_ptr = nullptr;
+
+        if (active_tx_) {
+            tx_ptr = &transactions_.at(active_tx_->id);
+            read_version = tx_ptr->snapshot_version;
+        } else {
+            read_version = global_version_.load(std::memory_order_acquire);
+        }
+
+        // Capture snapshot from storage under shared lock
+        {
+            std::shared_lock lock(storage_mtx_);
+
+            auto it = storage_.lower_bound(prefix_vec);
+            while (it != storage_.end()) {
+                if (!starts_with(it->first, prefix_vec)) {
+                    break;
+                }
+
+                std::shared_lock key_lock(it->second.mtx);
+                const VersionEntry* entry = it->second.get_visible(read_version);
+                if (entry != nullptr && !entry->deleted) {
+                    snapshot[it->first] = entry->value;
+                }
+                ++it;
             }
+        }
 
-            // Check if deleted in transaction
-            if (active_tx_) {
-                auto& tx = transactions_.at(active_tx_->id);
-                auto tx_it = tx.changes.find(it->first);
-                if (tx_it != tx.changes.end() && !tx_it->second.has_value()) {
-                    ++it;
-                    continue;  // Skip deleted key
+        // Merge uncommitted writes from write set
+        if (tx_ptr != nullptr) {
+            for (const auto& [key, value_opt] : tx_ptr->write_set) {
+                if (!starts_with(key, prefix_vec)) {
+                    continue;
+                }
+
+                if (value_opt.has_value()) {
+                    snapshot[key] = value_opt.value();  // Add or override
+                } else {
+                    snapshot.erase(key);  // Remove deleted key
                 }
             }
+        }
 
-            Key key_span{it->first};
-            Value value_span{it->second};
-
+        // Invoke callback on snapshot (no locks held)
+        for (const auto& [key, value] : snapshot) {
+            Key key_span{key};
+            Value value_span{value};
             if (!callback(key_span, value_span)) {
-                break;  // Callback requested stop
+                break;
             }
-            ++it;
         }
 
         return {};
@@ -214,6 +390,8 @@ public:
             return {};
         }
 
+        std::unique_lock lock(storage_mtx_);
+
         // Validate all operations first
         for (const auto& op : ops) {
             if (op.type == BatchOpType::Put) {
@@ -227,34 +405,53 @@ public:
                     return StateBackendError::ValueTooLarge;
                 }
             } else if (op.type == BatchOpType::Remove) {
-                // Check key exists
                 auto key_vec = std::vector<std::byte>(op.key.begin(), op.key.end());
-                if (storage_.count(key_vec) == 0) {
+                auto it = storage_.find(key_vec);
+                if (it == storage_.end()) {
+                    return StateBackendError::KeyNotFound;
+                }
+                std::shared_lock key_lock(it->second.mtx);
+                const VersionEntry* latest = it->second.latest();
+                if (latest == nullptr || latest->deleted) {
                     return StateBackendError::KeyNotFound;
                 }
             }
         }
 
-        // Apply all operations (already validated)
+        // Apply all operations atomically
+        std::uint64_t version = global_version_.fetch_add(1, std::memory_order_acq_rel) + 1;
+
         for (const auto& op : ops) {
+            auto key_vec = std::vector<std::byte>(op.key.begin(), op.key.end());
+
             if (op.type == BatchOpType::Put) {
-                auto key_vec = std::vector<std::byte>(op.key.begin(), op.key.end());
                 auto value_vec = std::vector<std::byte>(op.value.begin(), op.value.end());
 
-                auto it = storage_.find(key_vec);
-                if (it == storage_.end()) {
-                    storage_bytes_ += key_vec.size() + value_vec.size();
+                auto [it, inserted] = storage_.try_emplace(key_vec);
+                std::unique_lock key_lock(it->second.mtx);
+
+                if (inserted) {
+                    storage_bytes_.fetch_add(key_vec.size() + value_vec.size(),
+                                             std::memory_order_relaxed);
                 } else {
-                    storage_bytes_ -= it->second.size();
-                    storage_bytes_ += value_vec.size();
+                    const VersionEntry* latest = it->second.latest();
+                    if (latest && !latest->deleted) {
+                        storage_bytes_.fetch_sub(latest->value.size(), std::memory_order_relaxed);
+                    }
+                    storage_bytes_.fetch_add(value_vec.size(), std::memory_order_relaxed);
                 }
-                storage_[std::move(key_vec)] = std::move(value_vec);
+
+                it->second.add_version(version, std::move(value_vec), false);
             } else {
-                auto key_vec = std::vector<std::byte>(op.key.begin(), op.key.end());
                 auto it = storage_.find(key_vec);
                 if (it != storage_.end()) {
-                    storage_bytes_ -= it->first.size() + it->second.size();
-                    storage_.erase(it);
+                    std::unique_lock key_lock(it->second.mtx);
+                    const VersionEntry* latest = it->second.latest();
+                    if (latest && !latest->deleted) {
+                        storage_bytes_.fetch_sub(key_vec.size() + latest->value.size(),
+                                                 std::memory_order_relaxed);
+                    }
+                    it->second.add_version(version, {}, true);
                 }
             }
         }
@@ -272,9 +469,13 @@ public:
         }
 
         TxId id{.id = next_tx_id_++, .generation = tx_generation_};
-        Transaction tx{.id = id, .active = true, .changes = {}};
-        transactions_[id.id] = std::move(tx);
 
+        // Capture snapshot version at transaction start
+        std::uint64_t snapshot = global_version_.load(std::memory_order_acquire);
+
+        MvccTransaction tx{.id = id, .snapshot_version = snapshot, .active = true, .write_set = {}};
+
+        transactions_[id.id] = std::move(tx);
         active_tx_ = id;
 
         return TxHandle{this, id};
@@ -285,43 +486,82 @@ public:
             return StateBackendError::InvalidTransaction;
         }
 
-        auto it = transactions_.find(tx.id().id);
-        if (it == transactions_.end() || !it->second.active ||
-            it->second.id.generation != tx.id().generation) {
+        auto tx_it = transactions_.find(tx.id().id);
+        if (tx_it == transactions_.end() || !tx_it->second.active ||
+            tx_it->second.id.generation != tx.id().generation) {
             return StateBackendError::InvalidTransaction;
         }
 
-        // Apply all changes from transaction
-        for (auto& [key, value_opt] : it->second.changes) {
+        auto& mvcc_tx = tx_it->second;
+
+        // Acquire exclusive lock for commit
+        std::unique_lock lock(storage_mtx_);
+
+        // Allocate commit version atomically
+        std::uint64_t commit_version = global_version_.fetch_add(1, std::memory_order_acq_rel) + 1;
+
+        // Conflict detection: check if any key in write_set was modified since snapshot
+        for (const auto& [key, value_opt] : mvcc_tx.write_set) {
+            auto it = storage_.find(key);
+            if (it != storage_.end()) {
+                std::shared_lock key_lock(it->second.mtx);
+                const VersionEntry* latest = it->second.latest();
+                if (latest != nullptr && latest->version > mvcc_tx.snapshot_version) {
+                    // Conflict: key was modified after our snapshot
+                    transactions_.erase(tx_it);
+                    if (active_tx_ && active_tx_->id == tx.id().id) {
+                        active_tx_.reset();
+                    }
+                    tx.release();
+                    return StateBackendError::TransactionConflict;
+                }
+            }
+        }
+
+        // No conflicts - apply all write set entries
+        for (auto& [key, value_opt] : mvcc_tx.write_set) {
             if (value_opt.has_value()) {
                 // Put
-                auto storage_it = storage_.find(key);
-                if (storage_it == storage_.end()) {
-                    storage_bytes_ += key.size() + value_opt->size();
+                auto [it, inserted] = storage_.try_emplace(key);
+                std::unique_lock key_lock(it->second.mtx);
+
+                if (inserted) {
+                    storage_bytes_.fetch_add(key.size() + value_opt->size(),
+                                             std::memory_order_relaxed);
                 } else {
-                    storage_bytes_ -= storage_it->second.size();
-                    storage_bytes_ += value_opt->size();
+                    const VersionEntry* latest = it->second.latest();
+                    if (latest && !latest->deleted) {
+                        storage_bytes_.fetch_sub(latest->value.size(), std::memory_order_relaxed);
+                    }
+                    storage_bytes_.fetch_add(value_opt->size(), std::memory_order_relaxed);
                 }
-                storage_[key] = std::move(*value_opt);
+
+                it->second.add_version(commit_version, std::move(*value_opt), false);
             } else {
                 // Remove
-                auto storage_it = storage_.find(key);
-                if (storage_it != storage_.end()) {
-                    storage_bytes_ -= storage_it->first.size() + storage_it->second.size();
-                    storage_.erase(storage_it);
+                auto it = storage_.find(key);
+                if (it != storage_.end()) {
+                    std::unique_lock key_lock(it->second.mtx);
+                    const VersionEntry* latest = it->second.latest();
+                    if (latest && !latest->deleted) {
+                        storage_bytes_.fetch_sub(key.size() + latest->value.size(),
+                                                 std::memory_order_relaxed);
+                    }
+                    it->second.add_version(commit_version, {}, true);
                 }
             }
         }
 
         // Clean up transaction
-        transactions_.erase(it);
+        transactions_.erase(tx_it);
         if (active_tx_ && active_tx_->id == tx.id().id) {
             active_tx_.reset();
         }
 
-        // Release handle ownership (prevent double-rollback in destructor)
-        tx.release();
+        // Trigger garbage collection
+        maybe_gc();
 
+        tx.release();
         return {};
     }
 
@@ -332,7 +572,6 @@ public:
 
         auto it = transactions_.find(tx.id().id);
         if (it == transactions_.end()) {
-            // Transaction already rolled back or committed
             tx.release();
             return {};
         }
@@ -341,15 +580,12 @@ public:
             return StateBackendError::InvalidTransaction;
         }
 
-        // Discard all changes
         transactions_.erase(it);
         if (active_tx_ && active_tx_->id == tx.id().id) {
             active_tx_.reset();
         }
 
-        // Release handle ownership
         tx.release();
-
         return {};
     }
 
@@ -357,9 +593,26 @@ public:
     // Statistics & Configuration
     // ========================================================================
 
-    [[nodiscard]] std::size_t key_count() const noexcept override { return storage_.size(); }
+    [[nodiscard]] std::size_t key_count() const noexcept override {
+        std::shared_lock lock(storage_mtx_);
 
-    [[nodiscard]] std::size_t storage_bytes() const noexcept override { return storage_bytes_; }
+        std::uint64_t read_version = global_version_.load(std::memory_order_acquire);
+        std::size_t count = 0;
+
+        for (const auto& [key, versioned] : storage_) {
+            std::shared_lock key_lock(versioned.mtx);
+            const VersionEntry* latest = versioned.get_visible(read_version);
+            if (latest != nullptr && !latest->deleted) {
+                ++count;
+            }
+        }
+
+        return count;
+    }
+
+    [[nodiscard]] std::size_t storage_bytes() const noexcept override {
+        return storage_bytes_.load(std::memory_order_relaxed);
+    }
 
     [[nodiscard]] const StateBackendConfig& config() const noexcept override { return config_; }
 
@@ -368,21 +621,56 @@ public:
     }
 
     void clear() noexcept override {
+        std::unique_lock lock(storage_mtx_);
         storage_.clear();
-        storage_bytes_ = 0;
+        storage_bytes_.store(0, std::memory_order_relaxed);
         transactions_.clear();
         active_tx_.reset();
+        global_version_.store(0, std::memory_order_release);
     }
 
 private:
+    /// @brief Update minimum active snapshot version
+    [[nodiscard]] std::uint64_t get_min_active_snapshot() const noexcept {
+        std::uint64_t min_snapshot = global_version_.load(std::memory_order_acquire);
+        for (const auto& [id, tx] : transactions_) {
+            if (tx.active && tx.snapshot_version < min_snapshot) {
+                min_snapshot = tx.snapshot_version;
+            }
+        }
+        return min_snapshot;
+    }
+
+    /// @brief Perform garbage collection if conditions are met
+    void maybe_gc() {
+        // Only GC if no active transactions
+        if (!transactions_.empty()) {
+            return;
+        }
+
+        std::uint64_t min_version = global_version_.load(std::memory_order_acquire);
+
+        for (auto& [key, versioned] : storage_) {
+            std::unique_lock key_lock(versioned.mtx);
+            std::size_t freed = versioned.gc(min_version);
+            if (freed > 0) {
+                // Note: storage_bytes tracking for GC is approximate
+                // since we don't track all version storage separately
+            }
+        }
+    }
+
     StateBackendConfig config_;
 
-    // Main storage (sorted map for prefix iteration)
-    std::map<std::vector<std::byte>, std::vector<std::byte>, ByteVectorCompare> storage_;
-    std::size_t storage_bytes_{0};
+    // MVCC versioned storage (sorted map for prefix iteration)
+    mutable std::map<std::vector<std::byte>, VersionedValue, ByteVectorCompare> storage_;
+    mutable std::shared_mutex storage_mtx_;  ///< Reader/writer lock for storage map
+
+    std::atomic<std::size_t> storage_bytes_{0};
+    std::atomic<std::uint64_t> global_version_{0};
 
     // Transaction management
-    std::unordered_map<std::uint64_t, Transaction> transactions_;
+    std::unordered_map<std::uint64_t, MvccTransaction> transactions_;
     std::optional<TxId> active_tx_;
     std::uint64_t next_tx_id_{1};
     std::uint32_t tx_generation_{1};

@@ -490,6 +490,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/inspector_test.cpp
         # State backend tests (STATE-001)
         tests/dotvm/core/state/state_backend_test.cpp
+        # MVCC tests (STATE-002)
+        tests/dotvm/core/state/mvcc_test.cpp
     )
 
     # JIT tests (EXEC-012)
