@@ -17,24 +17,24 @@ inline constexpr std::size_t CACHE_LINE_SIZE = 64;
 
 /// Execution result codes
 enum class ExecResult : std::uint8_t {
-    Success = 0,              ///< Execution completed normally (HALT)
-    Error = 1,                ///< Execution error occurred
-    InvalidOpcode = 2,        ///< Unknown or reserved opcode
-    CfiViolation = 3,         ///< Control flow integrity violation
-    OutOfBounds = 4,          ///< PC out of code section bounds
-    Interrupted = 5,          ///< Execution was interrupted
-    DivisionByZero = 6,       ///< Division by zero (if strict mode enabled)
-    MemoryError = 7,          ///< Memory access error (bounds violation, invalid handle)
-    UnalignedAccess = 8,      ///< Misaligned memory access (EXEC-006)
-    StackOverflow = 9,        ///< Call stack overflow (EXEC-007)
-    ExecutionLimit = 10,      ///< Instruction limit exceeded (EXEC-008)
-    UnhandledException = 11,  ///< Unhandled exception (EXEC-011)
-    JitFallback = 12,         ///< JIT compilation not available, use interpreter (EXEC-012)
-    CapabilityDenied = 13,    ///< Opcode permission denied (SEC-005)
-    StateKeyNotFound = 14,    ///< State key not found (STATE-004)
-    TransactionConflict = 15, ///< Transaction commit conflict (STATE-004)
-    TransactionAborted = 16,  ///< Transaction was aborted (STATE-004)
-    StateNotEnabled = 17      ///< State subsystem not enabled (STATE-004)
+    Success = 0,               ///< Execution completed normally (HALT)
+    Error = 1,                 ///< Execution error occurred
+    InvalidOpcode = 2,         ///< Unknown or reserved opcode
+    CfiViolation = 3,          ///< Control flow integrity violation
+    OutOfBounds = 4,           ///< PC out of code section bounds
+    Interrupted = 5,           ///< Execution was interrupted
+    DivisionByZero = 6,        ///< Division by zero (if strict mode enabled)
+    MemoryError = 7,           ///< Memory access error (bounds violation, invalid handle)
+    UnalignedAccess = 8,       ///< Misaligned memory access (EXEC-006)
+    StackOverflow = 9,         ///< Call stack overflow (EXEC-007)
+    ExecutionLimit = 10,       ///< Instruction limit exceeded (EXEC-008)
+    UnhandledException = 11,   ///< Unhandled exception (EXEC-011)
+    JitFallback = 12,          ///< JIT compilation not available, use interpreter (EXEC-012)
+    CapabilityDenied = 13,     ///< Opcode permission denied (SEC-005)
+    StateKeyNotFound = 14,     ///< State key not found (STATE-004)
+    TransactionConflict = 15,  ///< Transaction commit conflict (STATE-004)
+    TransactionAborted = 16,   ///< Transaction was aborted (STATE-004)
+    StateNotEnabled = 17       ///< State subsystem not enabled (STATE-004)
 };
 
 /// Convert ExecResult to string representation

@@ -280,8 +280,8 @@ std::uint64_t StateExecutionContext::generate_handle() noexcept {
     return next_handle_.fetch_add(1, std::memory_order_relaxed);
 }
 
-core::state::ManagedTransaction* StateExecutionContext::get_transaction(
-    std::uint64_t handle) noexcept {
+core::state::ManagedTransaction*
+StateExecutionContext::get_transaction(std::uint64_t handle) noexcept {
     auto it = active_transactions_.find(handle);
     if (it == active_transactions_.end()) {
         return nullptr;

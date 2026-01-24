@@ -1,10 +1,10 @@
 /// @file state_opcodes_test.cpp
 /// @brief STATE-004 State Opcodes Tests
 
-#include <gtest/gtest.h>
-
 #include <thread>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/opcode.hpp"
 #include "dotvm/core/state/in_memory_backend.hpp"
@@ -108,7 +108,7 @@ TEST_F(StateExecErrorConversion, ToExecResult) {
 // ============================================================================
 
 class StateExecutionContextTest : public ::testing::Test {
-  protected:
+protected:
     void SetUp() override {
         backend_ = std::make_unique<core::state::InMemoryBackend>();
         tx_mgr_ = std::make_unique<core::state::TransactionManager>(*backend_);
@@ -448,7 +448,7 @@ TEST_F(StateExecutionContextTest, DestructorRollsBackActive) {
 // ============================================================================
 
 class VmContextStateTest : public ::testing::Test {
-  protected:
+protected:
     void SetUp() override {
         backend_ = std::make_unique<core::state::InMemoryBackend>();
         tx_mgr_ = std::make_unique<core::state::TransactionManager>(*backend_);

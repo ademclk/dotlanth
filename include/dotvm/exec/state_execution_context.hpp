@@ -19,12 +19,12 @@ namespace dotvm::exec {
 
 /// @brief Error codes for state execution operations
 enum class StateExecError : std::uint8_t {
-    Success = 0,           ///< Operation completed successfully
-    NotEnabled = 1,        ///< State context not enabled
-    InvalidHandle = 2,     ///< Invalid transaction handle
-    KeyNotFound = 3,       ///< Key not found in state store
+    Success = 0,              ///< Operation completed successfully
+    NotEnabled = 1,           ///< State context not enabled
+    InvalidHandle = 2,        ///< Invalid transaction handle
+    KeyNotFound = 3,          ///< Key not found in state store
     TransactionConflict = 4,  ///< Transaction commit conflict (OCC)
-    BackendError = 5,      ///< Backend operation failed
+    BackendError = 5,         ///< Backend operation failed
 };
 
 /// @brief Convert StateExecError to ExecResult
@@ -32,12 +32,18 @@ enum class StateExecError : std::uint8_t {
 /// @return Corresponding ExecResult value
 constexpr std::uint8_t to_exec_result(StateExecError err) noexcept {
     switch (err) {
-        case StateExecError::Success: return 0;  // ExecResult::Success
-        case StateExecError::NotEnabled: return 17;  // ExecResult::StateNotEnabled
-        case StateExecError::InvalidHandle: return 16;  // ExecResult::TransactionAborted
-        case StateExecError::KeyNotFound: return 14;  // ExecResult::StateKeyNotFound
-        case StateExecError::TransactionConflict: return 15;  // ExecResult::TransactionConflict
-        case StateExecError::BackendError: return 6;  // ExecResult::Error
+        case StateExecError::Success:
+            return 0;  // ExecResult::Success
+        case StateExecError::NotEnabled:
+            return 17;  // ExecResult::StateNotEnabled
+        case StateExecError::InvalidHandle:
+            return 16;  // ExecResult::TransactionAborted
+        case StateExecError::KeyNotFound:
+            return 14;  // ExecResult::StateKeyNotFound
+        case StateExecError::TransactionConflict:
+            return 15;  // ExecResult::TransactionConflict
+        case StateExecError::BackendError:
+            return 6;  // ExecResult::Error
     }
     return 6;  // ExecResult::Error
 }
@@ -58,7 +64,7 @@ constexpr std::uint8_t to_exec_result(StateExecError err) noexcept {
 /// - Use begin_transaction() to start new transactions
 /// - All active transactions are auto-rolled-back on destruction
 class StateExecutionContext {
-  public:
+public:
     using Key = std::span<const std::byte>;
     using Value = std::span<const std::byte>;
 
@@ -141,8 +147,7 @@ class StateExecutionContext {
     /// @param key Key to check
     /// @param out_exists Output flag
     /// @return Error code
-    [[nodiscard]] StateExecError exists(std::uint64_t handle, Key key,
-                                        bool& out_exists) noexcept;
+    [[nodiscard]] StateExecError exists(std::uint64_t handle, Key key, bool& out_exists) noexcept;
 
     // ========================================================================
     // Statistics
@@ -157,15 +162,14 @@ class StateExecutionContext {
     /// @return true if valid (including 0)
     [[nodiscard]] bool is_valid_handle(std::uint64_t handle) const noexcept;
 
-  private:
+private:
     /// @brief Generate a unique transaction handle
     [[nodiscard]] std::uint64_t generate_handle() noexcept;
 
     /// @brief Get transaction by handle
     /// @param handle Transaction handle
     /// @return Pointer to managed transaction, or nullptr if invalid
-    [[nodiscard]] core::state::ManagedTransaction* get_transaction(
-        std::uint64_t handle) noexcept;
+    [[nodiscard]] core::state::ManagedTransaction* get_transaction(std::uint64_t handle) noexcept;
 
     /// @brief Remove a transaction entry
     /// @param handle Handle to remove

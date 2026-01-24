@@ -572,8 +572,8 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
                 exec_ctx_.halt_with_error(ExecResult::MemoryError);
                 return false;
             }
-            auto key = std::span<const std::byte>{
-                reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+            auto key =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
             std::vector<std::byte> value;
             auto result = state_ctx.get(tx_handle, key, value);
             if (result == StateExecError::Success) {
@@ -610,8 +610,8 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
                 exec_ctx_.halt_with_error(ExecResult::MemoryError);
                 return false;
             }
-            auto key = std::span<const std::byte>{
-                reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+            auto key =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
             bool exists = false;
             auto result = state_ctx.exists(tx_handle, key, exists);
             if (result == StateExecError::Success) {
@@ -691,10 +691,10 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
                 exec_ctx_.halt_with_error(ExecResult::MemoryError);
                 return false;
             }
-            auto key = std::span<const std::byte>{
-                reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
-            auto value = std::span<const std::byte>{
-                reinterpret_cast<const std::byte*>(*val_ptr), *val_size};
+            auto key =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+            auto value =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*val_ptr), *val_size};
             auto result = state_ctx.put(tx_handle, key, value);
             if (result != StateExecError::Success) {
                 exec_ctx_.halt_with_error(to_exec_result(result));
@@ -718,8 +718,8 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
                 exec_ctx_.halt_with_error(ExecResult::MemoryError);
                 return false;
             }
-            auto key = std::span<const std::byte>{
-                reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+            auto key =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
             auto result = state_ctx.remove(tx_handle, key);
             if (result == StateExecError::Success) {
                 regs.write(d.rd, core::Value::from_int(1));
@@ -773,8 +773,8 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // Data Move (0x80-0x8F)
         op_MOV, op_MOVI, op_LOADK, op_MOVHI, op_MOVLO, op_XCHG,
         // State Opcodes (0xA0-0xAF) - STATE-004
-        op_STATE_GET, op_STATE_EXISTS, op_TX_BEGIN, op_TX_COMMIT, op_TX_ROLLBACK,
-        op_STATE_PUT, op_STATE_DELETE,
+        op_STATE_GET, op_STATE_EXISTS, op_TX_BEGIN, op_TX_COMMIT, op_TX_ROLLBACK, op_STATE_PUT,
+        op_STATE_DELETE,
         // System (0xF0-0xFF)
         op_NOP, op_BREAK, op_DEBUG, op_SYSCALL,
         // Error handlers
@@ -1681,8 +1681,7 @@ op_STATE_GET: {
     if (!key_ptr || !key_size) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::MemoryError);
     }
-    auto key = std::span<const std::byte>{
-        reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+    auto key = std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
     // Scope to ensure vector is destroyed before DOTVM_NEXT
     {
         std::vector<std::byte> value;
@@ -1718,8 +1717,7 @@ op_STATE_EXISTS: {
     if (!key_ptr || !key_size) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::MemoryError);
     }
-    auto key = std::span<const std::byte>{
-        reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+    auto key = std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
     bool exists = false;
     auto result = state_ctx.exists(tx_handle, key, exists);
     if (result == StateExecError::Success) {
@@ -1792,10 +1790,9 @@ op_STATE_PUT: {
     if (!key_ptr || !key_size || !val_ptr || !val_size) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::MemoryError);
     }
-    auto key = std::span<const std::byte>{
-        reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
-    auto value = std::span<const std::byte>{
-        reinterpret_cast<const std::byte*>(*val_ptr), *val_size};
+    auto key = std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+    auto value =
+        std::span<const std::byte>{reinterpret_cast<const std::byte*>(*val_ptr), *val_size};
     auto result = state_ctx.put(tx_handle, key, value);
     if (result != StateExecError::Success) [[unlikely]] {
         DOTVM_RETURN_ERROR(to_exec_result(result));
@@ -1817,8 +1814,7 @@ op_STATE_DELETE: {
     if (!key_ptr || !key_size) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::MemoryError);
     }
-    auto key = std::span<const std::byte>{
-        reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+    auto key = std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
     auto result = state_ctx.remove(tx_handle, key);
     if (result == StateExecError::Success) {
         regs.write(d.rd, core::Value::from_int(1));

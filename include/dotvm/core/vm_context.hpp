@@ -16,6 +16,7 @@
 #include "arch_types.hpp"
 #include "call_stack.hpp"
 #include "cfi.hpp"
+#include "dotvm/exec/state_execution_context.hpp"
 #include "exception_context.hpp"
 #include "memory.hpp"
 #include "register_file.hpp"
@@ -23,7 +24,6 @@
 #include "simd/cpu_features.hpp"
 #include "simd/simd_alu.hpp"
 #include "simd/vector_register_file.hpp"
-#include "dotvm/exec/state_execution_context.hpp"
 
 // Forward declaration for JIT support
 namespace dotvm::jit {
