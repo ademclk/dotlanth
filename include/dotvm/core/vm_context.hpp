@@ -23,6 +23,7 @@
 #include "simd/cpu_features.hpp"
 #include "simd/simd_alu.hpp"
 #include "simd/vector_register_file.hpp"
+#include "dotvm/exec/state_execution_context.hpp"
 
 // Forward declaration for JIT support
 namespace dotvm::jit {
@@ -535,6 +536,31 @@ public:
     [[nodiscard]] SecurityStats& security_stats() noexcept { return mem_.security_stats(); }
 
     // =========================================================================
+    // State Backend Access (STATE-004)
+    // =========================================================================
+
+    /// Check if state operations are enabled
+    [[nodiscard]] bool state_enabled() const noexcept { return state_ctx_.is_enabled(); }
+
+    /// Get mutable reference to the state execution context
+    ///
+    /// The state context manages transaction handles for state opcodes.
+    [[nodiscard]] exec::StateExecutionContext& state_context() noexcept { return state_ctx_; }
+
+    /// Get const reference to the state execution context
+    [[nodiscard]] const exec::StateExecutionContext& state_context() const noexcept {
+        return state_ctx_;
+    }
+
+    /// Enable state operations with a TransactionManager
+    ///
+    /// @param tx_mgr Pointer to TransactionManager (must outlive this VmContext)
+    void enable_state(state::TransactionManager* tx_mgr) noexcept { state_ctx_.enable(tx_mgr); }
+
+    /// Disable state operations and rollback all active transactions
+    void disable_state() noexcept { state_ctx_.disable(); }
+
+    // =========================================================================
     // State Management
     // =========================================================================
 
@@ -603,6 +629,9 @@ private:
     std::optional<cfi::CfiContext> cfi_;
     CallStack call_stack_;            // EXEC-007: Call stack for frame management
     ExceptionContext exception_ctx_;  // EXEC-011: Exception handling context
+
+    // State support (STATE-004)
+    exec::StateExecutionContext state_ctx_;
 
     // SIMD support
     simd::VectorRegisterFile vec_regs_;

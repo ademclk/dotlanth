@@ -30,7 +30,11 @@ enum class ExecResult : std::uint8_t {
     ExecutionLimit = 10,      ///< Instruction limit exceeded (EXEC-008)
     UnhandledException = 11,  ///< Unhandled exception (EXEC-011)
     JitFallback = 12,         ///< JIT compilation not available, use interpreter (EXEC-012)
-    CapabilityDenied = 13     ///< Opcode permission denied (SEC-005)
+    CapabilityDenied = 13,    ///< Opcode permission denied (SEC-005)
+    StateKeyNotFound = 14,    ///< State key not found (STATE-004)
+    TransactionConflict = 15, ///< Transaction commit conflict (STATE-004)
+    TransactionAborted = 16,  ///< Transaction was aborted (STATE-004)
+    StateNotEnabled = 17      ///< State subsystem not enabled (STATE-004)
 };
 
 /// Convert ExecResult to string representation
@@ -64,6 +68,14 @@ enum class ExecResult : std::uint8_t {
             return "JitFallback";
         case ExecResult::CapabilityDenied:
             return "CapabilityDenied";
+        case ExecResult::StateKeyNotFound:
+            return "StateKeyNotFound";
+        case ExecResult::TransactionConflict:
+            return "TransactionConflict";
+        case ExecResult::TransactionAborted:
+            return "TransactionAborted";
+        case ExecResult::StateNotEnabled:
+            return "StateNotEnabled";
     }
     return "Unknown";
 }

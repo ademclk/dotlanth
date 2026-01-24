@@ -552,3 +552,88 @@ inline constexpr std::uint8_t SYSCALL = 0xFE;
 }
 
 }  // namespace dotvm::core
+
+// ============================================================================
+// State Opcodes (0xA0-0xAF) - STATE-004
+// ============================================================================
+// Defined outside the opcode namespace to avoid conflicts with existing
+// namespace structure, but uses the same pattern.
+
+namespace dotvm::core::opcode {
+
+// State Read Operations (0xA0-0xA7) - Require ReadState permission
+// Type A format: [op][rd][rs1][rs2]
+// - rd: destination register (result)
+// - rs1: memory handle for key
+// - rs2: transaction handle (0 = no transaction)
+
+/// STATE_GET: rd = state[key@rs1] using tx@rs2 (0=no tx)
+/// Reads value from state backend. If key not found, rd = 0 and error flag set.
+inline constexpr std::uint8_t STATE_GET = 0xA0;
+
+/// STATE_EXISTS: rd = exists(key@rs1) using tx@rs2
+/// Checks if key exists. rd = 1 if exists, 0 otherwise.
+inline constexpr std::uint8_t STATE_EXISTS = 0xA1;
+
+/// Reserved state read opcodes (0xA2-0xA7)
+inline constexpr std::uint8_t STATE_READ_RESERVED_START = 0xA2;
+inline constexpr std::uint8_t STATE_READ_RESERVED_END = 0xA7;
+
+// State Write Operations (0xA8-0xAF) - Require WriteState permission
+// Type A format: [op][rd][rs1][rs2]
+// Type B format: [op][rd][imm16] (for TX_BEGIN)
+
+/// TX_BEGIN: rd = new_tx_handle() (Type B: imm16 = isolation level)
+/// Begins a new transaction. Returns unique handle in rd.
+/// imm16: 0 = Snapshot, 1 = ReadCommitted
+inline constexpr std::uint8_t TX_BEGIN = 0xA8;
+
+/// TX_COMMIT: rd = commit(tx@rs1) (Type A)
+/// Commits transaction. rd = 1 on success, 0 on conflict.
+inline constexpr std::uint8_t TX_COMMIT = 0xA9;
+
+/// TX_ROLLBACK: rd = rollback(tx@rs1) (Type A)
+/// Rolls back transaction. rd = 1 on success, 0 on error.
+inline constexpr std::uint8_t TX_ROLLBACK = 0xAA;
+
+/// STATE_PUT: state[key@rd] = value@rs1 using tx@rs2 (Type A)
+/// Writes value to state backend.
+inline constexpr std::uint8_t STATE_PUT = 0xAB;
+
+/// STATE_DELETE: rd = delete(key@rs1) using tx@rs2 (Type A)
+/// Deletes key from state. rd = 1 if deleted, 0 if not found.
+inline constexpr std::uint8_t STATE_DELETE = 0xAC;
+
+/// Reserved state write opcodes (0xAD-0xAF)
+inline constexpr std::uint8_t STATE_WRITE_RESERVED_START = 0xAD;
+inline constexpr std::uint8_t STATE_WRITE_RESERVED_END = 0xAF;
+
+}  // namespace dotvm::core::opcode
+
+namespace dotvm::core {
+
+/// Check if opcode is a state operation (0xA0-0xAF) - STATE-004
+/// Includes: STATE_GET, STATE_EXISTS, TX_BEGIN, TX_COMMIT, TX_ROLLBACK, STATE_PUT, STATE_DELETE
+[[nodiscard]] constexpr bool is_state_op(std::uint8_t op) noexcept {
+    return op >= opcode::STATE_GET && op <= opcode::STATE_WRITE_RESERVED_END;
+}
+
+/// Check if opcode is a state read operation (0xA0-0xA7)
+/// Includes: STATE_GET, STATE_EXISTS
+[[nodiscard]] constexpr bool is_state_read_op(std::uint8_t op) noexcept {
+    return op >= opcode::STATE_GET && op <= opcode::STATE_READ_RESERVED_END;
+}
+
+/// Check if opcode is a state write operation (0xA8-0xAF)
+/// Includes: TX_BEGIN, TX_COMMIT, TX_ROLLBACK, STATE_PUT, STATE_DELETE
+[[nodiscard]] constexpr bool is_state_write_op(std::uint8_t op) noexcept {
+    return op >= opcode::TX_BEGIN && op <= opcode::STATE_WRITE_RESERVED_END;
+}
+
+/// Check if opcode is a transaction operation (0xA8-0xAA)
+/// Includes: TX_BEGIN, TX_COMMIT, TX_ROLLBACK
+[[nodiscard]] constexpr bool is_transaction_op(std::uint8_t op) noexcept {
+    return op >= opcode::TX_BEGIN && op <= opcode::TX_ROLLBACK;
+}
+
+}  // namespace dotvm::core
