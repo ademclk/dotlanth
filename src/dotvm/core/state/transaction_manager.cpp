@@ -21,10 +21,10 @@ TransactionManager::TransactionManager(std::unique_ptr<StateBackend> backend,
     global_version_.store(1, std::memory_order_release);
 
     // Start deadlock detector thread
-    deadlock_detector_ = std::jthread([this](std::stop_token stop_token) {
-        while (!stop_token.stop_requested() && !shutdown_.load(std::memory_order_acquire)) {
+    deadlock_detector_ = std::thread([this]() {
+        while (!shutdown_.load(std::memory_order_acquire)) {
             std::this_thread::sleep_for(config_.deadlock_check_interval);
-            if (!stop_token.stop_requested() && !shutdown_.load(std::memory_order_acquire)) {
+            if (!shutdown_.load(std::memory_order_acquire)) {
                 check_deadlocks();
             }
         }
@@ -35,8 +35,7 @@ TransactionManager::~TransactionManager() {
     // Signal shutdown
     shutdown_.store(true, std::memory_order_release);
 
-    // Stop and join the deadlock detector thread
-    deadlock_detector_.request_stop();
+    // Join the deadlock detector thread
     if (deadlock_detector_.joinable()) {
         deadlock_detector_.join();
     }

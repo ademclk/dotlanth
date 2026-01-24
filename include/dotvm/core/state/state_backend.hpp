@@ -39,13 +39,13 @@ enum class StateBackendError : std::uint8_t {
     InvalidKey = 4,     ///< Key is invalid (e.g., empty)
 
     // Transaction errors (16-31)
-    TransactionNotActive = 16,      ///< No active transaction
-    TransactionConflict = 17,       ///< Conflicting concurrent modification
-    InvalidTransaction = 18,        ///< Transaction handle is invalid
-    DeadlockDetected = 19,          ///< Transaction aborted due to deadlock timeout
-    TooManyTransactions = 20,       ///< Max concurrent transactions exceeded
-    TransactionTimeout = 21,        ///< Transaction exceeded timeout limit
-    ReadSetValidationFailed = 22,   ///< Read set version changed during OCC validation
+    TransactionNotActive = 16,     ///< No active transaction
+    TransactionConflict = 17,      ///< Conflicting concurrent modification
+    InvalidTransaction = 18,       ///< Transaction handle is invalid
+    DeadlockDetected = 19,         ///< Transaction aborted due to deadlock timeout
+    TooManyTransactions = 20,      ///< Max concurrent transactions exceeded
+    TransactionTimeout = 21,       ///< Transaction exceeded timeout limit
+    ReadSetValidationFailed = 22,  ///< Read set version changed during OCC validation
 
     // Backend errors (32-47)
     StorageFull = 32,    ///< Storage capacity exceeded

@@ -306,7 +306,7 @@ private:
     std::atomic<std::uint32_t> tx_generation_{1};
 
     // Deadlock detection
-    std::jthread deadlock_detector_;
+    std::thread deadlock_detector_;
     std::atomic<bool> shutdown_{false};
 };
 
