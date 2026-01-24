@@ -74,11 +74,11 @@ public:
     /// @brief Destructor - auto-rollback all active transactions
     ~StateExecutionContext() noexcept;
 
-    // Non-copyable, movable
+    // Non-copyable, non-movable (std::atomic is not movable)
     StateExecutionContext(const StateExecutionContext&) = delete;
     StateExecutionContext& operator=(const StateExecutionContext&) = delete;
-    StateExecutionContext(StateExecutionContext&&) noexcept = default;
-    StateExecutionContext& operator=(StateExecutionContext&&) noexcept = default;
+    StateExecutionContext(StateExecutionContext&&) = delete;
+    StateExecutionContext& operator=(StateExecutionContext&&) = delete;
 
     // ========================================================================
     // Lifecycle

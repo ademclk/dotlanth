@@ -540,7 +540,7 @@ public:
     // =========================================================================
 
     /// Check if state operations are enabled
-    [[nodiscard]] bool state_enabled() const noexcept { return state_ctx_.is_enabled(); }
+    [[nodiscard]] bool state_enabled() const noexcept { return state_ctx_.enabled(); }
 
     /// Get mutable reference to the state execution context
     ///

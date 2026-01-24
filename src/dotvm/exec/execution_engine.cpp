@@ -559,7 +559,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             // STATE_GET: rd = state[key@rs1] using tx@rs2 (0=no tx)
             auto d = core::decode_type_a(instr);
             auto& state_ctx = vm_ctx_.state_context();
-            if (!state_ctx.is_enabled()) {
+            if (!state_ctx.enabled()) {
                 exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
                 return false;
             }
@@ -598,7 +598,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             // STATE_EXISTS: rd = exists(key@rs1) using tx@rs2
             auto d = core::decode_type_a(instr);
             auto& state_ctx = vm_ctx_.state_context();
-            if (!state_ctx.is_enabled()) {
+            if (!state_ctx.enabled()) {
                 exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
                 return false;
             }
@@ -626,7 +626,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             // TX_BEGIN: rd = new_tx_handle() (Type B: imm16 = isolation level)
             auto d = core::decode_type_b(instr);
             auto& state_ctx = vm_ctx_.state_context();
-            if (!state_ctx.is_enabled()) {
+            if (!state_ctx.enabled()) {
                 exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
                 return false;
             }
@@ -639,7 +639,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             // TX_COMMIT: rd = commit(tx@rs1)
             auto d = core::decode_type_a(instr);
             auto& state_ctx = vm_ctx_.state_context();
-            if (!state_ctx.is_enabled()) {
+            if (!state_ctx.enabled()) {
                 exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
                 return false;
             }
@@ -659,7 +659,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             // TX_ROLLBACK: rd = rollback(tx@rs1)
             auto d = core::decode_type_a(instr);
             auto& state_ctx = vm_ctx_.state_context();
-            if (!state_ctx.is_enabled()) {
+            if (!state_ctx.enabled()) {
                 exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
                 return false;
             }
@@ -676,7 +676,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             // STATE_PUT: state[key@rd] = value@rs1 using tx@rs2
             auto d = core::decode_type_a(instr);
             auto& state_ctx = vm_ctx_.state_context();
-            if (!state_ctx.is_enabled()) {
+            if (!state_ctx.enabled()) {
                 exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
                 return false;
             }
@@ -706,7 +706,7 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             // STATE_DELETE: rd = delete(key@rs1) using tx@rs2
             auto d = core::decode_type_a(instr);
             auto& state_ctx = vm_ctx_.state_context();
-            if (!state_ctx.is_enabled()) {
+            if (!state_ctx.enabled()) {
                 exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
                 return false;
             }
@@ -1671,7 +1671,7 @@ op_STATE_GET: {
     // STATE_GET: rd = state[key@rs1] using tx@rs2 (0=no tx)
     auto d = core::decode_type_a(instr);
     auto& state_ctx = vm_ctx_.state_context();
-    if (!state_ctx.is_enabled()) [[unlikely]] {
+    if (!state_ctx.enabled()) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
     }
     auto key_handle = regs.read(d.rs1).as_handle();
@@ -1707,7 +1707,7 @@ op_STATE_EXISTS: {
     // STATE_EXISTS: rd = exists(key@rs1) using tx@rs2
     auto d = core::decode_type_a(instr);
     auto& state_ctx = vm_ctx_.state_context();
-    if (!state_ctx.is_enabled()) [[unlikely]] {
+    if (!state_ctx.enabled()) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
     }
     auto key_handle = regs.read(d.rs1).as_handle();
@@ -1732,7 +1732,7 @@ op_TX_BEGIN: {
     // TX_BEGIN: rd = new_tx_handle() (Type B: imm16 = isolation level)
     auto d = core::decode_type_b(instr);
     auto& state_ctx = vm_ctx_.state_context();
-    if (!state_ctx.is_enabled()) [[unlikely]] {
+    if (!state_ctx.enabled()) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
     }
     auto isolation = static_cast<std::uint8_t>(d.imm16 & 0xFF);
@@ -1745,7 +1745,7 @@ op_TX_COMMIT: {
     // TX_COMMIT: rd = commit(tx@rs1)
     auto d = core::decode_type_a(instr);
     auto& state_ctx = vm_ctx_.state_context();
-    if (!state_ctx.is_enabled()) [[unlikely]] {
+    if (!state_ctx.enabled()) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
     }
     auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
@@ -1764,7 +1764,7 @@ op_TX_ROLLBACK: {
     // TX_ROLLBACK: rd = rollback(tx@rs1)
     auto d = core::decode_type_a(instr);
     auto& state_ctx = vm_ctx_.state_context();
-    if (!state_ctx.is_enabled()) [[unlikely]] {
+    if (!state_ctx.enabled()) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
     }
     auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
@@ -1777,7 +1777,7 @@ op_STATE_PUT: {
     // STATE_PUT: state[key@rd] = value@rs1 using tx@rs2
     auto d = core::decode_type_a(instr);
     auto& state_ctx = vm_ctx_.state_context();
-    if (!state_ctx.is_enabled()) [[unlikely]] {
+    if (!state_ctx.enabled()) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
     }
     auto key_handle = regs.read(d.rd).as_handle();
@@ -1804,7 +1804,7 @@ op_STATE_DELETE: {
     // STATE_DELETE: rd = delete(key@rs1) using tx@rs2
     auto d = core::decode_type_a(instr);
     auto& state_ctx = vm_ctx_.state_context();
-    if (!state_ctx.is_enabled()) [[unlikely]] {
+    if (!state_ctx.enabled()) [[unlikely]] {
         DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
     }
     auto key_handle = regs.read(d.rs1).as_handle();
