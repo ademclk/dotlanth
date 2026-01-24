@@ -549,7 +549,6 @@ TEST_F(TransactionManagerTest, FirstCommitterWins) {
 TEST_F(TransactionManagerTest, SecondCommitterGetsConflict) {
     auto key = to_bytes("conflict_key");
     auto initial = to_bytes("initial");
-    auto modified = to_bytes("modified");
 
     // Setup
     ASSERT_TRUE(tm_->backend().put(key, initial).is_ok());
