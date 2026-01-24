@@ -108,17 +108,29 @@ TransactionManager::Result<void> TransactionManager::commit(ManagedTransaction& 
     // Check write-write conflicts
     auto ww_result = check_write_conflicts(tx);
     if (!ww_result) {
+        auto err = ww_result.error();
+        // For OCC conflicts, keep transaction active for retry/rollback
+        if (err == StateBackendError::TransactionConflict) {
+            return err;
+        }
+        // Other errors are unrecoverable
         tx.state = TransactionState::Aborted;
         cleanup_transaction(tx.id.id);
-        return ww_result.error();
+        return err;
     }
 
     // Validate read set (OCC validation)
     auto rs_result = validate_read_set(tx);
     if (!rs_result) {
+        auto err = rs_result.error();
+        // For read-set validation failures (OCC conflict), keep transaction active
+        if (err == StateBackendError::ReadSetValidationFailed) {
+            return err;
+        }
+        // Other errors are unrecoverable
         tx.state = TransactionState::Aborted;
         cleanup_transaction(tx.id.id);
-        return rs_result.error();
+        return err;
     }
 
     // Apply write set
