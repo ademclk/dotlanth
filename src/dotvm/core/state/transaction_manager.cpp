@@ -108,17 +108,29 @@ TransactionManager::Result<void> TransactionManager::commit(ManagedTransaction& 
     // Check write-write conflicts
     auto ww_result = check_write_conflicts(tx);
     if (!ww_result) {
+        auto err = ww_result.error();
+        // For OCC conflicts, keep transaction active for retry/rollback
+        if (err == StateBackendError::TransactionConflict) {
+            return err;
+        }
+        // Other errors are unrecoverable
         tx.state = TransactionState::Aborted;
         cleanup_transaction(tx.id.id);
-        return ww_result.error();
+        return err;
     }
 
     // Validate read set (OCC validation)
     auto rs_result = validate_read_set(tx);
     if (!rs_result) {
+        auto err = rs_result.error();
+        // For read-set validation failures (OCC conflict), keep transaction active
+        if (err == StateBackendError::ReadSetValidationFailed) {
+            return err;
+        }
+        // Other errors are unrecoverable
         tx.state = TransactionState::Aborted;
         cleanup_transaction(tx.id.id);
-        return rs_result.error();
+        return err;
     }
 
     // Apply write set
@@ -170,28 +182,16 @@ TransactionManager::Result<std::vector<std::byte>> TransactionManager::get(Manag
     auto key_vec = std::vector<std::byte>(key.begin(), key.end());
 
     // Check write_set first (read-your-writes)
+    // NOTE: Do NOT add to read_set when reading from write_set. The value comes
+    // from our own pending write, not the backend. Adding it to read_set with
+    // incorrect `existed` status causes validation failures on commit.
     {
         auto it = tx.write_set.find(key_vec);
         if (it != tx.write_set.end()) {
             if (it->second.value.has_value()) {
-                // Also add to read_set for tracking
-                if (tx.read_set.find(key_vec) == tx.read_set.end()) {
-                    ReadSetEntry entry;
-                    entry.key = key_vec;
-                    entry.version_at_read = tx.start_version;
-                    entry.existed = true;
-                    tx.read_set[key_vec] = std::move(entry);
-                }
                 return it->second.value.value();
             }
-            // Key marked for deletion
-            if (tx.read_set.find(key_vec) == tx.read_set.end()) {
-                ReadSetEntry entry;
-                entry.key = key_vec;
-                entry.version_at_read = tx.start_version;
-                entry.existed = false;
-                tx.read_set[key_vec] = std::move(entry);
-            }
+            // Key marked for deletion in write_set
             return StateBackendError::KeyNotFound;
         }
     }

@@ -11,9 +11,11 @@
 #include <dotvm/core/exception_context.hpp>
 #include <dotvm/core/exception_types.hpp>
 #include <dotvm/core/instruction.hpp>
+#include <dotvm/core/opcode.hpp>
 #include <dotvm/core/value.hpp>
 #include <dotvm/exec/execution_engine.hpp>
 #include <dotvm/exec/opcode_handlers.hpp>
+#include <dotvm/exec/state_execution_context.hpp>
 #include <dotvm/exec/syscall_handler.hpp>
 #include <dotvm/jit/jit_context.hpp>
 
@@ -550,6 +552,186 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         }
             // Note: HALT moved to Control Flow section (0x5F) per EXEC-005
 
+        // =====================================================================
+        // STATE OPCODES (0xA0-0xAF) - STATE-004
+        // =====================================================================
+        case core::opcode::STATE_GET: {
+            // STATE_GET: rd = state[key@rs1] using tx@rs2 (0=no tx)
+            auto d = core::decode_type_a(instr);
+            auto& state_ctx = vm_ctx_.state_context();
+            if (!state_ctx.enabled()) {
+                exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
+                return false;
+            }
+            auto key_handle = regs.read(d.rs1).as_handle();
+            auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs2).as_integer());
+            // Get key bytes from memory
+            auto key_ptr = mem.get_ptr(key_handle);
+            auto key_size = mem.get_size(key_handle);
+            if (!key_ptr || !key_size) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            auto key =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+            std::vector<std::byte> value;
+            auto result = state_ctx.get(tx_handle, key, value);
+            if (result == StateExecError::Success) {
+                // Allocate memory for value and store handle
+                auto alloc_result = mem.allocate(value.size());
+                if (!alloc_result) {
+                    exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                    return false;
+                }
+                auto val_handle = *alloc_result;
+                std::memcpy(mem.get_ptr(val_handle).value(), value.data(), value.size());
+                regs.write(d.rd, core::Value::from_handle(val_handle));
+            } else if (result == StateExecError::KeyNotFound) {
+                regs.write(d.rd, core::Value::from_int(0));
+            } else {
+                exec_ctx_.halt_with_error(to_exec_result(result));
+                return false;
+            }
+            return true;
+        }
+        case core::opcode::STATE_EXISTS: {
+            // STATE_EXISTS: rd = exists(key@rs1) using tx@rs2
+            auto d = core::decode_type_a(instr);
+            auto& state_ctx = vm_ctx_.state_context();
+            if (!state_ctx.enabled()) {
+                exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
+                return false;
+            }
+            auto key_handle = regs.read(d.rs1).as_handle();
+            auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs2).as_integer());
+            auto key_ptr = mem.get_ptr(key_handle);
+            auto key_size = mem.get_size(key_handle);
+            if (!key_ptr || !key_size) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            auto key =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+            bool exists = false;
+            auto result = state_ctx.exists(tx_handle, key, exists);
+            if (result == StateExecError::Success) {
+                regs.write(d.rd, core::Value::from_int(exists ? 1 : 0));
+            } else {
+                exec_ctx_.halt_with_error(to_exec_result(result));
+                return false;
+            }
+            return true;
+        }
+        case core::opcode::TX_BEGIN: {
+            // TX_BEGIN: rd = new_tx_handle() (Type B: imm16 = isolation level)
+            auto d = core::decode_type_b(instr);
+            auto& state_ctx = vm_ctx_.state_context();
+            if (!state_ctx.enabled()) {
+                exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
+                return false;
+            }
+            auto isolation = static_cast<std::uint8_t>(d.imm16 & 0xFF);
+            auto handle = state_ctx.begin_transaction(isolation);
+            regs.write(d.rd, core::Value::from_int(static_cast<std::int64_t>(handle)));
+            return true;
+        }
+        case core::opcode::TX_COMMIT: {
+            // TX_COMMIT: rd = commit(tx@rs1)
+            auto d = core::decode_type_a(instr);
+            auto& state_ctx = vm_ctx_.state_context();
+            if (!state_ctx.enabled()) {
+                exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
+                return false;
+            }
+            auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
+            auto result = state_ctx.commit(tx_handle);
+            if (result == StateExecError::Success) {
+                regs.write(d.rd, core::Value::from_int(1));
+            } else if (result == StateExecError::TransactionConflict) {
+                regs.write(d.rd, core::Value::from_int(0));  // Conflict, not fatal
+            } else {
+                exec_ctx_.halt_with_error(to_exec_result(result));
+                return false;
+            }
+            return true;
+        }
+        case core::opcode::TX_ROLLBACK: {
+            // TX_ROLLBACK: rd = rollback(tx@rs1)
+            auto d = core::decode_type_a(instr);
+            auto& state_ctx = vm_ctx_.state_context();
+            if (!state_ctx.enabled()) {
+                exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
+                return false;
+            }
+            auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
+            auto result = state_ctx.rollback(tx_handle);
+            if (result == StateExecError::Success) {
+                regs.write(d.rd, core::Value::from_int(1));
+            } else {
+                regs.write(d.rd, core::Value::from_int(0));
+            }
+            return true;
+        }
+        case core::opcode::STATE_PUT: {
+            // STATE_PUT: state[key@rd] = value@rs1 using tx@rs2
+            auto d = core::decode_type_a(instr);
+            auto& state_ctx = vm_ctx_.state_context();
+            if (!state_ctx.enabled()) {
+                exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
+                return false;
+            }
+            auto key_handle = regs.read(d.rd).as_handle();
+            auto val_handle = regs.read(d.rs1).as_handle();
+            auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs2).as_integer());
+            auto key_ptr = mem.get_ptr(key_handle);
+            auto key_size = mem.get_size(key_handle);
+            auto val_ptr = mem.get_ptr(val_handle);
+            auto val_size = mem.get_size(val_handle);
+            if (!key_ptr || !key_size || !val_ptr || !val_size) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            auto key =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+            auto value =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*val_ptr), *val_size};
+            auto result = state_ctx.put(tx_handle, key, value);
+            if (result != StateExecError::Success) {
+                exec_ctx_.halt_with_error(to_exec_result(result));
+                return false;
+            }
+            return true;
+        }
+        case core::opcode::STATE_DELETE: {
+            // STATE_DELETE: rd = delete(key@rs1) using tx@rs2
+            auto d = core::decode_type_a(instr);
+            auto& state_ctx = vm_ctx_.state_context();
+            if (!state_ctx.enabled()) {
+                exec_ctx_.halt_with_error(ExecResult::StateNotEnabled);
+                return false;
+            }
+            auto key_handle = regs.read(d.rs1).as_handle();
+            auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs2).as_integer());
+            auto key_ptr = mem.get_ptr(key_handle);
+            auto key_size = mem.get_size(key_handle);
+            if (!key_ptr || !key_size) {
+                exec_ctx_.halt_with_error(ExecResult::MemoryError);
+                return false;
+            }
+            auto key =
+                std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+            auto result = state_ctx.remove(tx_handle, key);
+            if (result == StateExecError::Success) {
+                regs.write(d.rd, core::Value::from_int(1));
+            } else if (result == StateExecError::KeyNotFound) {
+                regs.write(d.rd, core::Value::from_int(0));
+            } else {
+                exec_ctx_.halt_with_error(to_exec_result(result));
+                return false;
+            }
+            return true;
+        }
+
         default: {
             // Check for reserved opcodes
             if (core::is_reserved_opcode(opcode_val)) {
@@ -590,6 +772,9 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         op_LEA,
         // Data Move (0x80-0x8F)
         op_MOV, op_MOVI, op_LOADK, op_MOVHI, op_MOVLO, op_XCHG,
+        // State Opcodes (0xA0-0xAF) - STATE-004
+        op_STATE_GET, op_STATE_EXISTS, op_TX_BEGIN, op_TX_COMMIT, op_TX_ROLLBACK, op_STATE_PUT,
+        op_STATE_DELETE,
         // System (0xF0-0xFF)
         op_NOP, op_BREAK, op_DEBUG, op_SYSCALL,
         // Error handlers
@@ -701,6 +886,15 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[opcode::DEBUG] = &&op_DEBUG;  // EXEC-010
         dispatch_table[opcode::SYSCALL] = &&op_SYSCALL;
         // Note: HALT now in control flow section (0x5F) per EXEC-005
+
+        // State handlers (0xA0-0xAF) - STATE-004
+        dispatch_table[core::opcode::STATE_GET] = &&op_STATE_GET;
+        dispatch_table[core::opcode::STATE_EXISTS] = &&op_STATE_EXISTS;
+        dispatch_table[core::opcode::TX_BEGIN] = &&op_TX_BEGIN;
+        dispatch_table[core::opcode::TX_COMMIT] = &&op_TX_COMMIT;
+        dispatch_table[core::opcode::TX_ROLLBACK] = &&op_TX_ROLLBACK;
+        dispatch_table[core::opcode::STATE_PUT] = &&op_STATE_PUT;
+        dispatch_table[core::opcode::STATE_DELETE] = &&op_STATE_DELETE;
 
         // Mark reserved ranges
         for (std::size_t i = 0x90; i <= 0x9F; ++i) {
@@ -1468,6 +1662,169 @@ op_DEBUG: {
 }
 
     // Note: op_HALT moved to control flow section (0x5F) per EXEC-005
+
+    // =========================================================================
+    // STATE OPCODE HANDLERS (0xA0-0xAF) - STATE-004
+    // =========================================================================
+
+op_STATE_GET: {
+    // STATE_GET: rd = state[key@rs1] using tx@rs2 (0=no tx)
+    auto d = core::decode_type_a(instr);
+    auto& state_ctx = vm_ctx_.state_context();
+    if (!state_ctx.enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
+    }
+    auto key_handle = regs.read(d.rs1).as_handle();
+    auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs2).as_integer());
+    auto key_ptr = mem.get_ptr(key_handle);
+    auto key_size = mem.get_size(key_handle);
+    if (!key_ptr || !key_size) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+    }
+    auto key = std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+    // Scope to ensure vector is destroyed before DOTVM_NEXT
+    {
+        std::vector<std::byte> value;
+        auto result = state_ctx.get(tx_handle, key, value);
+        if (result == StateExecError::Success) {
+            auto alloc_result = mem.allocate(value.size());
+            if (!alloc_result) [[unlikely]] {
+                DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+            }
+            auto val_handle = *alloc_result;
+            std::memcpy(mem.get_ptr(val_handle).value(), value.data(), value.size());
+            regs.write(d.rd, core::Value::from_handle(val_handle));
+        } else if (result == StateExecError::KeyNotFound) {
+            regs.write(d.rd, core::Value::from_int(0));
+        } else [[unlikely]] {
+            DOTVM_RETURN_ERROR(to_exec_result(result));
+        }
+    }
+    DOTVM_NEXT();
+}
+
+op_STATE_EXISTS: {
+    // STATE_EXISTS: rd = exists(key@rs1) using tx@rs2
+    auto d = core::decode_type_a(instr);
+    auto& state_ctx = vm_ctx_.state_context();
+    if (!state_ctx.enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
+    }
+    auto key_handle = regs.read(d.rs1).as_handle();
+    auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs2).as_integer());
+    auto key_ptr = mem.get_ptr(key_handle);
+    auto key_size = mem.get_size(key_handle);
+    if (!key_ptr || !key_size) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+    }
+    auto key = std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+    bool exists = false;
+    auto result = state_ctx.exists(tx_handle, key, exists);
+    if (result == StateExecError::Success) {
+        regs.write(d.rd, core::Value::from_int(exists ? 1 : 0));
+    } else [[unlikely]] {
+        DOTVM_RETURN_ERROR(to_exec_result(result));
+    }
+    DOTVM_NEXT();
+}
+
+op_TX_BEGIN: {
+    // TX_BEGIN: rd = new_tx_handle() (Type B: imm16 = isolation level)
+    auto d = core::decode_type_b(instr);
+    auto& state_ctx = vm_ctx_.state_context();
+    if (!state_ctx.enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
+    }
+    auto isolation = static_cast<std::uint8_t>(d.imm16 & 0xFF);
+    auto handle = state_ctx.begin_transaction(isolation);
+    regs.write(d.rd, core::Value::from_int(static_cast<std::int64_t>(handle)));
+    DOTVM_NEXT();
+}
+
+op_TX_COMMIT: {
+    // TX_COMMIT: rd = commit(tx@rs1)
+    auto d = core::decode_type_a(instr);
+    auto& state_ctx = vm_ctx_.state_context();
+    if (!state_ctx.enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
+    }
+    auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
+    auto result = state_ctx.commit(tx_handle);
+    if (result == StateExecError::Success) {
+        regs.write(d.rd, core::Value::from_int(1));
+    } else if (result == StateExecError::TransactionConflict) {
+        regs.write(d.rd, core::Value::from_int(0));  // Conflict, not fatal
+    } else [[unlikely]] {
+        DOTVM_RETURN_ERROR(to_exec_result(result));
+    }
+    DOTVM_NEXT();
+}
+
+op_TX_ROLLBACK: {
+    // TX_ROLLBACK: rd = rollback(tx@rs1)
+    auto d = core::decode_type_a(instr);
+    auto& state_ctx = vm_ctx_.state_context();
+    if (!state_ctx.enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
+    }
+    auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs1).as_integer());
+    auto result = state_ctx.rollback(tx_handle);
+    regs.write(d.rd, core::Value::from_int(result == StateExecError::Success ? 1 : 0));
+    DOTVM_NEXT();
+}
+
+op_STATE_PUT: {
+    // STATE_PUT: state[key@rd] = value@rs1 using tx@rs2
+    auto d = core::decode_type_a(instr);
+    auto& state_ctx = vm_ctx_.state_context();
+    if (!state_ctx.enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
+    }
+    auto key_handle = regs.read(d.rd).as_handle();
+    auto val_handle = regs.read(d.rs1).as_handle();
+    auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs2).as_integer());
+    auto key_ptr = mem.get_ptr(key_handle);
+    auto key_size = mem.get_size(key_handle);
+    auto val_ptr = mem.get_ptr(val_handle);
+    auto val_size = mem.get_size(val_handle);
+    if (!key_ptr || !key_size || !val_ptr || !val_size) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+    }
+    auto key = std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+    auto value =
+        std::span<const std::byte>{reinterpret_cast<const std::byte*>(*val_ptr), *val_size};
+    auto result = state_ctx.put(tx_handle, key, value);
+    if (result != StateExecError::Success) [[unlikely]] {
+        DOTVM_RETURN_ERROR(to_exec_result(result));
+    }
+    DOTVM_NEXT();
+}
+
+op_STATE_DELETE: {
+    // STATE_DELETE: rd = delete(key@rs1) using tx@rs2
+    auto d = core::decode_type_a(instr);
+    auto& state_ctx = vm_ctx_.state_context();
+    if (!state_ctx.enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::StateNotEnabled);
+    }
+    auto key_handle = regs.read(d.rs1).as_handle();
+    auto tx_handle = static_cast<std::uint64_t>(regs.read(d.rs2).as_integer());
+    auto key_ptr = mem.get_ptr(key_handle);
+    auto key_size = mem.get_size(key_handle);
+    if (!key_ptr || !key_size) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::MemoryError);
+    }
+    auto key = std::span<const std::byte>{reinterpret_cast<const std::byte*>(*key_ptr), *key_size};
+    auto result = state_ctx.remove(tx_handle, key);
+    if (result == StateExecError::Success) {
+        regs.write(d.rd, core::Value::from_int(1));
+    } else if (result == StateExecError::KeyNotFound) {
+        regs.write(d.rd, core::Value::from_int(0));
+    } else [[unlikely]] {
+        DOTVM_RETURN_ERROR(to_exec_result(result));
+    }
+    DOTVM_NEXT();
+}
 
     // =========================================================================
     // ERROR HANDLERS

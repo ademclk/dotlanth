@@ -84,6 +84,8 @@ void VmContext::reset() noexcept {
     if (jit_ctx_) {
         jit_ctx_->clear_cache();
     }
+    // Rollback any active state transactions (STATE-004)
+    state_ctx_.rollback_all();
 }
 
 }  // namespace dotvm::core

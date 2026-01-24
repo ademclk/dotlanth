@@ -171,6 +171,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/in_memory_backend.cpp
     # Transaction manager (STATE-003)
     src/dotvm/core/state/transaction_manager.cpp
+    # State execution context (STATE-004)
+    src/dotvm/exec/state_execution_context.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -496,6 +498,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/state/mvcc_test.cpp
         # Transaction manager tests (STATE-003)
         tests/dotvm/core/state/transaction_manager_test.cpp
+        # State opcodes tests (STATE-004)
+        tests/dotvm/exec/state_opcodes_test.cpp
     )
 
     # JIT tests (EXEC-012)
