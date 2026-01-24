@@ -4,13 +4,13 @@
 /// These tests follow TDD principles - written before implementation.
 /// They define the expected behavior of the StateBackend interface.
 
-#include "dotvm/core/state/state_backend.hpp"
-
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cstring>
 #include <vector>
+
+#include <gtest/gtest.h>
+
+#include "dotvm/core/state/state_backend.hpp"
 
 namespace dotvm::core::state {
 namespace {
@@ -443,7 +443,7 @@ TEST_F(StateBackendTest, BatchAtomicityOnError) {
     auto val2 = make_bytes("value2");
 
     std::vector<BatchOp> ops = {
-        {.type = BatchOpType::Put, .key = key2, .value = val2},      // Should succeed
+        {.type = BatchOpType::Put, .key = key2, .value = val2},          // Should succeed
         {.type = BatchOpType::Remove, .key = nonexistent, .value = {}},  // Should fail
     };
 

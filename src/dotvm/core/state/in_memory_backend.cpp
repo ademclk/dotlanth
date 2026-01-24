@@ -1,12 +1,12 @@
 /// @file in_memory_backend.cpp
 /// @brief STATE-001 In-memory StateBackend implementation
 
-#include "dotvm/core/state/state_backend.hpp"
-
 #include <algorithm>
 #include <map>
 #include <optional>
 #include <unordered_map>
+
+#include "dotvm/core/state/state_backend.hpp"
 
 namespace dotvm::core::state {
 
@@ -127,8 +127,8 @@ public:
             auto& tx = transactions_.at(active_tx_->id);
 
             // Check if key exists (in storage or pending changes)
-            bool exists_in_changes = tx.changes.count(key_vec) > 0 &&
-                                     tx.changes.at(key_vec).has_value();
+            bool exists_in_changes =
+                tx.changes.count(key_vec) > 0 && tx.changes.at(key_vec).has_value();
             bool exists_in_storage = storage_.count(key_vec) > 0;
 
             if (!exists_in_changes && !exists_in_storage) {
@@ -169,8 +169,7 @@ public:
     // Iteration
     // ========================================================================
 
-    [[nodiscard]] Result<void> iterate(
-        Key prefix, const IterateCallback& callback) const override {
+    [[nodiscard]] Result<void> iterate(Key prefix, const IterateCallback& callback) const override {
         // Create merged view of storage + transaction changes
         // For simplicity, we iterate storage directly (transaction changes visible)
 

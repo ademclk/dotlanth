@@ -21,8 +21,7 @@ TxHandle::~TxHandle() noexcept {
     }
 }
 
-TxHandle::TxHandle(TxHandle&& other) noexcept
-    : backend_{other.backend_}, tx_id_{other.tx_id_} {
+TxHandle::TxHandle(TxHandle&& other) noexcept : backend_{other.backend_}, tx_id_{other.tx_id_} {
     other.backend_ = nullptr;
     other.tx_id_ = {};
 }

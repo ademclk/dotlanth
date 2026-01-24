@@ -33,10 +33,10 @@ namespace dotvm::core::state {
 /// - 64-79: Configuration errors
 enum class StateBackendError : std::uint8_t {
     // Key/Value errors (1-15)
-    KeyNotFound = 1,      ///< Key does not exist in storage
-    KeyTooLarge = 2,      ///< Key exceeds max_key_size
-    ValueTooLarge = 3,    ///< Value exceeds max_value_size
-    InvalidKey = 4,       ///< Key is invalid (e.g., empty)
+    KeyNotFound = 1,    ///< Key does not exist in storage
+    KeyTooLarge = 2,    ///< Key exceeds max_key_size
+    ValueTooLarge = 3,  ///< Value exceeds max_value_size
+    InvalidKey = 4,     ///< Key is invalid (e.g., empty)
 
     // Transaction errors (16-31)
     TransactionNotActive = 16,  ///< No active transaction
@@ -44,8 +44,8 @@ enum class StateBackendError : std::uint8_t {
     InvalidTransaction = 18,    ///< Transaction handle is invalid
 
     // Backend errors (32-47)
-    StorageFull = 32,     ///< Storage capacity exceeded
-    BackendClosed = 33,   ///< Backend has been closed
+    StorageFull = 32,    ///< Storage capacity exceeded
+    BackendClosed = 33,  ///< Backend has been closed
 
     // Iteration errors (48-63)
     IterationAborted = 48,  ///< Iteration was aborted by callback
@@ -131,8 +131,8 @@ struct StateBackendConfig {
     std::size_t max_key_size{1024};           ///< Maximum key size (default 1KB)
     std::size_t max_value_size{1024 * 1024};  ///< Maximum value size (default 1MB)
     TransactionIsolationLevel isolation_level{TransactionIsolationLevel::ReadCommitted};
-    bool enable_transactions{true};           ///< Enable transaction support
-    std::size_t initial_capacity{1024};       ///< Initial storage capacity hint
+    bool enable_transactions{true};      ///< Enable transaction support
+    std::size_t initial_capacity{1024};  ///< Initial storage capacity hint
 
     /// @brief Create default configuration
     [[nodiscard]] static constexpr StateBackendConfig defaults() noexcept {
@@ -169,9 +169,9 @@ enum class BatchOpType : std::uint8_t {
 
 /// @brief Single operation in a batch
 struct BatchOp {
-    BatchOpType type;                   ///< Operation type
-    std::span<const std::byte> key;     ///< Key to operate on
-    std::span<const std::byte> value;   ///< Value (ignored for Remove)
+    BatchOpType type;                  ///< Operation type
+    std::span<const std::byte> key;    ///< Key to operate on
+    std::span<const std::byte> value;  ///< Value (ignored for Remove)
 };
 
 // ============================================================================
@@ -303,8 +303,8 @@ public:
     /// @param callback Called for each matching key-value pair.
     ///                 Return false to stop iteration early.
     /// @return Success, or error code
-    [[nodiscard]] virtual Result<void> iterate(
-        Key prefix, const IterateCallback& callback) const = 0;
+    [[nodiscard]] virtual Result<void> iterate(Key prefix,
+                                               const IterateCallback& callback) const = 0;
 
     // ========================================================================
     // Batch Operations
@@ -316,8 +316,7 @@ public:
     ///
     /// @param ops The operations to execute
     /// @return Success, or first error encountered (all ops rolled back)
-    [[nodiscard]] virtual Result<void> batch(
-        std::span<const BatchOp> ops) = 0;
+    [[nodiscard]] virtual Result<void> batch(std::span<const BatchOp> ops) = 0;
 
     // ========================================================================
     // Transactions
@@ -371,7 +370,7 @@ public:
 ///
 /// @param config Backend configuration (defaults used if not specified)
 /// @return The created backend
-[[nodiscard]] std::unique_ptr<StateBackend> create_state_backend(
-    const StateBackendConfig& config = StateBackendConfig::defaults());
+[[nodiscard]] std::unique_ptr<StateBackend>
+create_state_backend(const StateBackendConfig& config = StateBackendConfig::defaults());
 
 }  // namespace dotvm::core::state

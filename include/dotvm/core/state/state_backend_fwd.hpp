@@ -28,7 +28,6 @@ class TxHandle;
 class StateBackend;
 
 // Factory function
-[[nodiscard]] std::unique_ptr<StateBackend> create_state_backend(
-    const StateBackendConfig& config);
+[[nodiscard]] std::unique_ptr<StateBackend> create_state_backend(const StateBackendConfig& config);
 
 }  // namespace dotvm::core::state
