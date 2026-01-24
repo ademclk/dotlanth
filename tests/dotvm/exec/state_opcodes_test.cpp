@@ -40,40 +40,40 @@ TEST_F(StateOpcodeDefinitions, OpcodeValues) {
 }
 
 TEST_F(StateOpcodeDefinitions, IsStateOp) {
-    EXPECT_TRUE(core::opcode::is_state_op(core::opcode::STATE_GET));
-    EXPECT_TRUE(core::opcode::is_state_op(core::opcode::STATE_EXISTS));
-    EXPECT_TRUE(core::opcode::is_state_op(core::opcode::TX_BEGIN));
-    EXPECT_TRUE(core::opcode::is_state_op(core::opcode::TX_COMMIT));
-    EXPECT_TRUE(core::opcode::is_state_op(core::opcode::TX_ROLLBACK));
-    EXPECT_TRUE(core::opcode::is_state_op(core::opcode::STATE_PUT));
-    EXPECT_TRUE(core::opcode::is_state_op(core::opcode::STATE_DELETE));
+    EXPECT_TRUE(core::is_state_op(core::opcode::STATE_GET));
+    EXPECT_TRUE(core::is_state_op(core::opcode::STATE_EXISTS));
+    EXPECT_TRUE(core::is_state_op(core::opcode::TX_BEGIN));
+    EXPECT_TRUE(core::is_state_op(core::opcode::TX_COMMIT));
+    EXPECT_TRUE(core::is_state_op(core::opcode::TX_ROLLBACK));
+    EXPECT_TRUE(core::is_state_op(core::opcode::STATE_PUT));
+    EXPECT_TRUE(core::is_state_op(core::opcode::STATE_DELETE));
 
-    EXPECT_FALSE(core::opcode::is_state_op(core::opcode::NOP));
-    EXPECT_FALSE(core::opcode::is_state_op(core::opcode::ADD));
+    EXPECT_FALSE(core::is_state_op(core::opcode::NOP));
+    EXPECT_FALSE(core::is_state_op(core::opcode::ADD));
 }
 
 TEST_F(StateOpcodeDefinitions, ReadWriteOps) {
     // Read operations
-    EXPECT_TRUE(core::opcode::is_state_read_op(core::opcode::STATE_GET));
-    EXPECT_TRUE(core::opcode::is_state_read_op(core::opcode::STATE_EXISTS));
-    EXPECT_FALSE(core::opcode::is_state_read_op(core::opcode::STATE_PUT));
-    EXPECT_FALSE(core::opcode::is_state_read_op(core::opcode::STATE_DELETE));
+    EXPECT_TRUE(core::is_state_read_op(core::opcode::STATE_GET));
+    EXPECT_TRUE(core::is_state_read_op(core::opcode::STATE_EXISTS));
+    EXPECT_FALSE(core::is_state_read_op(core::opcode::STATE_PUT));
+    EXPECT_FALSE(core::is_state_read_op(core::opcode::STATE_DELETE));
 
     // Write operations
-    EXPECT_TRUE(core::opcode::is_state_write_op(core::opcode::STATE_PUT));
-    EXPECT_TRUE(core::opcode::is_state_write_op(core::opcode::STATE_DELETE));
-    EXPECT_TRUE(core::opcode::is_state_write_op(core::opcode::TX_BEGIN));
-    EXPECT_TRUE(core::opcode::is_state_write_op(core::opcode::TX_COMMIT));
-    EXPECT_TRUE(core::opcode::is_state_write_op(core::opcode::TX_ROLLBACK));
-    EXPECT_FALSE(core::opcode::is_state_write_op(core::opcode::STATE_GET));
+    EXPECT_TRUE(core::is_state_write_op(core::opcode::STATE_PUT));
+    EXPECT_TRUE(core::is_state_write_op(core::opcode::STATE_DELETE));
+    EXPECT_TRUE(core::is_state_write_op(core::opcode::TX_BEGIN));
+    EXPECT_TRUE(core::is_state_write_op(core::opcode::TX_COMMIT));
+    EXPECT_TRUE(core::is_state_write_op(core::opcode::TX_ROLLBACK));
+    EXPECT_FALSE(core::is_state_write_op(core::opcode::STATE_GET));
 }
 
 TEST_F(StateOpcodeDefinitions, TransactionOps) {
-    EXPECT_TRUE(core::opcode::is_transaction_op(core::opcode::TX_BEGIN));
-    EXPECT_TRUE(core::opcode::is_transaction_op(core::opcode::TX_COMMIT));
-    EXPECT_TRUE(core::opcode::is_transaction_op(core::opcode::TX_ROLLBACK));
-    EXPECT_FALSE(core::opcode::is_transaction_op(core::opcode::STATE_GET));
-    EXPECT_FALSE(core::opcode::is_transaction_op(core::opcode::STATE_PUT));
+    EXPECT_TRUE(core::is_transaction_op(core::opcode::TX_BEGIN));
+    EXPECT_TRUE(core::is_transaction_op(core::opcode::TX_COMMIT));
+    EXPECT_TRUE(core::is_transaction_op(core::opcode::TX_ROLLBACK));
+    EXPECT_FALSE(core::is_transaction_op(core::opcode::STATE_GET));
+    EXPECT_FALSE(core::is_transaction_op(core::opcode::STATE_PUT));
 }
 
 // ============================================================================
