@@ -170,28 +170,16 @@ TransactionManager::Result<std::vector<std::byte>> TransactionManager::get(Manag
     auto key_vec = std::vector<std::byte>(key.begin(), key.end());
 
     // Check write_set first (read-your-writes)
+    // NOTE: Do NOT add to read_set when reading from write_set. The value comes
+    // from our own pending write, not the backend. Adding it to read_set with
+    // incorrect `existed` status causes validation failures on commit.
     {
         auto it = tx.write_set.find(key_vec);
         if (it != tx.write_set.end()) {
             if (it->second.value.has_value()) {
-                // Also add to read_set for tracking
-                if (tx.read_set.find(key_vec) == tx.read_set.end()) {
-                    ReadSetEntry entry;
-                    entry.key = key_vec;
-                    entry.version_at_read = tx.start_version;
-                    entry.existed = true;
-                    tx.read_set[key_vec] = std::move(entry);
-                }
                 return it->second.value.value();
             }
-            // Key marked for deletion
-            if (tx.read_set.find(key_vec) == tx.read_set.end()) {
-                ReadSetEntry entry;
-                entry.key = key_vec;
-                entry.version_at_read = tx.start_version;
-                entry.existed = false;
-                tx.read_set[key_vec] = std::move(entry);
-            }
+            // Key marked for deletion in write_set
             return StateBackendError::KeyNotFound;
         }
     }
