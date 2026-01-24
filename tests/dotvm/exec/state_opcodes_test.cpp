@@ -449,7 +449,7 @@ TEST_F(StateExecutionContextTest, DestructorRollsBackActive) {
     // Value should not be in backend (was rolled back)
     std::vector<std::byte> key = {std::byte{0x01}};
     auto result = tx_mgr_->backend().get(key);
-    EXPECT_FALSE(result.has_value());
+    EXPECT_FALSE(result.is_ok());
 }
 
 // ============================================================================
