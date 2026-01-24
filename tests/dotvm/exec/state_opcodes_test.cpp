@@ -95,12 +95,12 @@ TEST_F(ExecResultCodes, StateRelatedCodes) {
 class StateExecErrorConversion : public ::testing::Test {};
 
 TEST_F(StateExecErrorConversion, ToExecResult) {
-    EXPECT_EQ(to_exec_result(StateExecError::Success), 0);
-    EXPECT_EQ(to_exec_result(StateExecError::NotEnabled), 17);
-    EXPECT_EQ(to_exec_result(StateExecError::InvalidHandle), 16);
-    EXPECT_EQ(to_exec_result(StateExecError::KeyNotFound), 14);
-    EXPECT_EQ(to_exec_result(StateExecError::TransactionConflict), 15);
-    EXPECT_EQ(to_exec_result(StateExecError::BackendError), 6);
+    EXPECT_EQ(to_exec_result(StateExecError::Success), ExecResult::Success);
+    EXPECT_EQ(to_exec_result(StateExecError::NotEnabled), ExecResult::StateNotEnabled);
+    EXPECT_EQ(to_exec_result(StateExecError::InvalidHandle), ExecResult::TransactionAborted);
+    EXPECT_EQ(to_exec_result(StateExecError::KeyNotFound), ExecResult::StateKeyNotFound);
+    EXPECT_EQ(to_exec_result(StateExecError::TransactionConflict), ExecResult::TransactionConflict);
+    EXPECT_EQ(to_exec_result(StateExecError::BackendError), ExecResult::Error);
 }
 
 // ============================================================================

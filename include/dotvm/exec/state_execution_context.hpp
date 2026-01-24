@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "dotvm/core/state/transaction_manager.hpp"
+#include "dotvm/exec/execution_context.hpp"
 
 namespace dotvm::exec {
 
@@ -30,22 +31,22 @@ enum class StateExecError : std::uint8_t {
 /// @brief Convert StateExecError to ExecResult
 /// @param err The state execution error
 /// @return Corresponding ExecResult value
-constexpr std::uint8_t to_exec_result(StateExecError err) noexcept {
+constexpr ExecResult to_exec_result(StateExecError err) noexcept {
     switch (err) {
         case StateExecError::Success:
-            return 0;  // ExecResult::Success
+            return ExecResult::Success;
         case StateExecError::NotEnabled:
-            return 17;  // ExecResult::StateNotEnabled
+            return ExecResult::StateNotEnabled;
         case StateExecError::InvalidHandle:
-            return 16;  // ExecResult::TransactionAborted
+            return ExecResult::TransactionAborted;
         case StateExecError::KeyNotFound:
-            return 14;  // ExecResult::StateKeyNotFound
+            return ExecResult::StateKeyNotFound;
         case StateExecError::TransactionConflict:
-            return 15;  // ExecResult::TransactionConflict
+            return ExecResult::TransactionConflict;
         case StateExecError::BackendError:
-            return 6;  // ExecResult::Error
+            return ExecResult::Error;
     }
-    return 6;  // ExecResult::Error
+    return ExecResult::Error;
 }
 
 /// @brief VM-level state execution context with multi-transaction support
