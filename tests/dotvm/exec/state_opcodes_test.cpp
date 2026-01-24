@@ -1,13 +1,14 @@
 /// @file state_opcodes_test.cpp
 /// @brief STATE-004 State Opcodes Tests
 
+#include <chrono>
 #include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "dotvm/core/opcode.hpp"
-#include "dotvm/core/state/in_memory_backend.hpp"
+#include "dotvm/core/state/state_backend.hpp"
 #include "dotvm/core/state/transaction_manager.hpp"
 #include "dotvm/core/vm_context.hpp"
 #include "dotvm/exec/execution_context.hpp"
@@ -110,11 +111,19 @@ TEST_F(StateExecErrorConversion, ToExecResult) {
 class StateExecutionContextTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        backend_ = std::make_unique<core::state::InMemoryBackend>();
-        tx_mgr_ = std::make_unique<core::state::TransactionManager>(*backend_);
+        core::state::StateBackendConfig backend_config;
+        backend_config.enable_transactions = true;
+        backend_config.isolation_level = core::state::TransactionIsolationLevel::Snapshot;
+
+        core::state::TransactionManagerConfig tm_config;
+        tm_config.max_concurrent_transactions = 100;
+        tm_config.default_timeout = std::chrono::milliseconds{5000};
+        tm_config.default_isolation = core::state::TransactionIsolationLevel::Snapshot;
+
+        auto backend = core::state::create_state_backend(backend_config);
+        tx_mgr_ = std::make_unique<core::state::TransactionManager>(std::move(backend), tm_config);
     }
 
-    std::unique_ptr<core::state::InMemoryBackend> backend_;
     std::unique_ptr<core::state::TransactionManager> tx_mgr_;
 };
 
@@ -439,7 +448,7 @@ TEST_F(StateExecutionContextTest, DestructorRollsBackActive) {
 
     // Value should not be in backend (was rolled back)
     std::vector<std::byte> key = {std::byte{0x01}};
-    auto result = backend_->get(key);
+    auto result = tx_mgr_->backend().get(key);
     EXPECT_FALSE(result.has_value());
 }
 
@@ -450,11 +459,19 @@ TEST_F(StateExecutionContextTest, DestructorRollsBackActive) {
 class VmContextStateTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        backend_ = std::make_unique<core::state::InMemoryBackend>();
-        tx_mgr_ = std::make_unique<core::state::TransactionManager>(*backend_);
+        core::state::StateBackendConfig backend_config;
+        backend_config.enable_transactions = true;
+        backend_config.isolation_level = core::state::TransactionIsolationLevel::Snapshot;
+
+        core::state::TransactionManagerConfig tm_config;
+        tm_config.max_concurrent_transactions = 100;
+        tm_config.default_timeout = std::chrono::milliseconds{5000};
+        tm_config.default_isolation = core::state::TransactionIsolationLevel::Snapshot;
+
+        auto backend = core::state::create_state_backend(backend_config);
+        tx_mgr_ = std::make_unique<core::state::TransactionManager>(std::move(backend), tm_config);
     }
 
-    std::unique_ptr<core::state::InMemoryBackend> backend_;
     std::unique_ptr<core::state::TransactionManager> tx_mgr_;
 };
 
