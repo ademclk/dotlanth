@@ -1,0 +1,45 @@
+# OSS-Fuzz project configuration for DotLanth VM
+# https://google.github.io/oss-fuzz/getting-started/new-project-guide/
+
+homepage: "https://github.com/ademclk/dotlanth"
+language: c++
+primary_contact: "security@dotlanth.dev"
+auto_ccs:
+  - "adem.celik@hotmail.com"
+
+# Sanitizers to run
+# - address: AddressSanitizer (ASan) - memory errors
+# - undefined: UndefinedBehaviorSanitizer (UBSan) - undefined behavior
+# - memory: MemorySanitizer (MSan) - uninitialized reads
+sanitizers:
+  - address
+  - undefined
+  - memory
+
+# Fuzzing engines to use
+# - libfuzzer: LLVM's LibFuzzer (default, in-process)
+# - afl: American Fuzzy Lop (fork-based)
+# - honggfuzz: Google's Honggfuzz (efficient for coverage)
+fuzzing_engines:
+  - libfuzzer
+  - afl
+  - honggfuzz
+
+# Build system
+main_repo: "https://github.com/ademclk/dotlanth.git"
+
+# Optional: Vendor-specific configurations
+vendor_ccs: []
+
+# File patterns to ignore during builds
+file_github_issue: true
+
+# Architectures to fuzz
+architectures:
+  - x86_64
+
+# Build configuration
+builds_per_day: 1
+
+# Experimental features
+experimental: false

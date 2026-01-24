@@ -273,6 +273,11 @@ ValidationInfo BytecodeInspector::validate(std::span<const std::uint8_t> data,
     ValidationInfo info;
     info.all_passed = true;
 
+    // Reserve capacity for all checks to avoid reallocations
+    // (fixes GCC -Wstringop-overflow false positive)
+    constexpr std::size_t NUM_CHECKS = 7;
+    info.checks.reserve(NUM_CHECKS);
+
     // Magic check
     bool magic_ok = validate_magic(std::span<const std::uint8_t, 4>{header.magic});
     info.checks.push_back(ValidationCheck{
