@@ -323,7 +323,6 @@ TEST_F(MvccTest, WriteWriteConflict) {
     auto key = to_bytes("contested_key");
     auto initial = to_bytes("initial");
     auto val_t1 = to_bytes("value_from_t1");
-    auto val_t2 = to_bytes("value_from_t2");
 
     ASSERT_TRUE(backend_->put(key, initial).is_ok());
 
@@ -522,7 +521,7 @@ TEST_F(MvccTest, ConcurrentReads) {
     // Launch multiple threads doing concurrent reads
     std::vector<std::future<void>> futures;
     for (int t = 0; t < 4; ++t) {
-        futures.push_back(std::async(std::launch::async, [&, t]() {
+        futures.push_back(std::async(std::launch::async, [&]() {
             for (int i = 0; i < 100; ++i) {
                 std::string key = "thread_key_" + std::to_string(i);
                 auto result = backend_->get(to_bytes(key));
