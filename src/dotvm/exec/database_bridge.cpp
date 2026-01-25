@@ -72,8 +72,8 @@ std::vector<std::byte> DatabaseBridge::serialize_value(core::Value value) noexce
     return result;
 }
 
-DatabaseBridge::Result<core::Value> DatabaseBridge::deserialize_value(
-    std::span<const std::byte> data) noexcept {
+DatabaseBridge::Result<core::Value>
+DatabaseBridge::deserialize_value(std::span<const std::byte> data) noexcept {
     if (data.empty()) {
         return DatabaseBridgeError::SerializationError;
     }
@@ -140,8 +140,8 @@ DatabaseBridge::Result<core::Value> DatabaseBridge::deserialize_value(
 // Private Helpers
 // ============================================================================
 
-std::vector<std::byte> DatabaseBridge::build_namespaced_key(
-    std::span<const std::byte> raw_key) const noexcept {
+std::vector<std::byte>
+DatabaseBridge::build_namespaced_key(std::span<const std::byte> raw_key) const noexcept {
     // Format: [namespace_id: 8 bytes LE][0x3A (':')][raw_key bytes]
     std::vector<std::byte> result;
     result.resize(8 + 1 + raw_key.size());
@@ -160,8 +160,8 @@ std::vector<std::byte> DatabaseBridge::build_namespaced_key(
     return result;
 }
 
-DatabaseBridge::Result<std::vector<std::byte>> DatabaseBridge::read_key_bytes(
-    core::Handle key_handle) const noexcept {
+DatabaseBridge::Result<std::vector<std::byte>>
+DatabaseBridge::read_key_bytes(core::Handle key_handle) const noexcept {
     // Validate handle
     if (!ctx_.memory().is_valid(key_handle)) {
         return DatabaseBridgeError::InvalidKeyHandle;
@@ -217,7 +217,7 @@ DatabaseBridgeError convert_state_error(StateExecError err) noexcept {
 // ============================================================================
 
 DatabaseBridge::Result<core::Value> DatabaseBridge::read_key(std::uint64_t tx_handle,
-                                                              core::Handle key_handle) noexcept {
+                                                             core::Handle key_handle) noexcept {
     // Check if state is enabled
     if (!ctx_.state_enabled()) {
         return DatabaseBridgeError::StateNotEnabled;
@@ -249,8 +249,8 @@ DatabaseBridge::Result<core::Value> DatabaseBridge::read_key(std::uint64_t tx_ha
 }
 
 DatabaseBridge::Result<void> DatabaseBridge::write_key(std::uint64_t tx_handle,
-                                                        core::Handle key_handle,
-                                                        core::Value value) noexcept {
+                                                       core::Handle key_handle,
+                                                       core::Value value) noexcept {
     // Check if state is enabled
     if (!ctx_.state_enabled()) {
         return DatabaseBridgeError::StateNotEnabled;
@@ -283,7 +283,7 @@ DatabaseBridge::Result<void> DatabaseBridge::write_key(std::uint64_t tx_handle,
 }
 
 DatabaseBridge::Result<void> DatabaseBridge::delete_key(std::uint64_t tx_handle,
-                                                         core::Handle key_handle) noexcept {
+                                                        core::Handle key_handle) noexcept {
     // Check if state is enabled
     if (!ctx_.state_enabled()) {
         return DatabaseBridgeError::StateNotEnabled;
@@ -312,7 +312,7 @@ DatabaseBridge::Result<void> DatabaseBridge::delete_key(std::uint64_t tx_handle,
 }
 
 DatabaseBridge::Result<bool> DatabaseBridge::key_exists(std::uint64_t tx_handle,
-                                                         core::Handle key_handle) noexcept {
+                                                        core::Handle key_handle) noexcept {
     // Check if state is enabled
     if (!ctx_.state_enabled()) {
         return DatabaseBridgeError::StateNotEnabled;

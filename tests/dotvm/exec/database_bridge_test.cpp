@@ -303,8 +303,8 @@ TEST_F(ValueSerializationTest, RoundTripAllTypes) {
         auto bytes = DatabaseBridge::serialize_value(original);
         auto result = DatabaseBridge::deserialize_value(bytes);
 
-        ASSERT_TRUE(result.is_ok()) << "Failed to deserialize value of type "
-            << static_cast<int>(original.type());
+        ASSERT_TRUE(result.is_ok())
+            << "Failed to deserialize value of type " << static_cast<int>(original.type());
         EXPECT_EQ(result.value().type(), original.type());
 
         // Type-specific comparisons

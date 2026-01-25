@@ -25,25 +25,25 @@ namespace dotvm::exec {
 
 /// @brief Error codes for DatabaseBridge operations
 enum class DatabaseBridgeError : std::uint8_t {
-    Success = 0,           ///< Operation completed successfully
-    StateNotEnabled = 1,   ///< State context not enabled
-    InvalidKeyHandle = 2,  ///< Invalid key handle
+    Success = 0,             ///< Operation completed successfully
+    StateNotEnabled = 1,     ///< State context not enabled
+    InvalidKeyHandle = 2,    ///< Invalid key handle
     InvalidValueHandle = 3,  ///< Invalid value handle (reserved for future use)
-    KeyNotFound = 4,       ///< Key not found in state store
+    KeyNotFound = 4,         ///< Key not found in state store
     SerializationError = 5,  ///< Value serialization/deserialization failed
-    AllocationFailed = 6,  ///< Memory allocation failed
-    TransactionError = 7,  ///< Transaction operation failed
-    NamespaceError = 8,    ///< Namespace construction failed
+    AllocationFailed = 6,    ///< Memory allocation failed
+    TransactionError = 7,    ///< Transaction operation failed
+    NamespaceError = 8,      ///< Namespace construction failed
 };
 
 /// @brief Statistics for DatabaseBridge operations
 struct DatabaseBridgeStats {
-    std::uint64_t reads{0};         ///< Number of read operations
-    std::uint64_t writes{0};        ///< Number of write operations
-    std::uint64_t deletes{0};       ///< Number of delete operations
-    std::uint64_t exists_checks{0}; ///< Number of existence checks
-    std::uint64_t bytes_read{0};    ///< Total bytes read
-    std::uint64_t bytes_written{0}; ///< Total bytes written
+    std::uint64_t reads{0};          ///< Number of read operations
+    std::uint64_t writes{0};         ///< Number of write operations
+    std::uint64_t deletes{0};        ///< Number of delete operations
+    std::uint64_t exists_checks{0};  ///< Number of existence checks
+    std::uint64_t bytes_read{0};     ///< Total bytes read
+    std::uint64_t bytes_written{0};  ///< Total bytes written
 
     constexpr bool operator==(const DatabaseBridgeStats&) const noexcept = default;
 };
@@ -98,7 +98,7 @@ public:
     /// @param key_handle Handle to memory containing the key bytes
     /// @return The deserialized value, or error
     [[nodiscard]] Result<core::Value> read_key(std::uint64_t tx_handle,
-                                                core::Handle key_handle) noexcept;
+                                               core::Handle key_handle) noexcept;
 
     /// @brief Write a value to state
     /// @param tx_handle Transaction handle (0 = no transaction)
@@ -106,21 +106,21 @@ public:
     /// @param value The value to write
     /// @return Success or error
     [[nodiscard]] Result<void> write_key(std::uint64_t tx_handle, core::Handle key_handle,
-                                          core::Value value) noexcept;
+                                         core::Value value) noexcept;
 
     /// @brief Delete a key from state
     /// @param tx_handle Transaction handle (0 = no transaction)
     /// @param key_handle Handle to memory containing the key bytes
     /// @return Success or error
     [[nodiscard]] Result<void> delete_key(std::uint64_t tx_handle,
-                                           core::Handle key_handle) noexcept;
+                                          core::Handle key_handle) noexcept;
 
     /// @brief Check if a key exists in state
     /// @param tx_handle Transaction handle (0 = no transaction)
     /// @param key_handle Handle to memory containing the key bytes
     /// @return true if exists, false if not, or error
     [[nodiscard]] Result<bool> key_exists(std::uint64_t tx_handle,
-                                           core::Handle key_handle) noexcept;
+                                          core::Handle key_handle) noexcept;
 
     // ========================================================================
     // Statistics
@@ -155,21 +155,21 @@ public:
     /// @brief Deserialize a Value from binary format
     /// @param data The binary data
     /// @return The deserialized value, or error
-    [[nodiscard]] static Result<core::Value> deserialize_value(
-        std::span<const std::byte> data) noexcept;
+    [[nodiscard]] static Result<core::Value>
+    deserialize_value(std::span<const std::byte> data) noexcept;
 
 private:
     /// @brief Build a namespaced key from raw key bytes
     /// @param raw_key The raw key bytes
     /// @return Namespaced key bytes
-    [[nodiscard]] std::vector<std::byte> build_namespaced_key(
-        std::span<const std::byte> raw_key) const noexcept;
+    [[nodiscard]] std::vector<std::byte>
+    build_namespaced_key(std::span<const std::byte> raw_key) const noexcept;
 
     /// @brief Read key bytes from a memory handle
     /// @param key_handle The handle to read from
     /// @return Key bytes, or error
-    [[nodiscard]] Result<std::vector<std::byte>> read_key_bytes(
-        core::Handle key_handle) const noexcept;
+    [[nodiscard]] Result<std::vector<std::byte>>
+    read_key_bytes(core::Handle key_handle) const noexcept;
 
     core::VmContext& ctx_;
     std::uint64_t namespace_id_;
