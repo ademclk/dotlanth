@@ -2,6 +2,7 @@
 /// @brief Performance benchmarks for STATE-007 WAL implementation
 ///
 /// Validates that WAL meets the >50K records/sec append throughput target.
+/// Note: Throughput assertions are skipped under sanitizer builds due to overhead.
 
 #include <chrono>
 #include <cstring>
@@ -17,6 +18,19 @@
 
 namespace dotvm::core::state {
 namespace {
+
+// Detect sanitizer builds to skip throughput assertions (sanitizers add 2-10x overhead)
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+constexpr bool kRunningUnderSanitizer = true;
+#elif defined(__has_feature)
+    #if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)
+constexpr bool kRunningUnderSanitizer = true;
+    #else
+constexpr bool kRunningUnderSanitizer = false;
+    #endif
+#else
+constexpr bool kRunningUnderSanitizer = false;
+#endif
 
 /// @brief Target throughput: 50,000 records per second
 constexpr std::size_t TARGET_RECORDS_PER_SEC = 50000;
@@ -125,9 +139,11 @@ TEST_F(WalBenchmarkTest, AppendThroughputMeetsTarget) {
     std::cout << "Target:     " << TARGET_RECORDS_PER_SEC << " rec/sec" << std::endl;
     std::cout << "========================================\n" << std::endl;
 
-    EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
-        << "Throughput " << records_per_sec << " rec/sec is below target " << TARGET_RECORDS_PER_SEC
-        << " rec/sec";
+    if (!kRunningUnderSanitizer) {
+        EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
+            << "Throughput " << records_per_sec << " rec/sec is below target "
+            << TARGET_RECORDS_PER_SEC << " rec/sec";
+    }
 }
 
 TEST_F(WalBenchmarkTest, AppendWithPeriodicSyncThroughput) {
@@ -168,9 +184,11 @@ TEST_F(WalBenchmarkTest, AppendWithPeriodicSyncThroughput) {
 
     // With periodic sync, we accept 50% of target throughput
     // (real-world durable writes have latency)
-    EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC / 2)
-        << "Throughput " << records_per_sec << " rec/sec is below minimum "
-        << (TARGET_RECORDS_PER_SEC / 2) << " rec/sec";
+    if (!kRunningUnderSanitizer) {
+        EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC / 2)
+            << "Throughput " << records_per_sec << " rec/sec is below minimum "
+            << (TARGET_RECORDS_PER_SEC / 2) << " rec/sec";
+    }
 }
 
 // ============================================================================
@@ -210,9 +228,11 @@ TEST_F(WalBenchmarkTest, WalBackendPutThroughput) {
     std::cout << "Target:     " << TARGET_RECORDS_PER_SEC << " rec/sec" << std::endl;
     std::cout << "=================================\n" << std::endl;
 
-    EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
-        << "Throughput " << records_per_sec << " rec/sec is below target " << TARGET_RECORDS_PER_SEC
-        << " rec/sec";
+    if (!kRunningUnderSanitizer) {
+        EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
+            << "Throughput " << records_per_sec << " rec/sec is below target "
+            << TARGET_RECORDS_PER_SEC << " rec/sec";
+    }
 }
 
 // ============================================================================
@@ -267,8 +287,10 @@ TEST_F(WalBenchmarkTest, RecoveryThroughput) {
     std::cout << "===============================\n" << std::endl;
 
     // Recovery should be at least as fast as writes (no fdatasync needed)
-    EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
-        << "Recovery throughput " << records_per_sec << " rec/sec is below target";
+    if (!kRunningUnderSanitizer) {
+        EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
+            << "Recovery throughput " << records_per_sec << " rec/sec is below target";
+    }
 }
 
 // ============================================================================
@@ -322,8 +344,10 @@ TEST_F(WalBenchmarkTest, BatchOperationThroughput) {
               << std::endl;
     std::cout << "===================================\n" << std::endl;
 
-    EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
-        << "Batch throughput " << records_per_sec << " rec/sec is below target";
+    if (!kRunningUnderSanitizer) {
+        EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
+            << "Batch throughput " << records_per_sec << " rec/sec is below target";
+    }
 }
 
 // ============================================================================
@@ -371,8 +395,10 @@ TEST_F(WalBenchmarkTest, SmallRecordThroughput) {
     std::cout << "===================================================\n" << std::endl;
 
     // Small records should have higher throughput
-    EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC * 1.5)
-        << "Small record throughput below expected";
+    if (!kRunningUnderSanitizer) {
+        EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC * 1.5)
+            << "Small record throughput below expected";
+    }
 }
 
 TEST_F(WalBenchmarkTest, LargeRecordThroughput) {
@@ -421,7 +447,9 @@ TEST_F(WalBenchmarkTest, LargeRecordThroughput) {
 
     // Large records will have lower rec/sec but higher MB/sec
     // At least 5K rec/sec for 4KB records (conservative for CI environments)
-    EXPECT_GE(records_per_sec, 5000) << "Large record throughput too low";
+    if (!kRunningUnderSanitizer) {
+        EXPECT_GE(records_per_sec, 5000) << "Large record throughput too low";
+    }
 }
 
 }  // namespace
