@@ -175,7 +175,20 @@ add_library(dotvm_core STATIC
     src/dotvm/exec/state_execution_context.cpp
     # Database bridge (STATE-005)
     src/dotvm/exec/database_bridge.cpp
+    # PostgreSQL backend config (STATE-006) - always compiled for config struct
+    src/dotvm/core/state/postgres_backend.cpp
 )
+
+# PostgreSQL backend subsystem (STATE-006)
+option(DOTVM_ENABLE_POSTGRESQL "Enable PostgreSQL state backend" OFF)
+
+if(DOTVM_ENABLE_POSTGRESQL)
+    find_package(PostgreSQL REQUIRED)
+
+    target_link_libraries(dotvm_core PUBLIC PostgreSQL::PostgreSQL)
+    target_compile_definitions(dotvm_core PUBLIC DOTVM_POSTGRESQL_ENABLED=1)
+    message(STATUS "PostgreSQL state backend enabled")
+endif()
 
 # JIT subsystem (EXEC-012)
 if(DOTVM_ENABLE_JIT)
@@ -504,6 +517,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/exec/state_opcodes_test.cpp
         # Database bridge tests (STATE-005)
         tests/dotvm/exec/database_bridge_test.cpp
+        # PostgreSQL backend tests (STATE-006)
+        tests/dotvm/core/state/postgres_backend_test.cpp
     )
 
     # JIT tests (EXEC-012)
