@@ -65,10 +65,8 @@ WalBackend::Result<void> WalBackend::put(Key key, Value value) {
     TxId tx_id = active_tx_.value_or(TxId{0, 0});
 
     // Log to WAL first
-    auto wal_result = wal_->append(LogRecordType::Put,
-                                   std::span<const std::byte>(key),
-                                   std::span<const std::byte>(value),
-                                   tx_id);
+    auto wal_result = wal_->append(LogRecordType::Put, std::span<const std::byte>(key),
+                                   std::span<const std::byte>(value), tx_id);
     if (wal_result.is_err()) {
         // Convert WAL error to backend error
         return StateBackendError::StorageFull;  // Generic error
@@ -82,10 +80,8 @@ WalBackend::Result<void> WalBackend::remove(Key key) {
     TxId tx_id = active_tx_.value_or(TxId{0, 0});
 
     // Log to WAL first
-    auto wal_result = wal_->append(LogRecordType::Delete,
-                                   std::span<const std::byte>(key),
-                                   {},
-                                   tx_id);
+    auto wal_result =
+        wal_->append(LogRecordType::Delete, std::span<const std::byte>(key), {}, tx_id);
     if (wal_result.is_err()) {
         return StateBackendError::StorageFull;
     }
@@ -251,10 +247,8 @@ void WalBackend::clear() noexcept {
     // Second pass: replay committed operations
     for (const auto& record : records) {
         // Skip transaction markers
-        if (record.type == LogRecordType::TxBegin ||
-            record.type == LogRecordType::TxCommit ||
-            record.type == LogRecordType::TxAbort ||
-            record.type == LogRecordType::Checkpoint) {
+        if (record.type == LogRecordType::TxBegin || record.type == LogRecordType::TxCommit ||
+            record.type == LogRecordType::TxAbort || record.type == LogRecordType::Checkpoint) {
             continue;
         }
 

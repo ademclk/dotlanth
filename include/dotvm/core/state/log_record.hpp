@@ -41,10 +41,18 @@ struct LSN {
     // Comparison operators
     [[nodiscard]] constexpr bool operator==(const LSN& other) const noexcept = default;
     [[nodiscard]] constexpr bool operator!=(const LSN& other) const noexcept = default;
-    [[nodiscard]] constexpr bool operator<(const LSN& other) const noexcept { return value < other.value; }
-    [[nodiscard]] constexpr bool operator<=(const LSN& other) const noexcept { return value <= other.value; }
-    [[nodiscard]] constexpr bool operator>(const LSN& other) const noexcept { return value > other.value; }
-    [[nodiscard]] constexpr bool operator>=(const LSN& other) const noexcept { return value >= other.value; }
+    [[nodiscard]] constexpr bool operator<(const LSN& other) const noexcept {
+        return value < other.value;
+    }
+    [[nodiscard]] constexpr bool operator<=(const LSN& other) const noexcept {
+        return value <= other.value;
+    }
+    [[nodiscard]] constexpr bool operator>(const LSN& other) const noexcept {
+        return value > other.value;
+    }
+    [[nodiscard]] constexpr bool operator>=(const LSN& other) const noexcept {
+        return value >= other.value;
+    }
 };
 
 // ============================================================================
@@ -53,23 +61,29 @@ struct LSN {
 
 /// @brief Type of log record
 enum class LogRecordType : std::uint8_t {
-    Put = 0,        ///< Store a key-value pair
-    Delete = 1,     ///< Delete a key
-    TxBegin = 2,    ///< Transaction begin marker
-    TxCommit = 3,   ///< Transaction commit marker
-    TxAbort = 4,    ///< Transaction abort marker
-    Checkpoint = 5, ///< Checkpoint marker
+    Put = 0,         ///< Store a key-value pair
+    Delete = 1,      ///< Delete a key
+    TxBegin = 2,     ///< Transaction begin marker
+    TxCommit = 3,    ///< Transaction commit marker
+    TxAbort = 4,     ///< Transaction abort marker
+    Checkpoint = 5,  ///< Checkpoint marker
 };
 
 /// @brief Convert log record type to string
 [[nodiscard]] constexpr const char* to_string(LogRecordType type) noexcept {
     switch (type) {
-        case LogRecordType::Put: return "Put";
-        case LogRecordType::Delete: return "Delete";
-        case LogRecordType::TxBegin: return "TxBegin";
-        case LogRecordType::TxCommit: return "TxCommit";
-        case LogRecordType::TxAbort: return "TxAbort";
-        case LogRecordType::Checkpoint: return "Checkpoint";
+        case LogRecordType::Put:
+            return "Put";
+        case LogRecordType::Delete:
+            return "Delete";
+        case LogRecordType::TxBegin:
+            return "TxBegin";
+        case LogRecordType::TxCommit:
+            return "TxCommit";
+        case LogRecordType::TxAbort:
+            return "TxAbort";
+        case LogRecordType::Checkpoint:
+            return "Checkpoint";
     }
     return "Unknown";
 }
@@ -104,29 +118,23 @@ struct LogRecord {
     /// @brief Header size in bytes (LSN + Type + Reserved + KeyLen + ValueLen)
     static constexpr std::size_t HEADER_SIZE = 16;
 
-    LSN lsn;                          ///< Log sequence number
-    LogRecordType type;               ///< Record type
-    std::vector<std::byte> key;       ///< Key data (empty for tx markers)
-    std::vector<std::byte> value;     ///< Value data (empty for delete/tx markers)
-    TxId tx_id;                       ///< Transaction ID
-    std::uint32_t checksum{0};        ///< CRC32 checksum
+    LSN lsn;                       ///< Log sequence number
+    LogRecordType type;            ///< Record type
+    std::vector<std::byte> key;    ///< Key data (empty for tx markers)
+    std::vector<std::byte> value;  ///< Value data (empty for delete/tx markers)
+    TxId tx_id;                    ///< Transaction ID
+    std::uint32_t checksum{0};     ///< CRC32 checksum
 
     // ========================================================================
     // Factory Methods
     // ========================================================================
 
     /// @brief Create a Put record
-    [[nodiscard]] static LogRecord create_put(
-        LSN lsn,
-        std::vector<std::byte> key,
-        std::vector<std::byte> value,
-        TxId tx_id);
+    [[nodiscard]] static LogRecord create_put(LSN lsn, std::vector<std::byte> key,
+                                              std::vector<std::byte> value, TxId tx_id);
 
     /// @brief Create a Delete record
-    [[nodiscard]] static LogRecord create_delete(
-        LSN lsn,
-        std::vector<std::byte> key,
-        TxId tx_id);
+    [[nodiscard]] static LogRecord create_delete(LSN lsn, std::vector<std::byte> key, TxId tx_id);
 
     /// @brief Create a TxBegin record
     [[nodiscard]] static LogRecord create_tx_begin(LSN lsn, TxId tx_id);
@@ -153,8 +161,8 @@ struct LogRecord {
     /// @brief Deserialize a record from bytes
     /// @param data Serialized record data
     /// @return Deserialized record, or WalError if invalid
-    [[nodiscard]] static ::dotvm::core::Result<LogRecord, WalError> deserialize(
-        std::span<const std::byte> data);
+    [[nodiscard]] static ::dotvm::core::Result<LogRecord, WalError>
+    deserialize(std::span<const std::byte> data);
 
     // ========================================================================
     // Utilities
@@ -168,7 +176,8 @@ struct LogRecord {
 
     /// @brief Get the total serialized size
     [[nodiscard]] std::size_t serialized_size() const noexcept {
-        return HEADER_SIZE + TXID_SERIALIZED_SIZE + key.size() + value.size() + sizeof(std::uint32_t);
+        return HEADER_SIZE + TXID_SERIALIZED_SIZE + key.size() + value.size() +
+               sizeof(std::uint32_t);
     }
 };
 

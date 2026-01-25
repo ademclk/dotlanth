@@ -29,8 +29,8 @@ enum class WalError : std::uint8_t {
     WalTruncateFailed = 84,  ///< Failed to truncate WAL file
 
     // Checkpoint errors (88-91)
-    CheckpointFailed = 88,    ///< Checkpoint operation failed
-    CheckpointCorrupted = 89, ///< Checkpoint file is corrupted
+    CheckpointFailed = 88,     ///< Checkpoint operation failed
+    CheckpointCorrupted = 89,  ///< Checkpoint file is corrupted
 
     // Recovery errors (92-95)
     RecoveryFailed = 92,   ///< Recovery operation failed completely

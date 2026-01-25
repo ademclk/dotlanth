@@ -3,13 +3,13 @@
 ///
 /// Validates that WAL meets the >50K records/sec append throughput target.
 
-#include <gtest/gtest.h>
-
 #include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <random>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/state/state_backend.hpp"
 #include "dotvm/core/state/wal_backend.hpp"
@@ -52,15 +52,13 @@ protected:
         rng_.seed(42);
     }
 
-    void TearDown() override {
-        std::filesystem::remove_all(test_dir_);
-    }
+    void TearDown() override { std::filesystem::remove_all(test_dir_); }
 
     WalConfig default_wal_config() {
         WalConfig config;
         config.wal_directory = test_dir_;
-        config.segment_size = 64 * 1024 * 1024;  // 64MB
-        config.buffer_size = 64 * 1024;           // 64KB buffer for performance
+        config.segment_size = 64 * 1024 * 1024;      // 64MB
+        config.buffer_size = 64 * 1024;              // 64KB buffer for performance
         config.sync_policy = WalSyncPolicy::Manual;  // No auto-sync for raw throughput
         return config;
     }
@@ -108,11 +106,7 @@ TEST_F(WalBenchmarkTest, AppendThroughputMeetsTarget) {
     auto start = std::chrono::high_resolution_clock::now();
 
     for (std::size_t i = 0; i < BENCHMARK_RECORD_COUNT; ++i) {
-        auto result = wal->append(
-            LogRecordType::Put,
-            keys_[i],
-            values_[i],
-            TxId{0, 0});
+        auto result = wal->append(LogRecordType::Put, keys_[i], values_[i], TxId{0, 0});
         ASSERT_TRUE(result.is_ok()) << "Append failed at record " << i;
     }
 
@@ -126,13 +120,14 @@ TEST_F(WalBenchmarkTest, AppendThroughputMeetsTarget) {
     std::cout << "\n=== WAL Append Throughput (No Sync) ===" << std::endl;
     std::cout << "Records:    " << BENCHMARK_RECORD_COUNT << std::endl;
     std::cout << "Duration:   " << duration.count() << " us (" << seconds << " s)" << std::endl;
-    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec" << std::endl;
+    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec"
+              << std::endl;
     std::cout << "Target:     " << TARGET_RECORDS_PER_SEC << " rec/sec" << std::endl;
     std::cout << "========================================\n" << std::endl;
 
     EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
-        << "Throughput " << records_per_sec << " rec/sec is below target "
-        << TARGET_RECORDS_PER_SEC << " rec/sec";
+        << "Throughput " << records_per_sec << " rec/sec is below target " << TARGET_RECORDS_PER_SEC
+        << " rec/sec";
 }
 
 TEST_F(WalBenchmarkTest, AppendWithPeriodicSyncThroughput) {
@@ -152,11 +147,7 @@ TEST_F(WalBenchmarkTest, AppendWithPeriodicSyncThroughput) {
     auto start = std::chrono::high_resolution_clock::now();
 
     for (std::size_t i = 0; i < BENCHMARK_RECORD_COUNT; ++i) {
-        auto result = wal->append(
-            LogRecordType::Put,
-            keys_[i],
-            values_[i],
-            TxId{0, 0});
+        auto result = wal->append(LogRecordType::Put, keys_[i], values_[i], TxId{0, 0});
         ASSERT_TRUE(result.is_ok()) << "Append failed at record " << i;
     }
 
@@ -170,7 +161,8 @@ TEST_F(WalBenchmarkTest, AppendWithPeriodicSyncThroughput) {
     std::cout << "\n=== WAL Append Throughput (Sync every 1000) ===" << std::endl;
     std::cout << "Records:    " << BENCHMARK_RECORD_COUNT << std::endl;
     std::cout << "Duration:   " << duration.count() << " us (" << seconds << " s)" << std::endl;
-    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec" << std::endl;
+    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec"
+              << std::endl;
     std::cout << "Syncs:      " << (BENCHMARK_RECORD_COUNT / 1000) << std::endl;
     std::cout << "===============================================\n" << std::endl;
 
@@ -213,13 +205,14 @@ TEST_F(WalBenchmarkTest, WalBackendPutThroughput) {
     std::cout << "\n=== WalBackend Put Throughput ===" << std::endl;
     std::cout << "Records:    " << BENCHMARK_RECORD_COUNT << std::endl;
     std::cout << "Duration:   " << duration.count() << " us (" << seconds << " s)" << std::endl;
-    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec" << std::endl;
+    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec"
+              << std::endl;
     std::cout << "Target:     " << TARGET_RECORDS_PER_SEC << " rec/sec" << std::endl;
     std::cout << "=================================\n" << std::endl;
 
     EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
-        << "Throughput " << records_per_sec << " rec/sec is below target "
-        << TARGET_RECORDS_PER_SEC << " rec/sec";
+        << "Throughput " << records_per_sec << " rec/sec is below target " << TARGET_RECORDS_PER_SEC
+        << " rec/sec";
 }
 
 // ============================================================================
@@ -269,7 +262,8 @@ TEST_F(WalBenchmarkTest, RecoveryThroughput) {
     std::cout << "\n=== WAL Recovery Throughput ===" << std::endl;
     std::cout << "Records:    " << RECOVERY_RECORD_COUNT << std::endl;
     std::cout << "Duration:   " << duration.count() << " us (" << seconds << " s)" << std::endl;
-    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec" << std::endl;
+    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec"
+              << std::endl;
     std::cout << "===============================\n" << std::endl;
 
     // Recovery should be at least as fast as writes (no fdatasync needed)
@@ -304,11 +298,8 @@ TEST_F(WalBenchmarkTest, BatchOperationThroughput) {
 
         for (std::size_t i = 0; i < BATCH_SIZE; ++i) {
             std::size_t idx = batch * BATCH_SIZE + i;
-            ops.push_back(BatchOp{
-                .type = BatchOpType::Put,
-                .key = keys_[idx],
-                .value = values_[idx]
-            });
+            ops.push_back(
+                BatchOp{.type = BatchOpType::Put, .key = keys_[idx], .value = values_[idx]});
         }
 
         auto batch_result = backend->batch(ops);
@@ -327,7 +318,8 @@ TEST_F(WalBenchmarkTest, BatchOperationThroughput) {
     std::cout << "Batch size: " << BATCH_SIZE << std::endl;
     std::cout << "Batches:    " << NUM_BATCHES << std::endl;
     std::cout << "Duration:   " << duration.count() << " us (" << seconds << " s)" << std::endl;
-    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec" << std::endl;
+    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec"
+              << std::endl;
     std::cout << "===================================\n" << std::endl;
 
     EXPECT_GE(records_per_sec, TARGET_RECORDS_PER_SEC)
@@ -361,11 +353,7 @@ TEST_F(WalBenchmarkTest, SmallRecordThroughput) {
     auto start = std::chrono::high_resolution_clock::now();
 
     for (std::size_t i = 0; i < SMALL_RECORD_COUNT; ++i) {
-        auto result = wal->append(
-            LogRecordType::Put,
-            small_keys[i],
-            small_values[i],
-            TxId{0, 0});
+        auto result = wal->append(LogRecordType::Put, small_keys[i], small_values[i], TxId{0, 0});
         ASSERT_TRUE(result.is_ok());
     }
 
@@ -378,7 +366,8 @@ TEST_F(WalBenchmarkTest, SmallRecordThroughput) {
     std::cout << "\n=== Small Record Throughput (8B key + 32B value) ===" << std::endl;
     std::cout << "Records:    " << SMALL_RECORD_COUNT << std::endl;
     std::cout << "Duration:   " << duration.count() << " us (" << seconds << " s)" << std::endl;
-    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec" << std::endl;
+    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec"
+              << std::endl;
     std::cout << "===================================================\n" << std::endl;
 
     // Small records should have higher throughput
@@ -409,11 +398,7 @@ TEST_F(WalBenchmarkTest, LargeRecordThroughput) {
     auto start = std::chrono::high_resolution_clock::now();
 
     for (std::size_t i = 0; i < LARGE_RECORD_COUNT; ++i) {
-        auto result = wal->append(
-            LogRecordType::Put,
-            large_keys[i],
-            large_values[i],
-            TxId{0, 0});
+        auto result = wal->append(LogRecordType::Put, large_keys[i], large_values[i], TxId{0, 0});
         ASSERT_TRUE(result.is_ok());
     }
 
@@ -422,19 +407,21 @@ TEST_F(WalBenchmarkTest, LargeRecordThroughput) {
 
     double seconds = static_cast<double>(duration.count()) / 1'000'000.0;
     double records_per_sec = static_cast<double>(LARGE_RECORD_COUNT) / seconds;
-    double mb_per_sec = static_cast<double>(LARGE_RECORD_COUNT * (LARGE_KEY_SIZE + LARGE_VALUE_SIZE)) / (seconds * 1024.0 * 1024.0);
+    double mb_per_sec =
+        static_cast<double>(LARGE_RECORD_COUNT * (LARGE_KEY_SIZE + LARGE_VALUE_SIZE)) /
+        (seconds * 1024.0 * 1024.0);
 
     std::cout << "\n=== Large Record Throughput (64B key + 4KB value) ===" << std::endl;
     std::cout << "Records:    " << LARGE_RECORD_COUNT << std::endl;
     std::cout << "Duration:   " << duration.count() << " us (" << seconds << " s)" << std::endl;
-    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec" << std::endl;
+    std::cout << "Throughput: " << static_cast<std::size_t>(records_per_sec) << " rec/sec"
+              << std::endl;
     std::cout << "Data rate:  " << mb_per_sec << " MB/sec" << std::endl;
     std::cout << "====================================================\n" << std::endl;
 
     // Large records will have lower rec/sec but higher MB/sec
     // At least 5K rec/sec for 4KB records (conservative for CI environments)
-    EXPECT_GE(records_per_sec, 5000)
-        << "Large record throughput too low";
+    EXPECT_GE(records_per_sec, 5000) << "Large record throughput too low";
 }
 
 }  // namespace

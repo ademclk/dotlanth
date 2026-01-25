@@ -27,9 +27,7 @@ struct WalBackendConfig {
     }
 
     /// @brief Validate configuration
-    [[nodiscard]] bool is_valid() const noexcept {
-        return wal_config.is_valid();
-    }
+    [[nodiscard]] bool is_valid() const noexcept { return wal_config.is_valid(); }
 };
 
 // ============================================================================

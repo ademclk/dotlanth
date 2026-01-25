@@ -3,9 +3,9 @@
 ///
 /// TDD tests for LSN, LogRecordType, LogRecord, and serialization.
 
-#include <gtest/gtest.h>
-
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/state/log_record.hpp"
 
@@ -270,7 +270,8 @@ TEST(LogRecordSerializationTest, CorruptedDataDetected) {
 
     // Corrupt a byte in the middle of the data
     if (serialized.size() > 20) {
-        serialized[15] = std::byte{static_cast<unsigned char>(~static_cast<unsigned char>(serialized[15]))};
+        serialized[15] =
+            std::byte{static_cast<unsigned char>(~static_cast<unsigned char>(serialized[15]))};
     }
 
     auto result = LogRecord::deserialize(serialized);
@@ -287,7 +288,8 @@ TEST(LogRecordSerializationTest, CorruptedChecksumDetected) {
     std::vector<std::byte> serialized = original.serialize();
 
     // Corrupt the last byte (part of checksum)
-    serialized.back() = std::byte{static_cast<unsigned char>(~static_cast<unsigned char>(serialized.back()))};
+    serialized.back() =
+        std::byte{static_cast<unsigned char>(~static_cast<unsigned char>(serialized.back()))};
 
     auto result = LogRecord::deserialize(serialized);
     ASSERT_TRUE(result.is_err());
@@ -324,7 +326,7 @@ TEST(LogRecordSerializationTest, EmptyBufferRejected) {
 // ============================================================================
 
 TEST(LogRecordSerializationTest, SerializedSizeIsCorrect) {
-    std::vector<std::byte> key = {std::byte{'k'}, std::byte{'e'}, std::byte{'y'}};  // 3 bytes
+    std::vector<std::byte> key = {std::byte{'k'}, std::byte{'e'}, std::byte{'y'}};    // 3 bytes
     std::vector<std::byte> value = {std::byte{'v'}, std::byte{'a'}, std::byte{'l'}};  // 3 bytes
     TxId tx{.id = 1, .generation = 0};
 

@@ -38,7 +38,8 @@ constexpr std::array<std::uint32_t, 256> generate_crc32_table() {
 constexpr std::array<std::uint32_t, 256> CRC32_TABLE = generate_crc32_table();
 
 /// @brief Calculate CRC32 for a byte buffer
-[[nodiscard]] std::uint32_t crc32(std::span<const std::byte> data, std::uint32_t initial = 0xFFFFFFFF) {
+[[nodiscard]] std::uint32_t crc32(std::span<const std::byte> data,
+                                  std::uint32_t initial = 0xFFFFFFFF) {
     std::uint32_t crc = initial;
     for (std::byte b : data) {
         std::uint8_t index = static_cast<std::uint8_t>(crc ^ static_cast<std::uint8_t>(b));
@@ -70,8 +71,9 @@ void write_u64(std::vector<std::byte>& buf, std::uint64_t value) {
 }
 
 [[nodiscard]] std::uint16_t read_u16(std::span<const std::byte> buf, std::size_t offset) {
-    return static_cast<std::uint16_t>(buf[offset]) |
-           (static_cast<std::uint16_t>(buf[offset + 1]) << 8);
+    return static_cast<std::uint16_t>(
+        static_cast<std::uint16_t>(buf[offset]) |
+        static_cast<std::uint16_t>(static_cast<std::uint16_t>(buf[offset + 1]) << 8));
 }
 
 [[nodiscard]] std::uint32_t read_u32(std::span<const std::byte> buf, std::size_t offset) {
@@ -95,11 +97,8 @@ void write_u64(std::vector<std::byte>& buf, std::uint64_t value) {
 // Factory Methods
 // ============================================================================
 
-LogRecord LogRecord::create_put(
-    LSN lsn,
-    std::vector<std::byte> key,
-    std::vector<std::byte> value,
-    TxId tx_id) {
+LogRecord LogRecord::create_put(LSN lsn, std::vector<std::byte> key, std::vector<std::byte> value,
+                                TxId tx_id) {
     LogRecord record;
     record.lsn = lsn;
     record.type = LogRecordType::Put;
@@ -110,10 +109,7 @@ LogRecord LogRecord::create_put(
     return record;
 }
 
-LogRecord LogRecord::create_delete(
-    LSN lsn,
-    std::vector<std::byte> key,
-    TxId tx_id) {
+LogRecord LogRecord::create_delete(LSN lsn, std::vector<std::byte> key, TxId tx_id) {
     LogRecord record;
     record.lsn = lsn;
     record.type = LogRecordType::Delete;
@@ -165,7 +161,8 @@ LogRecord LogRecord::create_checkpoint(LSN lsn, LSN checkpoint_lsn) {
     // Store checkpoint LSN in value as 8 bytes
     record.value.resize(sizeof(std::uint64_t));
     for (int i = 0; i < 8; ++i) {
-        record.value[static_cast<std::size_t>(i)] = static_cast<std::byte>((checkpoint_lsn.value >> (i * 8)) & 0xFF);
+        record.value[static_cast<std::size_t>(i)] =
+            static_cast<std::byte>((checkpoint_lsn.value >> (i * 8)) & 0xFF);
     }
     record.tx_id = TxId{};  // No transaction for checkpoint
     record.checksum = record.calculate_checksum();
@@ -181,19 +178,19 @@ std::vector<std::byte> LogRecord::serialize() const {
     buf.reserve(serialized_size());
 
     // Header (16 bytes)
-    write_u64(buf, lsn.value);                                      // [0-7] LSN
-    buf.push_back(static_cast<std::byte>(type));                    // [8] Type
-    buf.push_back(std::byte{0x00});                                 // [9] Reserved
-    write_u16(buf, static_cast<std::uint16_t>(key.size()));         // [10-11] Key length
-    write_u32(buf, static_cast<std::uint32_t>(value.size()));       // [12-15] Value length
+    write_u64(buf, lsn.value);                                 // [0-7] LSN
+    buf.push_back(static_cast<std::byte>(type));               // [8] Type
+    buf.push_back(std::byte{0x00});                            // [9] Reserved
+    write_u16(buf, static_cast<std::uint16_t>(key.size()));    // [10-11] Key length
+    write_u32(buf, static_cast<std::uint32_t>(value.size()));  // [12-15] Value length
 
     // TxId (12 bytes)
-    write_u64(buf, tx_id.id);                                       // [16-23] tx_id.id
-    write_u32(buf, tx_id.generation);                               // [24-27] tx_id.generation
+    write_u64(buf, tx_id.id);          // [16-23] tx_id.id
+    write_u32(buf, tx_id.generation);  // [24-27] tx_id.generation
 
     // Body (variable)
-    buf.insert(buf.end(), key.begin(), key.end());                  // Key bytes
-    buf.insert(buf.end(), value.begin(), value.end());              // Value bytes
+    buf.insert(buf.end(), key.begin(), key.end());      // Key bytes
+    buf.insert(buf.end(), value.begin(), value.end());  // Value bytes
 
     // Footer (4 bytes) - CRC32 checksum
     write_u32(buf, checksum);
@@ -226,7 +223,8 @@ std::vector<std::byte> LogRecord::serialize() const {
     std::uint32_t tx_id_gen = read_u32(data, 24);
 
     // Calculate expected size (use TXID_SERIALIZED_SIZE, not sizeof)
-    std::size_t expected_size = HEADER_SIZE + TXID_SERIALIZED_SIZE + key_len + value_len + sizeof(std::uint32_t);
+    std::size_t expected_size =
+        HEADER_SIZE + TXID_SERIALIZED_SIZE + key_len + value_len + sizeof(std::uint32_t);
     if (data.size() < expected_size) {
         return WalError::WalCorrupted;
     }
@@ -237,9 +235,9 @@ std::vector<std::byte> LogRecord::serialize() const {
     std::size_t checksum_offset = value_offset + value_len;
 
     std::vector<std::byte> key_data(data.begin() + static_cast<std::ptrdiff_t>(key_offset),
-                                     data.begin() + static_cast<std::ptrdiff_t>(value_offset));
+                                    data.begin() + static_cast<std::ptrdiff_t>(value_offset));
     std::vector<std::byte> value_data(data.begin() + static_cast<std::ptrdiff_t>(value_offset),
-                                       data.begin() + static_cast<std::ptrdiff_t>(checksum_offset));
+                                      data.begin() + static_cast<std::ptrdiff_t>(checksum_offset));
 
     // Read stored checksum
     std::uint32_t stored_checksum = read_u32(data, checksum_offset);

@@ -56,9 +56,9 @@ struct WalConfig {
 
 /// @brief Information about a checkpoint
 struct CheckpointInfo {
-    LSN checkpoint_lsn;                             ///< LSN at checkpoint time
+    LSN checkpoint_lsn;                               ///< LSN at checkpoint time
     std::chrono::system_clock::time_point timestamp;  ///< When checkpoint was created
-    std::size_t records_checkpointed{0};            ///< Number of records included
+    std::size_t records_checkpointed{0};              ///< Number of records included
 };
 
 // ============================================================================
@@ -114,11 +114,10 @@ public:
     /// @param value Value data (empty for delete/tx markers)
     /// @param tx_id Transaction ID
     /// @return The assigned LSN, or error
-    [[nodiscard]] ::dotvm::core::Result<LSN, WalError> append(
-        LogRecordType type,
-        std::span<const std::byte> key,
-        std::span<const std::byte> value,
-        TxId tx_id);
+    [[nodiscard]] ::dotvm::core::Result<LSN, WalError> append(LogRecordType type,
+                                                              std::span<const std::byte> key,
+                                                              std::span<const std::byte> value,
+                                                              TxId tx_id);
 
     /// @brief Sync buffered writes to disk
     ///
@@ -174,13 +173,13 @@ private:
     WalConfig config_;
     std::filesystem::path segment_path_;  ///< Current segment file path
 
-    alignas(64) std::atomic<std::uint64_t> next_lsn_{1};  ///< Next LSN to assign
+    alignas(64) std::atomic<std::uint64_t> next_lsn_{1};    ///< Next LSN to assign
     alignas(64) std::atomic<std::uint64_t> synced_lsn_{0};  ///< Last synced LSN
 
-    mutable std::shared_mutex io_mutex_;  ///< Mutex for file I/O
+    mutable std::shared_mutex io_mutex_;   ///< Mutex for file I/O
     std::vector<std::byte> write_buffer_;  ///< Write buffer
-    int fd_{-1};  ///< File descriptor (-1 if not open)
-    std::size_t records_since_sync_{0};  ///< Records written since last sync
+    int fd_{-1};                           ///< File descriptor (-1 if not open)
+    std::size_t records_since_sync_{0};    ///< Records written since last sync
 };
 
 }  // namespace dotvm::core::state

@@ -3,10 +3,10 @@
 ///
 /// TDD tests for WalBackend wrapping InMemoryBackend with WAL.
 
-#include <gtest/gtest.h>
-
 #include <cstring>
 #include <filesystem>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/state/state_backend.hpp"
 #include "dotvm/core/state/wal_backend.hpp"
@@ -18,7 +18,6 @@ namespace {
 [[nodiscard]] std::span<const std::byte> to_bytes(std::string_view str) {
     return {reinterpret_cast<const std::byte*>(str.data()), str.size()};
 }
-
 
 /// @brief Convert byte vector to string for comparison
 [[nodiscard]] std::string to_string(std::span<const std::byte> bytes) {
@@ -34,9 +33,7 @@ protected:
         std::filesystem::create_directories(test_dir_);
     }
 
-    void TearDown() override {
-        std::filesystem::remove_all(test_dir_);
-    }
+    void TearDown() override { std::filesystem::remove_all(test_dir_); }
 
     WalBackendConfig default_config() {
         WalBackendConfig config;

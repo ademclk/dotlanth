@@ -5,13 +5,12 @@
 
 #include "dotvm/core/state/write_ahead_log.hpp"
 
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include <algorithm>
 #include <cstring>
+#include <fcntl.h>
 #include <mutex>
+#include <sys/stat.h>
+#include <unistd.h>
 
 namespace dotvm::core::state {
 
@@ -27,8 +26,7 @@ constexpr const char* SEGMENT_FILENAME = "wal_segment.log";
 // ============================================================================
 
 WriteAheadLog::WriteAheadLog(WalConfig config)
-    : config_{std::move(config)},
-      segment_path_{config_.wal_directory / SEGMENT_FILENAME} {
+    : config_{std::move(config)}, segment_path_{config_.wal_directory / SEGMENT_FILENAME} {
     write_buffer_.reserve(config_.buffer_size);
 }
 
@@ -91,12 +89,10 @@ WriteAheadLog::open(const std::filesystem::path& wal_dir) {
 // Core Operations
 // ============================================================================
 
-::dotvm::core::Result<LSN, WalError> WriteAheadLog::append(
-    LogRecordType type,
-    std::span<const std::byte> key,
-    std::span<const std::byte> value,
-    TxId tx_id) {
-
+::dotvm::core::Result<LSN, WalError> WriteAheadLog::append(LogRecordType type,
+                                                           std::span<const std::byte> key,
+                                                           std::span<const std::byte> value,
+                                                           TxId tx_id) {
     // Allocate LSN atomically
     std::uint64_t lsn_value = next_lsn_.fetch_add(1, std::memory_order_acq_rel);
     LSN lsn{lsn_value};
@@ -250,7 +246,9 @@ WriteAheadLog::open(const std::filesystem::path& wal_dir) {
 
     while (offset < file_data.size()) {
         // Need at least header + TxId + checksum
-        if (offset + LogRecord::HEADER_SIZE + LogRecord::TXID_SERIALIZED_SIZE + sizeof(std::uint32_t) > file_data.size()) {
+        if (offset + LogRecord::HEADER_SIZE + LogRecord::TXID_SERIALIZED_SIZE +
+                sizeof(std::uint32_t) >
+            file_data.size()) {
             break;  // Partial record at end
         }
 
@@ -292,13 +290,11 @@ WriteAheadLog::open(const std::filesystem::path& wal_dir) {
     LSN checkpoint_lsn{synced_lsn_.load(std::memory_order_acquire)};
 
     // Write checkpoint record
-    auto lsn_result = append(
-        LogRecordType::Checkpoint,
-        {},
-        std::span<const std::byte>(
-            reinterpret_cast<const std::byte*>(&checkpoint_lsn.value),
-            sizeof(checkpoint_lsn.value)),
-        TxId{});
+    auto lsn_result =
+        append(LogRecordType::Checkpoint, {},
+               std::span<const std::byte>(reinterpret_cast<const std::byte*>(&checkpoint_lsn.value),
+                                          sizeof(checkpoint_lsn.value)),
+               TxId{});
 
     if (lsn_result.is_err()) {
         return lsn_result.error();

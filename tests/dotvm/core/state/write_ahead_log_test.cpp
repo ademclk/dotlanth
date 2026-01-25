@@ -3,10 +3,10 @@
 ///
 /// TDD tests for WriteAheadLog class - written before implementation.
 
-#include <gtest/gtest.h>
-
 #include <filesystem>
 #include <fstream>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/state/write_ahead_log.hpp"
 
@@ -19,14 +19,13 @@ protected:
     void SetUp() override {
         // Create unique temp directory for each test
         test_dir_ = std::filesystem::temp_directory_path() /
-                    ("wal_test_" + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id())) +
+                    ("wal_test_" +
+                     std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id())) +
                      "_" + std::to_string(test_counter_++));
         std::filesystem::create_directories(test_dir_);
     }
 
-    void TearDown() override {
-        std::filesystem::remove_all(test_dir_);
-    }
+    void TearDown() override { std::filesystem::remove_all(test_dir_); }
 
     WalConfig default_config() {
         WalConfig config;
@@ -322,7 +321,8 @@ TEST_F(WriteAheadLogTest, RecoverMultipleRecords) {
         EXPECT_EQ(records.size(), NUM_RECORDS);
 
         for (int i = 0; i < NUM_RECORDS; ++i) {
-            EXPECT_EQ(records[static_cast<std::size_t>(i)].lsn.value, static_cast<std::uint64_t>(i + 1));
+            EXPECT_EQ(records[static_cast<std::size_t>(i)].lsn.value,
+                      static_cast<std::uint64_t>(i + 1));
             EXPECT_EQ(records[static_cast<std::size_t>(i)].key[0], static_cast<std::byte>(i));
         }
     }
