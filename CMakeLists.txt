@@ -177,6 +177,10 @@ add_library(dotvm_core STATIC
     src/dotvm/exec/database_bridge.cpp
     # PostgreSQL backend config (STATE-006) - always compiled for config struct
     src/dotvm/core/state/postgres_backend.cpp
+    # Write-Ahead Logging (STATE-007)
+    src/dotvm/core/state/log_record.cpp
+    src/dotvm/core/state/write_ahead_log.cpp
+    src/dotvm/core/state/wal_backend.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -519,6 +523,12 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/exec/database_bridge_test.cpp
         # PostgreSQL backend tests (STATE-006)
         tests/dotvm/core/state/postgres_backend_test.cpp
+        # WAL tests (STATE-007)
+        tests/dotvm/core/state/wal_error_test.cpp
+        tests/dotvm/core/state/log_record_test.cpp
+        tests/dotvm/core/state/write_ahead_log_test.cpp
+        tests/dotvm/core/state/wal_backend_test.cpp
+        tests/dotvm/core/state/wal_benchmark_test.cpp
     )
 
     # JIT tests (EXEC-012)
