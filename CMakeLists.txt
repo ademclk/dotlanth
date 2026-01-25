@@ -173,6 +173,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/transaction_manager.cpp
     # State execution context (STATE-004)
     src/dotvm/exec/state_execution_context.cpp
+    # Database bridge (STATE-005)
+    src/dotvm/exec/database_bridge.cpp
 )
 
 # JIT subsystem (EXEC-012)
@@ -500,6 +502,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/state/transaction_manager_test.cpp
         # State opcodes tests (STATE-004)
         tests/dotvm/exec/state_opcodes_test.cpp
+        # Database bridge tests (STATE-005)
+        tests/dotvm/exec/database_bridge_test.cpp
     )
 
     # JIT tests (EXEC-012)
