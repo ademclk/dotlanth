@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <limits>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -629,6 +630,75 @@ public:
         global_version_.store(0, std::memory_order_release);
     }
 
+    // ========================================================================
+    // MVCC Version Support (STATE-009)
+    // ========================================================================
+
+    [[nodiscard]] std::uint64_t current_version() const noexcept override {
+        return global_version_.load(std::memory_order_acquire);
+    }
+
+    [[nodiscard]] Result<std::vector<std::byte>>
+    get_at_version(Key key, std::uint64_t version) const override {
+        auto key_vec = std::vector<std::byte>(key.begin(), key.end());
+
+        std::shared_lock lock(storage_mtx_);
+
+        auto it = storage_.find(key_vec);
+        if (it == storage_.end()) {
+            return StateBackendError::KeyNotFound;
+        }
+
+        std::shared_lock key_lock(it->second.mtx);
+        const VersionEntry* entry = it->second.get_visible(version);
+        if (entry == nullptr || entry->deleted) {
+            return StateBackendError::KeyNotFound;
+        }
+
+        return entry->value;
+    }
+
+    [[nodiscard]] Result<void> iterate_at_version(Key prefix, std::uint64_t version,
+                                                  const IterateCallback& callback) const override {
+        auto prefix_vec = std::vector<std::byte>(prefix.begin(), prefix.end());
+
+        // Build snapshot of matching keys at the specified version
+        std::map<std::vector<std::byte>, std::vector<std::byte>, ByteVectorCompare> snapshot;
+
+        {
+            std::shared_lock lock(storage_mtx_);
+
+            auto it = storage_.lower_bound(prefix_vec);
+            while (it != storage_.end()) {
+                if (!starts_with(it->first, std::span<const std::byte>{prefix_vec})) {
+                    break;
+                }
+
+                std::shared_lock key_lock(it->second.mtx);
+                const VersionEntry* entry = it->second.get_visible(version);
+                if (entry != nullptr && !entry->deleted) {
+                    snapshot[it->first] = entry->value;
+                }
+                ++it;
+            }
+        }
+
+        // Invoke callback on snapshot (no locks held)
+        for (const auto& [key, value] : snapshot) {
+            Key key_span{key};
+            Value value_span{value};
+            if (!callback(key_span, value_span)) {
+                break;
+            }
+        }
+
+        return {};
+    }
+
+    void set_min_snapshot_version(std::uint64_t min_version) noexcept override {
+        min_snapshot_version_.store(min_version, std::memory_order_release);
+    }
+
 private:
     /// @brief Update minimum active snapshot version
     [[nodiscard]] std::uint64_t get_min_active_snapshot() const noexcept {
@@ -648,7 +718,10 @@ private:
             return;
         }
 
-        std::uint64_t min_version = global_version_.load(std::memory_order_acquire);
+        // Use the minimum of current version and any active snapshot version
+        std::uint64_t current = global_version_.load(std::memory_order_acquire);
+        std::uint64_t snapshot_min = min_snapshot_version_.load(std::memory_order_acquire);
+        std::uint64_t min_version = std::min(current, snapshot_min);
 
         for (auto& [key, versioned] : storage_) {
             std::unique_lock key_lock(versioned.mtx);
@@ -668,6 +741,9 @@ private:
 
     std::atomic<std::size_t> storage_bytes_{0};
     std::atomic<std::uint64_t> global_version_{0};
+
+    // Snapshot GC coordination (STATE-009)
+    std::atomic<std::uint64_t> min_snapshot_version_{std::numeric_limits<std::uint64_t>::max()};
 
     // Transaction management
     std::unordered_map<std::uint64_t, MvccTransaction> transactions_;
