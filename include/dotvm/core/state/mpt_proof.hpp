@@ -56,11 +56,10 @@ using ProofResult = ::dotvm::core::Result<T, MptError>;
 /// @param expected_value Value expected at the key
 /// @param proof The inclusion proof
 /// @return true if proof is valid and value matches, false otherwise
-[[nodiscard]] ProofResult<bool> verify_inclusion(
-    const Hash256& root,
-    std::span<const std::byte> key,
-    std::span<const std::byte> expected_value,
-    const MptProof& proof);
+[[nodiscard]] ProofResult<bool> verify_inclusion(const Hash256& root,
+                                                 std::span<const std::byte> key,
+                                                 std::span<const std::byte> expected_value,
+                                                 const MptProof& proof);
 
 /// @brief Verify that a key does NOT exist in the trie
 ///
@@ -71,9 +70,7 @@ using ProofResult = ::dotvm::core::Result<T, MptError>;
 /// @param key Key to verify is absent
 /// @param proof The exclusion proof
 /// @return true if proof validly shows key is absent, false otherwise
-[[nodiscard]] ProofResult<bool> verify_exclusion(
-    const Hash256& root,
-    std::span<const std::byte> key,
-    const MptProof& proof);
+[[nodiscard]] ProofResult<bool>
+verify_exclusion(const Hash256& root, std::span<const std::byte> key, const MptProof& proof);
 
 }  // namespace dotvm::core::state

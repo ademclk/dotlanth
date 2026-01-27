@@ -4,10 +4,10 @@
 /// Validates the <1ms root hash update target for tries with up to 100k keys.
 /// These are test-based benchmarks, not Google Benchmark (for CI integration).
 
-#include <gtest/gtest.h>
-
 #include <chrono>
 #include <random>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/state/merkle_patricia_trie.hpp"
 #include "dotvm/core/state/mpt_proof.hpp"
@@ -142,9 +142,7 @@ TEST(MptBenchmarkTest, RootHashUpdate_After100kKeys) {
         ASSERT_TRUE(insert_result.is_ok());
 
         // Measure root hash computation (should be incremental)
-        const double hash_us = measure_us([&]() {
-            [[maybe_unused]] auto hash = trie.root_hash();
-        });
+        const double hash_us = measure_us([&]() { [[maybe_unused]] auto hash = trie.root_hash(); });
 
         total_update_us += hash_us;
     }
@@ -181,9 +179,7 @@ TEST(MptBenchmarkTest, RootHashUpdate_SingleInsertIncremental) {
     const auto new_value = random_value(rng, value_length);
     ASSERT_TRUE(trie.insert(new_key, new_value).is_ok());
 
-    double hash_us = measure_us([&]() {
-        [[maybe_unused]] auto hash = trie.root_hash();
-    });
+    double hash_us = measure_us([&]() { [[maybe_unused]] auto hash = trie.root_hash(); });
 
     std::cout << "Single insert + root hash (10k trie): " << hash_us << " us\n";
 
@@ -353,9 +349,7 @@ TEST(MptBenchmarkTest, ScalabilityTest_Doubling) {
             }
         });
 
-        const double hash_us = measure_us([&]() {
-            [[maybe_unused]] auto hash = trie.root_hash();
-        });
+        const double hash_us = measure_us([&]() { [[maybe_unused]] auto hash = trie.root_hash(); });
 
         times.push_back(build_us);
         std::cout << "Build " << size << " keys: " << (build_us / 1000.0) << " ms, "

@@ -25,12 +25,12 @@ struct TrieNode {
     enum class Type { Empty, Leaf, Extension, Branch };
 
     Type type = Type::Empty;
-    Nibbles path;                                 // Path for leaf/extension
-    std::vector<std::byte> value;                 // Value for leaf/branch
+    Nibbles path;                                        // Path for leaf/extension
+    std::vector<std::byte> value;                        // Value for leaf/branch
     std::array<std::unique_ptr<TrieNode>, 16> children;  // For branch nodes
-    std::unique_ptr<TrieNode> child;              // For extension nodes
-    bool dirty = true;                            // Needs rehashing
-    Hash256 cached_hash;                          // Cached hash
+    std::unique_ptr<TrieNode> child;                     // For extension nodes
+    bool dirty = true;                                   // Needs rehashing
+    Hash256 cached_hash;                                 // Cached hash
 
     TrieNode() = default;
 
@@ -59,7 +59,8 @@ struct TrieNode {
 
 /// @brief Deep clone a trie node and its children
 [[nodiscard]] std::unique_ptr<TrieNode> clone_node(const TrieNode* node) {
-    if (!node) return nullptr;
+    if (!node)
+        return nullptr;
 
     auto cloned = std::make_unique<TrieNode>();
     cloned->type = node->type;
@@ -112,8 +113,8 @@ public:
     }
 
     std::unique_ptr<TrieNode> insert_recursive(std::unique_ptr<TrieNode> node, const Nibbles& key,
-                                               std::size_t key_pos,
-                                               std::vector<std::byte> value, bool& key_existed) {
+                                               std::size_t key_pos, std::vector<std::byte> value,
+                                               bool& key_existed) {
         if (!node || node->type == TrieNode::Type::Empty) {
             // Create leaf with remaining key
             return TrieNode::make_leaf(key.slice(key_pos, key.size() - key_pos), std::move(value));
@@ -185,8 +186,7 @@ public:
     }
 
     std::unique_ptr<TrieNode> insert_at_extension(std::unique_ptr<TrieNode> ext, const Nibbles& key,
-                                                  std::size_t key_pos,
-                                                  std::vector<std::byte> value,
+                                                  std::size_t key_pos, std::vector<std::byte> value,
                                                   bool& key_existed) {
         const auto remaining_key = key.slice(key_pos, key.size() - key_pos);
         const auto common_len = ext->path.common_prefix_length(remaining_key);
@@ -248,9 +248,8 @@ public:
 
         // Recurse into appropriate child
         const auto nibble = remaining_key[0];
-        branch->children[nibble] =
-            insert_recursive(std::move(branch->children[nibble]), key, key_pos + 1,
-                             std::move(value), key_existed);
+        branch->children[nibble] = insert_recursive(std::move(branch->children[nibble]), key,
+                                                    key_pos + 1, std::move(value), key_existed);
         return branch;
     }
 
@@ -350,8 +349,8 @@ public:
                     return node;  // Key doesn't match
                 }
 
-                node->child = remove_recursive(std::move(node->child), key, key_pos + common_len,
-                                               found);
+                node->child =
+                    remove_recursive(std::move(node->child), key, key_pos + common_len, found);
 
                 if (!found) {
                     return node;
@@ -370,9 +369,8 @@ public:
                     node->value.clear();
                 } else {
                     const auto nibble = remaining_key[0];
-                    node->children[nibble] =
-                        remove_recursive(std::move(node->children[nibble]), key, key_pos + 1,
-                                         found);
+                    node->children[nibble] = remove_recursive(std::move(node->children[nibble]),
+                                                              key, key_pos + 1, found);
                 }
 
                 if (!found) {
@@ -604,7 +602,8 @@ public:
                 }
 
                 // Add extension node to proof (with child's hash)
-                const auto child_hash = hash_node_recursive(const_cast<TrieNode*>(node->child.get()));
+                const auto child_hash =
+                    hash_node_recursive(const_cast<TrieNode*>(node->child.get()));
                 ExtensionNode ext{node->path, child_hash};
                 proof.nodes.push_back(serialize_node(ext));
                 return true;
@@ -672,8 +671,9 @@ public:
         return proof;
     }
 
-    void get_exclusion_proof_recursive(const TrieNode* node, const Nibbles& key, std::size_t key_pos,
-                                       MptProof& proof, bool& key_exists) const {
+    void get_exclusion_proof_recursive(const TrieNode* node, const Nibbles& key,
+                                       std::size_t key_pos, MptProof& proof,
+                                       bool& key_exists) const {
         if (!node || node->type == TrieNode::Type::Empty) {
             return;  // Path terminates - key doesn't exist
         }
@@ -696,7 +696,8 @@ public:
                 const auto common_len = node->path.common_prefix_length(remaining_key);
 
                 // Add extension to proof
-                const auto child_hash = hash_node_recursive(const_cast<TrieNode*>(node->child.get()));
+                const auto child_hash =
+                    hash_node_recursive(const_cast<TrieNode*>(node->child.get()));
                 ExtensionNode ext{node->path, child_hash};
                 proof.nodes.push_back(serialize_node(ext));
 

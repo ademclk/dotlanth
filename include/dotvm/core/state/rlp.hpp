@@ -41,8 +41,7 @@ namespace rlp {
 ///
 /// @param items List of byte strings to encode
 /// @return RLP-encoded list
-[[nodiscard]] std::vector<std::byte> encode_list(
-    const std::vector<std::vector<std::byte>>& items);
+[[nodiscard]] std::vector<std::byte> encode_list(const std::vector<std::vector<std::byte>>& items);
 
 /// @brief Encode a list of pre-encoded items
 ///
@@ -50,8 +49,8 @@ namespace rlp {
 ///
 /// @param encoded_items List of already-encoded RLP items
 /// @return RLP list wrapper around the items
-[[nodiscard]] std::vector<std::byte> encode_list_raw(
-    std::span<const std::span<const std::byte>> encoded_items);
+[[nodiscard]] std::vector<std::byte>
+encode_list_raw(std::span<const std::span<const std::byte>> encoded_items);
 
 // ============================================================================
 // Decoding Functions
@@ -67,8 +66,8 @@ namespace rlp {
 ///
 /// @param data RLP-encoded list data
 /// @return Vector of decoded items, or error if malformed
-[[nodiscard]] Result<std::vector<std::vector<std::byte>>, MptError> decode_list(
-    std::span<const std::byte> data);
+[[nodiscard]] Result<std::vector<std::vector<std::byte>>, MptError>
+decode_list(std::span<const std::byte> data);
 
 // ============================================================================
 // Helper Types

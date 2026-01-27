@@ -71,8 +71,8 @@ TEST(Hash256Test, FromHexRoundtrip) {
 }
 
 TEST(Hash256Test, FromHexHandlesUppercase) {
-    const auto hash = Hash256::from_hex(
-        "DEADBEEF00000000000000000000000000000000000000000000000000000000");
+    const auto hash =
+        Hash256::from_hex("DEADBEEF00000000000000000000000000000000000000000000000000000000");
     EXPECT_EQ(hash.data[0], 0xDE);
     EXPECT_EQ(hash.data[1], 0xAD);
     EXPECT_EQ(hash.data[2], 0xBE);
@@ -80,8 +80,8 @@ TEST(Hash256Test, FromHexHandlesUppercase) {
 }
 
 TEST(Hash256Test, FromHexHandlesLowercase) {
-    const auto hash = Hash256::from_hex(
-        "deadbeef00000000000000000000000000000000000000000000000000000000");
+    const auto hash =
+        Hash256::from_hex("deadbeef00000000000000000000000000000000000000000000000000000000");
     EXPECT_EQ(hash.data[0], 0xDE);
     EXPECT_EQ(hash.data[1], 0xAD);
     EXPECT_EQ(hash.data[2], 0xBE);
@@ -111,8 +111,7 @@ TEST(NibblesTest, EmptyBytesProducesEmptyNibbles) {
 }
 
 TEST(NibblesTest, SliceReturnsSubrange) {
-    const std::array<std::byte, 3> bytes = {std::byte{0x12}, std::byte{0x34},
-                                            std::byte{0x56}};
+    const std::array<std::byte, 3> bytes = {std::byte{0x12}, std::byte{0x34}, std::byte{0x56}};
     const Nibbles nibbles(bytes);  // [1, 2, 3, 4, 5, 6]
 
     const auto slice = nibbles.slice(1, 3);  // [2, 3, 4]
@@ -159,8 +158,7 @@ TEST(NibblesTest, CommonPrefixLengthWithNoMatch) {
 }
 
 TEST(NibblesTest, ToBytesRoundtrip) {
-    const std::array<std::byte, 3> original = {std::byte{0x12}, std::byte{0x34},
-                                               std::byte{0x56}};
+    const std::array<std::byte, 3> original = {std::byte{0x12}, std::byte{0x34}, std::byte{0x56}};
     const Nibbles nibbles(original);
     const auto restored = nibbles.to_bytes();
 
@@ -258,8 +256,7 @@ TEST(InMemoryNodeStoreTest, PutAndGetNode) {
     Hash256 hash{};
     hash.data[0] = 0x42;
 
-    const std::vector<std::byte> node_data = {std::byte{0x01}, std::byte{0x02},
-                                              std::byte{0x03}};
+    const std::vector<std::byte> node_data = {std::byte{0x01}, std::byte{0x02}, std::byte{0x03}};
 
     store.put(hash, node_data);
     const auto retrieved = store.get(hash);

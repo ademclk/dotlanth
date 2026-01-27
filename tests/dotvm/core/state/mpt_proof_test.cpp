@@ -366,7 +366,8 @@ TEST(MptProofTest, ProofStaysValidAcrossUnrelatedInsertions) {
     // New proof should verify against new root
     auto proof2 = trie.get_proof(to_bytes("hello"));
     ASSERT_TRUE(proof2.is_ok());
-    auto verify_new_root = verify_inclusion(root2, to_bytes("hello"), to_bytes("world"), proof2.value());
+    auto verify_new_root =
+        verify_inclusion(root2, to_bytes("hello"), to_bytes("world"), proof2.value());
     EXPECT_TRUE(verify_new_root.is_ok());
     EXPECT_TRUE(verify_new_root.value());
 }

@@ -171,7 +171,7 @@ Result<DecodeResult, MptError> decode_item(std::span<const std::byte> data) {
 
         return DecodeResult{std::vector<std::byte>(data.begin() + 1 + static_cast<long>(len_of_len),
                                                    data.begin() + static_cast<long>(total)),
-                           total};
+                            total};
     }
 
     // Short list [0xC0, 0xF7]: length = prefix - 0xC0
@@ -201,7 +201,7 @@ Result<DecodeResult, MptError> decode_item(std::span<const std::byte> data) {
 
     return DecodeResult{std::vector<std::byte>(data.begin() + 1 + static_cast<long>(len_of_len),
                                                data.begin() + static_cast<long>(total)),
-                       total};
+                        total};
 }
 
 Result<std::vector<std::byte>, MptError> decode(std::span<const std::byte> data) {

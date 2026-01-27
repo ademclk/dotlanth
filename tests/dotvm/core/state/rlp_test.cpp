@@ -11,7 +11,6 @@
 namespace dotvm::core::state {
 namespace {
 
-
 // ============================================================================
 // RLP Encode Single Byte Tests
 // ============================================================================
@@ -89,7 +88,7 @@ TEST(RlpEncodeTest, String56BytesIsLongString) {
     std::vector<std::byte> data(56, std::byte{0x42});
     const auto encoded = rlp::encode(data);
 
-    ASSERT_EQ(encoded.size(), 58);  // 1 (prefix) + 1 (length) + 56 (data)
+    ASSERT_EQ(encoded.size(), 58);           // 1 (prefix) + 1 (length) + 56 (data)
     EXPECT_EQ(encoded[0], std::byte{0xB8});  // 0xB7 + 1 (length takes 1 byte)
     EXPECT_EQ(encoded[1], std::byte{0x38});  // 56 = 0x38
 }
@@ -99,7 +98,7 @@ TEST(RlpEncodeTest, String256BytesHasTwoLengthBytes) {
     std::vector<std::byte> data(256, std::byte{0x42});
     const auto encoded = rlp::encode(data);
 
-    ASSERT_EQ(encoded.size(), 259);  // 1 + 2 + 256
+    ASSERT_EQ(encoded.size(), 259);          // 1 + 2 + 256
     EXPECT_EQ(encoded[0], std::byte{0xB9});  // 0xB7 + 2
     EXPECT_EQ(encoded[1], std::byte{0x01});  // 256 = 0x0100
     EXPECT_EQ(encoded[2], std::byte{0x00});
@@ -243,9 +242,9 @@ TEST(RlpDecodeTest, DecodeListOfOneElement) {
 
 TEST(RlpDecodeTest, DecodeListOfMultipleElements) {
     // ["cat", "dog"] = 0xC8 0x83 "cat" 0x83 "dog"
-    const std::vector<std::byte> encoded = {
-        std::byte{0xC8}, std::byte{0x83}, std::byte{0x63}, std::byte{0x61}, std::byte{0x74},
-        std::byte{0x83}, std::byte{0x64}, std::byte{0x6F}, std::byte{0x67}};
+    const std::vector<std::byte> encoded = {std::byte{0xC8}, std::byte{0x83}, std::byte{0x63},
+                                            std::byte{0x61}, std::byte{0x74}, std::byte{0x83},
+                                            std::byte{0x64}, std::byte{0x6F}, std::byte{0x67}};
     const auto result = rlp::decode_list(encoded);
 
     ASSERT_TRUE(result.is_ok());

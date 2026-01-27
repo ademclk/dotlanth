@@ -31,9 +31,12 @@ Hash256 Hash256::from_hex(std::string_view hex) {
     Hash256 result{};
 
     const auto hex_to_nibble = [](char c) -> std::uint8_t {
-        if (c >= '0' && c <= '9') return static_cast<std::uint8_t>(c - '0');
-        if (c >= 'a' && c <= 'f') return static_cast<std::uint8_t>(c - 'a' + 10);
-        if (c >= 'A' && c <= 'F') return static_cast<std::uint8_t>(c - 'A' + 10);
+        if (c >= '0' && c <= '9')
+            return static_cast<std::uint8_t>(c - '0');
+        if (c >= 'a' && c <= 'f')
+            return static_cast<std::uint8_t>(c - 'a' + 10);
+        if (c >= 'A' && c <= 'F')
+            return static_cast<std::uint8_t>(c - 'A' + 10);
         return 0;  // Invalid char treated as 0
     };
 
