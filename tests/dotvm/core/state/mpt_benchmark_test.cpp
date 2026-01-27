@@ -12,6 +12,20 @@
 #include "dotvm/core/state/merkle_patricia_trie.hpp"
 #include "dotvm/core/state/mpt_proof.hpp"
 
+// Detect sanitizer builds - sanitizers add significant overhead making
+// performance assertions meaningless
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__) || \
+    defined(__SANITIZE_UNDEFINED__) || defined(__has_feature)
+    #if defined(__has_feature)
+        #if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer) || \
+            __has_feature(undefined_behavior_sanitizer) || __has_feature(memory_sanitizer)
+            #define RUNNING_UNDER_SANITIZER 1
+        #endif
+    #else
+        #define RUNNING_UNDER_SANITIZER 1
+    #endif
+#endif
+
 namespace dotvm::core::state {
 namespace {
 
@@ -73,8 +87,10 @@ TEST(MptBenchmarkTest, InsertPerformance_1000Keys) {
     const double avg_us = total_us / static_cast<double>(num_keys);
     std::cout << "Insert 1000 keys (32B key, 64B value): avg " << avg_us << " us/op\n";
 
+#ifndef RUNNING_UNDER_SANITIZER
     // Average insert should be under 100 microseconds
     EXPECT_LT(avg_us, 100.0) << "Insert too slow";
+#endif
 }
 
 TEST(MptBenchmarkTest, InsertPerformance_10000Keys) {
@@ -106,7 +122,7 @@ TEST(MptBenchmarkTest, InsertPerformance_10000Keys) {
 // ============================================================================
 
 TEST(MptBenchmarkTest, RootHashUpdate_After100kKeys) {
-#ifdef __SANITIZER_ADDRESS__
+#ifdef RUNNING_UNDER_SANITIZER
     GTEST_SKIP() << "Skipping performance test under sanitizers";
 #endif
 
@@ -158,6 +174,10 @@ TEST(MptBenchmarkTest, RootHashUpdate_After100kKeys) {
 }
 
 TEST(MptBenchmarkTest, RootHashUpdate_SingleInsertIncremental) {
+#ifdef RUNNING_UNDER_SANITIZER
+    GTEST_SKIP() << "Skipping performance test under sanitizers";
+#endif
+
     MerklePatriciaTrie trie;
     std::mt19937 rng(42);
 
@@ -192,6 +212,10 @@ TEST(MptBenchmarkTest, RootHashUpdate_SingleInsertIncremental) {
 // ============================================================================
 
 TEST(MptBenchmarkTest, GetPerformance_10000Keys) {
+#ifdef RUNNING_UNDER_SANITIZER
+    GTEST_SKIP() << "Skipping performance test under sanitizers";
+#endif
+
     MerklePatriciaTrie trie;
     std::mt19937 rng(42);
 
@@ -232,6 +256,10 @@ TEST(MptBenchmarkTest, GetPerformance_10000Keys) {
 // ============================================================================
 
 TEST(MptBenchmarkTest, ProofGeneration_10000Keys) {
+#ifdef RUNNING_UNDER_SANITIZER
+    GTEST_SKIP() << "Skipping performance test under sanitizers";
+#endif
+
     MerklePatriciaTrie trie;
     std::mt19937 rng(42);
 
@@ -270,6 +298,10 @@ TEST(MptBenchmarkTest, ProofGeneration_10000Keys) {
 }
 
 TEST(MptBenchmarkTest, ProofVerification_Performance) {
+#ifdef RUNNING_UNDER_SANITIZER
+    GTEST_SKIP() << "Skipping performance test under sanitizers";
+#endif
+
     MerklePatriciaTrie trie;
     std::mt19937 rng(42);
 
@@ -324,7 +356,7 @@ TEST(MptBenchmarkTest, ProofVerification_Performance) {
 // ============================================================================
 
 TEST(MptBenchmarkTest, ScalabilityTest_Doubling) {
-#ifdef __SANITIZER_ADDRESS__
+#ifdef RUNNING_UNDER_SANITIZER
     GTEST_SKIP() << "Skipping scalability test under sanitizers";
 #endif
 
