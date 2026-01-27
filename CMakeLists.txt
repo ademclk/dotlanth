@@ -181,6 +181,14 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/log_record.cpp
     src/dotvm/core/state/write_ahead_log.cpp
     src/dotvm/core/state/wal_backend.cpp
+    # Merkle Patricia Trie (STATE-008)
+    src/dotvm/core/state/mpt_types.cpp
+    src/dotvm/core/state/rlp.cpp
+    src/dotvm/core/state/mpt_node.cpp
+    src/dotvm/core/state/merkle_patricia_trie.cpp
+    src/dotvm/core/state/mpt_proof.cpp
+    # Snapshot Manager (STATE-009)
+    src/dotvm/core/state/snapshot_manager.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -529,6 +537,16 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/state/write_ahead_log_test.cpp
         tests/dotvm/core/state/wal_backend_test.cpp
         tests/dotvm/core/state/wal_benchmark_test.cpp
+        # MPT tests (STATE-008)
+        tests/dotvm/core/state/mpt_types_test.cpp
+        tests/dotvm/core/state/rlp_test.cpp
+        tests/dotvm/core/state/mpt_node_test.cpp
+        tests/dotvm/core/state/mpt_test.cpp
+        tests/dotvm/core/state/mpt_proof_test.cpp
+        tests/dotvm/core/state/mpt_benchmark_test.cpp
+        # Snapshot Manager tests (STATE-009)
+        tests/dotvm/core/state/snapshot_manager_test.cpp
+        tests/dotvm/core/state/snapshot_benchmark_test.cpp
     )
 
     # JIT tests (EXEC-012)
