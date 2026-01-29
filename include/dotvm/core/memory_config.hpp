@@ -1,3 +1,16 @@
+/// @file memory_config.hpp
+/// @brief Memory system configuration constants and utility functions.
+///
+/// This header defines the configuration parameters for the DotVM memory
+/// management system, including:
+/// - Page size and alignment constants
+/// - Maximum allocation and table size limits
+/// - Generation counter bounds for handle validation
+/// - Utility functions for page alignment calculations
+///
+/// These constants are designed to balance security with performance,
+/// providing predictable memory behavior while preventing resource exhaustion.
+
 #pragma once
 
 #include <cstddef>
@@ -5,40 +18,40 @@
 
 namespace dotvm::core {
 
-/// Memory configuration constants for the handle-based memory system.
+/// @brief Memory configuration constants for the handle-based memory system.
 namespace mem_config {
-/// Page size in bytes (4KB granularity).
+/// @brief Page size in bytes (4KB granularity).
 inline constexpr std::size_t PAGE_SIZE = 4096;
 
-/// Log2 of PAGE_SIZE for shift operations.
+/// @brief Log2 of PAGE_SIZE for shift operations.
 inline constexpr std::size_t PAGE_SHIFT = 12;
 
-/// Mask for extracting page offset (PAGE_SIZE - 1).
+/// @brief Mask for extracting page offset (PAGE_SIZE - 1).
 inline constexpr std::size_t PAGE_MASK = PAGE_SIZE - 1;
 
-/// Maximum allocation size (64MB default).
+/// @brief Maximum allocation size (64MB default).
 inline constexpr std::size_t MAX_ALLOCATION_SIZE = 64 * 1024 * 1024;
 
-/// Minimum allocation size (one page).
+/// @brief Minimum allocation size (one page).
 inline constexpr std::size_t MIN_ALLOCATION_SIZE = PAGE_SIZE;
 
-/// Sentinel value indicating an invalid handle index.
+/// @brief Sentinel value indicating an invalid handle index.
 inline constexpr std::uint32_t INVALID_INDEX = 0xFFFF'FFFFU;
 
-/// Initial generation value for new entries.
+/// @brief Initial generation value for new entries.
 inline constexpr std::uint32_t INITIAL_GENERATION = 1;
 
-/// Maximum generation value (16-bit due to NaN-boxing constraint in Value).
+/// @brief Maximum generation value (16-bit due to NaN-boxing constraint in Value).
 /// When stored in a NaN-boxed Value, only 16 bits are available for generation.
 inline constexpr std::uint32_t MAX_GENERATION = 0xFFFFU;
 
-/// Initial capacity for the handle table.
+/// @brief Initial capacity for the handle table.
 inline constexpr std::size_t INITIAL_TABLE_CAPACITY = 64;
 
-/// Maximum number of handles (~1M).
+/// @brief Maximum number of handles (~1M).
 inline constexpr std::size_t MAX_TABLE_SIZE = 1U << 20;
 
-/// Alignment requirement for allocations (same as PAGE_SIZE).
+/// @brief Alignment requirement for allocations (same as PAGE_SIZE).
 inline constexpr std::size_t ALLOCATION_ALIGNMENT = PAGE_SIZE;
 }  // namespace mem_config
 

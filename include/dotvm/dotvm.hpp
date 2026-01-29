@@ -1,3 +1,15 @@
+/// @file dotvm.hpp
+/// @brief Main umbrella header for the DotVM virtual machine library.
+///
+/// This header provides a single include point for all core DotVM functionality.
+/// Include this header to access the complete DotVM API including registers,
+/// memory management, instruction decoding, and VM execution context.
+///
+/// @code
+/// #include <dotvm/dotvm.hpp>
+/// using namespace dotvm::core;
+/// @endcode
+
 #pragma once
 
 // Core module

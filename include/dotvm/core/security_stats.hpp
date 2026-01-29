@@ -1,3 +1,19 @@
+/// @file security_stats.hpp
+/// @brief Security event tracking and statistics for DotVM execution monitoring.
+///
+/// This header provides thread-safe counters for security-relevant events
+/// during VM execution. Use SecurityStats to:
+/// - Track memory safety violations (bounds, use-after-free)
+/// - Monitor control flow integrity violations
+/// - Detect resource exhaustion attacks
+/// - Audit capability system usage
+///
+/// All counters use atomic operations with relaxed memory ordering for
+/// minimal performance overhead while maintaining thread safety.
+///
+/// @see SecurityStats for the main statistics class
+/// @see SecurityEvent for event type enumeration
+
 #pragma once
 
 #include <atomic>
@@ -10,7 +26,7 @@ namespace dotvm::core {
 // Security Event Types
 // ============================================================================
 
-/// Security event types for audit logging and monitoring
+/// @brief Security event types for audit logging and monitoring.
 ///
 /// These events represent security-relevant occurrences during VM execution
 /// that may indicate attacks or resource exhaustion.
@@ -27,7 +43,9 @@ enum class SecurityEvent : std::uint8_t {
     ExecutionTimeExpired = 9    ///< Execution time limit exceeded (SEC-004)
 };
 
-/// Returns a human-readable name for a security event
+/// @brief Returns a human-readable name for a security event.
+/// @param e The security event type.
+/// @return A null-terminated string describing the event.
 [[nodiscard]] constexpr const char* event_name(SecurityEvent e) noexcept {
     switch (e) {
         case SecurityEvent::GenerationWraparound:
@@ -54,11 +72,10 @@ enum class SecurityEvent : std::uint8_t {
     return "Unknown";
 }
 
-/// Callback type for security event notifications
-///
-/// @param event The type of security event that occurred
-/// @param context Optional context string (may be nullptr)
-/// @param user_data User-provided data pointer
+/// @brief Callback type for security event notifications.
+/// @param event The type of security event that occurred.
+/// @param context Optional context string (may be nullptr).
+/// @param user_data User-provided data pointer from set_event_callback.
 using SecurityEventCallback = void (*)(SecurityEvent event, const char* context, void* user_data);
 
 /// Security event statistics for monitoring and auditing.

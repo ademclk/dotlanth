@@ -1,3 +1,25 @@
+/// @file memory.hpp
+/// @brief Safe handle-based memory management for the DotVM virtual machine.
+///
+/// This header provides a generation-counted memory allocation system that
+/// prevents use-after-free vulnerabilities through handle validation:
+/// - Handles contain both an index and a generation counter
+/// - Generation increments on deallocation, invalidating stale handles
+/// - All memory accesses are bounds-checked
+/// - Allocations are page-aligned (4KB granularity)
+///
+/// @code
+/// MemoryManager mm;
+/// auto handle = mm.allocate(1024).value();
+/// mm.write<int>(handle, 0, 42);
+/// int val = mm.read<int>(handle, 0).value();
+/// mm.deallocate(handle);
+/// @endcode
+///
+/// @see MemoryManager for the main allocation interface
+/// @see Handle for the handle structure
+/// @see HandleTable for the internal handle management
+
 #pragma once
 
 #include <cstring>
@@ -13,7 +35,7 @@
 
 namespace dotvm::core {
 
-/// Entry in the handle table tracking a single allocation.
+/// @brief Entry in the handle table tracking a single allocation.
 struct HandleEntry {
     void* ptr;                 ///< Pointer to allocated memory (nullptr if inactive).
     std::size_t size;          ///< Allocated size in bytes (page-aligned).

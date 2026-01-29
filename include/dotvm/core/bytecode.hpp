@@ -1,3 +1,26 @@
+/// @file bytecode.hpp
+/// @brief Bytecode file format definitions and parsing utilities.
+///
+/// This header defines the binary format for DotVM bytecode files, including:
+/// - File header structure (48 bytes)
+/// - Constant pool format and parsing
+/// - Validation functions for security and correctness
+/// - Little-endian read/write helpers
+///
+/// The bytecode format uses a simple layout:
+/// ```
+/// +------------------+
+/// |    Header (48B)  |  Magic, version, architecture, section offsets
+/// +------------------+
+/// |  Constant Pool   |  Type-tagged constants (int64, float64)
+/// +------------------+
+/// |   Code Section   |  32-bit instructions, 4-byte aligned
+/// +------------------+
+/// ```
+///
+/// @see BytecodeHeader for the header structure
+/// @see load_constant_pool for constant pool parsing
+
 #pragma once
 
 #include <array>
@@ -18,39 +41,47 @@ namespace dotvm::core {
 // Bytecode Format Constants
 // ============================================================================
 
+/// @brief Constants defining the bytecode file format.
 namespace bytecode {
-// Magic bytes "DOTM" as little-endian u32
+/// @brief Magic bytes "DOTM" as little-endian u32.
 inline constexpr std::uint32_t MAGIC = 0x4D54'4F44U;  // "DOTM" LE
+/// @brief Magic bytes as byte array for validation.
 inline constexpr std::array<std::uint8_t, 4> MAGIC_BYTES = {'D', 'O', 'T', 'M'};
 
-// Version
+/// @brief Current bytecode format version.
 inline constexpr std::uint8_t CURRENT_VERSION = 26;
+/// @brief Minimum supported bytecode version.
 inline constexpr std::uint8_t MIN_SUPPORTED_VERSION = 26;
+/// @brief Maximum supported bytecode version.
 inline constexpr std::uint8_t MAX_SUPPORTED_VERSION = 26;
 
-// Header size
+/// @brief Size of the bytecode file header in bytes.
 inline constexpr std::size_t HEADER_SIZE = 48;
 
-// Flags (bitfield)
+/// @brief No flags set.
 inline constexpr std::uint16_t FLAG_NONE = 0x0000;
+/// @brief Debug information included in bytecode.
 inline constexpr std::uint16_t FLAG_DEBUG = 0x0001;
+/// @brief Bytecode has been optimized.
 inline constexpr std::uint16_t FLAG_OPTIMIZED = 0x0002;
 
-// Constant pool type tags
+/// @brief Constant pool type tag for 64-bit signed integers.
 inline constexpr std::uint8_t CONST_TYPE_I64 = 0x01;
+/// @brief Constant pool type tag for 64-bit IEEE 754 floats.
 inline constexpr std::uint8_t CONST_TYPE_F64 = 0x02;
+/// @brief Constant pool type tag for UTF-8 strings (reserved).
 inline constexpr std::uint8_t CONST_TYPE_STRING = 0x03;
 
-// Maximum string length in constant pool (16 MB)
+/// @brief Maximum string length in constant pool (16 MB).
 inline constexpr std::uint32_t MAX_STRING_LENGTH = 0x01'00'00'00U;
 
-// Maximum number of constant pool entries (prevents DoS via memory exhaustion)
-inline constexpr std::uint32_t MAX_CONST_POOL_ENTRIES = 0x00'10'00'00U;  // 1M entries
+/// @brief Maximum number of constant pool entries (1M, prevents DoS).
+inline constexpr std::uint32_t MAX_CONST_POOL_ENTRIES = 0x00'10'00'00U;
 
-// Maximum bytecode file size (2 GB)
-inline constexpr std::size_t MAX_FILE_SIZE = 0x80'00'00'00ULL;  // 2GB
+/// @brief Maximum bytecode file size (2 GB).
+inline constexpr std::size_t MAX_FILE_SIZE = 0x80'00'00'00ULL;
 
-// Instruction alignment requirement (4 bytes)
+/// @brief Instruction alignment requirement (4 bytes).
 inline constexpr std::size_t INSTRUCTION_ALIGNMENT = 4;
 }  // namespace bytecode
 
@@ -60,10 +91,14 @@ inline constexpr std::size_t INSTRUCTION_ALIGNMENT = 4;
 
 // Note: Architecture enum is defined in arch_types.hpp
 
-/// Constant entry type tag
-enum class ConstantType : std::uint8_t { Int64 = 0x01, Float64 = 0x02, String = 0x03 };
+/// @brief Constant entry type tag for the constant pool.
+enum class ConstantType : std::uint8_t {
+    Int64 = 0x01,    ///< 64-bit signed integer constant.
+    Float64 = 0x02,  ///< 64-bit IEEE 754 floating point constant.
+    String = 0x03    ///< UTF-8 string constant (reserved, not yet implemented).
+};
 
-/// Error codes for bytecode validation and parsing
+/// @brief Error codes for bytecode validation and parsing.
 enum class BytecodeError : std::uint8_t {
     Success = 0,
 
@@ -97,7 +132,9 @@ enum class BytecodeError : std::uint8_t {
     StringNotSupported = 19     // String constants not yet implemented
 };
 
-/// Returns a human-readable error message for a BytecodeError
+/// @brief Returns a human-readable error message for a BytecodeError.
+/// @param err The error code to convert.
+/// @return A string_view containing the error description.
 [[nodiscard]] constexpr std::string_view to_string(BytecodeError err) noexcept {
     switch (err) {
         case BytecodeError::Success:
@@ -144,7 +181,8 @@ enum class BytecodeError : std::uint8_t {
     return "Unknown error";
 }
 
-/// Result type alias for bytecode operations
+/// @brief Result type alias for bytecode operations.
+/// @tparam T The success value type.
 template <typename T>
 using BytecodeResult = std::expected<T, BytecodeError>;
 
@@ -152,19 +190,29 @@ using BytecodeResult = std::expected<T, BytecodeError>;
 // Little-Endian Read/Write Helpers
 // ============================================================================
 
+/// @brief Little-endian byte order conversion utilities.
 namespace endian {
 
+/// @brief Reads a 16-bit unsigned integer from little-endian bytes.
+/// @param data Pointer to at least 2 bytes of data.
+/// @return The decoded value.
 [[nodiscard]] constexpr std::uint16_t read_u16_le(const std::uint8_t* data) noexcept {
     return static_cast<std::uint16_t>(static_cast<unsigned>(data[0]) |
                                       (static_cast<unsigned>(data[1]) << 8));
 }
 
+/// @brief Reads a 32-bit unsigned integer from little-endian bytes.
+/// @param data Pointer to at least 4 bytes of data.
+/// @return The decoded value.
 [[nodiscard]] constexpr std::uint32_t read_u32_le(const std::uint8_t* data) noexcept {
     return static_cast<std::uint32_t>(data[0]) | (static_cast<std::uint32_t>(data[1]) << 8) |
            (static_cast<std::uint32_t>(data[2]) << 16) |
            (static_cast<std::uint32_t>(data[3]) << 24);
 }
 
+/// @brief Reads a 64-bit unsigned integer from little-endian bytes.
+/// @param data Pointer to at least 8 bytes of data.
+/// @return The decoded value.
 [[nodiscard]] constexpr std::uint64_t read_u64_le(const std::uint8_t* data) noexcept {
     return static_cast<std::uint64_t>(data[0]) | (static_cast<std::uint64_t>(data[1]) << 8) |
            (static_cast<std::uint64_t>(data[2]) << 16) |
@@ -175,19 +223,31 @@ namespace endian {
            (static_cast<std::uint64_t>(data[7]) << 56);
 }
 
+/// @brief Reads a 64-bit signed integer from little-endian bytes.
+/// @param data Pointer to at least 8 bytes of data.
+/// @return The decoded value.
 [[nodiscard]] constexpr std::int64_t read_i64_le(const std::uint8_t* data) noexcept {
     return static_cast<std::int64_t>(read_u64_le(data));
 }
 
+/// @brief Reads a 64-bit IEEE 754 double from little-endian bytes.
+/// @param data Pointer to at least 8 bytes of data.
+/// @return The decoded value.
 [[nodiscard]] constexpr double read_f64_le(const std::uint8_t* data) noexcept {
     return std::bit_cast<double>(read_u64_le(data));
 }
 
+/// @brief Writes a 16-bit unsigned integer as little-endian bytes.
+/// @param data Pointer to at least 2 bytes of storage.
+/// @param value The value to encode.
 constexpr void write_u16_le(std::uint8_t* data, std::uint16_t value) noexcept {
     data[0] = static_cast<std::uint8_t>(value);
     data[1] = static_cast<std::uint8_t>(value >> 8);
 }
 
+/// @brief Writes a 32-bit unsigned integer as little-endian bytes.
+/// @param data Pointer to at least 4 bytes of storage.
+/// @param value The value to encode.
 constexpr void write_u32_le(std::uint8_t* data, std::uint32_t value) noexcept {
     data[0] = static_cast<std::uint8_t>(value);
     data[1] = static_cast<std::uint8_t>(value >> 8);
@@ -195,6 +255,9 @@ constexpr void write_u32_le(std::uint8_t* data, std::uint32_t value) noexcept {
     data[3] = static_cast<std::uint8_t>(value >> 24);
 }
 
+/// @brief Writes a 64-bit unsigned integer as little-endian bytes.
+/// @param data Pointer to at least 8 bytes of storage.
+/// @param value The value to encode.
 constexpr void write_u64_le(std::uint8_t* data, std::uint64_t value) noexcept {
     data[0] = static_cast<std::uint8_t>(value);
     data[1] = static_cast<std::uint8_t>(value >> 8);
@@ -206,10 +269,16 @@ constexpr void write_u64_le(std::uint8_t* data, std::uint64_t value) noexcept {
     data[7] = static_cast<std::uint8_t>(value >> 56);
 }
 
+/// @brief Writes a 64-bit signed integer as little-endian bytes.
+/// @param data Pointer to at least 8 bytes of storage.
+/// @param value The value to encode.
 constexpr void write_i64_le(std::uint8_t* data, std::int64_t value) noexcept {
     write_u64_le(data, static_cast<std::uint64_t>(value));
 }
 
+/// @brief Writes a 64-bit IEEE 754 double as little-endian bytes.
+/// @param data Pointer to at least 8 bytes of storage.
+/// @param value The value to encode.
 constexpr void write_f64_le(std::uint8_t* data, double value) noexcept {
     write_u64_le(data, std::bit_cast<std::uint64_t>(value));
 }
@@ -272,8 +341,11 @@ static_assert(offsetof(BytecodeHeader, code_size) == 40);
 // ConstantPoolHeader Structure
 // ============================================================================
 
-/// Constant pool header (4 bytes)
+/// @brief Constant pool header (4 bytes).
+///
+/// Precedes the constant pool data, specifying the number of entries.
 struct ConstantPoolHeader {
+    /// @brief Number of constant entries in the pool.
     std::uint32_t entry_count;
 
     constexpr bool operator==(const ConstantPoolHeader&) const noexcept = default;
@@ -285,24 +357,34 @@ static_assert(sizeof(ConstantPoolHeader) == 4, "ConstantPoolHeader must be exact
 // Validation Functions
 // ============================================================================
 
-/// Validate magic bytes
+/// @brief Validates the magic bytes match "DOTM".
+/// @param magic Span of exactly 4 bytes to validate.
+/// @return true if magic bytes match, false otherwise.
 [[nodiscard]] constexpr bool validate_magic(std::span<const std::uint8_t, 4> magic) noexcept {
     return magic[0] == bytecode::MAGIC_BYTES[0] && magic[1] == bytecode::MAGIC_BYTES[1] &&
            magic[2] == bytecode::MAGIC_BYTES[2] && magic[3] == bytecode::MAGIC_BYTES[3];
 }
 
-/// Validate version compatibility
+/// @brief Validates the bytecode version is supported.
+/// @param version The version number from the header.
+/// @return true if version is within supported range.
 [[nodiscard]] constexpr bool validate_version(std::uint8_t version) noexcept {
     return version >= bytecode::MIN_SUPPORTED_VERSION && version <= bytecode::MAX_SUPPORTED_VERSION;
 }
 
-/// Validate architecture value
+/// @brief Validates the architecture value is recognized.
+/// @param arch The architecture enum value from the header.
+/// @return true if architecture is valid (Arch32 or Arch64).
 /// @note Uses is_valid_architecture from arch_types.hpp
 [[nodiscard]] constexpr bool validate_architecture(Architecture arch) noexcept {
     return is_valid_architecture(arch);
 }
 
-/// Check if section bounds are valid (no overflow, within file size)
+/// @brief Checks if section bounds are valid (no overflow, within file size).
+/// @param offset Section start offset in file.
+/// @param size Section size in bytes.
+/// @param total_file_size Total file size for bounds checking.
+/// @return true if the section fits within the file without overflow.
 [[nodiscard]] constexpr bool validate_section_bounds(std::uint64_t offset, std::uint64_t size,
                                                      std::size_t total_file_size) noexcept {
     // Check for overflow
@@ -315,7 +397,12 @@ static_assert(sizeof(ConstantPoolHeader) == 4, "ConstantPoolHeader must be exact
     return offset + size <= static_cast<std::uint64_t>(total_file_size);
 }
 
-/// Check if two sections overlap
+/// @brief Checks if two sections overlap.
+/// @param offset1 First section start offset.
+/// @param size1 First section size.
+/// @param offset2 Second section start offset.
+/// @param size2 Second section size.
+/// @return true if sections overlap.
 /// @note Overflow in offset + size is treated as overlap (conservative approach).
 [[nodiscard]] constexpr bool sections_overlap(std::uint64_t offset1, std::uint64_t size1,
                                               std::uint64_t offset2, std::uint64_t size2) noexcept {
@@ -337,10 +424,13 @@ static_assert(sizeof(ConstantPoolHeader) == 4, "ConstantPoolHeader must be exact
     return offset1 < end2 && offset2 < end1;
 }
 
-/// Mask of valid flag bits
+/// @brief Mask of valid flag bits (DEBUG | OPTIMIZED).
 inline constexpr std::uint16_t VALID_FLAGS_MASK = bytecode::FLAG_DEBUG | bytecode::FLAG_OPTIMIZED;
 
-/// Full header validation against file size
+/// @brief Performs full header validation against file size.
+/// @param header The header to validate.
+/// @param total_file_size Total file size for bounds checking.
+/// @return BytecodeError::Success on valid header, appropriate error otherwise.
 [[nodiscard]] constexpr BytecodeError validate_header(const BytecodeHeader& header,
                                                       std::size_t total_file_size) noexcept {
     // Validate file size isn't too large (prevents DoS)
@@ -415,7 +505,9 @@ inline constexpr std::uint16_t VALID_FLAGS_MASK = bytecode::FLAG_DEBUG | bytecod
 // Header Read/Write Functions
 // ============================================================================
 
-/// Read header from raw bytes
+/// @brief Reads a bytecode header from raw bytes.
+/// @param data Span containing at least HEADER_SIZE bytes.
+/// @return The parsed header or a BytecodeError.
 [[nodiscard]] constexpr BytecodeResult<BytecodeHeader>
 read_header(std::span<const std::uint8_t> data) noexcept {
     if (data.size() < bytecode::HEADER_SIZE) {
@@ -459,7 +551,9 @@ read_header(std::span<const std::uint8_t> data) noexcept {
     return header;
 }
 
-/// Write header to byte array
+/// @brief Writes a bytecode header to a byte array.
+/// @param header The header to serialize.
+/// @return A 48-byte array containing the serialized header.
 [[nodiscard]] constexpr std::array<std::uint8_t, bytecode::HEADER_SIZE>
 write_header(const BytecodeHeader& header) noexcept {
     std::array<std::uint8_t, bytecode::HEADER_SIZE> data{};
@@ -498,7 +592,15 @@ write_header(const BytecodeHeader& header) noexcept {
     return data;
 }
 
-/// Create a header with the given parameters and default magic/version
+/// @brief Creates a header with the given parameters and default magic/version.
+/// @param arch Target architecture (Arch32 or Arch64).
+/// @param flags Bytecode flags (FLAG_DEBUG, FLAG_OPTIMIZED).
+/// @param entry_point Entry point offset within code section.
+/// @param const_pool_offset Constant pool section offset in file.
+/// @param const_pool_size Constant pool section size in bytes.
+/// @param code_offset Code section offset in file.
+/// @param code_size Code section size in bytes.
+/// @return A fully initialized BytecodeHeader.
 [[nodiscard]] constexpr BytecodeHeader
 make_header(Architecture arch, std::uint16_t flags, std::uint64_t entry_point,
             std::uint64_t const_pool_offset, std::uint64_t const_pool_size,
@@ -543,7 +645,9 @@ inline auto extract_vm_config(const BytecodeHeader& header) noexcept {
 // Constant Pool Functions
 // ============================================================================
 
-/// Read constant pool header
+/// @brief Reads the constant pool header from data.
+/// @param data Span containing at least 4 bytes.
+/// @return The parsed header or a BytecodeError.
 [[nodiscard]] constexpr BytecodeResult<ConstantPoolHeader>
 read_const_pool_header(std::span<const std::uint8_t> data) noexcept {
     if (data.size() < sizeof(ConstantPoolHeader)) {
@@ -555,18 +659,21 @@ read_const_pool_header(std::span<const std::uint8_t> data) noexcept {
     return header;
 }
 
-/// Minimum value for 48-bit signed integer (used by NaN-boxed Value)
+/// @brief Minimum value for 48-bit signed integer (used by NaN-boxed Value).
 inline constexpr std::int64_t MIN_VALUE_INT = -(1LL << 47);
-/// Maximum value for 48-bit signed integer (used by NaN-boxed Value)
+/// @brief Maximum value for 48-bit signed integer (used by NaN-boxed Value).
 inline constexpr std::int64_t MAX_VALUE_INT = (1LL << 47) - 1;
 
-/// Check if a 64-bit integer fits in the 48-bit range supported by Value
+/// @brief Checks if a 64-bit integer fits in the 48-bit range supported by Value.
+/// @param value The integer to validate.
+/// @return true if value is within [-2^47, 2^47-1].
 [[nodiscard]] inline constexpr bool is_valid_value_int(std::int64_t value) noexcept {
     return value >= MIN_VALUE_INT && value <= MAX_VALUE_INT;
 }
 
-/// Read a single constant entry from data
-/// Returns the Value and number of bytes consumed
+/// @brief Reads a single constant entry from data.
+/// @param data Span containing the constant entry data.
+/// @return A pair of (Value, bytes_consumed) or a BytecodeError.
 [[nodiscard]] inline BytecodeResult<std::pair<Value, std::size_t>>
 read_constant_entry(std::span<const std::uint8_t> data) noexcept {
     if (data.empty()) {
@@ -610,7 +717,9 @@ read_constant_entry(std::span<const std::uint8_t> data) noexcept {
     }
 }
 
-/// Load all constants from pool data into a vector of Values
+/// @brief Loads all constants from pool data into a vector of Values.
+/// @param pool_data Span containing the entire constant pool section.
+/// @return A vector of Values or a BytecodeError.
 [[nodiscard]] inline BytecodeResult<std::vector<Value>>
 load_constant_pool(std::span<const std::uint8_t> pool_data) noexcept {
     if (pool_data.size() < sizeof(ConstantPoolHeader)) {
@@ -666,7 +775,9 @@ load_constant_pool(std::span<const std::uint8_t> pool_data) noexcept {
     return constants;
 }
 
-/// Write constant pool header
+/// @brief Writes the constant pool header to a byte array.
+/// @param header The header to serialize.
+/// @return A 4-byte array containing the serialized header.
 [[nodiscard]] constexpr std::array<std::uint8_t, 4>
 write_const_pool_header(const ConstantPoolHeader& header) noexcept {
     std::array<std::uint8_t, 4> data{};
@@ -678,7 +789,10 @@ write_const_pool_header(const ConstantPoolHeader& header) noexcept {
 // Execution-Time Validation Functions
 // ============================================================================
 
-/// Constraints extracted from bytecode header for execution validation
+/// @brief Constraints extracted from bytecode header for execution validation.
+///
+/// Contains the essential parameters needed to validate execution-time
+/// operations like jump targets and program counter bounds.
 struct ExecutionConstraints {
     std::uint64_t code_size;    ///< Size of code section in bytes
     std::uint64_t entry_point;  ///< Initial program counter
@@ -686,7 +800,9 @@ struct ExecutionConstraints {
     bool debug_mode;            ///< Debug mode enabled (strict checks)
 };
 
-/// Extract execution constraints from a validated header
+/// @brief Extracts execution constraints from a validated header.
+/// @param header The validated bytecode header.
+/// @return ExecutionConstraints for runtime validation.
 [[nodiscard]] constexpr ExecutionConstraints
 extract_execution_constraints(const BytecodeHeader& header) noexcept {
     return ExecutionConstraints{.code_size = header.code_size,

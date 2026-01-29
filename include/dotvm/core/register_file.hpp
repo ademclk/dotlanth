@@ -1,3 +1,16 @@
+/// @file register_file.hpp
+/// @brief Register file implementation for DotVM execution.
+///
+/// This header provides the 256-register file used during VM execution:
+/// - RegisterFile: Basic register storage with R0 hardwired to zero
+/// - ArchRegisterFile: Architecture-aware wrapper with automatic value masking
+///
+/// The register file is cache-line aligned for optimal memory access patterns.
+///
+/// @see RegisterFile for basic register access
+/// @see ArchRegisterFile for architecture-aware register access
+/// @see register_conventions.hpp for register classification
+
 #pragma once
 
 #include <algorithm>
@@ -13,20 +26,28 @@
 
 namespace dotvm::core {
 
-// Cache line size for alignment (typically 64 bytes on x86-64)
+/// @brief Cache line size for alignment (typically 64 bytes on x86-64).
 inline constexpr std::size_t CACHE_LINE_SIZE = 64;
 
+/// @brief 256-entry register file storing NaN-boxed Values.
+///
+/// The register file provides the primary storage for VM execution state.
+/// R0 is hardwired to zero: reads always return zero, writes are ignored.
+/// All other registers (R1-R255) are general-purpose.
+///
+/// Thread Safety: NOT thread-safe. Use one RegisterFile per execution thread.
 class alignas(CACHE_LINE_SIZE) RegisterFile {
 public:
-    // Default constructor initializes all registers to zero
+    /// @brief Default constructor initializes all registers to zero.
     constexpr RegisterFile() noexcept {
         for (auto& reg : regs_) {
             reg = Value::zero();
         }
     }
 
-    // Read a register value
-    // R0 always returns zero regardless of what was written
+    /// @brief Reads a register value.
+    /// @param reg Register index (0-255).
+    /// @return The register value (R0 always returns zero).
     [[nodiscard]] constexpr Value read(std::uint8_t reg) const noexcept {
         if (reg == REG_ZERO) [[unlikely]] {
             return Value::zero();
@@ -34,8 +55,9 @@ public:
         return regs_[reg];
     }
 
-    // Write a register value
-    // Writes to R0 are silently ignored (no-op)
+    /// @brief Writes a register value.
+    /// @param reg Register index (0-255).
+    /// @param val Value to write (writes to R0 are silently ignored).
     constexpr void write(std::uint8_t reg, Value val) noexcept {
         if (reg == REG_ZERO) [[unlikely]] {
             return;  // R0 is hardwired to zero
@@ -43,7 +65,10 @@ public:
         regs_[reg] = val;
     }
 
-    // Proxy class for non-const operator[] access
+    /// @brief Proxy class for non-const operator[] access.
+    ///
+    /// Enables syntax like `regs[5] = Value::from_int(42)` while respecting
+    /// the R0 hardwired-zero behavior.
     class RegisterProxy {
     public:
         constexpr RegisterProxy(RegisterFile& rf, std::uint8_t reg) noexcept : rf_{rf}, reg_{reg} {}
@@ -61,55 +86,75 @@ public:
         std::uint8_t reg_;
     };
 
+    /// @brief Provides mutable access to a register by index.
+    /// @param reg Register index (0-255).
+    /// @return A proxy object supporting read and write operations.
     [[nodiscard]] constexpr RegisterProxy operator[](std::uint8_t reg) noexcept {
         return RegisterProxy{*this, reg};
     }
 
+    /// @brief Provides read-only access to a register by index.
+    /// @param reg Register index (0-255).
+    /// @return The register value.
     [[nodiscard]] constexpr Value operator[](std::uint8_t reg) const noexcept { return read(reg); }
 
-    // Bulk operations for context switching
+    /// @brief Returns a span of caller-saved registers (R1-R15) for context switching.
+    /// @return A const span of 15 Values.
     [[nodiscard]] std::span<const Value> caller_saved_regs() const noexcept {
         return std::span{regs_}.subspan(reg_range::CALLER_SAVED_START,
                                         reg_range::CALLER_SAVED_COUNT);
     }
 
+    /// @brief Returns a span of callee-saved registers (R16-R31) for context switching.
+    /// @return A const span of 16 Values.
     [[nodiscard]] std::span<const Value> callee_saved_regs() const noexcept {
         return std::span{regs_}.subspan(reg_range::CALLEE_SAVED_START,
                                         reg_range::CALLEE_SAVED_COUNT);
     }
 
-    // Save/restore for context switching
+    /// @brief Saves caller-saved registers for context switching.
+    /// @param out Destination span for 15 Values.
     void save_caller_saved(std::span<Value, reg_range::CALLER_SAVED_COUNT> out) const noexcept {
         std::copy_n(regs_.begin() + reg_range::CALLER_SAVED_START, reg_range::CALLER_SAVED_COUNT,
                     out.begin());
     }
 
+    /// @brief Restores caller-saved registers after context switch.
+    /// @param in Source span of 15 Values.
     void restore_caller_saved(std::span<const Value, reg_range::CALLER_SAVED_COUNT> in) noexcept {
         std::ranges::copy(in, regs_.begin() + reg_range::CALLER_SAVED_START);
     }
 
+    /// @brief Saves callee-saved registers for function prologue.
+    /// @param out Destination span for 16 Values.
     void save_callee_saved(std::span<Value, reg_range::CALLEE_SAVED_COUNT> out) const noexcept {
         std::copy_n(regs_.begin() + reg_range::CALLEE_SAVED_START, reg_range::CALLEE_SAVED_COUNT,
                     out.begin());
     }
 
+    /// @brief Restores callee-saved registers in function epilogue.
+    /// @param in Source span of 16 Values.
     void restore_callee_saved(std::span<const Value, reg_range::CALLEE_SAVED_COUNT> in) noexcept {
         std::ranges::copy(in, regs_.begin() + reg_range::CALLEE_SAVED_START);
     }
 
-    // Clear all registers (reset to zero)
+    /// @brief Clears all registers to zero.
     constexpr void clear() noexcept {
         for (auto& reg : regs_) {
             reg = Value::zero();
         }
     }
 
-    // Size information
+    /// @brief Returns the number of registers (256).
+    /// @return Total register count.
     [[nodiscard]] static constexpr std::size_t size() noexcept { return REGISTER_FILE_SIZE; }
 
+    /// @brief Returns the size of the register file in bytes.
+    /// @return Size in bytes (256 * 8 = 2048 plus alignment padding).
     [[nodiscard]] static constexpr std::size_t byte_size() noexcept { return sizeof(RegisterFile); }
 
-    // Raw access for serialization/debugging
+    /// @brief Returns a raw view of all register values for serialization.
+    /// @return A const span of all 256 Values.
     [[nodiscard]] std::span<const Value, REGISTER_FILE_SIZE> raw_view() const noexcept {
         return std::span<const Value, REGISTER_FILE_SIZE>{regs_};
     }
