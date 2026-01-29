@@ -178,6 +178,7 @@ private:
     IRBuildResult<std::uint32_t> build_member_expr(const MemberExpr& expr);
     IRBuildResult<std::uint32_t> build_call_expr(const CallExpr& expr);
     IRBuildResult<std::uint32_t> build_literal(const Expression& expr);
+    IRBuildResult<std::uint32_t> build_interpolated_string(const InterpolatedString& expr);
 
     // DSL-004: Stdlib call resolution
     IRBuildResult<std::uint32_t> build_stdlib_call(const stdlib::FunctionDef* fn,

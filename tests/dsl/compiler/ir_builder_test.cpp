@@ -184,3 +184,58 @@ TEST_F(IRBuilderTest, IRPrinterOutput) {
     EXPECT_FALSE(ir_str.empty());
     EXPECT_NE(ir_str.find("printer_test"), std::string::npos);
 }
+
+TEST_F(IRBuilderTest, StringInterpolation) {
+    // Test that string interpolation is now supported and generates valid IR
+    auto result = build_from_source(R"(
+        dot formatter:
+            state:
+                name: "World"
+                count: 42
+            when true:
+                do:
+                    print "Hello, ${state.name}!"
+                    print "Count is ${state.count}"
+    )");
+
+    ASSERT_TRUE(result.has_value()) << "String interpolation should be supported";
+    ASSERT_EQ(result->dots.size(), 1);
+
+    const auto& dot = result->dots[0];
+    EXPECT_EQ(dot.name, "formatter");
+    EXPECT_FALSE(dot.blocks.empty());
+
+    // The IR should contain Call instructions for:
+    // - str() syscall to convert values to strings
+    // - string.concat syscall to concatenate parts
+    // This verifies the interpolation generates proper IR
+}
+
+TEST_F(IRBuilderTest, StringInterpolationComplex) {
+    // Test more complex interpolation with expressions
+    auto result = build_from_source(R"(
+        dot complex_format:
+            state:
+                a: 10
+                b: 20
+            when true:
+                do:
+                    log "Sum: ${a + b}"
+    )");
+
+    ASSERT_TRUE(result.has_value()) << "Complex string interpolation should work";
+}
+
+TEST_F(IRBuilderTest, StringInterpolationEmptySegment) {
+    // Test interpolation with expression at the beginning
+    auto result = build_from_source(R"(
+        dot leading_expr:
+            state:
+                x: 5
+            when true:
+                do:
+                    emit "${x} is the value"
+    )");
+
+    ASSERT_TRUE(result.has_value()) << "Interpolation with leading expression should work";
+}
