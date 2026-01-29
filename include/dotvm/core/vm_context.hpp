@@ -15,6 +15,7 @@
 #include "arch_config.hpp"
 #include "arch_types.hpp"
 #include "call_stack.hpp"
+#include "capabilities/capability.hpp"
 #include "cfi.hpp"
 #include "dotvm/exec/state_execution_context.hpp"
 #include "exception_context.hpp"
@@ -160,6 +161,13 @@ struct VmConfig {
     /// Number of loop iterations before OSR triggers.
     /// Default is 100,000. Set to 0 to disable OSR.
     std::uint32_t jit_loop_threshold = 100'000;
+
+    /// Granted capabilities for syscall permission checks (SEC-010)
+    ///
+    /// When executing syscalls, these permissions are checked against
+    /// the required permissions for each syscall. Defaults to None
+    /// for maximum security (no syscalls allowed).
+    capabilities::Permission granted_caps = capabilities::Permission::None;
 
     /// Creates a default configuration for the given architecture
     [[nodiscard]] static constexpr VmConfig for_arch(Architecture arch) noexcept {

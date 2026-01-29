@@ -44,6 +44,13 @@ struct BenchOptions {
     bool strict = false;                                    ///< Exit code 3 if targets missed
     bool no_color = false;                                  ///< Disable ANSI color codes
     bool force_color = false;                               ///< Force colors (for piping)
+
+    /// @brief Target file path for performance thresholds (SEC-010)
+    ///
+    /// When specified, loads target times from a JSON file and compares
+    /// benchmark results against them. In strict mode, exits with code 3
+    /// if any targets are missed.
+    std::string target_file;
 };
 
 /// @brief Main benchmark CLI application class

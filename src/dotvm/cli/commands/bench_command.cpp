@@ -5,11 +5,71 @@
 
 #include <fstream>
 #include <iostream>
+#include <unordered_map>
 
 // Include the benchmark runner interface (no Google Benchmark dependency)
 #include "dotvm/bench/bench_runner.hpp"
 
 namespace dotvm::cli::commands {
+
+namespace {
+
+/// @brief Load target times from a JSON-like target file (SEC-010)
+///
+/// Expected format (simple key=value per line):
+///   BenchmarkName=target_time_ns
+///
+/// Example:
+///   BM_Fibonacci/10=1000
+///   BM_Memory/1024=5000
+///
+/// @param path Path to the target file
+/// @param targets Output map of benchmark name to target time in nanoseconds
+/// @return true on success, false on failure
+bool load_targets(const std::string& path, std::unordered_map<std::string, double>& targets) {
+    std::ifstream file(path);
+    if (!file) {
+        return false;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+
+        // Find the '=' separator
+        auto pos = line.find('=');
+        if (pos == std::string::npos) {
+            continue;  // Skip malformed lines
+        }
+
+        std::string name = line.substr(0, pos);
+        std::string value_str = line.substr(pos + 1);
+
+        // Trim whitespace
+        while (!name.empty() && std::isspace(static_cast<unsigned char>(name.back()))) {
+            name.pop_back();
+        }
+        while (!value_str.empty() && std::isspace(static_cast<unsigned char>(value_str.front()))) {
+            value_str.erase(0, 1);
+        }
+
+        // Parse the target time
+        try {
+            double target_ns = std::stod(value_str);
+            targets[name] = target_ns;
+        } catch (const std::exception&) {
+            // Skip lines with invalid numbers
+            continue;
+        }
+    }
+
+    return true;
+}
+
+}  // namespace
 
 std::vector<std::string> list_benchmarks() {
     return bench::get_benchmark_names();
@@ -39,6 +99,15 @@ BenchExitCode execute_bench(const BenchOptions& opts, Terminal& term) {
         return BenchExitCode::ValidationError;
     }
 
+    // Load targets if specified (SEC-010)
+    std::unordered_map<std::string, double> targets;
+    if (!opts.target_file.empty()) {
+        if (!load_targets(opts.target_file, targets)) {
+            term.error("Failed to load target file: " + opts.target_file + "\n");
+            return BenchExitCode::IOError;
+        }
+    }
+
     // Convert benchmark report to CLI report
     BenchmarkReport report;
     report.version = bench_report.version;
@@ -51,6 +120,13 @@ BenchExitCode execute_bench(const BenchOptions& opts, Terminal& term) {
         result.iterations = r.iterations;
         result.items_per_second = r.items_per_second;
         result.bytes_per_second = r.bytes_per_second;
+
+        // Apply target if available (SEC-010)
+        auto it = targets.find(r.name);
+        if (it != targets.end()) {
+            result.target_cpu_time_ns = it->second;
+        }
+
         report.results.push_back(result);
     }
 
@@ -85,10 +161,16 @@ BenchExitCode execute_bench(const BenchOptions& opts, Terminal& term) {
             break;
     }
 
-    // In strict mode, check for target misses (placeholder for future implementation)
-    if (opts.strict) {
-        // TODO: Implement target checking
-        // For now, always succeed
+    // SEC-010: In strict mode, check for target misses
+    if (opts.strict && !report.all_targets_met()) {
+        auto missed = report.missed_targets();
+        term.error("Benchmark targets missed:\n");
+        for (const auto& name : missed) {
+            term.error("  - ");
+            term.print(name);
+            term.newline();
+        }
+        return BenchExitCode::TargetMissed;
     }
 
     return BenchExitCode::Success;

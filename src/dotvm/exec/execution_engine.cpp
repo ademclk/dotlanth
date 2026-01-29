@@ -1630,11 +1630,11 @@ op_SYSCALL: {
     auto d = dotvm::core::decode_type_b(instr);
     std::uint16_t syscall_id = static_cast<std::uint16_t>(d.imm16 & 0xFFFF);
 
-    // Build syscall context
+    // Build syscall context with capabilities from VmConfig (SEC-010)
     SyscallContext ctx{
         .vm_ctx = vm_ctx_,
         .regs = regs,
-        .granted_caps = core::capabilities::Permission::All,  // TODO: Get from compile context
+        .granted_caps = vm_ctx_.config().granted_caps,
         .const_pool = const_pool_,
     };
 

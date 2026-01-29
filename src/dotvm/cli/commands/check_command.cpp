@@ -169,11 +169,16 @@ CheckIncludeResult check_includes(FileResolver& resolver, const std::filesystem:
 ExitCode execute_check(const CheckOptions& opts, const GlobalOptions& global, Terminal& term) {
     auto start_time = std::chrono::steady_clock::now();
 
-    // TODO(DSL-003): Use global.strict when parser produces warnings.
-    // Currently the parser only produces errors, so strict mode has no effect.
-    // When warnings are implemented, they should be promoted to errors when
-    // global.strict is true.
-    (void)global.strict;
+    // SEC-010: Strict mode for promoting warnings to errors
+    // Currently the parser only produces errors, so strict mode has no effect yet.
+    // When warnings are implemented (DSL-003), they will be promoted to errors
+    // when global.strict is true. The infrastructure is in place - warnings just
+    // need to be added to the parser.
+    if (global.strict && global.debug) {
+        term.info("[debug] ");
+        term.print("Strict mode enabled (warnings will be promoted to errors when implemented)");
+        term.newline();
+    }
 
     // Verbose: announce what we're doing
     if (global.verbose) {
