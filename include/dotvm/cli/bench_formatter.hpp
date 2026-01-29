@@ -20,6 +20,18 @@ struct BenchmarkResult {
     std::uint64_t iterations = 0;   ///< Number of iterations run
     double items_per_second = 0.0;  ///< Items processed per second (if set)
     double bytes_per_second = 0.0;  ///< Bytes processed per second (if set)
+
+    /// @brief Target CPU time in nanoseconds (0 = no target) - SEC-010
+    double target_cpu_time_ns = 0.0;
+
+    /// @brief Check if this benchmark met its target (if any)
+    /// @return true if no target set or target met, false if target missed
+    [[nodiscard]] bool met_target() const noexcept {
+        if (target_cpu_time_ns <= 0.0) {
+            return true;  // No target set
+        }
+        return cpu_time_ns <= target_cpu_time_ns;
+    }
 };
 
 /// @brief Collection of benchmark results with metadata
@@ -27,6 +39,29 @@ struct BenchmarkReport {
     std::string version;                   ///< Tool version (e.g., "0.1.0")
     std::string timestamp;                 ///< ISO 8601 timestamp
     std::vector<BenchmarkResult> results;  ///< Individual benchmark results
+
+    /// @brief Check if all benchmarks with targets met their targets (SEC-010)
+    /// @return true if all targets met (or no targets set), false otherwise
+    [[nodiscard]] bool all_targets_met() const noexcept {
+        for (const auto& result : results) {
+            if (!result.met_target()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// @brief Get list of benchmarks that missed their targets (SEC-010)
+    /// @return Vector of benchmark names that missed their targets
+    [[nodiscard]] std::vector<std::string> missed_targets() const {
+        std::vector<std::string> missed;
+        for (const auto& result : results) {
+            if (!result.met_target()) {
+                missed.push_back(result.name);
+            }
+        }
+        return missed;
+    }
 };
 
 /// @brief Format benchmark report as human-readable console output
