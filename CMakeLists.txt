@@ -187,6 +187,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/mpt_node.cpp
     src/dotvm/core/state/merkle_patricia_trie.cpp
     src/dotvm/core/state/mpt_proof.cpp
+    # Snapshot Manager (STATE-009)
+    src/dotvm/core/state/snapshot_manager.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -545,6 +547,9 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/state/mpt_benchmark_test.cpp
         # Error formatter tests (MAINT-002)
         tests/dotvm/core/error_formatter_test.cpp
+        # Snapshot Manager tests (STATE-009)
+        tests/dotvm/core/state/snapshot_manager_test.cpp
+        tests/dotvm/core/state/snapshot_benchmark_test.cpp
     )
 
     # JIT tests (EXEC-012)

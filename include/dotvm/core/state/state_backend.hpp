@@ -374,6 +374,51 @@ public:
 
     /// @brief Clear all data
     virtual void clear() noexcept = 0;
+
+    // ========================================================================
+    // MVCC Version Support (STATE-009)
+    // ========================================================================
+
+    /// @brief Get the current global MVCC version
+    ///
+    /// Returns 0 for backends without MVCC support.
+    ///
+    /// @return Current version number
+    [[nodiscard]] virtual std::uint64_t current_version() const noexcept { return 0; }
+
+    /// @brief Get a value at a specific MVCC version
+    ///
+    /// @param key The key to look up
+    /// @param version The version to read at
+    /// @return The value at that version, or KeyNotFound/UnsupportedOperation
+    [[nodiscard]] virtual Result<std::vector<std::byte>>
+    get_at_version(Key key, std::uint64_t version) const {
+        (void)key;
+        (void)version;
+        return StateBackendError::UnsupportedOperation;
+    }
+
+    /// @brief Iterate over keys at a specific MVCC version
+    ///
+    /// @param prefix Key prefix to filter (empty = all keys)
+    /// @param version The version to iterate at
+    /// @param callback Called for each matching key-value pair
+    /// @return Success, or error code
+    [[nodiscard]] virtual Result<void> iterate_at_version(Key prefix, std::uint64_t version,
+                                                          const IterateCallback& callback) const {
+        (void)prefix;
+        (void)version;
+        (void)callback;
+        return StateBackendError::UnsupportedOperation;
+    }
+
+    /// @brief Set the minimum version that must be retained for snapshots
+    ///
+    /// Called by SnapshotManager to coordinate GC. Versions >= this value
+    /// should not be pruned.
+    ///
+    /// @param min_version Minimum version to retain
+    virtual void set_min_snapshot_version(std::uint64_t min_version) noexcept { (void)min_version; }
 };
 
 // ============================================================================
