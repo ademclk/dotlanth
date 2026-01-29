@@ -48,6 +48,9 @@ public:
     public:
         constexpr RegisterProxy(RegisterFile& rf, std::uint8_t reg) noexcept : rf_{rf}, reg_{reg} {}
 
+        /// Implicit conversion to Value (reads the register).
+        /// Implicit conversion is intentional for proxy pattern ergonomics: allows `Value v =
+        /// regs[1];`
         // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
         constexpr operator Value() const noexcept { return rf_.read(reg_); }
 
@@ -57,7 +60,10 @@ public:
         }
 
     private:
-        RegisterFile& rf_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        /// Reference to parent RegisterFile. Must be a reference since proxies are non-owning
+        /// views.
+        RegisterFile&
+            rf_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members): Proxy pattern
         std::uint8_t reg_;
     };
 
@@ -208,6 +214,9 @@ public:
         constexpr ArchRegisterProxy(ArchRegisterFile& rf, std::uint8_t reg) noexcept
             : rf_{rf}, reg_{reg} {}
 
+        /// Implicit conversion to Value (reads the register).
+        /// Implicit conversion is intentional for proxy pattern ergonomics: allows `Value v =
+        /// regs[1];`
         // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
         operator Value() const noexcept { return rf_.read(reg_); }
 
@@ -217,7 +226,10 @@ public:
         }
 
     private:
-        ArchRegisterFile& rf_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        /// Reference to parent ArchRegisterFile. Must be a reference since proxies are non-owning
+        /// views.
+        ArchRegisterFile&
+            rf_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members): Proxy pattern
         std::uint8_t reg_;
     };
 

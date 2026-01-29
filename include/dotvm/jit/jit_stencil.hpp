@@ -112,7 +112,10 @@ struct Stencil {
 ///
 /// Must match the opcodes defined in the VM instruction set.
 /// Only opcodes with stencils can be JIT compiled; others fall back to interpreter.
-// NOLINTBEGIN(readability-identifier-naming)
+///
+/// @note Uses SCREAMING_CASE for enum values to match bytecode specification
+///       and assembly mnemonics, rather than CamelCase project convention.
+// NOLINTBEGIN(readability-identifier-naming): SCREAMING_CASE matches bytecode spec/asm mnemonics
 enum class JitOpcode : std::uint8_t {
     // Arithmetic
     ADD = 0x01,
@@ -159,7 +162,7 @@ enum class JitOpcode : std::uint8_t {
     NOP = 0x00,
     HALT = 0xFF,
 };
-// NOLINTEND(readability-identifier-naming)
+// NOLINTEND(readability-identifier-naming): End SCREAMING_CASE block
 
 /// @brief Maximum number of opcodes we track
 inline constexpr std::size_t MAX_OPCODES = 256;
@@ -216,7 +219,10 @@ private:
 ///
 /// These are generated at build time and linked in. For now, we define
 /// minimal inline stencils for arithmetic operations.
-// NOLINTBEGIN(readability-identifier-naming)
+///
+/// @note Uses lowercase names (prologue, add, sub, etc.) for stencil objects
+///       matching conventional assembly/operation naming rather than UPPER_CASE.
+// NOLINTBEGIN(readability-identifier-naming): lowercase names match asm/operation conventions
 namespace stencils::x86_64 {
 
 // ============================================================================
@@ -334,6 +340,6 @@ extern const Stencil mov;
 extern const Stencil interpreter_fallback;
 
 }  // namespace stencils::x86_64
-// NOLINTEND(readability-identifier-naming)
+// NOLINTEND(readability-identifier-naming): End lowercase stencil names block
 
 }  // namespace dotvm::jit

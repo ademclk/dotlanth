@@ -48,11 +48,10 @@ CompileResult<CompiledFunction> JitCompiler::compile(FunctionId func_id,
     std::size_t offset = 0;
 
     // Calculate frame size (for now, fixed size)
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    constexpr std::size_t frame_size = 64;
+    constexpr std::size_t FRAME_SIZE = 64;
 
     // Emit prologue
-    auto prologue_result = emit_prologue(output.subspan(offset), frame_size);
+    auto prologue_result = emit_prologue(output.subspan(offset), FRAME_SIZE);
     if (!prologue_result) [[unlikely]] {
         return std::unexpected(prologue_result.error());
     }
@@ -73,7 +72,7 @@ CompileResult<CompiledFunction> JitCompiler::compile(FunctionId func_id,
     }
 
     // Emit epilogue
-    auto epilogue_result = emit_epilogue(output.subspan(offset), frame_size);
+    auto epilogue_result = emit_epilogue(output.subspan(offset), FRAME_SIZE);
     if (!epilogue_result) [[unlikely]] {
         return std::unexpected(epilogue_result.error());
     }

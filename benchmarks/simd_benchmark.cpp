@@ -10,11 +10,6 @@
 ///
 /// Part of CORE-008: Performance Benchmarks for the dotlanth VM
 
-#include "dotvm/core/bench/benchmark_config.hpp"
-#include "dotvm/core/arch_types.hpp"
-#include "dotvm/core/simd/cpu_features.hpp"
-#include "dotvm/core/simd/vector_types.hpp"
-
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -22,6 +17,11 @@
 #include <iostream>
 #include <random>
 #include <vector>
+
+#include "dotvm/core/arch_types.hpp"
+#include "dotvm/core/bench/benchmark_config.hpp"
+#include "dotvm/core/simd/cpu_features.hpp"
+#include "dotvm/core/simd/vector_types.hpp"
 
 using namespace dotvm::core;
 using namespace dotvm::core::bench;
@@ -32,7 +32,7 @@ using namespace dotvm::core::simd;
 // ============================================================================
 
 /// Generate random float data for benchmarks
-template<std::size_t N>
+template <std::size_t N>
 std::array<float, N> generate_float_data() {
     std::array<float, N> data;
     std::mt19937 rng(42);  // Fixed seed for reproducibility
@@ -45,7 +45,7 @@ std::array<float, N> generate_float_data() {
 }
 
 /// Generate random int32 data for benchmarks
-template<std::size_t N>
+template <std::size_t N>
 std::array<std::int32_t, N> generate_int_data() {
     std::array<std::int32_t, N> data;
     std::mt19937 rng(42);
@@ -62,7 +62,7 @@ std::array<std::int32_t, N> generate_int_data() {
 // ============================================================================
 
 /// Scalar vector addition
-template<typename T, std::size_t N>
+template <typename T, std::size_t N>
 void scalar_add(const T* a, const T* b, T* result) {
     for (std::size_t i = 0; i < N; ++i) {
         result[i] = a[i] + b[i];
@@ -70,7 +70,7 @@ void scalar_add(const T* a, const T* b, T* result) {
 }
 
 /// Scalar vector multiplication
-template<typename T, std::size_t N>
+template <typename T, std::size_t N>
 void scalar_mul(const T* a, const T* b, T* result) {
     for (std::size_t i = 0; i < N; ++i) {
         result[i] = a[i] * b[i];
@@ -78,7 +78,7 @@ void scalar_mul(const T* a, const T* b, T* result) {
 }
 
 /// Scalar dot product
-template<typename T, std::size_t N>
+template <typename T, std::size_t N>
 T scalar_dot(const T* a, const T* b) {
     T sum = T{0};
     for (std::size_t i = 0; i < N; ++i) {
@@ -88,7 +88,7 @@ T scalar_dot(const T* a, const T* b) {
 }
 
 /// Scalar FMA (fused multiply-add): result = a * b + c
-template<typename T, std::size_t N>
+template <typename T, std::size_t N>
 void scalar_fma(const T* a, const T* b, const T* c, T* result) {
     for (std::size_t i = 0; i < N; ++i) {
         result[i] = a[i] * b[i] + c[i];
@@ -100,25 +100,25 @@ void scalar_fma(const T* a, const T* b, const T* c, T* result) {
 // ============================================================================
 
 /// SIMD vector addition using Vector<Width, Lane>
-template<std::size_t Width, typename Lane>
+template <std::size_t Width, typename Lane>
 void simd_add(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b,
               Vector<Width, Lane>& result) {
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         result[i] = a[i] + b[i];
     }
 }
 
 /// SIMD vector multiplication using Vector<Width, Lane>
-template<std::size_t Width, typename Lane>
+template <std::size_t Width, typename Lane>
 void simd_mul(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b,
               Vector<Width, Lane>& result) {
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         result[i] = a[i] * b[i];
     }
 }
 
 /// SIMD dot product using Vector<Width, Lane>
-template<std::size_t Width, typename Lane>
+template <std::size_t Width, typename Lane>
 Lane simd_dot(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b) {
     Vector<Width, Lane> prod;
     simd_mul(a, b, prod);
@@ -126,10 +126,10 @@ Lane simd_dot(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b) {
 }
 
 /// SIMD FMA using Vector<Width, Lane>
-template<std::size_t Width, typename Lane>
+template <std::size_t Width, typename Lane>
 void simd_fma(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b,
               const Vector<Width, Lane>& c, Vector<Width, Lane>& result) {
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         result[i] = a[i] * b[i] + c[i];
     }
 }
@@ -146,7 +146,7 @@ void memory_copy_scalar(const float* src, float* dst, std::size_t count) {
 }
 
 /// Memory copy using Vector types
-template<std::size_t Width>
+template <std::size_t Width>
 void memory_copy_simd(const float* src, float* dst, std::size_t count) {
     constexpr std::size_t lanes = Width / (sizeof(float) * 8);
     const std::size_t vectors = count / lanes;
@@ -184,10 +184,12 @@ void run_addition_benchmarks() {
     {
         Benchmark bench("Scalar Add (1024 floats)");
         bench.warmup([&]() { scalar_add<float, N>(data_a.data(), data_b.data(), result.data()); });
-        auto res = bench.run([&]() {
-            scalar_add<float, N>(data_a.data(), data_b.data(), result.data());
-            do_not_optimize(result.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                scalar_add<float, N>(data_a.data(), data_b.data(), result.data());
+                do_not_optimize(result.data());
+            },
+            100000);
         res.print();
     }
 
@@ -211,12 +213,14 @@ void run_addition_benchmarks() {
             }
         });
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_add(va[i], vb[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_add(va[i], vb[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -239,12 +243,14 @@ void run_addition_benchmarks() {
             }
         });
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_add(va[i], vb[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_add(va[i], vb[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -267,12 +273,14 @@ void run_addition_benchmarks() {
             }
         });
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_add(va[i], vb[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_add(va[i], vb[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -291,10 +299,12 @@ void run_multiplication_benchmarks() {
     {
         Benchmark bench("Scalar Mul (1024 floats)");
         bench.warmup([&]() { scalar_mul<float, N>(data_a.data(), data_b.data(), result.data()); });
-        auto res = bench.run([&]() {
-            scalar_mul<float, N>(data_a.data(), data_b.data(), result.data());
-            do_not_optimize(result.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                scalar_mul<float, N>(data_a.data(), data_b.data(), result.data());
+                do_not_optimize(result.data());
+            },
+            100000);
         res.print();
     }
 
@@ -311,12 +321,14 @@ void run_multiplication_benchmarks() {
             }
         }
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_mul(va[i], vb[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_mul(va[i], vb[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -333,12 +345,14 @@ void run_multiplication_benchmarks() {
             }
         }
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_mul(va[i], vb[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_mul(va[i], vb[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -359,10 +373,12 @@ void run_dot_product_benchmarks() {
             auto r = scalar_dot<float, N>(data_a.data(), data_b.data());
             do_not_optimize(r);
         });
-        auto res = bench.run([&]() {
-            auto r = scalar_dot<float, N>(data_a.data(), data_b.data());
-            do_not_optimize(r);
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                auto r = scalar_dot<float, N>(data_a.data(), data_b.data());
+                do_not_optimize(r);
+            },
+            100000);
         res.print();
     }
 
@@ -379,13 +395,15 @@ void run_dot_product_benchmarks() {
             }
         }
 
-        auto res = bench.run([&]() {
-            float total = 0.0f;
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                total += simd_dot(va[i], vb[i]);
-            }
-            do_not_optimize(total);
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                float total = 0.0f;
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    total += simd_dot(va[i], vb[i]);
+                }
+                do_not_optimize(total);
+            },
+            100000);
         res.print();
     }
 
@@ -402,13 +420,15 @@ void run_dot_product_benchmarks() {
             }
         }
 
-        auto res = bench.run([&]() {
-            float total = 0.0f;
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                total += simd_dot(va[i], vb[i]);
-            }
-            do_not_optimize(total);
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                float total = 0.0f;
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    total += simd_dot(va[i], vb[i]);
+                }
+                do_not_optimize(total);
+            },
+            100000);
         res.print();
     }
 
@@ -430,10 +450,12 @@ void run_fma_benchmarks() {
         bench.warmup([&]() {
             scalar_fma<float, N>(data_a.data(), data_b.data(), data_c.data(), result.data());
         });
-        auto res = bench.run([&]() {
-            scalar_fma<float, N>(data_a.data(), data_b.data(), data_c.data(), result.data());
-            do_not_optimize(result.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                scalar_fma<float, N>(data_a.data(), data_b.data(), data_c.data(), result.data());
+                do_not_optimize(result.data());
+            },
+            100000);
         res.print();
     }
 
@@ -451,12 +473,14 @@ void run_fma_benchmarks() {
             }
         }
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_fma(va[i], vb[i], vc[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_fma(va[i], vb[i], vc[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -474,12 +498,14 @@ void run_fma_benchmarks() {
             }
         }
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_fma(va[i], vb[i], vc[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_fma(va[i], vb[i], vc[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -505,10 +531,12 @@ void run_memory_benchmarks() {
     {
         Benchmark bench("Scalar Copy (256 KB)");
         bench.warmup([&]() { memory_copy_scalar(src.data(), dst.data(), N); });
-        auto res = bench.run_throughput([&]() {
-            memory_copy_scalar(src.data(), dst.data(), N);
-            do_not_optimize(dst.data());
-        }, bytes, 10000);
+        auto res = bench.run_throughput(
+            [&]() {
+                memory_copy_scalar(src.data(), dst.data(), N);
+                do_not_optimize(dst.data());
+            },
+            bytes, 10000);
         res.print();
     }
 
@@ -516,10 +544,12 @@ void run_memory_benchmarks() {
     {
         Benchmark bench("SIMD Copy 128-bit (256 KB)");
         bench.warmup([&]() { memory_copy_simd<128>(src.data(), dst.data(), N); });
-        auto res = bench.run_throughput([&]() {
-            memory_copy_simd<128>(src.data(), dst.data(), N);
-            do_not_optimize(dst.data());
-        }, bytes, 10000);
+        auto res = bench.run_throughput(
+            [&]() {
+                memory_copy_simd<128>(src.data(), dst.data(), N);
+                do_not_optimize(dst.data());
+            },
+            bytes, 10000);
         res.print();
     }
 
@@ -527,10 +557,12 @@ void run_memory_benchmarks() {
     {
         Benchmark bench("SIMD Copy 256-bit (256 KB)");
         bench.warmup([&]() { memory_copy_simd<256>(src.data(), dst.data(), N); });
-        auto res = bench.run_throughput([&]() {
-            memory_copy_simd<256>(src.data(), dst.data(), N);
-            do_not_optimize(dst.data());
-        }, bytes, 10000);
+        auto res = bench.run_throughput(
+            [&]() {
+                memory_copy_simd<256>(src.data(), dst.data(), N);
+                do_not_optimize(dst.data());
+            },
+            bytes, 10000);
         res.print();
     }
 
@@ -538,10 +570,12 @@ void run_memory_benchmarks() {
     {
         Benchmark bench("SIMD Copy 512-bit (256 KB)");
         bench.warmup([&]() { memory_copy_simd<512>(src.data(), dst.data(), N); });
-        auto res = bench.run_throughput([&]() {
-            memory_copy_simd<512>(src.data(), dst.data(), N);
-            do_not_optimize(dst.data());
-        }, bytes, 10000);
+        auto res = bench.run_throughput(
+            [&]() {
+                memory_copy_simd<512>(src.data(), dst.data(), N);
+                do_not_optimize(dst.data());
+            },
+            bytes, 10000);
         res.print();
     }
 
@@ -559,13 +593,14 @@ void run_integer_simd_benchmarks() {
     // Scalar baseline
     {
         Benchmark bench("Scalar Int Add (1024 i32)");
-        bench.warmup([&]() {
-            scalar_add<std::int32_t, N>(data_a.data(), data_b.data(), result.data());
-        });
-        auto res = bench.run([&]() {
-            scalar_add<std::int32_t, N>(data_a.data(), data_b.data(), result.data());
-            do_not_optimize(result.data());
-        }, 100000);
+        bench.warmup(
+            [&]() { scalar_add<std::int32_t, N>(data_a.data(), data_b.data(), result.data()); });
+        auto res = bench.run(
+            [&]() {
+                scalar_add<std::int32_t, N>(data_a.data(), data_b.data(), result.data());
+                do_not_optimize(result.data());
+            },
+            100000);
         res.print();
     }
 
@@ -582,12 +617,14 @@ void run_integer_simd_benchmarks() {
             }
         }
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_add(va[i], vb[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_add(va[i], vb[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -604,12 +641,14 @@ void run_integer_simd_benchmarks() {
             }
         }
 
-        auto res = bench.run([&]() {
-            for (std::size_t i = 0; i < vec_count; ++i) {
-                simd_add(va[i], vb[i], vr[i]);
-            }
-            do_not_optimize(vr.data());
-        }, 100000);
+        auto res = bench.run(
+            [&]() {
+                for (std::size_t i = 0; i < vec_count; ++i) {
+                    simd_add(va[i], vb[i], vr[i]);
+                }
+                do_not_optimize(vr.data());
+            },
+            100000);
         res.print();
     }
 
@@ -636,9 +675,12 @@ int main() {
 
     // Print architecture support
     std::cout << "Architecture Support:\n";
-    std::cout << "  - 128-bit: " << (features.supports_arch(Architecture::Arch128) ? "Yes" : "No") << "\n";
-    std::cout << "  - 256-bit: " << (features.supports_arch(Architecture::Arch256) ? "Yes" : "No") << "\n";
-    std::cout << "  - 512-bit: " << (features.supports_arch(Architecture::Arch512) ? "Yes" : "No") << "\n";
+    std::cout << "  - 128-bit: " << (features.supports_arch(Architecture::Arch128) ? "Yes" : "No")
+              << "\n";
+    std::cout << "  - 256-bit: " << (features.supports_arch(Architecture::Arch256) ? "Yes" : "No")
+              << "\n";
+    std::cout << "  - 512-bit: " << (features.supports_arch(Architecture::Arch512) ? "Yes" : "No")
+              << "\n";
     std::cout << "\n";
 
     // Run benchmarks

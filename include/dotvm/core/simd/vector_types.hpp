@@ -86,29 +86,25 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     /// Width of the vector in bits
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    static constexpr std::size_t kWidthBits = Width;
+    static constexpr std::size_t WIDTH_BITS = Width;
 
     /// Width of the vector in bytes
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    static constexpr std::size_t kWidthBytes = Width / 8;
+    static constexpr std::size_t WIDTH_BYTES = Width / 8;
 
     /// Number of lanes in this vector
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    static constexpr std::size_t kLaneCount = Width / (sizeof(Lane) * 8);
+    static constexpr std::size_t LANE_COUNT = Width / (sizeof(Lane) * 8);
 
     /// Size of each lane in bytes
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    static constexpr std::size_t kLaneSize = sizeof(Lane);
+    static constexpr std::size_t LANE_SIZE = sizeof(Lane);
 
     // ========================================================================
     // Static Assertions
     // ========================================================================
 
-    static_assert(kWidthBytes == kLaneCount * kLaneSize,
-                  "Vector size must equal kLaneCount * kLaneSize");
-    static_assert(kLaneCount > 0, "Vector must have at least one lane");
-    static_assert(kLaneCount <= 64, "Vector lane count must not exceed 64");
+    static_assert(WIDTH_BYTES == LANE_COUNT * LANE_SIZE,
+                  "Vector size must equal LANE_COUNT * LANE_SIZE");
+    static_assert(LANE_COUNT > 0, "Vector must have at least one lane");
+    static_assert(LANE_COUNT <= 64, "Vector lane count must not exceed 64");
 
     // ========================================================================
     // Constructors
@@ -129,24 +125,24 @@ public:
     /// Array constructor - initializes from an array
     ///
     /// @param values Array of lane values
-    constexpr explicit Vector(const std::array<Lane, kLaneCount>& values) noexcept
+    constexpr explicit Vector(const std::array<Lane, LANE_COUNT>& values) noexcept
         : lanes_{values} {}
 
     /// Variadic constructor - initializes lanes from individual values
     ///
-    /// @param args Lane values (must provide exactly kLaneCount values)
+    /// @param args Lane values (must provide exactly LANE_COUNT values)
     template <typename... Args>
-        requires(sizeof...(Args) == kLaneCount) && (std::convertible_to<Args, Lane> && ...)
+        requires(sizeof...(Args) == LANE_COUNT) && (std::convertible_to<Args, Lane> && ...)
     constexpr explicit Vector(Args... args) noexcept : lanes_{static_cast<Lane>(args)...} {}
 
     /// Copy from raw bytes
     ///
-    /// @param bytes Raw byte data to copy (must be at least kWidthBytes bytes)
+    /// @param bytes Raw byte data to copy (must be at least WIDTH_BYTES bytes)
     static constexpr Vector from_bytes(const std::uint8_t* bytes) noexcept {
         Vector v;
         const auto* src = bytes;
         auto* dst = reinterpret_cast<std::uint8_t*>(v.lanes_.data());
-        for (std::size_t i = 0; i < kWidthBytes; ++i) {
+        for (std::size_t i = 0; i < WIDTH_BYTES; ++i) {
             dst[i] = src[i];
         }
         return v;
@@ -170,16 +166,14 @@ public:
         if constexpr (std::is_floating_point_v<Lane>) {
             // For floating point, set all bits via bit_cast
             if constexpr (std::same_as<Lane, float>) {
-                // NOLINTNEXTLINE(readability-identifier-naming)
-                constexpr std::uint32_t kAllOnes = ~std::uint32_t{0};
-                Lane val = std::bit_cast<Lane>(kAllOnes);
+                constexpr std::uint32_t ALL_ONES_32 = ~std::uint32_t{0};
+                Lane val = std::bit_cast<Lane>(ALL_ONES_32);
                 for (auto& lane : v.lanes_) {
                     lane = val;
                 }
             } else {
-                // NOLINTNEXTLINE(readability-identifier-naming)
-                constexpr std::uint64_t kAllOnes = ~std::uint64_t{0};
-                Lane val = std::bit_cast<Lane>(kAllOnes);
+                constexpr std::uint64_t ALL_ONES_64 = ~std::uint64_t{0};
+                Lane val = std::bit_cast<Lane>(ALL_ONES_64);
                 for (auto& lane : v.lanes_) {
                     lane = val;
                 }
@@ -214,9 +208,9 @@ public:
     ///
     /// @param idx Lane index
     /// @return Reference to the lane
-    /// @throws std::out_of_range if idx >= kLaneCount
+    /// @throws std::out_of_range if idx >= LANE_COUNT
     [[nodiscard]] constexpr reference at(size_type idx) {
-        if (idx >= kLaneCount) {
+        if (idx >= LANE_COUNT) {
             throw std::out_of_range("Vector lane index out of range");
         }
         return lanes_[idx];
@@ -226,9 +220,9 @@ public:
     ///
     /// @param idx Lane index
     /// @return Const reference to the lane
-    /// @throws std::out_of_range if idx >= kLaneCount
+    /// @throws std::out_of_range if idx >= LANE_COUNT
     [[nodiscard]] constexpr const_reference at(size_type idx) const {
-        if (idx >= kLaneCount) {
+        if (idx >= LANE_COUNT) {
             throw std::out_of_range("Vector lane index out of range");
         }
         return lanes_[idx];
@@ -267,25 +261,25 @@ public:
     }
 
     /// Get the underlying array
-    [[nodiscard]] constexpr const std::array<Lane, kLaneCount>& lanes() const noexcept {
+    [[nodiscard]] constexpr const std::array<Lane, LANE_COUNT>& lanes() const noexcept {
         return lanes_;
     }
 
     /// Get mutable access to underlying array
-    [[nodiscard]] constexpr std::array<Lane, kLaneCount>& lanes() noexcept { return lanes_; }
+    [[nodiscard]] constexpr std::array<Lane, LANE_COUNT>& lanes() noexcept { return lanes_; }
 
     // ========================================================================
     // Size Information
     // ========================================================================
 
     /// Get the number of lanes
-    [[nodiscard]] static constexpr size_type size() noexcept { return kLaneCount; }
+    [[nodiscard]] static constexpr size_type size() noexcept { return LANE_COUNT; }
 
     /// Check if vector is empty (always false for valid vectors)
     [[nodiscard]] static constexpr bool empty() noexcept { return false; }
 
     /// Get the maximum number of lanes (same as size for fixed vectors)
-    [[nodiscard]] static constexpr size_type max_size() noexcept { return kLaneCount; }
+    [[nodiscard]] static constexpr size_type max_size() noexcept { return LANE_COUNT; }
 
     // ========================================================================
     // Iterators
@@ -297,14 +291,14 @@ public:
 
     [[nodiscard]] constexpr const_iterator cbegin() const noexcept { return lanes_.data(); }
 
-    [[nodiscard]] constexpr iterator end() noexcept { return lanes_.data() + kLaneCount; }
+    [[nodiscard]] constexpr iterator end() noexcept { return lanes_.data() + LANE_COUNT; }
 
     [[nodiscard]] constexpr const_iterator end() const noexcept {
-        return lanes_.data() + kLaneCount;
+        return lanes_.data() + LANE_COUNT;
     }
 
     [[nodiscard]] constexpr const_iterator cend() const noexcept {
-        return lanes_.data() + kLaneCount;
+        return lanes_.data() + LANE_COUNT;
     }
 
     [[nodiscard]] constexpr reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
@@ -388,7 +382,7 @@ public:
     /// Get minimum lane value
     [[nodiscard]] constexpr Lane min_lane() const noexcept {
         Lane result = lanes_[0];
-        for (std::size_t i = 1; i < kLaneCount; ++i) {
+        for (std::size_t i = 1; i < LANE_COUNT; ++i) {
             if (lanes_[i] < result) {
                 result = lanes_[i];
             }
@@ -399,7 +393,7 @@ public:
     /// Get maximum lane value
     [[nodiscard]] constexpr Lane max_lane() const noexcept {
         Lane result = lanes_[0];
-        for (std::size_t i = 1; i < kLaneCount; ++i) {
+        for (std::size_t i = 1; i < LANE_COUNT; ++i) {
             if (lanes_[i] > result) {
                 result = lanes_[i];
             }
@@ -408,7 +402,7 @@ public:
     }
 
 private:
-    std::array<Lane, kLaneCount> lanes_;
+    std::array<Lane, LANE_COUNT> lanes_;
 };
 
 // ============================================================================
@@ -468,28 +462,28 @@ using Vector512f64 = Vector<512, double>;         ///< 8 x f64
 // ============================================================================
 
 // 128-bit vectors
-static_assert(Vector128i8::kLaneCount == 16, "Vector128i8 must have 16 lanes");
-static_assert(Vector128i16::kLaneCount == 8, "Vector128i16 must have 8 lanes");
-static_assert(Vector128i32::kLaneCount == 4, "Vector128i32 must have 4 lanes");
-static_assert(Vector128i64::kLaneCount == 2, "Vector128i64 must have 2 lanes");
-static_assert(Vector128f32::kLaneCount == 4, "Vector128f32 must have 4 lanes");
-static_assert(Vector128f64::kLaneCount == 2, "Vector128f64 must have 2 lanes");
+static_assert(Vector128i8::LANE_COUNT == 16, "Vector128i8 must have 16 lanes");
+static_assert(Vector128i16::LANE_COUNT == 8, "Vector128i16 must have 8 lanes");
+static_assert(Vector128i32::LANE_COUNT == 4, "Vector128i32 must have 4 lanes");
+static_assert(Vector128i64::LANE_COUNT == 2, "Vector128i64 must have 2 lanes");
+static_assert(Vector128f32::LANE_COUNT == 4, "Vector128f32 must have 4 lanes");
+static_assert(Vector128f64::LANE_COUNT == 2, "Vector128f64 must have 2 lanes");
 
 // 256-bit vectors
-static_assert(Vector256i8::kLaneCount == 32, "Vector256i8 must have 32 lanes");
-static_assert(Vector256i16::kLaneCount == 16, "Vector256i16 must have 16 lanes");
-static_assert(Vector256i32::kLaneCount == 8, "Vector256i32 must have 8 lanes");
-static_assert(Vector256i64::kLaneCount == 4, "Vector256i64 must have 4 lanes");
-static_assert(Vector256f32::kLaneCount == 8, "Vector256f32 must have 8 lanes");
-static_assert(Vector256f64::kLaneCount == 4, "Vector256f64 must have 4 lanes");
+static_assert(Vector256i8::LANE_COUNT == 32, "Vector256i8 must have 32 lanes");
+static_assert(Vector256i16::LANE_COUNT == 16, "Vector256i16 must have 16 lanes");
+static_assert(Vector256i32::LANE_COUNT == 8, "Vector256i32 must have 8 lanes");
+static_assert(Vector256i64::LANE_COUNT == 4, "Vector256i64 must have 4 lanes");
+static_assert(Vector256f32::LANE_COUNT == 8, "Vector256f32 must have 8 lanes");
+static_assert(Vector256f64::LANE_COUNT == 4, "Vector256f64 must have 4 lanes");
 
 // 512-bit vectors
-static_assert(Vector512i8::kLaneCount == 64, "Vector512i8 must have 64 lanes");
-static_assert(Vector512i16::kLaneCount == 32, "Vector512i16 must have 32 lanes");
-static_assert(Vector512i32::kLaneCount == 16, "Vector512i32 must have 16 lanes");
-static_assert(Vector512i64::kLaneCount == 8, "Vector512i64 must have 8 lanes");
-static_assert(Vector512f32::kLaneCount == 16, "Vector512f32 must have 16 lanes");
-static_assert(Vector512f64::kLaneCount == 8, "Vector512f64 must have 8 lanes");
+static_assert(Vector512i8::LANE_COUNT == 64, "Vector512i8 must have 64 lanes");
+static_assert(Vector512i16::LANE_COUNT == 32, "Vector512i16 must have 32 lanes");
+static_assert(Vector512i32::LANE_COUNT == 16, "Vector512i32 must have 16 lanes");
+static_assert(Vector512i64::LANE_COUNT == 8, "Vector512i64 must have 8 lanes");
+static_assert(Vector512f32::LANE_COUNT == 16, "Vector512f32 must have 16 lanes");
+static_assert(Vector512f64::LANE_COUNT == 8, "Vector512f64 must have 8 lanes");
 
 // ============================================================================
 // Free Function Operations
