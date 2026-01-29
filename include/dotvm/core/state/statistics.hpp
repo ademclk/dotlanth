@@ -11,8 +11,8 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
-#include <span>
 #include <shared_mutex>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -32,21 +32,21 @@ class StateBackend;
 /// @brief Error codes for query optimizer operations (144-159)
 enum class QueryOptimizerError : std::uint8_t {
     // AST errors (144-147)
-    InvalidQuery = 144,        ///< Query is malformed
-    UnsupportedPredicate = 145,///< Predicate type not supported
-    EmptyQuery = 146,          ///< Query has no operations
+    InvalidQuery = 144,          ///< Query is malformed
+    UnsupportedPredicate = 145,  ///< Predicate type not supported
+    EmptyQuery = 146,            ///< Query has no operations
 
     // Statistics errors (148-151)
-    StatisticsUnavailable = 148,///< Statistics not available for scope
-    StaleStatistics = 149,      ///< Statistics are outdated
+    StatisticsUnavailable = 148,  ///< Statistics not available for scope
+    StaleStatistics = 149,        ///< Statistics are outdated
 
     // Plan errors (152-155)
-    PlanGenerationFailed = 152, ///< Could not generate execution plan
-    InvalidPlan = 153,          ///< Execution plan is invalid
+    PlanGenerationFailed = 152,  ///< Could not generate execution plan
+    InvalidPlan = 153,           ///< Execution plan is invalid
 
     // Execution errors (156-159)
-    ExecutionFailed = 156,      ///< Plan execution failed
-    OperatorError = 157,        ///< Operator execution error
+    ExecutionFailed = 156,  ///< Plan execution failed
+    OperatorError = 157,    ///< Operator execution error
 };
 
 /// @brief Convert QueryOptimizerError to string
@@ -108,24 +108,27 @@ struct HistogramBucket {
 /// Contains cardinality estimates and distribution information for
 /// a specific key prefix (or the entire keyspace if prefix is empty).
 struct ScopeStatistics {
-    std::vector<std::byte> prefix;       ///< Key prefix this scope covers
-    std::size_t key_count{0};            ///< Total keys in scope
-    std::size_t total_key_bytes{0};      ///< Sum of all key sizes
-    std::size_t total_value_bytes{0};    ///< Sum of all value sizes
-    std::vector<std::byte> min_key;      ///< Minimum key in scope
-    std::vector<std::byte> max_key;      ///< Maximum key in scope
-    std::vector<HistogramBucket> histogram;  ///< Key distribution histogram
+    std::vector<std::byte> prefix;                         ///< Key prefix this scope covers
+    std::size_t key_count{0};                              ///< Total keys in scope
+    std::size_t total_key_bytes{0};                        ///< Sum of all key sizes
+    std::size_t total_value_bytes{0};                      ///< Sum of all value sizes
+    std::vector<std::byte> min_key;                        ///< Minimum key in scope
+    std::vector<std::byte> max_key;                        ///< Maximum key in scope
+    std::vector<HistogramBucket> histogram;                ///< Key distribution histogram
     std::chrono::steady_clock::time_point collected_at{};  ///< When stats were collected
-    std::uint64_t collected_at_version{0};  ///< Backend version at collection time
+    std::uint64_t collected_at_version{0};                 ///< Backend version at collection time
 
     /// @brief Get average key size
     [[nodiscard]] double avg_key_size() const noexcept {
-        return key_count > 0 ? static_cast<double>(total_key_bytes) / static_cast<double>(key_count) : 0.0;
+        return key_count > 0 ? static_cast<double>(total_key_bytes) / static_cast<double>(key_count)
+                             : 0.0;
     }
 
     /// @brief Get average value size
     [[nodiscard]] double avg_value_size() const noexcept {
-        return key_count > 0 ? static_cast<double>(total_value_bytes) / static_cast<double>(key_count) : 0.0;
+        return key_count > 0
+                   ? static_cast<double>(total_value_bytes) / static_cast<double>(key_count)
+                   : 0.0;
     }
 };
 
@@ -135,9 +138,9 @@ struct ScopeStatistics {
 
 /// @brief Configuration for statistics collection
 struct StatisticsConfig {
-    std::size_t histogram_buckets{100};  ///< Number of histogram buckets
-    std::size_t sample_size{10000};      ///< Sample size for large datasets
-    bool enable_sampling{true};          ///< Enable sampling for large datasets
+    std::size_t histogram_buckets{100};         ///< Number of histogram buckets
+    std::size_t sample_size{10000};             ///< Sample size for large datasets
+    bool enable_sampling{true};                 ///< Enable sampling for large datasets
     double staleness_threshold_seconds{300.0};  ///< Max age before stats are stale
 };
 
@@ -160,8 +163,7 @@ public:
     /// @brief Construct a collector for a backend
     /// @param backend The state backend to collect from
     /// @param config Collection configuration
-    explicit StatisticsCollector(const StateBackend& backend,
-                                  StatisticsConfig config = {});
+    explicit StatisticsCollector(const StateBackend& backend, StatisticsConfig config = {});
 
     /// @brief Collect statistics for a scope
     ///
@@ -176,7 +178,8 @@ public:
     ///
     /// @param prefix Key prefix for scope
     /// @return Pointer to cached stats, or nullptr if not cached
-    [[nodiscard]] const ScopeStatistics* get_cached(std::span<const std::byte> prefix) const noexcept;
+    [[nodiscard]] const ScopeStatistics*
+    get_cached(std::span<const std::byte> prefix) const noexcept;
 
     /// @brief Invalidate cached statistics
     ///

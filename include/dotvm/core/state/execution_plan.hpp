@@ -79,8 +79,8 @@ struct FilterOp {
 
 /// @brief Project operator - selects key/value fields
 struct ProjectOp {
-    bool include_key{true};     ///< Include key in output
-    bool include_value{true};   ///< Include value in output
+    bool include_key{true};    ///< Include key in output
+    bool include_value{true};  ///< Include value in output
 };
 
 /// @brief Aggregate operator - computes aggregate function
@@ -98,15 +98,23 @@ using Operator = std::variant<FullScanOp, PrefixScanOp, FilterOp, ProjectOp, Agg
 
 /// @brief Get the type of an operator
 [[nodiscard]] inline OperatorType get_type(const Operator& op) noexcept {
-    return std::visit([](const auto& o) -> OperatorType {
-        using T = std::decay_t<decltype(o)>;
-        if constexpr (std::is_same_v<T, FullScanOp>) return OperatorType::FullScan;
-        else if constexpr (std::is_same_v<T, PrefixScanOp>) return OperatorType::PrefixScan;
-        else if constexpr (std::is_same_v<T, FilterOp>) return OperatorType::Filter;
-        else if constexpr (std::is_same_v<T, ProjectOp>) return OperatorType::Project;
-        else if constexpr (std::is_same_v<T, AggregateOp>) return OperatorType::Aggregate;
-        else if constexpr (std::is_same_v<T, LimitOp>) return OperatorType::Limit;
-    }, op);
+    return std::visit(
+        [](const auto& o) -> OperatorType {
+            using T = std::decay_t<decltype(o)>;
+            if constexpr (std::is_same_v<T, FullScanOp>)
+                return OperatorType::FullScan;
+            else if constexpr (std::is_same_v<T, PrefixScanOp>)
+                return OperatorType::PrefixScan;
+            else if constexpr (std::is_same_v<T, FilterOp>)
+                return OperatorType::Filter;
+            else if constexpr (std::is_same_v<T, ProjectOp>)
+                return OperatorType::Project;
+            else if constexpr (std::is_same_v<T, AggregateOp>)
+                return OperatorType::Aggregate;
+            else if constexpr (std::is_same_v<T, LimitOp>)
+                return OperatorType::Limit;
+        },
+        op);
 }
 
 // ============================================================================
@@ -123,9 +131,7 @@ struct PlanCost {
     double memory_cost{0.0};  ///< Memory cost (intermediate storage)
 
     /// @brief Get total cost
-    [[nodiscard]] double total() const noexcept {
-        return io_cost + cpu_cost + memory_cost;
-    }
+    [[nodiscard]] double total() const noexcept { return io_cost + cpu_cost + memory_cost; }
 
     /// @brief Comparison (by total cost)
     [[nodiscard]] bool operator<(const PlanCost& other) const noexcept {
@@ -134,11 +140,9 @@ struct PlanCost {
 
     /// @brief Addition
     [[nodiscard]] PlanCost operator+(const PlanCost& other) const noexcept {
-        return {
-            .io_cost = io_cost + other.io_cost,
-            .cpu_cost = cpu_cost + other.cpu_cost,
-            .memory_cost = memory_cost + other.memory_cost
-        };
+        return {.io_cost = io_cost + other.io_cost,
+                .cpu_cost = cpu_cost + other.cpu_cost,
+                .memory_cost = memory_cost + other.memory_cost};
     }
 
     PlanCost& operator+=(const PlanCost& other) noexcept {
@@ -158,20 +162,22 @@ struct PlanCost {
 /// A pipeline of operators executed in order. The first operator must be
 /// a scan (FullScan or PrefixScan), followed by transformation operators.
 struct ExecutionPlan {
-    std::vector<Operator> operators;  ///< Operators in pipeline order
-    PlanCost total_cost;               ///< Estimated total cost
+    std::vector<Operator> operators;       ///< Operators in pipeline order
+    PlanCost total_cost;                   ///< Estimated total cost
     std::size_t estimated_output_rows{0};  ///< Estimated output cardinality
 
     /// @brief Check if plan is valid (has at least a scan operator)
     [[nodiscard]] bool is_valid() const noexcept {
-        if (operators.empty()) return false;
+        if (operators.empty())
+            return false;
         const auto type = get_type(operators.front());
         return type == OperatorType::FullScan || type == OperatorType::PrefixScan;
     }
 
     /// @brief Get the scan operator (first operator)
     [[nodiscard]] const Operator* scan_operator() const noexcept {
-        if (operators.empty()) return nullptr;
+        if (operators.empty())
+            return nullptr;
         const auto type = get_type(operators.front());
         if (type == OperatorType::FullScan || type == OperatorType::PrefixScan) {
             return &operators.front();
@@ -197,8 +203,8 @@ public:
     using Result = ::dotvm::core::Result<T, QueryOptimizerError>;
 
     /// @brief Callback for iteration results
-    using IterateCallback = std::function<bool(std::span<const std::byte> key,
-                                                std::span<const std::byte> value)>;
+    using IterateCallback =
+        std::function<bool(std::span<const std::byte> key, std::span<const std::byte> value)>;
 
     /// @brief Construct executor for a backend
     explicit PlanExecutor(const StateBackend& backend);
@@ -209,7 +215,7 @@ public:
     /// @param callback Called for each output row
     /// @return Success or error
     [[nodiscard]] Result<void> execute(const ExecutionPlan& plan,
-                                        const IterateCallback& callback) const;
+                                       const IterateCallback& callback) const;
 
 private:
     const StateBackend& backend_;

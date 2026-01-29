@@ -152,10 +152,8 @@ TEST_F(CostModelTest, PrefixScanCostLower) {
 TEST_F(CostModelTest, FilterOperatorCost) {
     ExecutionPlan plan;
     plan.operators.push_back(FullScanOp{});
-    plan.operators.push_back(FilterOp{{
-        {PredicateOp::Ge, make_bytes("c")},
-        {PredicateOp::Lt, make_bytes("f")}
-    }});
+    plan.operators.push_back(
+        FilterOp{{{PredicateOp::Ge, make_bytes("c")}, {PredicateOp::Lt, make_bytes("f")}}});
     plan.estimated_output_rows = 3000;  // After filter
 
     auto cost = model_.estimate(plan, stats_);
@@ -214,10 +212,8 @@ TEST_F(CostModelTest, EqualitySelectivity) {
 /// @test Range selectivity from histogram
 TEST_F(CostModelTest, RangeSelectivity) {
     // Range covering ~30% of data (c to f out of a-j)
-    std::vector<Predicate> range_preds = {
-        {PredicateOp::Ge, make_bytes("c")},
-        {PredicateOp::Lt, make_bytes("f")}
-    };
+    std::vector<Predicate> range_preds = {{PredicateOp::Ge, make_bytes("c")},
+                                          {PredicateOp::Lt, make_bytes("f")}};
 
     double combined_selectivity = 1.0;
     for (const auto& pred : range_preds) {

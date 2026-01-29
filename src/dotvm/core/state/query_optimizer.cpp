@@ -30,21 +30,21 @@ void add_query_operators(ExecutionPlan& plan, const Query& query) {
     for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
         const QueryNode* node = *it;
 
-        std::visit([&plan](const auto& n) {
-            using T = std::decay_t<decltype(n)>;
+        std::visit(
+            [&plan](const auto& n) {
+                using T = std::decay_t<decltype(n)>;
 
-            if constexpr (std::is_same_v<T, ProjectNode>) {
-                plan.operators.push_back(ProjectOp{
-                    .include_key = n.include_key,
-                    .include_value = n.include_value
-                });
-            } else if constexpr (std::is_same_v<T, AggregateNode>) {
-                plan.operators.push_back(AggregateOp{n.func});
-            } else if constexpr (std::is_same_v<T, LimitNode>) {
-                plan.operators.push_back(LimitOp{n.count});
-            }
-            // Skip ScanNode and FilterNode - handled in generate_plans
-        }, node->node);
+                if constexpr (std::is_same_v<T, ProjectNode>) {
+                    plan.operators.push_back(
+                        ProjectOp{.include_key = n.include_key, .include_value = n.include_value});
+                } else if constexpr (std::is_same_v<T, AggregateNode>) {
+                    plan.operators.push_back(AggregateOp{n.func});
+                } else if constexpr (std::is_same_v<T, LimitNode>) {
+                    plan.operators.push_back(LimitOp{n.count});
+                }
+                // Skip ScanNode and FilterNode - handled in generate_plans
+            },
+            node->node);
     }
 }
 
@@ -97,7 +97,7 @@ QueryOptimizer::Result<ExecutionPlan> QueryOptimizer::optimize(const Query& quer
 }
 
 QueryOptimizer::Result<void> QueryOptimizer::execute(const Query& query,
-                                                       const IterateCallback& callback) {
+                                                     const IterateCallback& callback) {
     auto plan_result = optimize(query);
     if (plan_result.is_err()) {
         return plan_result.error();
@@ -114,7 +114,8 @@ QueryOptimizer::Result<void> QueryOptimizer::analyze(std::span<const std::byte> 
     return {};
 }
 
-const ScopeStatistics* QueryOptimizer::statistics(std::span<const std::byte> prefix) const noexcept {
+const ScopeStatistics*
+QueryOptimizer::statistics(std::span<const std::byte> prefix) const noexcept {
     return stats_collector_.get_cached(prefix);
 }
 
@@ -218,7 +219,7 @@ std::vector<ExecutionPlan> QueryOptimizer::generate_plans(const Query& query) {
 }
 
 ExecutionPlan QueryOptimizer::select_best_plan(std::vector<ExecutionPlan>& candidates,
-                                                 const ScopeStatistics& stats) {
+                                               const ScopeStatistics& stats) {
     if (candidates.empty()) {
         return {};
     }
@@ -230,16 +231,14 @@ ExecutionPlan QueryOptimizer::select_best_plan(std::vector<ExecutionPlan>& candi
     }
 
     // Sort by total cost
-    std::sort(candidates.begin(), candidates.end(),
-              [](const ExecutionPlan& a, const ExecutionPlan& b) {
-                  return a.total_cost < b.total_cost;
-              });
+    std::sort(
+        candidates.begin(), candidates.end(),
+        [](const ExecutionPlan& a, const ExecutionPlan& b) { return a.total_cost < b.total_cost; });
 
     return std::move(candidates.front());
 }
 
-Operator QueryOptimizer::choose_scan_method(const Query& query,
-                                             const ScopeStatistics& stats) {
+Operator QueryOptimizer::choose_scan_method(const Query& query, const ScopeStatistics& stats) {
     auto prefix = extract_prefix(query);
 
     if (prefix.empty()) {
@@ -297,7 +296,7 @@ bool QueryOptimizer::is_pushable_to_scan(const Predicate& pred) const noexcept {
 ScopeStatistics QueryOptimizer::create_default_stats() const {
     ScopeStatistics stats;
     stats.key_count = backend_.key_count();
-    stats.total_key_bytes = stats.key_count * 32;  // Assume 32 byte avg key
+    stats.total_key_bytes = stats.key_count * 32;     // Assume 32 byte avg key
     stats.total_value_bytes = stats.key_count * 256;  // Assume 256 byte avg value
     stats.collected_at = std::chrono::steady_clock::now();
     return stats;

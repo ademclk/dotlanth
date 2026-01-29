@@ -81,15 +81,15 @@ ScopeStatistics StatisticsCollector::collect_impl(std::span<const std::byte> pre
 
     // Determine if we should sample
     const std::size_t backend_key_count = backend_.key_count();
-    const bool should_sample = config_.enable_sampling &&
-                               backend_key_count > config_.sample_size * 2;
+    const bool should_sample =
+        config_.enable_sampling && backend_key_count > config_.sample_size * 2;
 
     // Random sampling setup
     std::mt19937 rng(42);  // Fixed seed for reproducibility
     double sample_rate = 1.0;
     if (should_sample && backend_key_count > 0) {
-        sample_rate = static_cast<double>(config_.sample_size) /
-                      static_cast<double>(backend_key_count);
+        sample_rate =
+            static_cast<double>(config_.sample_size) / static_cast<double>(backend_key_count);
     }
     std::uniform_real_distribution<double> dist(0.0, 1.0);
 
@@ -103,9 +103,12 @@ ScopeStatistics StatisticsCollector::collect_impl(std::span<const std::byte> pre
         auto compare_keys = [](const std::vector<std::byte>& a, const std::vector<std::byte>& b) {
             const std::size_t min_len = std::min(a.size(), b.size());
             const int cmp = std::memcmp(a.data(), b.data(), min_len);
-            if (cmp != 0) return cmp;
-            if (a.size() < b.size()) return -1;
-            if (a.size() > b.size()) return 1;
+            if (cmp != 0)
+                return cmp;
+            if (a.size() < b.size())
+                return -1;
+            if (a.size() > b.size())
+                return 1;
             return 0;
         };
 
@@ -131,16 +134,14 @@ ScopeStatistics StatisticsCollector::collect_impl(std::span<const std::byte> pre
     // Handle iteration errors gracefully (stats will be partial)
     if (should_sample && !keys.empty()) {
         // Estimate total count from sample
-        stats.key_count = static_cast<std::size_t>(
-            static_cast<double>(keys.size()) / sample_rate);
+        stats.key_count = static_cast<std::size_t>(static_cast<double>(keys.size()) / sample_rate);
 
         // Scale byte counts
-        const double scale = static_cast<double>(stats.key_count) /
-                              static_cast<double>(total_keys);
-        stats.total_key_bytes = static_cast<std::size_t>(
-            static_cast<double>(stats.total_key_bytes) * scale);
-        stats.total_value_bytes = static_cast<std::size_t>(
-            static_cast<double>(stats.total_value_bytes) * scale);
+        const double scale = static_cast<double>(stats.key_count) / static_cast<double>(total_keys);
+        stats.total_key_bytes =
+            static_cast<std::size_t>(static_cast<double>(stats.total_key_bytes) * scale);
+        stats.total_value_bytes =
+            static_cast<std::size_t>(static_cast<double>(stats.total_value_bytes) * scale);
     } else {
         stats.key_count = total_keys;
     }
@@ -154,7 +155,7 @@ ScopeStatistics StatisticsCollector::collect_impl(std::span<const std::byte> pre
 }
 
 void StatisticsCollector::build_histogram(ScopeStatistics& stats,
-                                           std::vector<std::vector<std::byte>>& keys) {
+                                          std::vector<std::vector<std::byte>>& keys) {
     if (keys.empty()) {
         return;
     }
@@ -164,7 +165,8 @@ void StatisticsCollector::build_histogram(ScopeStatistics& stats,
         const std::size_t min_len = std::min(a.size(), b.size());
         if (min_len > 0) {
             const int cmp = std::memcmp(a.data(), b.data(), min_len);
-            if (cmp != 0) return cmp < 0;
+            if (cmp != 0)
+                return cmp < 0;
         }
         return a.size() < b.size();
     };

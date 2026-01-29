@@ -91,8 +91,8 @@ enum class AggregateFunc : std::uint8_t {
 /// The matches() method evaluates whether a given key satisfies
 /// this predicate.
 struct Predicate {
-    PredicateOp op;                   ///< Comparison operator
-    std::vector<std::byte> operand;   ///< Value to compare against
+    PredicateOp op;                  ///< Comparison operator
+    std::vector<std::byte> operand;  ///< Value to compare against
 
     /// @brief Check if a key matches this predicate
     /// @param key The key to test
@@ -134,27 +134,27 @@ struct ScanNode {
 
 /// @brief Filter node - applies predicates to input
 struct FilterNode {
-    std::vector<Predicate> predicates;   ///< Filter predicates (AND)
-    std::unique_ptr<QueryNode> input;    ///< Input node to filter
+    std::vector<Predicate> predicates;  ///< Filter predicates (AND)
+    std::unique_ptr<QueryNode> input;   ///< Input node to filter
 };
 
 /// @brief Project node - selects key/value fields
 struct ProjectNode {
-    bool include_key{true};              ///< Include key in output
-    bool include_value{true};            ///< Include value in output
-    std::unique_ptr<QueryNode> input;    ///< Input node to project
+    bool include_key{true};            ///< Include key in output
+    bool include_value{true};          ///< Include value in output
+    std::unique_ptr<QueryNode> input;  ///< Input node to project
 };
 
 /// @brief Aggregate node - computes aggregate function
 struct AggregateNode {
-    AggregateFunc func;                  ///< Aggregate function
-    std::unique_ptr<QueryNode> input;    ///< Input node to aggregate
+    AggregateFunc func;                ///< Aggregate function
+    std::unique_ptr<QueryNode> input;  ///< Input node to aggregate
 };
 
 /// @brief Limit node - caps output rows
 struct LimitNode {
-    std::size_t count;                   ///< Maximum rows to return
-    std::unique_ptr<QueryNode> input;    ///< Input node to limit
+    std::size_t count;                 ///< Maximum rows to return
+    std::unique_ptr<QueryNode> input;  ///< Input node to limit
 };
 
 /// @brief Variant type for all query node types

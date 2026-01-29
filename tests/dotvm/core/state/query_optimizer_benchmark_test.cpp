@@ -39,9 +39,7 @@ namespace {
 
 class QueryOptimizerBenchmarkTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        backend_ = create_state_backend();
-    }
+    void SetUp() override { backend_ = create_state_backend(); }
 
     void populate_data(std::size_t count) {
         for (std::size_t i = 0; i < count; ++i) {
@@ -60,9 +58,8 @@ protected:
     }
 
     // Measure optimization latency in microseconds
-    [[nodiscard]] double measure_optimize_latency(QueryOptimizer& optimizer,
-                                                   const Query& query,
-                                                   int iterations = 100) {
+    [[nodiscard]] double measure_optimize_latency(QueryOptimizer& optimizer, const Query& query,
+                                                  int iterations = 100) {
         std::vector<double> latencies;
         latencies.reserve(static_cast<std::size_t>(iterations));
 
@@ -97,19 +94,18 @@ TEST_F(QueryOptimizerBenchmarkTest, OptimizeLatencyUnder1ms_1K) {
     (void)optimizer.analyze();
 
     auto query = Query::Builder()
-        .scan()
-        .filter(PredicateOp::Ge, make_bytes("key:00000500"))
-        .limit(100)
-        .build();
+                     .scan()
+                     .filter(PredicateOp::Ge, make_bytes("key:00000500"))
+                     .limit(100)
+                     .build();
 
     double median_us = measure_optimize_latency(optimizer, query);
 
     // Target: < 1000 microseconds (1ms)
-    EXPECT_LT(median_us, 1000.0)
-        << "Median optimize latency: " << median_us << " us";
+    EXPECT_LT(median_us, 1000.0) << "Median optimize latency: " << median_us << " us";
 
-    std::cout << "[BENCHMARK] 1K keys optimize latency: "
-              << median_us << " us (target: <1000 us)\n";
+    std::cout << "[BENCHMARK] 1K keys optimize latency: " << median_us
+              << " us (target: <1000 us)\n";
 }
 
 /// @test Optimize latency under 1ms for 10K keys
@@ -120,19 +116,18 @@ TEST_F(QueryOptimizerBenchmarkTest, OptimizeLatencyUnder1ms_10K) {
     (void)optimizer.analyze();
 
     auto query = Query::Builder()
-        .scan(make_bytes("key:"))
-        .filter(PredicateOp::Ge, make_bytes("key:00005000"))
-        .filter(PredicateOp::Lt, make_bytes("key:00006000"))
-        .limit(100)
-        .build();
+                     .scan(make_bytes("key:"))
+                     .filter(PredicateOp::Ge, make_bytes("key:00005000"))
+                     .filter(PredicateOp::Lt, make_bytes("key:00006000"))
+                     .limit(100)
+                     .build();
 
     double median_us = measure_optimize_latency(optimizer, query);
 
-    EXPECT_LT(median_us, 1000.0)
-        << "Median optimize latency: " << median_us << " us";
+    EXPECT_LT(median_us, 1000.0) << "Median optimize latency: " << median_us << " us";
 
-    std::cout << "[BENCHMARK] 10K keys optimize latency: "
-              << median_us << " us (target: <1000 us)\n";
+    std::cout << "[BENCHMARK] 10K keys optimize latency: " << median_us
+              << " us (target: <1000 us)\n";
 }
 
 /// @test Optimize latency under 1ms for 100K keys
@@ -143,18 +138,17 @@ TEST_F(QueryOptimizerBenchmarkTest, OptimizeLatencyUnder1ms_100K) {
     (void)optimizer.analyze();
 
     auto query = Query::Builder()
-        .scan(make_bytes("key:"))
-        .filter(PredicateOp::Prefix, make_bytes("key:0005"))
-        .limit(50)
-        .build();
+                     .scan(make_bytes("key:"))
+                     .filter(PredicateOp::Prefix, make_bytes("key:0005"))
+                     .limit(50)
+                     .build();
 
     double median_us = measure_optimize_latency(optimizer, query);
 
-    EXPECT_LT(median_us, 1000.0)
-        << "Median optimize latency: " << median_us << " us";
+    EXPECT_LT(median_us, 1000.0) << "Median optimize latency: " << median_us << " us";
 
-    std::cout << "[BENCHMARK] 100K keys optimize latency: "
-              << median_us << " us (target: <1000 us)\n";
+    std::cout << "[BENCHMARK] 100K keys optimize latency: " << median_us
+              << " us (target: <1000 us)\n";
 }
 
 // ============================================================================
@@ -180,8 +174,8 @@ TEST_F(QueryOptimizerBenchmarkTest, StatisticsCollectionLatency) {
     EXPECT_LT(duration_ms.count(), 100)
         << "Statistics collection took: " << duration_ms.count() << " ms";
 
-    std::cout << "[BENCHMARK] 10K keys statistics collection: "
-              << duration_ms.count() << " ms (target: <100 ms)\n";
+    std::cout << "[BENCHMARK] 10K keys statistics collection: " << duration_ms.count()
+              << " ms (target: <100 ms)\n";
 }
 
 // ============================================================================
@@ -195,10 +189,7 @@ TEST_F(QueryOptimizerBenchmarkTest, ExecutionWithLimitFast) {
     QueryOptimizer optimizer(*backend_);
     (void)optimizer.analyze();
 
-    auto query = Query::Builder()
-        .scan()
-        .limit(10)
-        .build();
+    auto query = Query::Builder().scan().limit(10).build();
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -218,11 +209,10 @@ TEST_F(QueryOptimizerBenchmarkTest, ExecutionWithLimitFast) {
     // Execution with limit - performance depends on backend iteration
     // In-memory backend still scans all keys; target adjusted for reality
     // Target: < 100ms (backend-dependent, not an optimizer issue)
-    EXPECT_LT(duration_us.count(), 100000)
-        << "Execution took: " << duration_us.count() << " us";
+    EXPECT_LT(duration_us.count(), 100000) << "Execution took: " << duration_us.count() << " us";
 
-    std::cout << "[BENCHMARK] 100K keys limit(10) execution: "
-              << duration_us.count() << " us (target: <10000 us)\n";
+    std::cout << "[BENCHMARK] 100K keys limit(10) execution: " << duration_us.count()
+              << " us (target: <10000 us)\n";
 }
 
 // ============================================================================
@@ -238,20 +228,19 @@ TEST_F(QueryOptimizerBenchmarkTest, ComplexQueryOptimizeLatency) {
 
     // Complex query with multiple operators
     auto query = Query::Builder()
-        .scan(make_bytes("key:"))
-        .filter(PredicateOp::Ge, make_bytes("key:00010000"))
-        .filter(PredicateOp::Lt, make_bytes("key:00040000"))
-        .project(true, true)
-        .limit(1000)
-        .build();
+                     .scan(make_bytes("key:"))
+                     .filter(PredicateOp::Ge, make_bytes("key:00010000"))
+                     .filter(PredicateOp::Lt, make_bytes("key:00040000"))
+                     .project(true, true)
+                     .limit(1000)
+                     .build();
 
     double median_us = measure_optimize_latency(optimizer, query, 50);
 
-    EXPECT_LT(median_us, 1000.0)
-        << "Median optimize latency: " << median_us << " us";
+    EXPECT_LT(median_us, 1000.0) << "Median optimize latency: " << median_us << " us";
 
-    std::cout << "[BENCHMARK] Complex query optimize latency: "
-              << median_us << " us (target: <1000 us)\n";
+    std::cout << "[BENCHMARK] Complex query optimize latency: " << median_us
+              << " us (target: <1000 us)\n";
 }
 
 }  // namespace

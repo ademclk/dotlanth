@@ -30,12 +30,12 @@ class StateBackend;
 
 /// @brief Configuration for the query optimizer
 struct QueryOptimizerConfig {
-    std::size_t max_plan_alternatives{10};  ///< Max plans to consider
-    bool enable_statistics{true};           ///< Use statistics for optimization
-    bool prefer_prefix_scan{true};          ///< Prefer prefix scan when applicable
+    std::size_t max_plan_alternatives{10};     ///< Max plans to consider
+    bool enable_statistics{true};              ///< Use statistics for optimization
+    bool prefer_prefix_scan{true};             ///< Prefer prefix scan when applicable
     double prefix_selectivity_threshold{0.3};  ///< Use prefix scan if selectivity < this
-    StatisticsConfig stats_config{};        ///< Statistics collection config
-    CostModelConfig cost_config{};          ///< Cost estimation config
+    StatisticsConfig stats_config{};           ///< Statistics collection config
+    CostModelConfig cost_config{};             ///< Cost estimation config
 };
 
 // ============================================================================
@@ -75,14 +75,13 @@ public:
     using Result = ::dotvm::core::Result<T, QueryOptimizerError>;
 
     /// @brief Callback for query results
-    using IterateCallback = std::function<bool(std::span<const std::byte> key,
-                                                std::span<const std::byte> value)>;
+    using IterateCallback =
+        std::function<bool(std::span<const std::byte> key, std::span<const std::byte> value)>;
 
     /// @brief Construct optimizer for a backend
     /// @param backend The state backend to optimize queries for
     /// @param config Optimizer configuration
-    explicit QueryOptimizer(const StateBackend& backend,
-                             QueryOptimizerConfig config = {});
+    explicit QueryOptimizer(const StateBackend& backend, QueryOptimizerConfig config = {});
 
     // ========================================================================
     // Query Optimization
@@ -104,8 +103,7 @@ public:
     /// @param query The query to execute
     /// @param callback Called for each result row
     /// @return Success or error
-    [[nodiscard]] Result<void> execute(const Query& query,
-                                        const IterateCallback& callback);
+    [[nodiscard]] Result<void> execute(const Query& query, const IterateCallback& callback);
 
     // ========================================================================
     // Statistics Management
@@ -124,8 +122,8 @@ public:
     ///
     /// @param prefix Prefix to get statistics for
     /// @return Pointer to statistics, or nullptr if not available
-    [[nodiscard]] const ScopeStatistics* statistics(
-        std::span<const std::byte> prefix = {}) const noexcept;
+    [[nodiscard]] const ScopeStatistics*
+    statistics(std::span<const std::byte> prefix = {}) const noexcept;
 
     /// @brief Invalidate cached statistics
     ///
@@ -148,11 +146,10 @@ private:
 
     /// @brief Select the best plan from candidates
     [[nodiscard]] ExecutionPlan select_best_plan(std::vector<ExecutionPlan>& candidates,
-                                                   const ScopeStatistics& stats);
+                                                 const ScopeStatistics& stats);
 
     /// @brief Choose scan method based on predicates and statistics
-    [[nodiscard]] Operator choose_scan_method(const Query& query,
-                                               const ScopeStatistics& stats);
+    [[nodiscard]] Operator choose_scan_method(const Query& query, const ScopeStatistics& stats);
 
     /// @brief Extract prefix from query predicates
     [[nodiscard]] std::vector<std::byte> extract_prefix(const Query& query) const;

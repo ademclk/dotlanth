@@ -46,16 +46,12 @@ namespace {
 
 class ExecutionPlanTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        backend_ = create_state_backend();
-    }
+    void SetUp() override { backend_ = create_state_backend(); }
 
     void populate_test_data() {
         // Create ordered test data
-        std::vector<std::string> keys = {
-            "apple", "banana", "cherry", "date", "elderberry",
-            "fig", "grape", "honeydew", "kiwi", "lemon"
-        };
+        std::vector<std::string> keys = {"apple", "banana", "cherry",   "date", "elderberry",
+                                         "fig",   "grape",  "honeydew", "kiwi", "lemon"};
         for (const auto& key : keys) {
             auto kb = make_bytes(key);
             auto vb = make_bytes("value_" + key);
@@ -157,10 +153,8 @@ TEST_F(ExecutionPlanTest, ExecuteWithFilter) {
 
     ExecutionPlan plan;
     plan.operators.push_back(FullScanOp{});
-    plan.operators.push_back(FilterOp{{
-        {PredicateOp::Ge, make_bytes("cherry")},
-        {PredicateOp::Lt, make_bytes("grape")}
-    }});
+    plan.operators.push_back(FilterOp{
+        {{PredicateOp::Ge, make_bytes("cherry")}, {PredicateOp::Lt, make_bytes("grape")}}});
 
     PlanExecutor executor(*backend_);
 
@@ -250,9 +244,7 @@ TEST_F(ExecutionPlanTest, ExecuteComplexPipeline) {
 
     ExecutionPlan plan;
     plan.operators.push_back(FullScanOp{});
-    plan.operators.push_back(FilterOp{{
-        {PredicateOp::Ge, make_bytes("b")}
-    }});
+    plan.operators.push_back(FilterOp{{{PredicateOp::Ge, make_bytes("b")}}});
     plan.operators.push_back(LimitOp{5});
 
     PlanExecutor executor(*backend_);

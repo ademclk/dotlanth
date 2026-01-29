@@ -22,32 +22,32 @@ std::string ExecutionPlan::to_string() const {
 
     for (const auto& op : operators) {
         oss << "    ";
-        std::visit([&oss](const auto& o) {
-            using T = std::decay_t<decltype(o)>;
+        std::visit(
+            [&oss](const auto& o) {
+                using T = std::decay_t<decltype(o)>;
 
-            if constexpr (std::is_same_v<T, FullScanOp>) {
-                oss << "FullScan";
-            } else if constexpr (std::is_same_v<T, PrefixScanOp>) {
-                oss << "PrefixScan(prefix_len=" << o.prefix.size() << ")";
-            } else if constexpr (std::is_same_v<T, FilterOp>) {
-                oss << "Filter(predicates=" << o.predicates.size() << ")";
-            } else if constexpr (std::is_same_v<T, ProjectOp>) {
-                oss << "Project(key=" << (o.include_key ? "true" : "false")
-                    << ", value=" << (o.include_value ? "true" : "false") << ")";
-            } else if constexpr (std::is_same_v<T, AggregateOp>) {
-                oss << "Aggregate(" << state::to_string(o.func) << ")";
-            } else if constexpr (std::is_same_v<T, LimitOp>) {
-                oss << "Limit(" << o.count << ")";
-            }
-        }, op);
+                if constexpr (std::is_same_v<T, FullScanOp>) {
+                    oss << "FullScan";
+                } else if constexpr (std::is_same_v<T, PrefixScanOp>) {
+                    oss << "PrefixScan(prefix_len=" << o.prefix.size() << ")";
+                } else if constexpr (std::is_same_v<T, FilterOp>) {
+                    oss << "Filter(predicates=" << o.predicates.size() << ")";
+                } else if constexpr (std::is_same_v<T, ProjectOp>) {
+                    oss << "Project(key=" << (o.include_key ? "true" : "false")
+                        << ", value=" << (o.include_value ? "true" : "false") << ")";
+                } else if constexpr (std::is_same_v<T, AggregateOp>) {
+                    oss << "Aggregate(" << state::to_string(o.func) << ")";
+                } else if constexpr (std::is_same_v<T, LimitOp>) {
+                    oss << "Limit(" << o.count << ")";
+                }
+            },
+            op);
         oss << "\n";
     }
 
     oss << "  ]\n";
-    oss << "  cost: " << total_cost.total()
-        << " (io=" << total_cost.io_cost
-        << ", cpu=" << total_cost.cpu_cost
-        << ", mem=" << total_cost.memory_cost << ")\n";
+    oss << "  cost: " << total_cost.total() << " (io=" << total_cost.io_cost
+        << ", cpu=" << total_cost.cpu_cost << ", mem=" << total_cost.memory_cost << ")\n";
     oss << "  estimated_rows: " << estimated_output_rows << "\n";
     oss << "}\n";
 
@@ -61,7 +61,7 @@ std::string ExecutionPlan::to_string() const {
 PlanExecutor::PlanExecutor(const StateBackend& backend) : backend_{backend} {}
 
 PlanExecutor::Result<void> PlanExecutor::execute(const ExecutionPlan& plan,
-                                                   const IterateCallback& callback) const {
+                                                 const IterateCallback& callback) const {
     if (!plan.is_valid()) {
         return QueryOptimizerError::InvalidPlan;
     }
@@ -86,20 +86,22 @@ PlanExecutor::Result<void> PlanExecutor::execute(const ExecutionPlan& plan,
 
     // Process operators to build pipeline
     for (std::size_t i = 1; i < plan.operators.size(); ++i) {
-        std::visit([&state](const auto& o) {
-            using T = std::decay_t<decltype(o)>;
+        std::visit(
+            [&state](const auto& o) {
+                using T = std::decay_t<decltype(o)>;
 
-            if constexpr (std::is_same_v<T, FilterOp>) {
-                state.filters.push_back(&o);
-            } else if constexpr (std::is_same_v<T, ProjectOp>) {
-                state.include_key = o.include_key;
-                state.include_value = o.include_value;
-            } else if constexpr (std::is_same_v<T, LimitOp>) {
-                state.limit = o.count;
-            } else if constexpr (std::is_same_v<T, AggregateOp>) {
-                state.aggregate = &o;
-            }
-        }, plan.operators[i]);
+                if constexpr (std::is_same_v<T, FilterOp>) {
+                    state.filters.push_back(&o);
+                } else if constexpr (std::is_same_v<T, ProjectOp>) {
+                    state.include_key = o.include_key;
+                    state.include_value = o.include_value;
+                } else if constexpr (std::is_same_v<T, LimitOp>) {
+                    state.limit = o.count;
+                } else if constexpr (std::is_same_v<T, AggregateOp>) {
+                    state.aggregate = &o;
+                }
+            },
+            plan.operators[i]);
     }
 
     // Determine scan parameters
@@ -110,8 +112,8 @@ PlanExecutor::Result<void> PlanExecutor::execute(const ExecutionPlan& plan,
     }
 
     // Execute scan with pipeline processing
-    auto iterate_result = backend_.iterate(scan_prefix,
-        [&state, &callback](StateBackend::Key key, StateBackend::Value value) -> bool {
+    auto iterate_result = backend_.iterate(
+        scan_prefix, [&state, &callback](StateBackend::Key key, StateBackend::Value value) -> bool {
             // Check limit
             if (state.count >= state.limit) {
                 return false;
@@ -159,8 +161,10 @@ PlanExecutor::Result<void> PlanExecutor::execute(const ExecutionPlan& plan,
             }
 
             // Apply projection
-            std::span<const std::byte> out_key = state.include_key ? key : std::span<const std::byte>{};
-            std::span<const std::byte> out_value = state.include_value ? value : std::span<const std::byte>{};
+            std::span<const std::byte> out_key =
+                state.include_key ? key : std::span<const std::byte>{};
+            std::span<const std::byte> out_value =
+                state.include_value ? value : std::span<const std::byte>{};
 
             // Output row
             state.count++;
@@ -176,14 +180,12 @@ PlanExecutor::Result<void> PlanExecutor::execute(const ExecutionPlan& plan,
                 result_str = std::to_string(state.agg_count);
                 break;
             case AggregateFunc::Min:
-                result_str = std::string(
-                    reinterpret_cast<const char*>(state.agg_min.data()),
-                    state.agg_min.size());
+                result_str = std::string(reinterpret_cast<const char*>(state.agg_min.data()),
+                                         state.agg_min.size());
                 break;
             case AggregateFunc::Max:
-                result_str = std::string(
-                    reinterpret_cast<const char*>(state.agg_max.data()),
-                    state.agg_max.size());
+                result_str = std::string(reinterpret_cast<const char*>(state.agg_max.data()),
+                                         state.agg_max.size());
                 break;
             case AggregateFunc::Sum:
                 result_str = std::to_string(state.agg_sum);

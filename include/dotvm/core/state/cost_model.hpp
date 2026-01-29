@@ -27,14 +27,14 @@ namespace dotvm::core::state {
 /// Default values are tuned for in-memory backends; persistent backends
 /// should increase I/O costs.
 struct CostModelConfig {
-    double cost_per_key_scan{1.0};          ///< I/O cost per key scanned
-    double cost_per_key_comparison{0.1};    ///< CPU cost per key comparison
-    double cost_per_predicate_eval{0.05};   ///< CPU cost per predicate evaluation
-    double cost_per_byte_read{0.001};       ///< I/O cost per byte read
-    double full_scan_setup_cost{10.0};      ///< Fixed cost for full scan setup
-    double prefix_scan_setup_cost{5.0};     ///< Fixed cost for prefix scan setup
-    double aggregate_cost_factor{0.01};     ///< CPU cost factor for aggregation
-    double memory_cost_per_row{0.1};        ///< Memory cost per intermediate row
+    double cost_per_key_scan{1.0};         ///< I/O cost per key scanned
+    double cost_per_key_comparison{0.1};   ///< CPU cost per key comparison
+    double cost_per_predicate_eval{0.05};  ///< CPU cost per predicate evaluation
+    double cost_per_byte_read{0.001};      ///< I/O cost per byte read
+    double full_scan_setup_cost{10.0};     ///< Fixed cost for full scan setup
+    double prefix_scan_setup_cost{5.0};    ///< Fixed cost for prefix scan setup
+    double aggregate_cost_factor{0.01};    ///< CPU cost factor for aggregation
+    double memory_cost_per_row{0.1};       ///< Memory cost per intermediate row
 };
 
 // ============================================================================
@@ -62,7 +62,7 @@ public:
     /// @param stats Statistics for the scope being queried
     /// @return Estimated cost breakdown
     [[nodiscard]] PlanCost estimate(const ExecutionPlan& plan,
-                                     const ScopeStatistics& stats) const noexcept;
+                                    const ScopeStatistics& stats) const noexcept;
 
     /// @brief Estimate selectivity of a predicate
     ///
@@ -73,7 +73,7 @@ public:
     /// @param pred Predicate to estimate
     /// @return Estimated selectivity (0.0 to 1.0)
     [[nodiscard]] double estimate_selectivity(const ScopeStatistics& stats,
-                                               const Predicate& pred) const noexcept;
+                                              const Predicate& pred) const noexcept;
 
     /// @brief Estimate cardinality from selectivity
     ///
@@ -81,24 +81,23 @@ public:
     /// @param selectivity Selectivity factor (0.0 to 1.0)
     /// @return Estimated number of rows
     [[nodiscard]] std::size_t estimate_cardinality(const ScopeStatistics& stats,
-                                                    double selectivity) const noexcept;
+                                                   double selectivity) const noexcept;
 
     /// @brief Get the configuration
     [[nodiscard]] const CostModelConfig& config() const noexcept { return config_; }
 
 private:
     /// @brief Estimate cost of a single operator
-    [[nodiscard]] PlanCost estimate_operator(const Operator& op,
-                                              const ScopeStatistics& stats,
-                                              std::size_t input_rows) const noexcept;
+    [[nodiscard]] PlanCost estimate_operator(const Operator& op, const ScopeStatistics& stats,
+                                             std::size_t input_rows) const noexcept;
 
     /// @brief Find histogram bucket containing a key
     [[nodiscard]] std::size_t find_bucket(const ScopeStatistics& stats,
-                                           std::span<const std::byte> key) const noexcept;
+                                          std::span<const std::byte> key) const noexcept;
 
     /// @brief Estimate selectivity using histogram interpolation
     [[nodiscard]] double histogram_selectivity(const ScopeStatistics& stats,
-                                                const Predicate& pred) const noexcept;
+                                               const Predicate& pred) const noexcept;
 
     /// @brief Default selectivity when no histogram available
     [[nodiscard]] double default_selectivity(const Predicate& pred) const noexcept;

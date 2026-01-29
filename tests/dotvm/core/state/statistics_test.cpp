@@ -38,9 +38,7 @@ namespace {
 
 class StatisticsTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        backend_ = create_state_backend();
-    }
+    void SetUp() override { backend_ = create_state_backend(); }
 
     void populate_test_data(std::size_t count, std::string_view prefix = "key:") {
         for (std::size_t i = 0; i < count; ++i) {
@@ -199,7 +197,7 @@ TEST_F(StatisticsTest, HistogramBoundsMonotonic) {
 
     // Verify monotonically increasing bounds
     for (std::size_t i = 1; i < stats.histogram.size(); ++i) {
-        EXPECT_GT(stats.histogram[i].upper_bound, stats.histogram[i-1].upper_bound)
+        EXPECT_GT(stats.histogram[i].upper_bound, stats.histogram[i - 1].upper_bound)
             << "Histogram bounds should be monotonically increasing";
     }
 }

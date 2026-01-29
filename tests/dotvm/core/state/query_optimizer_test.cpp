@@ -89,9 +89,7 @@ TEST_F(QueryOptimizerTest, OptimizeSimpleScan) {
     populate_uniform_data(100);
     (void)optimizer_->analyze();
 
-    auto query = Query::Builder()
-        .scan()
-        .build();
+    auto query = Query::Builder().scan().build();
 
     auto result = optimizer_->optimize(query);
 
@@ -107,9 +105,7 @@ TEST_F(QueryOptimizerTest, OptimizePrefixScan) {
     populate_prefixed_data();
     (void)optimizer_->analyze();
 
-    auto query = Query::Builder()
-        .scan(make_bytes("user:"))
-        .build();
+    auto query = Query::Builder().scan(make_bytes("user:")).build();
 
     auto result = optimizer_->optimize(query);
 
@@ -129,10 +125,10 @@ TEST_F(QueryOptimizerTest, OptimizeWithFilter) {
     (void)optimizer_->analyze();
 
     auto query = Query::Builder()
-        .scan()
-        .filter(PredicateOp::Ge, make_bytes("key:500"))
-        .filter(PredicateOp::Lt, make_bytes("key:600"))
-        .build();
+                     .scan()
+                     .filter(PredicateOp::Ge, make_bytes("key:500"))
+                     .filter(PredicateOp::Lt, make_bytes("key:600"))
+                     .build();
 
     auto result = optimizer_->optimize(query);
 
@@ -153,9 +149,7 @@ TEST_F(QueryOptimizerTest, ChoosesPrefixScanForSelectivePrefix) {
     (void)optimizer_->analyze();
 
     // admin: is very selective (50 out of 1150)
-    auto query = Query::Builder()
-        .scan(make_bytes("admin:"))
-        .build();
+    auto query = Query::Builder().scan(make_bytes("admin:")).build();
 
     auto result = optimizer_->optimize(query);
 
@@ -173,9 +167,7 @@ TEST_F(QueryOptimizerTest, UsesAppropriateMethodForBroadQuery) {
     (void)optimizer_->analyze();
 
     // Empty prefix = full scan
-    auto query = Query::Builder()
-        .scan()
-        .build();
+    auto query = Query::Builder().scan().build();
 
     auto result = optimizer_->optimize(query);
 
@@ -197,10 +189,7 @@ TEST_F(QueryOptimizerTest, PredicatePushdown) {
     populate_prefixed_data();
     (void)optimizer_->analyze();
 
-    auto query = Query::Builder()
-        .scan()
-        .filter(PredicateOp::Prefix, make_bytes("user:"))
-        .build();
+    auto query = Query::Builder().scan().filter(PredicateOp::Prefix, make_bytes("user:")).build();
 
     auto result = optimizer_->optimize(query);
 
@@ -222,11 +211,8 @@ TEST_F(QueryOptimizerTest, ExecuteOptimizedQuery) {
     populate_uniform_data(100);
     (void)optimizer_->analyze();
 
-    auto query = Query::Builder()
-        .scan()
-        .filter(PredicateOp::Ge, make_bytes("key:50"))
-        .limit(10)
-        .build();
+    auto query =
+        Query::Builder().scan().filter(PredicateOp::Ge, make_bytes("key:50")).limit(10).build();
 
     std::vector<std::string> results;
     auto result = optimizer_->execute(query, [&results](auto key, auto /*value*/) {
@@ -291,10 +277,7 @@ TEST_F(QueryOptimizerTest, OptimizeWithoutStatistics) {
     populate_uniform_data(100);
     // Don't call analyze()
 
-    auto query = Query::Builder()
-        .scan()
-        .limit(10)
-        .build();
+    auto query = Query::Builder().scan().limit(10).build();
 
     auto result = optimizer_->optimize(query);
 
@@ -316,9 +299,7 @@ TEST_F(QueryOptimizerTest, EmptyQueryFails) {
 TEST_F(QueryOptimizerTest, ExecuteOnEmptyBackend) {
     (void)optimizer_->analyze();
 
-    auto query = Query::Builder()
-        .scan()
-        .build();
+    auto query = Query::Builder().scan().build();
 
     std::size_t count = 0;
     auto result = optimizer_->execute(query, [&count](auto, auto) {
@@ -344,9 +325,7 @@ TEST_F(QueryOptimizerTest, CustomConfiguration) {
 
     populate_uniform_data(100);
 
-    auto query = Query::Builder()
-        .scan()
-        .build();
+    auto query = Query::Builder().scan().build();
 
     auto result = custom_optimizer.optimize(query);
     ASSERT_TRUE(result.is_ok());

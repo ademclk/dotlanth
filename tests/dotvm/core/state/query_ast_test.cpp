@@ -133,9 +133,7 @@ TEST_F(RangeBoundsTest, FromPredicatesEmpty) {
 
 /// @test RangeBounds from equality predicate
 TEST_F(RangeBoundsTest, FromPredicatesEquality) {
-    std::vector<Predicate> preds = {
-        {PredicateOp::Eq, make_bytes("exact")}
-    };
+    std::vector<Predicate> preds = {{PredicateOp::Eq, make_bytes("exact")}};
     auto bounds = RangeBounds::from_predicates(preds);
 
     ASSERT_TRUE(bounds.lower.has_value());
@@ -148,10 +146,8 @@ TEST_F(RangeBoundsTest, FromPredicatesEquality) {
 
 /// @test RangeBounds from range predicates (Ge and Lt)
 TEST_F(RangeBoundsTest, FromPredicatesRange) {
-    std::vector<Predicate> preds = {
-        {PredicateOp::Ge, make_bytes("a")},
-        {PredicateOp::Lt, make_bytes("m")}
-    };
+    std::vector<Predicate> preds = {{PredicateOp::Ge, make_bytes("a")},
+                                    {PredicateOp::Lt, make_bytes("m")}};
     auto bounds = RangeBounds::from_predicates(preds);
 
     ASSERT_TRUE(bounds.lower.has_value());
@@ -164,10 +160,8 @@ TEST_F(RangeBoundsTest, FromPredicatesRange) {
 
 /// @test RangeBounds from Gt and Le
 TEST_F(RangeBoundsTest, FromPredicatesGtLe) {
-    std::vector<Predicate> preds = {
-        {PredicateOp::Gt, make_bytes("a")},
-        {PredicateOp::Le, make_bytes("m")}
-    };
+    std::vector<Predicate> preds = {{PredicateOp::Gt, make_bytes("a")},
+                                    {PredicateOp::Le, make_bytes("m")}};
     auto bounds = RangeBounds::from_predicates(preds);
 
     ASSERT_TRUE(bounds.lower.has_value());
@@ -180,9 +174,7 @@ TEST_F(RangeBoundsTest, FromPredicatesGtLe) {
 
 /// @test RangeBounds from prefix predicate
 TEST_F(RangeBoundsTest, FromPredicatesPrefix) {
-    std::vector<Predicate> preds = {
-        {PredicateOp::Prefix, make_bytes("user:")}
-    };
+    std::vector<Predicate> preds = {{PredicateOp::Prefix, make_bytes("user:")}};
     auto bounds = RangeBounds::from_predicates(preds);
 
     // Prefix should derive lower bound at prefix, upper bound at prefix+1
@@ -227,9 +219,7 @@ class QueryBuilderTest : public ::testing::Test {};
 
 /// @test Build simple scan query
 TEST_F(QueryBuilderTest, BuildSimpleScan) {
-    auto query = Query::Builder()
-        .scan()
-        .build();
+    auto query = Query::Builder().scan().build();
 
     ASSERT_NE(query.root, nullptr);
     EXPECT_TRUE(std::holds_alternative<ScanNode>(query.root->node));
@@ -240,9 +230,7 @@ TEST_F(QueryBuilderTest, BuildSimpleScan) {
 
 /// @test Build scan with prefix
 TEST_F(QueryBuilderTest, BuildScanWithPrefix) {
-    auto query = Query::Builder()
-        .scan(make_bytes("user:"))
-        .build();
+    auto query = Query::Builder().scan(make_bytes("user:")).build();
 
     ASSERT_NE(query.root, nullptr);
     EXPECT_TRUE(std::holds_alternative<ScanNode>(query.root->node));
@@ -254,10 +242,10 @@ TEST_F(QueryBuilderTest, BuildScanWithPrefix) {
 /// @test Build scan with filter
 TEST_F(QueryBuilderTest, BuildFilteredScan) {
     auto query = Query::Builder()
-        .scan()
-        .filter(PredicateOp::Ge, make_bytes("a"))
-        .filter(PredicateOp::Lt, make_bytes("m"))
-        .build();
+                     .scan()
+                     .filter(PredicateOp::Ge, make_bytes("a"))
+                     .filter(PredicateOp::Lt, make_bytes("m"))
+                     .build();
 
     ASSERT_NE(query.root, nullptr);
     EXPECT_TRUE(std::holds_alternative<FilterNode>(query.root->node));
@@ -275,9 +263,9 @@ TEST_F(QueryBuilderTest, BuildFilteredScan) {
 /// @test Build scan with project
 TEST_F(QueryBuilderTest, BuildWithProject) {
     auto query = Query::Builder()
-        .scan()
-        .project(true, false)  // keys only
-        .build();
+                     .scan()
+                     .project(true, false)  // keys only
+                     .build();
 
     ASSERT_NE(query.root, nullptr);
     EXPECT_TRUE(std::holds_alternative<ProjectNode>(query.root->node));
@@ -289,10 +277,7 @@ TEST_F(QueryBuilderTest, BuildWithProject) {
 
 /// @test Build scan with limit
 TEST_F(QueryBuilderTest, BuildWithLimit) {
-    auto query = Query::Builder()
-        .scan()
-        .limit(100)
-        .build();
+    auto query = Query::Builder().scan().limit(100).build();
 
     ASSERT_NE(query.root, nullptr);
     EXPECT_TRUE(std::holds_alternative<LimitNode>(query.root->node));
@@ -303,10 +288,8 @@ TEST_F(QueryBuilderTest, BuildWithLimit) {
 
 /// @test Build scan with aggregate
 TEST_F(QueryBuilderTest, BuildWithAggregate) {
-    auto query = Query::Builder()
-        .scan(make_bytes("order:"))
-        .aggregate(AggregateFunc::Count)
-        .build();
+    auto query =
+        Query::Builder().scan(make_bytes("order:")).aggregate(AggregateFunc::Count).build();
 
     ASSERT_NE(query.root, nullptr);
     EXPECT_TRUE(std::holds_alternative<AggregateNode>(query.root->node));
@@ -318,12 +301,12 @@ TEST_F(QueryBuilderTest, BuildWithAggregate) {
 /// @test Build complex query with multiple operations
 TEST_F(QueryBuilderTest, BuildComplexQuery) {
     auto query = Query::Builder()
-        .scan(make_bytes("user:"))
-        .filter(PredicateOp::Ge, make_bytes("user:100"))
-        .filter(PredicateOp::Lt, make_bytes("user:200"))
-        .project(true, true)
-        .limit(50)
-        .build();
+                     .scan(make_bytes("user:"))
+                     .filter(PredicateOp::Ge, make_bytes("user:100"))
+                     .filter(PredicateOp::Lt, make_bytes("user:200"))
+                     .project(true, true)
+                     .limit(50)
+                     .build();
 
     ASSERT_NE(query.root, nullptr);
 
@@ -348,10 +331,10 @@ TEST_F(QueryBuilderTest, BuildComplexQuery) {
 
 TEST_F(QueryBuilderTest, QueryClone) {
     auto original = Query::Builder()
-        .scan(make_bytes("test:"))
-        .filter(PredicateOp::Ge, make_bytes("test:a"))
-        .limit(10)
-        .build();
+                        .scan(make_bytes("test:"))
+                        .filter(PredicateOp::Ge, make_bytes("test:a"))
+                        .limit(10)
+                        .build();
 
     auto cloned = original.clone();
 
@@ -368,10 +351,10 @@ TEST_F(QueryBuilderTest, QueryClone) {
 
 TEST_F(QueryBuilderTest, CollectPredicates) {
     auto query = Query::Builder()
-        .scan()
-        .filter(PredicateOp::Ge, make_bytes("a"))
-        .filter(PredicateOp::Lt, make_bytes("z"))
-        .build();
+                     .scan()
+                     .filter(PredicateOp::Ge, make_bytes("a"))
+                     .filter(PredicateOp::Lt, make_bytes("z"))
+                     .build();
 
     auto predicates = query.collect_predicates();
 
@@ -380,10 +363,7 @@ TEST_F(QueryBuilderTest, CollectPredicates) {
 }
 
 TEST_F(QueryBuilderTest, CollectPredicatesNoFilter) {
-    auto query = Query::Builder()
-        .scan()
-        .limit(10)
-        .build();
+    auto query = Query::Builder().scan().limit(10).build();
 
     auto predicates = query.collect_predicates();
 
