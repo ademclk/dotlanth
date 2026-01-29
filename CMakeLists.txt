@@ -69,6 +69,14 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
         -Wno-unused-parameter
     )
 
+    # GCC 14 has false positives on certain inline patterns
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 14.0)
+        list(APPEND DOTVM_WARNING_FLAGS
+            -Wno-free-nonheap-object
+            -Wno-tautological-compare
+        )
+    endif()
+
     if(DOTVM_ENABLE_SIMD)
         list(APPEND DOTVM_WARNING_FLAGS -march=native)
     endif()
@@ -189,6 +197,12 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/mpt_proof.cpp
     # Snapshot Manager (STATE-009)
     src/dotvm/core/state/snapshot_manager.cpp
+    # Query Optimizer (STATE-010)
+    src/dotvm/core/state/query_ast.cpp
+    src/dotvm/core/state/statistics.cpp
+    src/dotvm/core/state/cost_model.cpp
+    src/dotvm/core/state/execution_plan.cpp
+    src/dotvm/core/state/query_optimizer.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -550,6 +564,13 @@ if(DOTVM_BUILD_TESTS)
         # Snapshot Manager tests (STATE-009)
         tests/dotvm/core/state/snapshot_manager_test.cpp
         tests/dotvm/core/state/snapshot_benchmark_test.cpp
+        # Query Optimizer tests (STATE-010)
+        tests/dotvm/core/state/query_ast_test.cpp
+        tests/dotvm/core/state/statistics_test.cpp
+        tests/dotvm/core/state/cost_model_test.cpp
+        tests/dotvm/core/state/execution_plan_test.cpp
+        tests/dotvm/core/state/query_optimizer_test.cpp
+        tests/dotvm/core/state/query_optimizer_benchmark_test.cpp
     )
 
     # JIT tests (EXEC-012)
