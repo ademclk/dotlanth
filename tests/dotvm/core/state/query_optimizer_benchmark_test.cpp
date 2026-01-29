@@ -5,6 +5,9 @@
 /// - Measures optimization latency
 /// - Tests with various data sizes
 /// - Ensures consistent performance
+///
+/// Note: Timing-sensitive tests are skipped under sanitizers (ASan/UBSan)
+/// due to 2-10x performance overhead that makes timing assertions unreliable.
 
 #include <chrono>
 #include <cstring>
@@ -15,6 +18,20 @@
 
 #include "dotvm/core/state/query_optimizer.hpp"
 #include "dotvm/core/state/state_backend.hpp"
+
+// Sanitizer detection: ASan/UBSan add 2-10x overhead, making timing tests unreliable
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_UNDEFINED__)
+    #define DOTVM_RUNNING_UNDER_SANITIZER 1
+#elif defined(__has_feature)
+    #if __has_feature(address_sanitizer) || __has_feature(undefined_behavior_sanitizer)
+        #define DOTVM_RUNNING_UNDER_SANITIZER 1
+    #endif
+#endif
+
+#ifndef DOTVM_RUNNING_UNDER_SANITIZER
+    #define DOTVM_RUNNING_UNDER_SANITIZER 0
+#endif
 
 namespace dotvm::core::state {
 namespace {
@@ -157,6 +174,10 @@ TEST_F(QueryOptimizerBenchmarkTest, OptimizeLatencyUnder1ms_100K) {
 
 /// @test Statistics collection scales reasonably
 TEST_F(QueryOptimizerBenchmarkTest, StatisticsCollectionLatency) {
+    if constexpr (DOTVM_RUNNING_UNDER_SANITIZER) {
+        GTEST_SKIP() << "Skipping timing test under sanitizers (2-10x overhead)";
+    }
+
     populate_data(10000);
 
     QueryOptimizer optimizer(*backend_);
@@ -184,6 +205,10 @@ TEST_F(QueryOptimizerBenchmarkTest, StatisticsCollectionLatency) {
 
 /// @test Query execution with limit terminates quickly
 TEST_F(QueryOptimizerBenchmarkTest, ExecutionWithLimitFast) {
+    if constexpr (DOTVM_RUNNING_UNDER_SANITIZER) {
+        GTEST_SKIP() << "Skipping timing test under sanitizers (2-10x overhead)";
+    }
+
     populate_data(100000);
 
     QueryOptimizer optimizer(*backend_);
