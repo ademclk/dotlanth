@@ -7,6 +7,7 @@
 /// Supports multi-error collection for comprehensive error reporting.
 
 #include <cstdint>
+#include <format>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -126,7 +127,7 @@ enum class DslError : std::uint8_t {
 };
 
 /// @brief Convert DslError to human-readable string
-[[nodiscard]] constexpr const char* to_string(DslError error) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(DslError error) noexcept {
     switch (error) {
         case DslError::Success:
             return "Success";
@@ -291,3 +292,14 @@ private:
 };
 
 }  // namespace dotvm::core::dsl
+
+// ============================================================================
+// std::formatter specialization for DslError
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::dsl::DslError> : std::formatter<std::string_view> {
+    auto format(dotvm::core::dsl::DslError e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

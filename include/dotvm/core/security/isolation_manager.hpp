@@ -14,7 +14,9 @@
 
 #include <cstdint>
 #include <expected>
+#include <format>
 #include <memory>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -47,7 +49,7 @@ enum class AccessType : std::uint8_t {
 };
 
 /// @brief Convert AccessType to human-readable string
-[[nodiscard]] constexpr const char* to_string(AccessType type) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(AccessType type) noexcept {
     switch (type) {
         case AccessType::Read:
             return "Read";
@@ -107,7 +109,7 @@ enum class IsolationError : std::uint8_t {
 };
 
 /// @brief Convert IsolationError to human-readable string
-[[nodiscard]] constexpr const char* to_string(IsolationError error) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(IsolationError error) noexcept {
     switch (error) {
         case IsolationError::Success:
             return "Success";
@@ -440,3 +442,21 @@ private:
 };
 
 }  // namespace dotvm::core::security
+
+// ============================================================================
+// std::formatter specializations
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::security::AccessType> : std::formatter<std::string_view> {
+    auto format(dotvm::core::security::AccessType e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};
+
+template <>
+struct std::formatter<dotvm::core::security::IsolationError> : std::formatter<std::string_view> {
+    auto format(dotvm::core::security::IsolationError e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

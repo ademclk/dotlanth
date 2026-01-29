@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <format>
 #include <string_view>
 
 #include "dotvm/core/result.hpp"
@@ -36,7 +37,7 @@ enum class EnforcementAction : std::uint8_t {
 };
 
 /// @brief Returns a human-readable name for an enforcement action
-[[nodiscard]] constexpr const char* to_string(EnforcementAction action) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(EnforcementAction action) noexcept {
     switch (action) {
         case EnforcementAction::Allow:
             return "Allow";
@@ -68,7 +69,7 @@ enum class ResourceLimitError : std::uint8_t {
 };
 
 /// @brief Returns a human-readable name for a resource limit error
-[[nodiscard]] constexpr const char* to_string(ResourceLimitError error) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(ResourceLimitError error) noexcept {
     switch (error) {
         case ResourceLimitError::Success:
             return "Success";
@@ -347,3 +348,22 @@ static_assert(std::atomic<std::uint32_t>::is_always_lock_free,
               "ResourceLimiter requires lock-free 32-bit atomics");
 
 }  // namespace dotvm::core::security
+
+// ============================================================================
+// std::formatter specializations
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::security::EnforcementAction> : std::formatter<std::string_view> {
+    auto format(dotvm::core::security::EnforcementAction e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};
+
+template <>
+struct std::formatter<dotvm::core::security::ResourceLimitError>
+    : std::formatter<std::string_view> {
+    auto format(dotvm::core::security::ResourceLimitError e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

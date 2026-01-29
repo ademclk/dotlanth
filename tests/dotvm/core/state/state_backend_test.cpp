@@ -42,27 +42,27 @@ namespace {
 
 TEST(StateBackendErrorTest, ToStringAllValues) {
     // Key/Value errors (1-15)
-    EXPECT_STREQ(to_string(StateBackendError::KeyNotFound), "KeyNotFound");
-    EXPECT_STREQ(to_string(StateBackendError::KeyTooLarge), "KeyTooLarge");
-    EXPECT_STREQ(to_string(StateBackendError::ValueTooLarge), "ValueTooLarge");
-    EXPECT_STREQ(to_string(StateBackendError::InvalidKey), "InvalidKey");
+    EXPECT_EQ(to_string(StateBackendError::KeyNotFound), "KeyNotFound");
+    EXPECT_EQ(to_string(StateBackendError::KeyTooLarge), "KeyTooLarge");
+    EXPECT_EQ(to_string(StateBackendError::ValueTooLarge), "ValueTooLarge");
+    EXPECT_EQ(to_string(StateBackendError::InvalidKey), "InvalidKey");
 
     // Transaction errors (16-31)
-    EXPECT_STREQ(to_string(StateBackendError::TransactionNotActive), "TransactionNotActive");
-    EXPECT_STREQ(to_string(StateBackendError::TransactionConflict), "TransactionConflict");
-    EXPECT_STREQ(to_string(StateBackendError::InvalidTransaction), "InvalidTransaction");
+    EXPECT_EQ(to_string(StateBackendError::TransactionNotActive), "TransactionNotActive");
+    EXPECT_EQ(to_string(StateBackendError::TransactionConflict), "TransactionConflict");
+    EXPECT_EQ(to_string(StateBackendError::InvalidTransaction), "InvalidTransaction");
 
     // Backend errors (32-47)
-    EXPECT_STREQ(to_string(StateBackendError::StorageFull), "StorageFull");
-    EXPECT_STREQ(to_string(StateBackendError::BackendClosed), "BackendClosed");
+    EXPECT_EQ(to_string(StateBackendError::StorageFull), "StorageFull");
+    EXPECT_EQ(to_string(StateBackendError::BackendClosed), "BackendClosed");
 
     // Iteration errors (48-63)
-    EXPECT_STREQ(to_string(StateBackendError::IterationAborted), "IterationAborted");
-    EXPECT_STREQ(to_string(StateBackendError::InvalidPrefix), "InvalidPrefix");
+    EXPECT_EQ(to_string(StateBackendError::IterationAborted), "IterationAborted");
+    EXPECT_EQ(to_string(StateBackendError::InvalidPrefix), "InvalidPrefix");
 
     // Config errors (64-79)
-    EXPECT_STREQ(to_string(StateBackendError::InvalidConfig), "InvalidConfig");
-    EXPECT_STREQ(to_string(StateBackendError::UnsupportedOperation), "UnsupportedOperation");
+    EXPECT_EQ(to_string(StateBackendError::InvalidConfig), "InvalidConfig");
+    EXPECT_EQ(to_string(StateBackendError::UnsupportedOperation), "UnsupportedOperation");
 }
 
 TEST(StateBackendErrorTest, IsRecoverable) {
@@ -82,8 +82,8 @@ TEST(StateBackendErrorTest, IsRecoverable) {
 // ============================================================================
 
 TEST(TransactionIsolationLevelTest, ToStringAllValues) {
-    EXPECT_STREQ(to_string(TransactionIsolationLevel::ReadCommitted), "ReadCommitted");
-    EXPECT_STREQ(to_string(TransactionIsolationLevel::Snapshot), "Snapshot");
+    EXPECT_EQ(to_string(TransactionIsolationLevel::ReadCommitted), "ReadCommitted");
+    EXPECT_EQ(to_string(TransactionIsolationLevel::Snapshot), "Snapshot");
 }
 
 // ============================================================================

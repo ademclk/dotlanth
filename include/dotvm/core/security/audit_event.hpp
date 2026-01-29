@@ -13,7 +13,9 @@
 
 #include <chrono>
 #include <cstdint>
+#include <format>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -38,7 +40,7 @@ enum class AuditSeverity : std::uint8_t {
 };
 
 /// @brief Convert AuditSeverity to human-readable string
-[[nodiscard]] constexpr const char* to_string(AuditSeverity severity) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(AuditSeverity severity) noexcept {
     switch (severity) {
         case AuditSeverity::Debug:
             return "Debug";
@@ -331,3 +333,14 @@ namespace dotvm::core::security {
 /// security_context.hpp. Use this type for new SEC-006 code.
 using EnhancedAuditEvent = audit::AuditEvent;
 }  // namespace dotvm::core::security
+
+// ============================================================================
+// std::formatter specialization for AuditSeverity
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::security::AuditSeverity> : std::formatter<std::string_view> {
+    auto format(dotvm::core::security::AuditSeverity e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

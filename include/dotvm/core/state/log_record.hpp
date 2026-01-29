@@ -8,6 +8,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <format>
+#include <string_view>
 #include <vector>
 
 #include "dotvm/core/result.hpp"
@@ -70,7 +72,7 @@ enum class LogRecordType : std::uint8_t {
 };
 
 /// @brief Convert log record type to string
-[[nodiscard]] constexpr const char* to_string(LogRecordType type) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(LogRecordType type) noexcept {
     switch (type) {
         case LogRecordType::Put:
             return "Put";
@@ -182,3 +184,14 @@ struct LogRecord {
 };
 
 }  // namespace dotvm::core::state
+
+// ============================================================================
+// std::formatter specialization for LogRecordType
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::state::LogRecordType> : std::formatter<std::string_view> {
+    auto format(dotvm::core::state::LogRecordType e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

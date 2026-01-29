@@ -9,6 +9,8 @@
 /// capability limitations for Dot execution.
 
 #include <cstdint>
+#include <format>
+#include <string_view>
 
 namespace dotvm::core::security {
 
@@ -100,7 +102,7 @@ enum class IsolationLevel : std::uint8_t {
 ///
 /// @param level The isolation level to convert
 /// @return String representation of the isolation level
-[[nodiscard]] constexpr const char* to_string(IsolationLevel level) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(IsolationLevel level) noexcept {
     switch (level) {
         case IsolationLevel::None:
             return "None";
@@ -113,3 +115,14 @@ enum class IsolationLevel : std::uint8_t {
 }
 
 }  // namespace dotvm::core::security
+
+// ============================================================================
+// std::formatter specialization for IsolationLevel
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::security::IsolationLevel> : std::formatter<std::string_view> {
+    auto format(dotvm::core::security::IsolationLevel e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

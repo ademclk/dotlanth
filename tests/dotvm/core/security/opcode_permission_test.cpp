@@ -1,10 +1,10 @@
 /// @file opcode_permission_test.cpp
 /// @brief Unit tests for SEC-005 Opcode Authorization
 
+#include <gtest/gtest.h>
+
 #include "dotvm/core/security/opcode_permission.hpp"
 #include "dotvm/exec/execution_context.hpp"
-
-#include <gtest/gtest.h>
 
 namespace dotvm::core::security {
 namespace {
@@ -77,9 +77,8 @@ TEST(OpcodePermissionTest, LoadOpcodesRequireReadMemory) {
     const Permission expected = Permission::Execute | Permission::ReadMemory;
     for (std::uint8_t opcode = 0x60; opcode <= 0x63; ++opcode) {
         Permission required = get_required_permission(opcode);
-        EXPECT_EQ(required, expected)
-            << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-            << " should require Execute + ReadMemory";
+        EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
+                                      << " should require Execute + ReadMemory";
     }
 }
 
@@ -91,9 +90,8 @@ TEST(OpcodePermissionTest, StoreOpcodesRequireWriteMemory) {
     const Permission expected = Permission::Execute | Permission::WriteMemory;
     for (std::uint8_t opcode = 0x64; opcode <= 0x67; ++opcode) {
         Permission required = get_required_permission(opcode);
-        EXPECT_EQ(required, expected)
-            << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-            << " should require Execute + WriteMemory";
+        EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
+                                      << " should require Execute + WriteMemory";
     }
 }
 
@@ -157,9 +155,8 @@ TEST(OpcodePermissionTest, StateGetOpcodesRequireReadState) {
     const Permission expected = Permission::Execute | Permission::ReadState;
     for (std::uint8_t opcode = 0xA0; opcode <= 0xA7; ++opcode) {
         Permission required = get_required_permission(opcode);
-        EXPECT_EQ(required, expected)
-            << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-            << " should require Execute + ReadState";
+        EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
+                                      << " should require Execute + ReadState";
     }
 }
 
@@ -171,9 +168,8 @@ TEST(OpcodePermissionTest, StatePutOpcodesRequireWriteState) {
     const Permission expected = Permission::Execute | Permission::WriteState;
     for (std::uint8_t opcode = 0xA8; opcode <= 0xAF; ++opcode) {
         Permission required = get_required_permission(opcode);
-        EXPECT_EQ(required, expected)
-            << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-            << " should require Execute + WriteState";
+        EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
+                                      << " should require Execute + WriteState";
     }
 }
 
@@ -185,9 +181,8 @@ TEST(OpcodePermissionTest, CryptoOpcodesRequireCrypto) {
     const Permission expected = Permission::Execute | Permission::Crypto;
     for (std::uint8_t opcode = 0xB0; opcode <= 0xBF; ++opcode) {
         Permission required = get_required_permission(opcode);
-        EXPECT_EQ(required, expected)
-            << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-            << " should require Execute + Crypto";
+        EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
+                                      << " should require Execute + Crypto";
     }
 }
 
@@ -199,9 +194,8 @@ TEST(OpcodePermissionTest, SpawnOpcodesRequireSpawnDot) {
     const Permission expected = Permission::Execute | Permission::SpawnDot;
     for (std::uint8_t opcode = 0xC0; opcode <= 0xC3; ++opcode) {
         Permission required = get_required_permission(opcode);
-        EXPECT_EQ(required, expected)
-            << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-            << " should require Execute + SpawnDot";
+        EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
+                                      << " should require Execute + SpawnDot";
     }
 }
 
@@ -213,9 +207,8 @@ TEST(OpcodePermissionTest, MessageOpcodesRequireSendMessage) {
     const Permission expected = Permission::Execute | Permission::SendMessage;
     for (std::uint8_t opcode = 0xC4; opcode <= 0xCF; ++opcode) {
         Permission required = get_required_permission(opcode);
-        EXPECT_EQ(required, expected)
-            << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-            << " should require Execute + SendMessage";
+        EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
+                                      << " should require Execute + SendMessage";
     }
 }
 
@@ -275,13 +268,11 @@ TEST(OpcodeAuthorizationTest, FullPermissionsAuthorizesAllNonReserved) {
         bool authorized = is_opcode_authorized(opcode, full);
 
         if (is_reserved_opcode(opcode)) {
-            EXPECT_FALSE(authorized)
-                << "Reserved opcode 0x" << std::hex << static_cast<int>(opcode)
-                << " should never be authorized";
+            EXPECT_FALSE(authorized) << "Reserved opcode 0x" << std::hex << static_cast<int>(opcode)
+                                     << " should never be authorized";
         } else {
-            EXPECT_TRUE(authorized)
-                << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-                << " should be authorized with full permissions";
+            EXPECT_TRUE(authorized) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
+                                    << " should be authorized with full permissions";
         }
     }
 }
@@ -330,8 +321,7 @@ TEST(OpcodeAuthorizationTest, ExecuteOnlyFailsStateOpcodes) {
 }
 
 TEST(OpcodeAuthorizationTest, ReadWriteMemoryAuthorization) {
-    Permission read_write = Permission::Execute | Permission::ReadMemory |
-                            Permission::WriteMemory;
+    Permission read_write = Permission::Execute | Permission::ReadMemory | Permission::WriteMemory;
 
     // LOAD should pass
     EXPECT_TRUE(is_opcode_authorized(0x60, read_write));
@@ -447,9 +437,7 @@ TEST(OpcodeCategoryTest, CategoriesAreCorrect) {
 // ============================================================================
 
 TEST(CheckOpcodePermissionTest, SuccessWithCorrectPermissions) {
-    SecurityContext ctx(
-        capabilities::CapabilityLimits::unlimited(),
-        PermissionSet::full());
+    SecurityContext ctx(capabilities::CapabilityLimits::unlimited(), PermissionSet::full());
 
     // Non-reserved opcodes should succeed
     EXPECT_EQ(check_opcode_permission(0x00, ctx), SecurityContextError::Success);
@@ -459,18 +447,13 @@ TEST(CheckOpcodePermissionTest, SuccessWithCorrectPermissions) {
 
 TEST(CheckOpcodePermissionTest, DeniedForReservedOpcodes) {
     BufferedAuditLogger logger(100);
-    SecurityContext ctx(
-        capabilities::CapabilityLimits::unlimited(),
-        PermissionSet::full(),
-        &logger);
+    SecurityContext ctx(capabilities::CapabilityLimits::unlimited(), PermissionSet::full(),
+                        &logger);
 
     // Reserved opcodes should always fail
-    EXPECT_EQ(check_opcode_permission(0x69, ctx),
-              SecurityContextError::PermissionDenied);
-    EXPECT_EQ(check_opcode_permission(0x90, ctx),
-              SecurityContextError::PermissionDenied);
-    EXPECT_EQ(check_opcode_permission(0xD0, ctx),
-              SecurityContextError::PermissionDenied);
+    EXPECT_EQ(check_opcode_permission(0x69, ctx), SecurityContextError::PermissionDenied);
+    EXPECT_EQ(check_opcode_permission(0x90, ctx), SecurityContextError::PermissionDenied);
+    EXPECT_EQ(check_opcode_permission(0xD0, ctx), SecurityContextError::PermissionDenied);
 
     // Should have logged OpcodeDenied events
     EXPECT_GE(logger.size(), 3);
@@ -478,24 +461,19 @@ TEST(CheckOpcodePermissionTest, DeniedForReservedOpcodes) {
 
 TEST(CheckOpcodePermissionTest, DeniedForMissingPermissions) {
     BufferedAuditLogger logger(100);
-    SecurityContext ctx(
-        capabilities::CapabilityLimits::unlimited(),
-        PermissionSet(Permission::Execute),  // Execute only
-        &logger);
+    SecurityContext ctx(capabilities::CapabilityLimits::unlimited(),
+                        PermissionSet(Permission::Execute),  // Execute only
+                        &logger);
 
     // Memory opcodes should fail
-    EXPECT_EQ(check_opcode_permission(0x60, ctx),
-              SecurityContextError::PermissionDenied);
-    EXPECT_EQ(check_opcode_permission(0x64, ctx),
-              SecurityContextError::PermissionDenied);
+    EXPECT_EQ(check_opcode_permission(0x60, ctx), SecurityContextError::PermissionDenied);
+    EXPECT_EQ(check_opcode_permission(0x64, ctx), SecurityContextError::PermissionDenied);
 
     // Crypto should fail
-    EXPECT_EQ(check_opcode_permission(0xB0, ctx),
-              SecurityContextError::PermissionDenied);
+    EXPECT_EQ(check_opcode_permission(0xB0, ctx), SecurityContextError::PermissionDenied);
 
     // Arithmetic should succeed
-    EXPECT_EQ(check_opcode_permission(0x00, ctx),
-              SecurityContextError::Success);
+    EXPECT_EQ(check_opcode_permission(0x00, ctx), SecurityContextError::Success);
 
     // Check audit log contains OpcodeDenied
     bool found_opcode_denied = false;
@@ -510,10 +488,8 @@ TEST(CheckOpcodePermissionTest, DeniedForMissingPermissions) {
 
 TEST(CheckOpcodePermissionTest, LogsContextString) {
     BufferedAuditLogger logger(100);
-    SecurityContext ctx(
-        capabilities::CapabilityLimits::unlimited(),
-        PermissionSet(Permission::Execute),
-        &logger);
+    SecurityContext ctx(capabilities::CapabilityLimits::unlimited(),
+                        PermissionSet(Permission::Execute), &logger);
 
     auto result = check_opcode_permission(0x69, ctx, "test_dispatch");
     EXPECT_EQ(result, SecurityContextError::PermissionDenied);
@@ -529,35 +505,29 @@ TEST(CheckOpcodePermissionTest, LogsContextString) {
 
 TEST(ExecResultTest, CapabilityDeniedExists) {
     EXPECT_EQ(static_cast<int>(exec::ExecResult::CapabilityDenied), 13);
-    EXPECT_STREQ(exec::to_string(exec::ExecResult::CapabilityDenied),
-                 "CapabilityDenied");
+    EXPECT_STREQ(exec::to_string(exec::ExecResult::CapabilityDenied), "CapabilityDenied");
 }
 
 TEST(AuditEventTypeTest, OpcodeDeniedExists) {
     EXPECT_EQ(static_cast<int>(AuditEventType::OpcodeDenied), 20);
-    EXPECT_STREQ(to_string(AuditEventType::OpcodeDenied), "OpcodeDenied");
+    EXPECT_EQ(to_string(AuditEventType::OpcodeDenied), "OpcodeDenied");
 }
 
 // ============================================================================
 // Constexpr Tests (Compile-time verification)
 // ============================================================================
 
-static_assert(opcode_permission_table.size() == 256,
-              "Table must have 256 entries");
+static_assert(opcode_permission_table.size() == 256, "Table must have 256 entries");
 
-static_assert(get_required_permission(0x00) == Permission::Execute,
-              "Arithmetic requires Execute");
+static_assert(get_required_permission(0x00) == Permission::Execute, "Arithmetic requires Execute");
 
-static_assert(get_required_permission(0x60) ==
-              (Permission::Execute | Permission::ReadMemory),
+static_assert(get_required_permission(0x60) == (Permission::Execute | Permission::ReadMemory),
               "LOAD requires Execute + ReadMemory");
 
-static_assert(get_required_permission(0x64) ==
-              (Permission::Execute | Permission::WriteMemory),
+static_assert(get_required_permission(0x64) == (Permission::Execute | Permission::WriteMemory),
               "STORE requires Execute + WriteMemory");
 
-static_assert(get_required_permission(0x69) == Permission::None,
-              "Reserved opcodes require None");
+static_assert(get_required_permission(0x69) == Permission::None, "Reserved opcodes require None");
 
 static_assert(is_reserved_opcode(0x69), "0x69 is reserved");
 static_assert(!is_reserved_opcode(0x00), "0x00 is not reserved");

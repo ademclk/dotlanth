@@ -36,15 +36,15 @@ TEST(WalErrorTest, ErrorCodesInCorrectRange) {
 // ============================================================================
 
 TEST(WalErrorTest, ToStringReturnsCorrectNames) {
-    EXPECT_STREQ(to_string(WalError::WalWriteFailed), "WalWriteFailed");
-    EXPECT_STREQ(to_string(WalError::WalReadFailed), "WalReadFailed");
-    EXPECT_STREQ(to_string(WalError::WalSyncFailed), "WalSyncFailed");
-    EXPECT_STREQ(to_string(WalError::WalCorrupted), "WalCorrupted");
-    EXPECT_STREQ(to_string(WalError::WalTruncateFailed), "WalTruncateFailed");
-    EXPECT_STREQ(to_string(WalError::CheckpointFailed), "CheckpointFailed");
-    EXPECT_STREQ(to_string(WalError::CheckpointCorrupted), "CheckpointCorrupted");
-    EXPECT_STREQ(to_string(WalError::RecoveryFailed), "RecoveryFailed");
-    EXPECT_STREQ(to_string(WalError::PartialRecovery), "PartialRecovery");
+    EXPECT_EQ(to_string(WalError::WalWriteFailed), "WalWriteFailed");
+    EXPECT_EQ(to_string(WalError::WalReadFailed), "WalReadFailed");
+    EXPECT_EQ(to_string(WalError::WalSyncFailed), "WalSyncFailed");
+    EXPECT_EQ(to_string(WalError::WalCorrupted), "WalCorrupted");
+    EXPECT_EQ(to_string(WalError::WalTruncateFailed), "WalTruncateFailed");
+    EXPECT_EQ(to_string(WalError::CheckpointFailed), "CheckpointFailed");
+    EXPECT_EQ(to_string(WalError::CheckpointCorrupted), "CheckpointCorrupted");
+    EXPECT_EQ(to_string(WalError::RecoveryFailed), "RecoveryFailed");
+    EXPECT_EQ(to_string(WalError::PartialRecovery), "PartialRecovery");
 }
 
 // ============================================================================
