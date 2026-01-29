@@ -22,6 +22,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <format>
 #include <span>
 #include <string>
 #include <string_view>
@@ -120,7 +121,7 @@ enum class SecurityContextError : std::uint8_t {
 };
 
 /// @brief Convert SecurityContextError to human-readable string
-[[nodiscard]] constexpr const char* to_string(SecurityContextError error) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(SecurityContextError error) noexcept {
     switch (error) {
         case SecurityContextError::Success:
             return "Success";
@@ -195,7 +196,7 @@ enum class AuditEventType : std::uint8_t {
 };
 
 /// @brief Convert AuditEventType to human-readable string
-[[nodiscard]] constexpr const char* to_string(AuditEventType type) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(AuditEventType type) noexcept {
     switch (type) {
         case AuditEventType::PermissionGranted:
             return "PermissionGranted";
@@ -757,3 +758,22 @@ private:
 };
 
 }  // namespace dotvm::core::security
+
+// ============================================================================
+// std::formatter specializations
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::security::SecurityContextError>
+    : std::formatter<std::string_view> {
+    auto format(dotvm::core::security::SecurityContextError e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};
+
+template <>
+struct std::formatter<dotvm::core::security::AuditEventType> : std::formatter<std::string_view> {
+    auto format(dotvm::core::security::AuditEventType e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

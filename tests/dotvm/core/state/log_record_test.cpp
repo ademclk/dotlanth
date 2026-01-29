@@ -61,12 +61,12 @@ TEST(LogRecordTypeTest, EnumValues) {
 }
 
 TEST(LogRecordTypeTest, ToStringReturnsCorrectNames) {
-    EXPECT_STREQ(to_string(LogRecordType::Put), "Put");
-    EXPECT_STREQ(to_string(LogRecordType::Delete), "Delete");
-    EXPECT_STREQ(to_string(LogRecordType::TxBegin), "TxBegin");
-    EXPECT_STREQ(to_string(LogRecordType::TxCommit), "TxCommit");
-    EXPECT_STREQ(to_string(LogRecordType::TxAbort), "TxAbort");
-    EXPECT_STREQ(to_string(LogRecordType::Checkpoint), "Checkpoint");
+    EXPECT_EQ(to_string(LogRecordType::Put), "Put");
+    EXPECT_EQ(to_string(LogRecordType::Delete), "Delete");
+    EXPECT_EQ(to_string(LogRecordType::TxBegin), "TxBegin");
+    EXPECT_EQ(to_string(LogRecordType::TxCommit), "TxCommit");
+    EXPECT_EQ(to_string(LogRecordType::TxAbort), "TxAbort");
+    EXPECT_EQ(to_string(LogRecordType::Checkpoint), "Checkpoint");
 }
 
 // ============================================================================

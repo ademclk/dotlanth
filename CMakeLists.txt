@@ -543,6 +543,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/state/mpt_test.cpp
         tests/dotvm/core/state/mpt_proof_test.cpp
         tests/dotvm/core/state/mpt_benchmark_test.cpp
+        # Error formatter tests (MAINT-002)
+        tests/dotvm/core/error_formatter_test.cpp
     )
 
     # JIT tests (EXEC-012)

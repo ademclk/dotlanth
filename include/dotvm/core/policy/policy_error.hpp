@@ -6,6 +6,7 @@
 /// Defines error types for policy parsing, validation, and evaluation.
 
 #include <cstdint>
+#include <format>
 #include <string>
 #include <string_view>
 
@@ -87,7 +88,7 @@ enum class PolicyError : std::uint8_t {
 };
 
 /// @brief Convert PolicyError to human-readable string
-[[nodiscard]] constexpr const char* to_string(PolicyError error) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(PolicyError error) noexcept {
     switch (error) {
         case PolicyError::Success:
             return "Success";
@@ -169,3 +170,14 @@ struct PolicyErrorInfo {
 };
 
 }  // namespace dotvm::core::policy
+
+// ============================================================================
+// std::formatter specialization for PolicyError
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::policy::PolicyError> : std::formatter<std::string_view> {
+    auto format(dotvm::core::policy::PolicyError e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

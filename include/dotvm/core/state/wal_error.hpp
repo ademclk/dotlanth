@@ -7,6 +7,8 @@
 /// checkpoint failures, and recovery issues.
 
 #include <cstdint>
+#include <format>
+#include <string_view>
 
 namespace dotvm::core::state {
 
@@ -38,7 +40,7 @@ enum class WalError : std::uint8_t {
 };
 
 /// @brief Convert WAL error to human-readable string
-[[nodiscard]] constexpr const char* to_string(WalError error) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(WalError error) noexcept {
     switch (error) {
         case WalError::WalWriteFailed:
             return "WalWriteFailed";
@@ -81,3 +83,14 @@ enum class WalError : std::uint8_t {
 }
 
 }  // namespace dotvm::core::state
+
+// ============================================================================
+// std::formatter specialization for WalError
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::state::WalError> : std::formatter<std::string_view> {
+    auto format(dotvm::core::state::WalError e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

@@ -9,9 +9,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <memory>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include "dotvm/core/result.hpp"
@@ -61,7 +63,7 @@ enum class StateBackendError : std::uint8_t {
 };
 
 /// @brief Convert error to human-readable string
-[[nodiscard]] constexpr const char* to_string(StateBackendError error) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(StateBackendError error) noexcept {
     switch (error) {
         case StateBackendError::KeyNotFound:
             return "KeyNotFound";
@@ -127,7 +129,7 @@ enum class TransactionIsolationLevel : std::uint8_t {
 };
 
 /// @brief Convert isolation level to string
-[[nodiscard]] constexpr const char* to_string(TransactionIsolationLevel level) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(TransactionIsolationLevel level) noexcept {
     switch (level) {
         case TransactionIsolationLevel::ReadCommitted:
             return "ReadCommitted";
@@ -389,3 +391,22 @@ public:
 create_state_backend(const StateBackendConfig& config = StateBackendConfig::defaults());
 
 }  // namespace dotvm::core::state
+
+// ============================================================================
+// std::formatter specializations
+// ============================================================================
+
+template <>
+struct std::formatter<dotvm::core::state::StateBackendError> : std::formatter<std::string_view> {
+    auto format(dotvm::core::state::StateBackendError e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};
+
+template <>
+struct std::formatter<dotvm::core::state::TransactionIsolationLevel>
+    : std::formatter<std::string_view> {
+    auto format(dotvm::core::state::TransactionIsolationLevel e, std::format_context& ctx) const {
+        return std::formatter<std::string_view>::format(to_string(e), ctx);
+    }
+};

@@ -1,11 +1,11 @@
 /// @file security_context_test.cpp
 /// @brief Unit tests for SEC-003 Security Context
 
-#include "dotvm/core/security/security_context.hpp"
+#include <thread>
 
 #include <gtest/gtest.h>
 
-#include <thread>
+#include "dotvm/core/security/security_context.hpp"
 
 namespace dotvm::core::security {
 namespace {
@@ -18,9 +18,8 @@ class SecurityContextTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Default context with sandbox limits and read-write permissions
-        ctx_ = std::make_unique<SecurityContext>(
-            capabilities::CapabilityLimits::sandbox(),
-            PermissionSet::read_write());
+        ctx_ = std::make_unique<SecurityContext>(capabilities::CapabilityLimits::sandbox(),
+                                                 PermissionSet::read_write());
     }
 
     std::unique_ptr<SecurityContext> ctx_;
@@ -30,9 +29,8 @@ class SecurityContextWithLoggerTest : public ::testing::Test {
 protected:
     void SetUp() override {
         logger_ = std::make_unique<BufferedAuditLogger>(100);
-        ctx_ = std::make_unique<SecurityContext>(
-            capabilities::CapabilityLimits::sandbox(),
-            PermissionSet::read_write(), logger_.get());
+        ctx_ = std::make_unique<SecurityContext>(capabilities::CapabilityLimits::sandbox(),
+                                                 PermissionSet::read_write(), logger_.get());
     }
 
     std::unique_ptr<BufferedAuditLogger> logger_;
@@ -75,23 +73,16 @@ TEST(ResourceUsageTest, Reset) {
 // ============================================================================
 
 TEST(SecurityContextErrorTest, ToStringAllValues) {
-    EXPECT_STREQ(to_string(SecurityContextError::Success), "Success");
-    EXPECT_STREQ(to_string(SecurityContextError::PermissionDenied),
-                 "PermissionDenied");
-    EXPECT_STREQ(to_string(SecurityContextError::MemoryLimitExceeded),
-                 "MemoryLimitExceeded");
-    EXPECT_STREQ(to_string(SecurityContextError::AllocationCountExceeded),
-                 "AllocationCountExceeded");
-    EXPECT_STREQ(to_string(SecurityContextError::AllocationSizeExceeded),
-                 "AllocationSizeExceeded");
-    EXPECT_STREQ(to_string(SecurityContextError::InstructionLimitExceeded),
-                 "InstructionLimitExceeded");
-    EXPECT_STREQ(to_string(SecurityContextError::StackDepthExceeded),
-                 "StackDepthExceeded");
-    EXPECT_STREQ(to_string(SecurityContextError::TimeLimitExceeded),
-                 "TimeLimitExceeded");
-    EXPECT_STREQ(to_string(SecurityContextError::ContextInvalid),
-                 "ContextInvalid");
+    EXPECT_EQ(to_string(SecurityContextError::Success), "Success");
+    EXPECT_EQ(to_string(SecurityContextError::PermissionDenied), "PermissionDenied");
+    EXPECT_EQ(to_string(SecurityContextError::MemoryLimitExceeded), "MemoryLimitExceeded");
+    EXPECT_EQ(to_string(SecurityContextError::AllocationCountExceeded), "AllocationCountExceeded");
+    EXPECT_EQ(to_string(SecurityContextError::AllocationSizeExceeded), "AllocationSizeExceeded");
+    EXPECT_EQ(to_string(SecurityContextError::InstructionLimitExceeded),
+              "InstructionLimitExceeded");
+    EXPECT_EQ(to_string(SecurityContextError::StackDepthExceeded), "StackDepthExceeded");
+    EXPECT_EQ(to_string(SecurityContextError::TimeLimitExceeded), "TimeLimitExceeded");
+    EXPECT_EQ(to_string(SecurityContextError::ContextInvalid), "ContextInvalid");
 }
 
 // ============================================================================
@@ -99,25 +90,17 @@ TEST(SecurityContextErrorTest, ToStringAllValues) {
 // ============================================================================
 
 TEST(AuditEventTypeTest, ToStringAllValues) {
-    EXPECT_STREQ(to_string(AuditEventType::PermissionGranted),
-                 "PermissionGranted");
-    EXPECT_STREQ(to_string(AuditEventType::PermissionDenied),
-                 "PermissionDenied");
-    EXPECT_STREQ(to_string(AuditEventType::AllocationAttempt),
-                 "AllocationAttempt");
-    EXPECT_STREQ(to_string(AuditEventType::AllocationDenied),
-                 "AllocationDenied");
-    EXPECT_STREQ(to_string(AuditEventType::DeallocationAttempt),
-                 "DeallocationAttempt");
-    EXPECT_STREQ(to_string(AuditEventType::InstructionLimitHit),
-                 "InstructionLimitHit");
-    EXPECT_STREQ(to_string(AuditEventType::StackDepthLimitHit),
-                 "StackDepthLimitHit");
-    EXPECT_STREQ(to_string(AuditEventType::TimeLimitHit), "TimeLimitHit");
-    EXPECT_STREQ(to_string(AuditEventType::ContextCreated), "ContextCreated");
-    EXPECT_STREQ(to_string(AuditEventType::ContextDestroyed),
-                 "ContextDestroyed");
-    EXPECT_STREQ(to_string(AuditEventType::ContextReset), "ContextReset");
+    EXPECT_EQ(to_string(AuditEventType::PermissionGranted), "PermissionGranted");
+    EXPECT_EQ(to_string(AuditEventType::PermissionDenied), "PermissionDenied");
+    EXPECT_EQ(to_string(AuditEventType::AllocationAttempt), "AllocationAttempt");
+    EXPECT_EQ(to_string(AuditEventType::AllocationDenied), "AllocationDenied");
+    EXPECT_EQ(to_string(AuditEventType::DeallocationAttempt), "DeallocationAttempt");
+    EXPECT_EQ(to_string(AuditEventType::InstructionLimitHit), "InstructionLimitHit");
+    EXPECT_EQ(to_string(AuditEventType::StackDepthLimitHit), "StackDepthLimitHit");
+    EXPECT_EQ(to_string(AuditEventType::TimeLimitHit), "TimeLimitHit");
+    EXPECT_EQ(to_string(AuditEventType::ContextCreated), "ContextCreated");
+    EXPECT_EQ(to_string(AuditEventType::ContextDestroyed), "ContextDestroyed");
+    EXPECT_EQ(to_string(AuditEventType::ContextReset), "ContextReset");
 }
 
 // ============================================================================
@@ -127,8 +110,7 @@ TEST(AuditEventTypeTest, ToStringAllValues) {
 TEST(AuditEventTest, NowFactory) {
     auto before = std::chrono::steady_clock::now();
     auto event =
-        AuditEvent::now(AuditEventType::PermissionGranted, Permission::Execute,
-                        42, "test_context");
+        AuditEvent::now(AuditEventType::PermissionGranted, Permission::Execute, 42, "test_context");
     auto after = std::chrono::steady_clock::now();
 
     EXPECT_EQ(event.type, AuditEventType::PermissionGranted);
@@ -183,8 +165,8 @@ TEST(BufferedAuditLoggerTest, LogEvents) {
     BufferedAuditLogger logger(10);
 
     for (int i = 0; i < 5; ++i) {
-        logger.log(AuditEvent::now(AuditEventType::AllocationAttempt,
-                                   Permission::None, static_cast<uint64_t>(i)));
+        logger.log(AuditEvent::now(AuditEventType::AllocationAttempt, Permission::None,
+                                   static_cast<uint64_t>(i)));
     }
 
     EXPECT_EQ(logger.size(), 5);
@@ -199,8 +181,8 @@ TEST(BufferedAuditLoggerTest, RingBufferOverwrite) {
     BufferedAuditLogger logger(3);
 
     for (int i = 0; i < 5; ++i) {
-        logger.log(AuditEvent::now(AuditEventType::AllocationAttempt,
-                                   Permission::None, static_cast<uint64_t>(i)));
+        logger.log(AuditEvent::now(AuditEventType::AllocationAttempt, Permission::None,
+                                   static_cast<uint64_t>(i)));
     }
 
     // Should have capacity events, oldest overwritten
@@ -316,8 +298,7 @@ TEST_F(SecurityContextTest, RequireOrThrowWithGrantedPermission) {
 }
 
 TEST_F(SecurityContextTest, RequireOrThrowWithDeniedPermission) {
-    EXPECT_THROW(ctx_->require_or_throw(Permission::Crypto),
-                 PermissionDeniedException);
+    EXPECT_THROW(ctx_->require_or_throw(Permission::Crypto), PermissionDeniedException);
 }
 
 // ============================================================================
@@ -326,9 +307,9 @@ TEST_F(SecurityContextTest, RequireOrThrowWithDeniedPermission) {
 
 TEST_F(SecurityContextTest, CanAllocateWithinLimits) {
     // Sandbox: 16MB total, 1MB per allocation
-    EXPECT_TRUE(ctx_->can_allocate(1024));           // 1KB - ok
-    EXPECT_TRUE(ctx_->can_allocate(512 * 1024));     // 512KB - ok
-    EXPECT_TRUE(ctx_->can_allocate(1024 * 1024));    // 1MB - ok (at limit)
+    EXPECT_TRUE(ctx_->can_allocate(1024));              // 1KB - ok
+    EXPECT_TRUE(ctx_->can_allocate(512 * 1024));        // 512KB - ok
+    EXPECT_TRUE(ctx_->can_allocate(1024 * 1024));       // 1MB - ok (at limit)
     EXPECT_FALSE(ctx_->can_allocate(2 * 1024 * 1024));  // 2MB - exceeds per-alloc
 }
 
@@ -376,8 +357,7 @@ TEST_F(SecurityContextTest, OnAllocateExceedsCount) {
     EXPECT_EQ(ctx.on_allocate(100), SecurityContextError::Success);
     EXPECT_EQ(ctx.on_allocate(100), SecurityContextError::Success);
     EXPECT_EQ(ctx.on_allocate(100), SecurityContextError::Success);
-    EXPECT_EQ(ctx.on_allocate(100),
-              SecurityContextError::AllocationCountExceeded);
+    EXPECT_EQ(ctx.on_allocate(100), SecurityContextError::AllocationCountExceeded);
 }
 
 TEST_F(SecurityContextTest, OnDeallocate) {
@@ -651,8 +631,7 @@ TEST_F(SecurityContextWithLoggerTest, DeallocationLogged) {
 
 TEST_F(SecurityContextWithLoggerTest, PermissionGrantedLogged) {
     logger_->clear();
-    EXPECT_EQ(ctx_->require(Permission::Execute, "test_op"),
-              SecurityContextError::Success);
+    EXPECT_EQ(ctx_->require(Permission::Execute, "test_op"), SecurityContextError::Success);
 
     auto events = logger_->events();
     ASSERT_EQ(events.size(), 1);
@@ -718,19 +697,16 @@ TEST(SecurityContextEdgeCaseTest, ZeroLimitsAreUnlimited) {
 }
 
 TEST(SecurityContextEdgeCaseTest, EmptyPermissionsDenyAll) {
-    SecurityContext ctx(capabilities::CapabilityLimits::unlimited(),
-                        PermissionSet::none());
+    SecurityContext ctx(capabilities::CapabilityLimits::unlimited(), PermissionSet::none());
 
     EXPECT_FALSE(ctx.can(Permission::Execute));
     EXPECT_FALSE(ctx.can(Permission::ReadMemory));
     EXPECT_FALSE(ctx.can(Permission::WriteMemory));
-    EXPECT_EQ(ctx.require(Permission::Execute),
-              SecurityContextError::PermissionDenied);
+    EXPECT_EQ(ctx.require(Permission::Execute), SecurityContextError::PermissionDenied);
 }
 
 TEST(SecurityContextEdgeCaseTest, FullPermissionsAllowAll) {
-    SecurityContext ctx(capabilities::CapabilityLimits::unlimited(),
-                        PermissionSet::full());
+    SecurityContext ctx(capabilities::CapabilityLimits::unlimited(), PermissionSet::full());
 
     EXPECT_TRUE(ctx.can(Permission::Execute));
     EXPECT_TRUE(ctx.can(Permission::ReadMemory));

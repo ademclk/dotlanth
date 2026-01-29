@@ -1,13 +1,13 @@
 /// @file resource_limiter_test.cpp
 /// @brief Unit tests for SEC-004 Resource Limits
 
+#include <thread>
+#include <vector>
+
 #include <dotvm/core/security/resource_limiter.hpp>
 #include <dotvm/core/security_stats.hpp>
 
 #include <gtest/gtest.h>
-
-#include <thread>
-#include <vector>
 
 using namespace dotvm::core;
 using namespace dotvm::core::security;
@@ -19,10 +19,10 @@ using namespace dotvm::core::security;
 TEST(RuntimeLimitsTest, DefaultValues) {
     RuntimeLimits limits;
 
-    EXPECT_EQ(limits.max_memory, 67'108'864ULL);        // 64 MB
+    EXPECT_EQ(limits.max_memory, 67'108'864ULL);  // 64 MB
     EXPECT_EQ(limits.max_instructions, 1'000'000ULL);
     EXPECT_EQ(limits.max_stack_depth, 1024U);
-    EXPECT_EQ(limits.max_allocation_size, 1'048'576ULL); // 1 MB
+    EXPECT_EQ(limits.max_allocation_size, 1'048'576ULL);  // 1 MB
     EXPECT_EQ(limits.max_execution_time_ms, 5000U);
 }
 
@@ -49,21 +49,19 @@ TEST(RuntimeLimitsTest, StandardFactory) {
 TEST(RuntimeLimitsTest, StrictFactory) {
     auto limits = RuntimeLimits::strict();
 
-    EXPECT_EQ(limits.max_memory, 16'777'216ULL);        // 16 MB
+    EXPECT_EQ(limits.max_memory, 16'777'216ULL);  // 16 MB
     EXPECT_EQ(limits.max_instructions, 100'000ULL);
     EXPECT_EQ(limits.max_stack_depth, 256U);
-    EXPECT_EQ(limits.max_allocation_size, 262'144ULL); // 256 KB
+    EXPECT_EQ(limits.max_allocation_size, 262'144ULL);  // 256 KB
     EXPECT_EQ(limits.max_execution_time_ms, 1000U);
 }
 
 TEST(RuntimeLimitsTest, DesignatedInitializers) {
-    RuntimeLimits limits{
-        .max_memory = 1024,
-        .max_instructions = 100,
-        .max_stack_depth = 10,
-        .max_allocation_size = 512,
-        .max_execution_time_ms = 1000
-    };
+    RuntimeLimits limits{.max_memory = 1024,
+                         .max_instructions = 100,
+                         .max_stack_depth = 10,
+                         .max_allocation_size = 512,
+                         .max_execution_time_ms = 1000};
 
     EXPECT_EQ(limits.max_memory, 1024ULL);
     EXPECT_EQ(limits.max_instructions, 100ULL);
@@ -86,35 +84,31 @@ TEST(RuntimeLimitsTest, Equality) {
 // ============================================================================
 
 TEST(ResourceLimitErrorTest, ToStringSuccess) {
-    EXPECT_STREQ(to_string(ResourceLimitError::Success), "Success");
+    EXPECT_EQ(to_string(ResourceLimitError::Success), "Success");
 }
 
 TEST(ResourceLimitErrorTest, ToStringMemoryLimitExceeded) {
-    EXPECT_STREQ(to_string(ResourceLimitError::MemoryLimitExceeded),
-                 "MemoryLimitExceeded");
+    EXPECT_EQ(to_string(ResourceLimitError::MemoryLimitExceeded), "MemoryLimitExceeded");
 }
 
 TEST(ResourceLimitErrorTest, ToStringInstructionLimitExceeded) {
-    EXPECT_STREQ(to_string(ResourceLimitError::InstructionLimitExceeded),
-                 "InstructionLimitExceeded");
+    EXPECT_EQ(to_string(ResourceLimitError::InstructionLimitExceeded), "InstructionLimitExceeded");
 }
 
 TEST(ResourceLimitErrorTest, ToStringStackDepthExceeded) {
-    EXPECT_STREQ(to_string(ResourceLimitError::StackDepthExceeded),
-                 "StackDepthExceeded");
+    EXPECT_EQ(to_string(ResourceLimitError::StackDepthExceeded), "StackDepthExceeded");
 }
 
 TEST(ResourceLimitErrorTest, ToStringAllocationSizeExceeded) {
-    EXPECT_STREQ(to_string(ResourceLimitError::AllocationSizeExceeded),
-                 "AllocationSizeExceeded");
+    EXPECT_EQ(to_string(ResourceLimitError::AllocationSizeExceeded), "AllocationSizeExceeded");
 }
 
 TEST(ResourceLimitErrorTest, ToStringTimeExpired) {
-    EXPECT_STREQ(to_string(ResourceLimitError::TimeExpired), "TimeExpired");
+    EXPECT_EQ(to_string(ResourceLimitError::TimeExpired), "TimeExpired");
 }
 
 TEST(ResourceLimitErrorTest, ToStringThrottled) {
-    EXPECT_STREQ(to_string(ResourceLimitError::Throttled), "Throttled");
+    EXPECT_EQ(to_string(ResourceLimitError::Throttled), "Throttled");
 }
 
 // ============================================================================
@@ -122,19 +116,19 @@ TEST(ResourceLimitErrorTest, ToStringThrottled) {
 // ============================================================================
 
 TEST(EnforcementActionTest, ToStringAllow) {
-    EXPECT_STREQ(to_string(EnforcementAction::Allow), "Allow");
+    EXPECT_EQ(to_string(EnforcementAction::Allow), "Allow");
 }
 
 TEST(EnforcementActionTest, ToStringDeny) {
-    EXPECT_STREQ(to_string(EnforcementAction::Deny), "Deny");
+    EXPECT_EQ(to_string(EnforcementAction::Deny), "Deny");
 }
 
 TEST(EnforcementActionTest, ToStringThrottle) {
-    EXPECT_STREQ(to_string(EnforcementAction::Throttle), "Throttle");
+    EXPECT_EQ(to_string(EnforcementAction::Throttle), "Throttle");
 }
 
 TEST(EnforcementActionTest, ToStringTerminate) {
-    EXPECT_STREQ(to_string(EnforcementAction::Terminate), "Terminate");
+    EXPECT_EQ(to_string(EnforcementAction::Terminate), "Terminate");
 }
 
 // ============================================================================
@@ -151,10 +145,7 @@ TEST(ResourceLimiterTest, DefaultConstruction) {
 }
 
 TEST(ResourceLimiterTest, ConstructionWithLimits) {
-    RuntimeLimits limits{
-        .max_memory = 1024,
-        .max_instructions = 100
-    };
+    RuntimeLimits limits{.max_memory = 1024, .max_instructions = 100};
     ResourceLimiter limiter(limits);
 
     EXPECT_EQ(limiter.limits().max_memory, 1024ULL);
@@ -444,8 +435,8 @@ TEST(ResourceLimiterTest, ElapsedTime) {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     auto elapsed = limiter.elapsed_time_ms();
-    EXPECT_GE(elapsed, 40ULL);  // Allow some slack
-    EXPECT_LT(elapsed, 200ULL); // But not too much
+    EXPECT_GE(elapsed, 40ULL);   // Allow some slack
+    EXPECT_LT(elapsed, 200ULL);  // But not too much
 }
 
 // ============================================================================
@@ -453,11 +444,7 @@ TEST(ResourceLimiterTest, ElapsedTime) {
 // ============================================================================
 
 TEST(ResourceLimiterTest, Reset) {
-    RuntimeLimits limits{
-        .max_memory = 1024,
-        .max_instructions = 100,
-        .max_stack_depth = 10
-    };
+    RuntimeLimits limits{.max_memory = 1024, .max_instructions = 100, .max_stack_depth = 10};
     ResourceLimiter limiter(limits);
 
     // Use some resources
@@ -602,12 +589,10 @@ TEST(ResourceLimiterTest, AllocationLimitHitRecorded) {
 
 TEST(ResourceLimiterTest, MultipleViolationsRecorded) {
     SecurityStats stats;
-    RuntimeLimits limits{
-        .max_memory = 100,
-        .max_instructions = 10,
-        .max_stack_depth = 2,
-        .max_allocation_size = 200
-    };
+    RuntimeLimits limits{.max_memory = 100,
+                         .max_instructions = 10,
+                         .max_stack_depth = 2,
+                         .max_allocation_size = 200};
     ResourceLimiter limiter(limits, &stats);
 
     // Memory limit violation
@@ -639,10 +624,8 @@ TEST(Sec004SecurityEventTest, NewEventsExist) {
 }
 
 TEST(Sec004SecurityEventTest, NewEventNames) {
-    EXPECT_STREQ(event_name(SecurityEvent::StackDepthLimitHit),
-                 "StackDepthLimitHit");
-    EXPECT_STREQ(event_name(SecurityEvent::ExecutionTimeExpired),
-                 "ExecutionTimeExpired");
+    EXPECT_STREQ(event_name(SecurityEvent::StackDepthLimitHit), "StackDepthLimitHit");
+    EXPECT_STREQ(event_name(SecurityEvent::ExecutionTimeExpired), "ExecutionTimeExpired");
 }
 
 TEST(Sec004SecurityStatsTest, NewCountersExist) {
@@ -743,10 +726,10 @@ TEST(RuntimeLimitsTest, ConstexprFactories) {
 
 TEST(ResourceLimitErrorTest, ConstexprToString) {
     constexpr auto str = to_string(ResourceLimitError::MemoryLimitExceeded);
-    static_assert(str != nullptr);
+    static_assert(!str.empty());
 }
 
 TEST(EnforcementActionTest, ConstexprToString) {
     constexpr auto str = to_string(EnforcementAction::Deny);
-    static_assert(str != nullptr);
+    static_assert(!str.empty());
 }

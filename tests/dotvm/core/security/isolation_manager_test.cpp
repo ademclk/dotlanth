@@ -49,9 +49,9 @@ TEST(IsolationLevelTest, RequiresExplicitGrants) {
 }
 
 TEST(IsolationLevelTest, ToString) {
-    EXPECT_STREQ(to_string(IsolationLevel::None), "None");
-    EXPECT_STREQ(to_string(IsolationLevel::Basic), "Basic");
-    EXPECT_STREQ(to_string(IsolationLevel::Strict), "Strict");
+    EXPECT_EQ(to_string(IsolationLevel::None), "None");
+    EXPECT_EQ(to_string(IsolationLevel::Basic), "Basic");
+    EXPECT_EQ(to_string(IsolationLevel::Strict), "Strict");
 }
 
 // ============================================================================
@@ -164,8 +164,8 @@ TEST(AccessTypeTest, EnumValues) {
 }
 
 TEST(AccessTypeTest, ToString) {
-    EXPECT_STREQ(to_string(AccessType::Read), "Read");
-    EXPECT_STREQ(to_string(AccessType::Write), "Write");
+    EXPECT_EQ(to_string(AccessType::Read), "Read");
+    EXPECT_EQ(to_string(AccessType::Write), "Write");
 }
 
 // ============================================================================
@@ -173,20 +173,20 @@ TEST(AccessTypeTest, ToString) {
 // ============================================================================
 
 TEST(IsolationErrorTest, ToStringAllValues) {
-    EXPECT_STREQ(to_string(IsolationError::Success), "Success");
-    EXPECT_STREQ(to_string(IsolationError::DotNotFound), "DotNotFound");
-    EXPECT_STREQ(to_string(IsolationError::DotAlreadyExists), "DotAlreadyExists");
-    EXPECT_STREQ(to_string(IsolationError::ParentNotFound), "ParentNotFound");
-    EXPECT_STREQ(to_string(IsolationError::AccessDenied), "AccessDenied");
-    EXPECT_STREQ(to_string(IsolationError::GrantNotFound), "GrantNotFound");
-    EXPECT_STREQ(to_string(IsolationError::GrantRevoked), "GrantRevoked");
-    EXPECT_STREQ(to_string(IsolationError::SyscallDenied), "SyscallDenied");
-    EXPECT_STREQ(to_string(IsolationError::HandleNotOwned), "HandleNotOwned");
-    EXPECT_STREQ(to_string(IsolationError::InvalidRelationship), "InvalidRelationship");
-    EXPECT_STREQ(to_string(IsolationError::HasActiveChildren), "HasActiveChildren");
-    EXPECT_STREQ(to_string(IsolationError::NetworkDenied), "NetworkDenied");
-    EXPECT_STREQ(to_string(IsolationError::FilesystemDenied), "FilesystemDenied");
-    EXPECT_STREQ(to_string(IsolationError::InternalError), "InternalError");
+    EXPECT_EQ(to_string(IsolationError::Success), "Success");
+    EXPECT_EQ(to_string(IsolationError::DotNotFound), "DotNotFound");
+    EXPECT_EQ(to_string(IsolationError::DotAlreadyExists), "DotAlreadyExists");
+    EXPECT_EQ(to_string(IsolationError::ParentNotFound), "ParentNotFound");
+    EXPECT_EQ(to_string(IsolationError::AccessDenied), "AccessDenied");
+    EXPECT_EQ(to_string(IsolationError::GrantNotFound), "GrantNotFound");
+    EXPECT_EQ(to_string(IsolationError::GrantRevoked), "GrantRevoked");
+    EXPECT_EQ(to_string(IsolationError::SyscallDenied), "SyscallDenied");
+    EXPECT_EQ(to_string(IsolationError::HandleNotOwned), "HandleNotOwned");
+    EXPECT_EQ(to_string(IsolationError::InvalidRelationship), "InvalidRelationship");
+    EXPECT_EQ(to_string(IsolationError::HasActiveChildren), "HasActiveChildren");
+    EXPECT_EQ(to_string(IsolationError::NetworkDenied), "NetworkDenied");
+    EXPECT_EQ(to_string(IsolationError::FilesystemDenied), "FilesystemDenied");
+    EXPECT_EQ(to_string(IsolationError::InternalError), "InternalError");
 }
 
 // ============================================================================
