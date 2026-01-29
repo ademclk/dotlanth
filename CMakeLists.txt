@@ -469,6 +469,7 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/crypto/crypto_executor_test.cpp
         # Test utilities and mock tests
         tests/dotvm/test_utils/mock_test.cpp
+        tests/dotvm/test_utils/property_testing_test.cpp
         # Capability system tests (SEC-001)
         tests/dotvm/core/capability_test.cpp
         # Permission model tests (SEC-002)

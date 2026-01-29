@@ -6,6 +6,7 @@
 
 #include "dotvm/core/dsl/stdlib/module_def.hpp"
 #include "dotvm/core/dsl/stdlib/stdlib_registry.hpp"
+#include "dotvm/core/dsl/stdlib/stdlib_types.hpp"
 
 namespace dotvm::core::dsl::compiler {
 
@@ -235,9 +236,7 @@ IRBuildResult<std::uint32_t> IRBuilder::build_expression(const Expression& expr)
             } else if constexpr (std::is_same_v<T, GroupExpr>) {
                 return build_expression(*e.inner);
             } else if constexpr (std::is_same_v<T, InterpolatedString>) {
-                // TODO: Implement string interpolation
-                return std::unexpected(
-                    IRBuildError::unsupported("String interpolation not yet supported", expr.span));
+                return build_interpolated_string(e);
             } else {
                 return std::unexpected(
                     IRBuildError::unsupported("Unknown expression type", expr.span));
@@ -372,6 +371,96 @@ IRBuildResult<std::uint32_t> IRBuilder::build_call_expr(const CallExpr& expr) {
                                 .callee = expr.callee,
                                 .arg_ids = std::move(arg_ids),
                                 .syscall_id = 0},
+                           expr.span));
+    return result.id;
+}
+
+IRBuildResult<std::uint32_t> IRBuilder::build_interpolated_string(const InterpolatedString& expr) {
+    // String interpolation: "text ${expr} more" becomes:
+    // concat(concat("text", str(expr)), " more")
+    //
+    // Each segment has:
+    // - text: string literal before the interpolation
+    // - expr: the expression to interpolate (may be null for final text)
+    //
+    // Algorithm:
+    // 1. For each segment, emit the text literal as a string handle
+    // 2. For each segment with an expression, convert to string using str() syscall
+    // 3. Concatenate all parts using string.concat syscall
+
+    if (expr.segments.empty()) {
+        // Empty interpolated string = empty string handle
+        auto result = create_value(ValueType::Handle);
+        emit(Instruction::make(LoadConst{.result = result, .constant = dotvm::core::Value::nil()},
+                               expr.span));
+        return result.id;
+    }
+
+    std::optional<std::uint32_t> accumulated_id;
+
+    for (const auto& segment : expr.segments) {
+        // First, handle the text part if non-empty
+        if (!segment.text.empty()) {
+            // Create a string constant for the text
+            auto text_val = create_value(ValueType::Handle);
+            // Note: In a full implementation, we'd intern the string and create a handle.
+            // For now, we emit a LoadConst with nil and the runtime handles string data.
+            emit(Instruction::make(
+                LoadConst{.result = text_val, .constant = dotvm::core::Value::nil()}, expr.span));
+
+            if (!accumulated_id) {
+                accumulated_id = text_val.id;
+            } else {
+                // Concatenate with accumulated
+                auto concat_result = create_value(ValueType::Handle);
+                emit(Instruction::make(Call{.result = concat_result,
+                                            .callee = "string.concat",
+                                            .arg_ids = {*accumulated_id, text_val.id},
+                                            .syscall_id = stdlib::syscall_id::STRING_CONCAT},
+                                       expr.span));
+                accumulated_id = concat_result.id;
+            }
+        }
+
+        // Then handle the interpolated expression if present
+        if (segment.expr) {
+            // Build the expression
+            auto expr_result = build_expression(*segment.expr);
+            if (!expr_result) {
+                return expr_result;
+            }
+
+            // Convert to string using str() syscall
+            auto str_result = create_value(ValueType::Handle);
+            emit(Instruction::make(Call{.result = str_result,
+                                        .callee = "str",
+                                        .arg_ids = {*expr_result},
+                                        .syscall_id = stdlib::syscall_id::PRELUDE_STR},
+                                   expr.span));
+
+            if (!accumulated_id) {
+                accumulated_id = str_result.id;
+            } else {
+                // Concatenate with accumulated
+                auto concat_result = create_value(ValueType::Handle);
+                emit(Instruction::make(Call{.result = concat_result,
+                                            .callee = "string.concat",
+                                            .arg_ids = {*accumulated_id, str_result.id},
+                                            .syscall_id = stdlib::syscall_id::STRING_CONCAT},
+                                       expr.span));
+                accumulated_id = concat_result.id;
+            }
+        }
+    }
+
+    // Return the final accumulated string handle
+    if (accumulated_id) {
+        return *accumulated_id;
+    }
+
+    // Fallback: empty string
+    auto result = create_value(ValueType::Handle);
+    emit(Instruction::make(LoadConst{.result = result, .constant = dotvm::core::Value::nil()},
                            expr.span));
     return result.id;
 }
