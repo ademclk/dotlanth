@@ -1,13 +1,13 @@
 /// @file vector_types_test.cpp
 /// @brief Unit tests for SIMD vector types
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <numeric>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/core/simd/vector_types.hpp"
 
@@ -68,28 +68,28 @@ TEST_F(VectorStaticAssertionsTest, SizeRequirements) {
 
 TEST_F(VectorStaticAssertionsTest, LaneCountRequirements) {
     // 128-bit lane counts
-    EXPECT_EQ(Vector128i8::kLaneCount, 16u);
-    EXPECT_EQ(Vector128i16::kLaneCount, 8u);
-    EXPECT_EQ(Vector128i32::kLaneCount, 4u);
-    EXPECT_EQ(Vector128i64::kLaneCount, 2u);
-    EXPECT_EQ(Vector128f32::kLaneCount, 4u);
-    EXPECT_EQ(Vector128f64::kLaneCount, 2u);
+    EXPECT_EQ(Vector128i8::LANE_COUNT, 16u);
+    EXPECT_EQ(Vector128i16::LANE_COUNT, 8u);
+    EXPECT_EQ(Vector128i32::LANE_COUNT, 4u);
+    EXPECT_EQ(Vector128i64::LANE_COUNT, 2u);
+    EXPECT_EQ(Vector128f32::LANE_COUNT, 4u);
+    EXPECT_EQ(Vector128f64::LANE_COUNT, 2u);
 
     // 256-bit lane counts
-    EXPECT_EQ(Vector256i8::kLaneCount, 32u);
-    EXPECT_EQ(Vector256i16::kLaneCount, 16u);
-    EXPECT_EQ(Vector256i32::kLaneCount, 8u);
-    EXPECT_EQ(Vector256i64::kLaneCount, 4u);
-    EXPECT_EQ(Vector256f32::kLaneCount, 8u);
-    EXPECT_EQ(Vector256f64::kLaneCount, 4u);
+    EXPECT_EQ(Vector256i8::LANE_COUNT, 32u);
+    EXPECT_EQ(Vector256i16::LANE_COUNT, 16u);
+    EXPECT_EQ(Vector256i32::LANE_COUNT, 8u);
+    EXPECT_EQ(Vector256i64::LANE_COUNT, 4u);
+    EXPECT_EQ(Vector256f32::LANE_COUNT, 8u);
+    EXPECT_EQ(Vector256f64::LANE_COUNT, 4u);
 
     // 512-bit lane counts
-    EXPECT_EQ(Vector512i8::kLaneCount, 64u);
-    EXPECT_EQ(Vector512i16::kLaneCount, 32u);
-    EXPECT_EQ(Vector512i32::kLaneCount, 16u);
-    EXPECT_EQ(Vector512i64::kLaneCount, 8u);
-    EXPECT_EQ(Vector512f32::kLaneCount, 16u);
-    EXPECT_EQ(Vector512f64::kLaneCount, 8u);
+    EXPECT_EQ(Vector512i8::LANE_COUNT, 64u);
+    EXPECT_EQ(Vector512i16::LANE_COUNT, 32u);
+    EXPECT_EQ(Vector512i32::LANE_COUNT, 16u);
+    EXPECT_EQ(Vector512i64::LANE_COUNT, 8u);
+    EXPECT_EQ(Vector512f32::LANE_COUNT, 16u);
+    EXPECT_EQ(Vector512f64::LANE_COUNT, 8u);
 }
 
 // ============================================================================
@@ -277,13 +277,13 @@ TEST_F(VectorSizeTest, MaxSize_SameAsSize) {
 }
 
 TEST_F(VectorSizeTest, StaticConstants_AreCorrect) {
-    EXPECT_EQ(Vector128i32::kWidthBits, 128u);
-    EXPECT_EQ(Vector128i32::kWidthBytes, 16u);
-    EXPECT_EQ(Vector128i32::kLaneSize, 4u);
+    EXPECT_EQ(Vector128i32::WIDTH_BITS, 128u);
+    EXPECT_EQ(Vector128i32::WIDTH_BYTES, 16u);
+    EXPECT_EQ(Vector128i32::LANE_SIZE, 4u);
 
-    EXPECT_EQ(Vector512f64::kWidthBits, 512u);
-    EXPECT_EQ(Vector512f64::kWidthBytes, 64u);
-    EXPECT_EQ(Vector512f64::kLaneSize, 8u);
+    EXPECT_EQ(Vector512f64::WIDTH_BITS, 512u);
+    EXPECT_EQ(Vector512f64::WIDTH_BYTES, 64u);
+    EXPECT_EQ(Vector512f64::LANE_SIZE, 8u);
 }
 
 // ============================================================================
@@ -548,10 +548,10 @@ TEST_F(VectorConstexprTest, ConstexprOnes_Works) {
 }
 
 TEST_F(VectorConstexprTest, ConstexprStaticValues_Work) {
-    static_assert(Vector128i32::kWidthBits == 128);
-    static_assert(Vector128i32::kWidthBytes == 16);
-    static_assert(Vector128i32::kLaneCount == 4);
-    static_assert(Vector128i32::kLaneSize == 4);
+    static_assert(Vector128i32::WIDTH_BITS == 128);
+    static_assert(Vector128i32::WIDTH_BYTES == 16);
+    static_assert(Vector128i32::LANE_COUNT == 4);
+    static_assert(Vector128i32::LANE_SIZE == 4);
 }
 
 TEST_F(VectorConstexprTest, ConstexprComparison_Works) {
@@ -585,12 +585,8 @@ TEST_F(VectorEdgeCasesTest, NegativeIntegers_WorkCorrectly) {
 }
 
 TEST_F(VectorEdgeCasesTest, MaxMinValues_WorkCorrectly) {
-    Vector128i32 v{
-        std::numeric_limits<std::int32_t>::min(),
-        std::numeric_limits<std::int32_t>::max(),
-        0,
-        -1
-    };
+    Vector128i32 v{std::numeric_limits<std::int32_t>::min(),
+                   std::numeric_limits<std::int32_t>::max(), 0, -1};
 
     EXPECT_EQ(v[0], std::numeric_limits<std::int32_t>::min());
     EXPECT_EQ(v[1], std::numeric_limits<std::int32_t>::max());
@@ -599,12 +595,8 @@ TEST_F(VectorEdgeCasesTest, MaxMinValues_WorkCorrectly) {
 }
 
 TEST_F(VectorEdgeCasesTest, FloatingPointSpecialValues_WorkCorrectly) {
-    Vector128f32 v{
-        0.0f,
-        -0.0f,
-        std::numeric_limits<float>::infinity(),
-        -std::numeric_limits<float>::infinity()
-    };
+    Vector128f32 v{0.0f, -0.0f, std::numeric_limits<float>::infinity(),
+                   -std::numeric_limits<float>::infinity()};
 
     EXPECT_EQ(v[0], 0.0f);
     EXPECT_EQ(v[2], std::numeric_limits<float>::infinity());

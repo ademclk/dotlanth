@@ -291,9 +291,8 @@ public:
     [[nodiscard]] constexpr std::int64_t as_integer() const noexcept {
         // Sign-extend from 48 bits to 64 bits
         const auto val = static_cast<std::int64_t>(bits_ & nan_box::FULL_PAYLOAD);
-        // NOLINTNEXTLINE(readability-identifier-naming)
-        constexpr std::int64_t kSignBit = 1LL << 47;
-        return (val ^ kSignBit) - kSignBit;
+        constexpr std::int64_t SIGN_BIT_48 = 1LL << 47;
+        return (val ^ SIGN_BIT_48) - SIGN_BIT_48;
     }
 
     /// Get the boolean value

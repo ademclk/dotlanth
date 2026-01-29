@@ -214,12 +214,10 @@ public:
     // ========================================================================
 
     /// Number of registers
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    static constexpr std::size_t kRegisterCount = VECTOR_REGISTER_COUNT;
+    static constexpr std::size_t REGISTER_COUNT = VECTOR_REGISTER_COUNT;
 
     /// Index of the zero register
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    static constexpr std::uint8_t kZeroRegister = VREG_ZERO;
+    static constexpr std::uint8_t ZERO_REGISTER = VREG_ZERO;
 
     // ========================================================================
     // Constructors
@@ -242,7 +240,7 @@ public:
     /// @return Reference to the register (zero register for V0)
     [[nodiscard]] const VectorRegister& read(std::uint8_t idx) const noexcept {
         if (idx == VREG_ZERO) [[unlikely]] {
-            return kZeroReg;
+            return ZERO_REG_;
         }
         return regs_[idx];
     }
@@ -469,7 +467,10 @@ public:
         }
 
     private:
-        VectorRegisterFile& rf_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        /// Reference to parent VectorRegisterFile. Must be a reference since proxies are non-owning
+        /// views.
+        VectorRegisterFile&
+            rf_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members): Proxy pattern
         std::uint8_t idx_;
     };
 
@@ -495,7 +496,7 @@ public:
     }
 
     /// Get the number of registers
-    [[nodiscard]] static constexpr std::size_t size() noexcept { return kRegisterCount; }
+    [[nodiscard]] static constexpr std::size_t size() noexcept { return REGISTER_COUNT; }
 
     /// Get the byte size of the register file
     [[nodiscard]] static constexpr std::size_t byte_size() noexcept {
@@ -513,8 +514,7 @@ private:
     std::array<VectorRegister, VECTOR_REGISTER_COUNT> regs_;
 
     /// Pre-initialized zero register for V0 reads
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    static inline const VectorRegister kZeroReg{};
+    static inline const VectorRegister ZERO_REG_{};
 };
 
 // Static assertions for VectorRegisterFile

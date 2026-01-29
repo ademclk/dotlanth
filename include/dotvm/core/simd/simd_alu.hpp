@@ -244,7 +244,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vadd(const Vector<Width, Lane>& a,
                                        const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         // Use unsigned arithmetic for defined wrapping behavior on overflow
         if constexpr (std::is_signed_v<Lane> && std::is_integral_v<Lane>) {
             using ULane = std::make_unsigned_t<Lane>;
@@ -262,7 +262,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vsub(const Vector<Width, Lane>& a,
                                        const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         // Use unsigned arithmetic for defined wrapping behavior on overflow
         if constexpr (std::is_signed_v<Lane> && std::is_integral_v<Lane>) {
             using ULane = std::make_unsigned_t<Lane>;
@@ -280,7 +280,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vmul(const Vector<Width, Lane>& a,
                                        const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         // Use unsigned arithmetic for defined wrapping behavior on overflow
         if constexpr (std::is_signed_v<Lane> && std::is_integral_v<Lane>) {
             using ULane = std::make_unsigned_t<Lane>;
@@ -298,7 +298,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vdiv(const Vector<Width, Lane>& a,
                                        const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         if constexpr (std::is_floating_point_v<Lane>) {
             result[i] = a[i] / b[i];  // IEEE semantics for div by zero
         } else {
@@ -312,7 +312,7 @@ template <std::size_t Width, LaneType Lane>
 template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Lane vdot(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b) noexcept {
     Lane sum{0};
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         sum = static_cast<Lane>(sum + (a[i] * b[i]));
     }
     return sum;
@@ -323,7 +323,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vfma(const Vector<Width, Lane>& a, const Vector<Width, Lane>& b,
                                        const Vector<Width, Lane>& c) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         if constexpr (std::is_floating_point_v<Lane>) {
             result[i] = std::fma(a[i], b[i], c[i]);
         } else {
@@ -338,7 +338,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vmin(const Vector<Width, Lane>& a,
                                        const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         if constexpr (std::is_floating_point_v<Lane>) {
             result[i] = std::fmin(a[i], b[i]);
         } else {
@@ -353,7 +353,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vmax(const Vector<Width, Lane>& a,
                                        const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         if constexpr (std::is_floating_point_v<Lane>) {
             result[i] = std::fmax(a[i], b[i]);
         } else {
@@ -368,7 +368,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vcmpeq(const Vector<Width, Lane>& a,
                                          const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         if constexpr (std::is_floating_point_v<Lane>) {
             if (a[i] == b[i]) {
                 if constexpr (std::is_same_v<Lane, float>) {
@@ -393,7 +393,7 @@ template <std::size_t Width, LaneType Lane>
 [[nodiscard]] Vector<Width, Lane> vcmplt(const Vector<Width, Lane>& a,
                                          const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         if constexpr (std::is_floating_point_v<Lane>) {
             if (a[i] < b[i]) {
                 if constexpr (std::is_same_v<Lane, float>) {
@@ -419,7 +419,7 @@ template <std::size_t Width, LaneType Lane>
                                          const Vector<Width, Lane>& a,
                                          const Vector<Width, Lane>& b) noexcept {
     Vector<Width, Lane> result;
-    for (std::size_t i = 0; i < Vector<Width, Lane>::kLaneCount; ++i) {
+    for (std::size_t i = 0; i < Vector<Width, Lane>::LANE_COUNT; ++i) {
         if constexpr (std::is_floating_point_v<Lane>) {
             if constexpr (std::is_same_v<Lane, float>) {
                 std::uint32_t bits = 0;

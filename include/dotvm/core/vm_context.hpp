@@ -277,7 +277,11 @@ struct VmConfig {
 ///
 /// The context provides convenience methods for creating values and
 /// computing addresses that respect the configured architecture.
-// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
+///
+/// @note Padding analyzer warning is suppressed - class layout is intentional for cache line
+///       alignment and logical grouping of related members (config/regs, memory, simd, jit).
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding): Intentional layout for cache and
+// logical grouping
 class VmContext {
 public:
     /// Construct a context with the given configuration
@@ -404,11 +408,19 @@ public:
     [[nodiscard]] bool cfi_enabled() const noexcept { return cfi_.has_value(); }
 
     /// Get mutable reference to CFI context (only valid if cfi_enabled())
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    ///
+    /// @pre cfi_enabled() == true. Caller must check before calling.
+    /// @note Use cfi_opt() for safe access when CFI state is unknown.
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): Precondition documented, use cfi_opt()
+    // for safe access
     [[nodiscard]] cfi::CfiContext& cfi() noexcept { return *cfi_; }
 
     /// Get const reference to CFI context (only valid if cfi_enabled())
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    ///
+    /// @pre cfi_enabled() == true. Caller must check before calling.
+    /// @note Use cfi_opt() for safe access when CFI state is unknown.
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): Precondition documented, use cfi_opt()
+    // for safe access
     [[nodiscard]] const cfi::CfiContext& cfi() const noexcept { return *cfi_; }
 
     /// Get optional CFI context (safe access)
