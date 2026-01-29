@@ -1,3 +1,16 @@
+/// @file cfi.hpp
+/// @brief Control Flow Integrity (CFI) enforcement for the DotVM execution engine.
+///
+/// This header provides mechanisms to detect and prevent control flow hijacking
+/// attacks during VM execution. CFI validation includes:
+/// - Jump target validation (bounds and alignment checking)
+/// - Return address verification (call stack tracking)
+/// - Backward jump limiting (infinite loop detection)
+/// - Reserved opcode rejection
+///
+/// @see CfiContext for the main enforcement class
+/// @see CfiPolicy for configuration options
+
 #pragma once
 
 #include <cstddef>
@@ -10,7 +23,7 @@
 
 namespace dotvm::core::cfi {
 
-/// Types of control flow integrity violations.
+/// @brief Types of control flow integrity violations.
 enum class CfiViolation : std::uint8_t {
     /// Attempted to execute an invalid or reserved opcode.
     InvalidOpcode = 0,
@@ -37,7 +50,9 @@ enum class CfiViolation : std::uint8_t {
     IndirectJumpViolation = 7
 };
 
-/// Returns a string description of the CFI violation.
+/// @brief Returns a string description of the CFI violation.
+/// @param v The CFI violation type.
+/// @return A null-terminated string describing the violation.
 [[nodiscard]] constexpr const char* violation_name(CfiViolation v) noexcept {
     switch (v) {
         case CfiViolation::InvalidOpcode:
@@ -60,7 +75,12 @@ enum class CfiViolation : std::uint8_t {
     return "Unknown";
 }
 
-/// Configuration policy for CFI enforcement.
+/// @brief Configuration policy for CFI enforcement.
+///
+/// Controls the strictness and behavior of CFI checks. Use the factory methods
+/// to create common configurations:
+/// - `strict()` - Maximum security with all checks enabled
+/// - `relaxed()` - Minimal checks for debugging
 struct CfiPolicy {
     /// Maximum number of backward jumps allowed before triggering violation.
     /// Helps detect infinite loops. Set to 0 to disable.
@@ -78,7 +98,8 @@ struct CfiPolicy {
     /// Whether to track and validate indirect jumps.
     bool validate_indirect_jumps = true;
 
-    /// Creates a strict policy with all checks enabled.
+    /// @brief Creates a strict policy with all checks enabled.
+    /// @return A CfiPolicy with conservative limits and all validation enabled.
     [[nodiscard]] static constexpr CfiPolicy strict() noexcept {
         return CfiPolicy{.max_backward_jumps = 5000,
                          .max_call_depth = 512,
@@ -87,7 +108,8 @@ struct CfiPolicy {
                          .validate_indirect_jumps = true};
     }
 
-    /// Creates a relaxed policy for debugging.
+    /// @brief Creates a relaxed policy for debugging.
+    /// @return A CfiPolicy with permissive limits for debugging scenarios.
     [[nodiscard]] static constexpr CfiPolicy relaxed() noexcept {
         return CfiPolicy{.max_backward_jumps = 0,  // Disabled
                          .max_call_depth = 4096,
@@ -100,7 +122,7 @@ struct CfiPolicy {
     constexpr bool operator==(const CfiPolicy&) const noexcept = default;
 };
 
-/// Instruction alignment requirement (4 bytes).
+/// @brief Instruction alignment requirement (4 bytes).
 inline constexpr std::size_t INSTRUCTION_ALIGNMENT = 4;
 
 /// Control Flow Integrity context for tracking and validating execution.

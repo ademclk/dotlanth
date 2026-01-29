@@ -1,3 +1,23 @@
+/// @file value.hpp
+/// @brief NaN-boxed value type and arithmetic operations for the DotVM.
+///
+/// This header defines the core Value type used throughout the VM, which uses
+/// IEEE 754 NaN-boxing to efficiently store multiple types in 8 bytes:
+/// - Float: Raw IEEE 754 double (non-NaN values)
+/// - Integer: 48-bit signed integer with sign extension
+/// - Bool: Single bit in payload
+/// - Handle: 32-bit index + 16-bit generation
+/// - Nil: Special sentinel value
+/// - Pointer: 48-bit canonical x86-64 address
+///
+/// NaN-boxing exploits the fact that IEEE 754 doubles have many unused NaN
+/// representations, allowing us to store tagged values in what would otherwise
+/// be quiet NaN bit patterns.
+///
+/// @see Value for the main value class
+/// @see Handle for memory handle structure
+/// @see value_ops namespace for arithmetic operations
+
 #pragma once
 
 #include <atomic>
@@ -16,58 +36,72 @@
 namespace dotvm::core {
 
 // NaN-boxing constants
+/// @brief NaN-boxing constants for Value type encoding.
 namespace nan_box {
-/// Quiet NaN prefix - all tagged values have this prefix
+/// @brief Quiet NaN prefix - all tagged values have this prefix.
 inline constexpr std::uint64_t QNAN_PREFIX = 0x7FF8'0000'0000'0000ULL;
 
-/// Mask for extracting the type tag (bits 48-63 minus QNAN bits)
+/// @brief Mask for extracting the type tag (bits 48-63 minus QNAN bits).
 inline constexpr std::uint64_t TAG_MASK = 0x0000'FFFF'0000'0000ULL;
 
-/// Mask for 32-bit payload (used by Handle index)
+/// @brief Mask for 32-bit payload (used by Handle index).
 inline constexpr std::uint64_t PAYLOAD_MASK = 0x0000'0000'FFFF'FFFFULL;
 
-/// Mask for full 48-bit payload
+/// @brief Mask for full 48-bit payload.
 inline constexpr std::uint64_t FULL_PAYLOAD = 0x0000'FFFF'FFFF'FFFFULL;
 
-/// Type tags - stored in bits 48-51 (after QNAN_PREFIX)
+/// @brief Type tag for integer values (bits 48-51).
 inline constexpr std::uint64_t TAG_INTEGER = 0x0001ULL << 48;
+/// @brief Type tag for boolean values.
 inline constexpr std::uint64_t TAG_BOOL = 0x0002ULL << 48;
+/// @brief Type tag for handle values.
 inline constexpr std::uint64_t TAG_HANDLE = 0x0003ULL << 48;
+/// @brief Type tag for nil value.
 inline constexpr std::uint64_t TAG_NIL = 0x0004ULL << 48;
+/// @brief Type tag for pointer values.
 inline constexpr std::uint64_t TAG_POINTER = 0x0005ULL << 48;
 
-/// Full prefixes for each type (QNAN_PREFIX | TAG)
+/// @brief Full prefix for integer type (QNAN_PREFIX | TAG_INTEGER).
 inline constexpr std::uint64_t INTEGER_PREFIX = QNAN_PREFIX | TAG_INTEGER;
+/// @brief Full prefix for boolean type.
 inline constexpr std::uint64_t BOOL_PREFIX = QNAN_PREFIX | TAG_BOOL;
+/// @brief Full prefix for handle type.
 inline constexpr std::uint64_t HANDLE_PREFIX = QNAN_PREFIX | TAG_HANDLE;
+/// @brief Complete bit pattern for nil value.
 inline constexpr std::uint64_t NIL_VALUE = QNAN_PREFIX | TAG_NIL;
+/// @brief Full prefix for pointer type.
 inline constexpr std::uint64_t POINTER_PREFIX = QNAN_PREFIX | TAG_POINTER;
 
-/// Masks for type checking
+/// @brief Mask for type checking (bits 48-62).
 inline constexpr std::uint64_t TYPE_CHECK_MASK = 0x7FFF'0000'0000'0000ULL;
+/// @brief Mask for boolean type checking (includes payload bit).
 inline constexpr std::uint64_t BOOL_CHECK_MASK = 0x7FFF'FFFF'FFFF'FFFEULL;
 
-/// Mask for tag bits (bits 48-50, where type tags are encoded)
-/// Used to distinguish canonical NaN from tagged types
-inline constexpr std::uint64_t TAG_BITS_MASK = 0x0007ULL << 48;  // 0x0007'0000'0000'0000
+/// @brief Mask for tag bits (bits 48-50) used to distinguish NaN from tagged types.
+inline constexpr std::uint64_t TAG_BITS_MASK = 0x0007ULL << 48;
 
-/// Canonical quiet NaN - used when input NaN would conflict with type tags
+/// @brief Canonical quiet NaN used when input NaN would conflict with type tags.
 inline constexpr std::uint64_t CANONICAL_QNAN = QNAN_PREFIX;
 
-/// Maximum generation value that fits in NaN-boxed Handle (16 bits)
+/// @brief Maximum generation value that fits in NaN-boxed Handle (16 bits).
 inline constexpr std::uint32_t MAX_HANDLE_GENERATION = 0xFFFFU;
 
-/// Number of bits available for Handle generation in NaN-boxing
+/// @brief Number of bits available for Handle generation in NaN-boxing.
 inline constexpr std::uint32_t HANDLE_GEN_BITS = 16;
 }  // namespace nan_box
 
-/// Handle structure: 32-bit index + 32-bit generation
+/// @brief Handle structure: 32-bit index + 32-bit generation.
+///
+/// Handles provide safe references to allocated memory regions. The generation
+/// counter prevents use-after-free bugs by invalidating stale handles when
+/// memory is deallocated.
+///
 /// @note When stored in a NaN-boxed Value, only 16 bits of generation are preserved.
 ///       Use nan_box::MAX_HANDLE_GENERATION (0xFFFF) as the upper bound for generation
 ///       values that will be stored in Values.
 struct Handle {
-    std::uint32_t index;
-    std::uint32_t generation;
+    std::uint32_t index;       ///< Index into the handle table.
+    std::uint32_t generation;  ///< Generation counter for use-after-free detection.
 
     constexpr bool operator==(const Handle&) const noexcept = default;
     constexpr auto operator<=>(const Handle&) const noexcept = default;
@@ -80,17 +114,19 @@ struct Handle {
 
 static_assert(sizeof(Handle) == 8);
 
-/// Value type enumeration
+/// @brief Enumeration of value types stored in NaN-boxed Values.
 enum class ValueType : std::uint8_t {
-    Float = 0,
-    Integer = 1,
-    Bool = 2,
-    Handle = 3,
-    Nil = 4,
-    Pointer = 5
+    Float = 0,    ///< IEEE 754 double-precision floating point.
+    Integer = 1,  ///< 48-bit signed integer.
+    Bool = 2,     ///< Boolean (true/false).
+    Handle = 3,   ///< Memory handle with index and generation.
+    Nil = 4,      ///< Null/undefined value.
+    Pointer = 5   ///< Raw 48-bit pointer.
 };
 
-/// Get the string name of a ValueType
+/// @brief Gets the string name of a ValueType.
+/// @param t The value type to convert.
+/// @return A string_view containing the type name.
 [[nodiscard]] constexpr std::string_view type_name(ValueType t) noexcept {
     switch (t) {
         case ValueType::Float:
@@ -392,10 +428,16 @@ static_assert(std::atomic<Value>::is_always_lock_free, "Value should be lock-fre
 // Value Operations
 // ============================================================================
 
-/// Arithmetic and comparison operations for Values
+/// @brief Arithmetic and comparison operations for Values.
+///
+/// This namespace provides type-aware arithmetic that handles mixed-type
+/// operations sensibly:
+/// - Same types: operate directly (int+int=int, float+float=float)
+/// - Mixed numeric: promote to float
+/// - Incompatible types: return nil
 namespace value_ops {
 
-/// Add two Values
+/// @brief Adds two Values.
 /// Float + Float -> Float
 /// Int + Int -> Int
 /// Float + Int or Int + Float -> Float
@@ -415,7 +457,10 @@ namespace value_ops {
     return Value::nil();
 }
 
-/// Subtract two Values
+/// @brief Subtracts two Values.
+/// @param a Left operand.
+/// @param b Right operand.
+/// @return Result of a - b, or nil for incompatible types.
 [[nodiscard]] constexpr Value sub(Value a, Value b) noexcept {
     if (a.is_float() && b.is_float()) {
         return Value::from_float(a.as_float() - b.as_float());
@@ -429,7 +474,10 @@ namespace value_ops {
     return Value::nil();
 }
 
-/// Multiply two Values
+/// @brief Multiplies two Values.
+/// @param a Left operand.
+/// @param b Right operand.
+/// @return Result of a * b, or nil for incompatible types.
 [[nodiscard]] constexpr Value mul(Value a, Value b) noexcept {
     if (a.is_float() && b.is_float()) {
         return Value::from_float(a.as_float() * b.as_float());
@@ -443,9 +491,12 @@ namespace value_ops {
     return Value::nil();
 }
 
-/// Divide two Values
-/// @note Integer division truncates toward zero
-/// @note Division by zero returns nil (not infinity or NaN for integers)
+/// @brief Divides two Values.
+/// @param a Left operand (dividend).
+/// @param b Right operand (divisor).
+/// @return Result of a / b, or nil for incompatible types or integer divide-by-zero.
+/// @note Integer division truncates toward zero.
+/// @note Integer division by zero returns nil (not infinity or NaN).
 [[nodiscard]] constexpr Value div(Value a, Value b) noexcept {
     if (a.is_float() && b.is_float()) {
         return Value::from_float(a.as_float() / b.as_float());
@@ -462,8 +513,11 @@ namespace value_ops {
     return Value::nil();
 }
 
-/// Modulo operation for integers
-/// @note Only works on integers; returns nil for floats
+/// @brief Computes modulo for integer Values.
+/// @param a Left operand (dividend).
+/// @param b Right operand (divisor).
+/// @return Result of a % b, or nil for non-integers or divide-by-zero.
+/// @note Only works on integers; returns nil for floats.
 [[nodiscard]] constexpr Value mod(Value a, Value b) noexcept {
     if (a.is_integer() && b.is_integer()) {
         if (b.as_integer() == 0) {
@@ -474,7 +528,9 @@ namespace value_ops {
     return Value::nil();
 }
 
-/// Negate a Value
+/// @brief Negates a Value.
+/// @param a The value to negate.
+/// @return -a for numeric types, nil otherwise.
 [[nodiscard]] constexpr Value neg(Value a) noexcept {
     if (a.is_float()) {
         return Value::from_float(-a.as_float());
@@ -485,8 +541,11 @@ namespace value_ops {
     return Value::nil();
 }
 
-/// Compare two Values
-/// Returns partial_ordering because NaN comparisons are unordered
+/// @brief Compares two Values.
+/// @param a Left operand.
+/// @param b Right operand.
+/// @return Ordering relationship, or unordered for incompatible types/NaN.
+/// @note Returns partial_ordering because NaN comparisons are unordered.
 [[nodiscard]] constexpr std::partial_ordering compare(Value a, Value b) noexcept {
     // Same type comparisons
     if (a.is_float() && b.is_float()) {
@@ -506,25 +565,29 @@ namespace value_ops {
     return std::partial_ordering::unordered;
 }
 
-/// Check if a < b
+/// @brief Checks if a < b.
+/// @return true if a is strictly less than b, false otherwise.
 [[nodiscard]] constexpr bool less_than(Value a, Value b) noexcept {
     auto cmp = compare(a, b);
     return cmp == std::partial_ordering::less;
 }
 
-/// Check if a > b
+/// @brief Checks if a > b.
+/// @return true if a is strictly greater than b, false otherwise.
 [[nodiscard]] constexpr bool greater_than(Value a, Value b) noexcept {
     auto cmp = compare(a, b);
     return cmp == std::partial_ordering::greater;
 }
 
-/// Check if a <= b
+/// @brief Checks if a <= b.
+/// @return true if a is less than or equal to b, false otherwise.
 [[nodiscard]] constexpr bool less_equal(Value a, Value b) noexcept {
     auto cmp = compare(a, b);
     return cmp == std::partial_ordering::less || cmp == std::partial_ordering::equivalent;
 }
 
-/// Check if a >= b
+/// @brief Checks if a >= b.
+/// @return true if a is greater than or equal to b, false otherwise.
 [[nodiscard]] constexpr bool greater_equal(Value a, Value b) noexcept {
     auto cmp = compare(a, b);
     return cmp == std::partial_ordering::greater || cmp == std::partial_ordering::equivalent;
@@ -536,7 +599,9 @@ namespace value_ops {
 // String Representation
 // ============================================================================
 
-/// Convert a Value to a human-readable string
+/// @brief Converts a Value to a human-readable string.
+/// @param v The value to convert.
+/// @return A string representation of the value.
 [[nodiscard]] inline std::string to_string(Value v) {
     switch (v.type()) {
         case ValueType::Float:
