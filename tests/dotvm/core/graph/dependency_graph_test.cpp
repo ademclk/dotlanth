@@ -495,7 +495,8 @@ TEST(DependencyGraphTest, ConcurrentReadWrite) {
         }
     });
 
-    std::thread writer([&graph, &add_errors, node_count]() {
+    std::thread writer([&graph, &add_errors]() {
+        constexpr DotId node_count = 200;
         for (DotId id = 2; id <= node_count; ++id) {
             auto result = graph.add_edge(id, id - 1);
             if (result.is_err()) {
