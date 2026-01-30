@@ -14,10 +14,9 @@ DotScheduler::DotScheduler(SchedulerConfig config) noexcept
       graph_(DependencyGraphConfig{.detect_cycles_on_add = true,
                                    .max_nodes = std::numeric_limits<std::size_t>::max() / 2}) {}
 
-DotScheduler::Result<DotHandle> DotScheduler::submit(
-    std::span<const std::uint8_t> bytecode,
-    std::span<const DotHandle> dependencies,
-    std::int32_t priority) noexcept {
+DotScheduler::Result<DotHandle> DotScheduler::submit(std::span<const std::uint8_t> bytecode,
+                                                     std::span<const DotHandle> dependencies,
+                                                     std::int32_t priority) noexcept {
     // Validate inputs before acquiring lock
     if (bytecode.empty()) {
         return SchedulerError::InvalidBytecode;
@@ -126,8 +125,8 @@ DotScheduler::Result<DotState> DotScheduler::get_state(DotHandle handle) const n
     return dot.state;
 }
 
-DotScheduler::Result<std::span<const std::uint8_t>> DotScheduler::get_bytecode(
-    DotHandle handle) const noexcept {
+DotScheduler::Result<std::span<const std::uint8_t>>
+DotScheduler::get_bytecode(DotHandle handle) const noexcept {
     std::shared_lock lock(mutex_);
 
     if (!validate_handle_unlocked(handle)) {
@@ -479,22 +478,28 @@ void DotScheduler::update_stats_for_transition_unlocked(DotState from, DotState 
     // Decrement old state counter
     switch (from) {
         case DotState::Pending:
-            if (pending_count_ > 0) --pending_count_;
+            if (pending_count_ > 0)
+                --pending_count_;
             break;
         case DotState::Ready:
-            if (ready_count_ > 0) --ready_count_;
+            if (ready_count_ > 0)
+                --ready_count_;
             break;
         case DotState::Running:
-            if (running_count_ > 0) --running_count_;
+            if (running_count_ > 0)
+                --running_count_;
             break;
         case DotState::Done:
-            if (done_count_ > 0) --done_count_;
+            if (done_count_ > 0)
+                --done_count_;
             break;
         case DotState::Failed:
-            if (failed_count_ > 0) --failed_count_;
+            if (failed_count_ > 0)
+                --failed_count_;
             break;
         case DotState::Cancelled:
-            if (cancelled_count_ > 0) --cancelled_count_;
+            if (cancelled_count_ > 0)
+                --cancelled_count_;
             break;
     }
 

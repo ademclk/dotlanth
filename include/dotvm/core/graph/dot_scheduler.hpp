@@ -279,10 +279,9 @@ public:
     /// @param dependencies Handles of Dots that must complete first
     /// @param priority Scheduling priority (higher = more urgent)
     /// @return Handle to the submitted Dot, or error
-    [[nodiscard]] Result<DotHandle> submit(
-        std::span<const std::uint8_t> bytecode,
-        std::span<const DotHandle> dependencies = {},
-        std::int32_t priority = 0) noexcept;
+    [[nodiscard]] Result<DotHandle> submit(std::span<const std::uint8_t> bytecode,
+                                           std::span<const DotHandle> dependencies = {},
+                                           std::int32_t priority = 0) noexcept;
 
     // ========================================================================
     // State Query Operations
@@ -292,7 +291,8 @@ public:
     [[nodiscard]] Result<DotState> get_state(DotHandle handle) const noexcept;
 
     /// @brief Get the bytecode for a Dot (only valid for Running Dots)
-    [[nodiscard]] Result<std::span<const std::uint8_t>> get_bytecode(DotHandle handle) const noexcept;
+    [[nodiscard]] Result<std::span<const std::uint8_t>>
+    get_bytecode(DotHandle handle) const noexcept;
 
     // ========================================================================
     // Worker Interface
@@ -319,9 +319,8 @@ public:
 
     /// @brief Wait for a Dot with a timeout
     template <typename Rep, typename Period>
-    [[nodiscard]] Result<void> wait_for(
-        DotHandle handle,
-        const std::chrono::duration<Rep, Period>& timeout) noexcept;
+    [[nodiscard]] Result<void> wait_for(DotHandle handle,
+                                        const std::chrono::duration<Rep, Period>& timeout) noexcept;
 
     // ========================================================================
     // Cancellation
@@ -416,9 +415,9 @@ private:
 // ============================================================================
 
 template <typename Rep, typename Period>
-DotScheduler::Result<void> DotScheduler::wait_for(
-    DotHandle handle,
-    const std::chrono::duration<Rep, Period>& timeout) noexcept {
+DotScheduler::Result<void>
+DotScheduler::wait_for(DotHandle handle,
+                       const std::chrono::duration<Rep, Period>& timeout) noexcept {
     std::shared_lock lock(mutex_);
 
     if (!validate_handle_unlocked(handle)) {
@@ -446,13 +445,12 @@ DotScheduler::Result<void> DotScheduler::wait_for(
         return SchedulerError::HandleNotFound;
     }
 
-    const bool completed =
-        completion_cv_.wait_for(ulock, timeout, [this, handle]() {
-            if (!validate_handle_with_generation_unlocked(handle)) {
-                return true;  // Handle invalid or stale, stop waiting
-            }
-            return is_terminal_state(dots_[handle.index].state);
-        });
+    const bool completed = completion_cv_.wait_for(ulock, timeout, [this, handle]() {
+        if (!validate_handle_with_generation_unlocked(handle)) {
+            return true;  // Handle invalid or stale, stop waiting
+        }
+        return is_terminal_state(dots_[handle.index].state);
+    });
 
     if (!completed) {
         return SchedulerError::WaitTimeout;
@@ -506,7 +504,7 @@ template <>
 struct std::hash<dotvm::core::graph::DotHandle> {
     std::size_t operator()(const dotvm::core::graph::DotHandle& h) const noexcept {
         // Combine index and generation into a single hash
-        return std::hash<std::uint64_t>{}(
-            (static_cast<std::uint64_t>(h.generation) << 32) | h.index);
+        return std::hash<std::uint64_t>{}((static_cast<std::uint64_t>(h.generation) << 32) |
+                                          h.index);
     }
 };
