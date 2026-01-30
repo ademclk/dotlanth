@@ -207,6 +207,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/cost_model.cpp
     src/dotvm/core/state/execution_plan.cpp
     src/dotvm/core/state/query_optimizer.cpp
+    # Object Type Schema (DEP-003)
+    src/dotvm/core/schema/schema_registry.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -579,6 +581,15 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/state/execution_plan_test.cpp
         tests/dotvm/core/state/query_optimizer_test.cpp
         tests/dotvm/core/state/query_optimizer_benchmark_test.cpp
+        # Object Type Schema tests (DEP-003)
+        tests/dotvm/core/schema/schema_error_test.cpp
+        tests/dotvm/core/schema/property_type_test.cpp
+        tests/dotvm/core/schema/validator_test.cpp
+        tests/dotvm/core/schema/link_def_test.cpp
+        tests/dotvm/core/schema/object_type_test.cpp
+        tests/dotvm/core/schema/schema_registry_test.cpp
+        tests/dotvm/core/schema/migration_test.cpp
+        tests/dotvm/core/schema/supply_chain_test.cpp
     )
 
     # JIT tests (EXEC-012)
