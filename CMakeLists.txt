@@ -151,6 +151,8 @@ add_library(dotvm_core STATIC
     src/dotvm/core/resource_limiter.cpp
     # Dependency graph
     src/dotvm/core/graph/dependency_graph.cpp
+    # Dot scheduler (DEP-002)
+    src/dotvm/core/graph/dot_scheduler.cpp
     # Policy engine (SEC-009)
     src/dotvm/core/policy/json_parser.cpp
     src/dotvm/core/policy/decision_tree.cpp
@@ -538,6 +540,8 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/inspector_test.cpp
         # Dependency graph tests
         tests/dotvm/core/graph/dependency_graph_test.cpp
+        # Dot scheduler tests (DEP-002)
+        tests/dotvm/core/graph/dot_scheduler_test.cpp
         # State backend tests (STATE-001)
         tests/dotvm/core/state/state_backend_test.cpp
         # MVCC tests (STATE-002)
