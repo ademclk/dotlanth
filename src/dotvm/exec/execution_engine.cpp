@@ -38,6 +38,19 @@ void ExecutionEngine::reset() noexcept {
 ExecResult ExecutionEngine::execute(const std::uint32_t* code, std::size_t code_size,
                                     std::size_t entry_point,
                                     std::span<const core::Value> const_pool) noexcept {
+    // EXEC-012: Store bytecode as raw bytes for JIT compilation
+    bytecode_bytes_ = std::span<const std::uint8_t>(
+        reinterpret_cast<const std::uint8_t*>(code), code_size * sizeof(std::uint32_t));
+
+    // EXEC-012: Fast path - check if entry point is JIT-compiled
+    if (vm_ctx_.jit_enabled() && jit_has_compiled(entry_point)) [[unlikely]] {
+        auto result = jit_execute(entry_point);
+        if (result == ExecResult::Success) {
+            return result;  // JIT execution succeeded
+        }
+        // Fall through to interpreter on JitFallback
+    }
+
     // Extract max_instructions from VmConfig (EXEC-008)
     std::uint64_t max_instr = vm_ctx_.config().resource_limits.max_instructions;
 
@@ -115,12 +128,21 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         // =====================================================================
         case opcode::JMP: {
             auto d = core::decode_type_c(instr);
+            // EXEC-012: OSR - record iteration for backward jumps (loops)
+            if (d.offset24 < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                jit_record_iteration(exec_ctx_.pc - 1);  // backedge = current instruction
+            }
             exec_ctx_.jump_relative(d.offset24 - 1);  // -1 because pc already advanced
             return true;
         }
         case opcode::JZ: {
             auto d = core::decode_type_d(instr);
             if (regs.read(d.rs).as_integer() == 0) {
+                // EXEC-012: OSR - record iteration for backward jumps (loops)
+                auto offset = static_cast<std::int16_t>(d.offset16);
+                if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                    jit_record_iteration(exec_ctx_.pc - 1);
+                }
                 exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
             }
             return true;
@@ -128,6 +150,11 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
         case opcode::JNZ: {
             auto d = core::decode_type_d(instr);
             if (regs.read(d.rs).as_integer() != 0) {
+                // EXEC-012: OSR - record iteration for backward jumps (loops)
+                auto offset = static_cast<std::int16_t>(d.offset16);
+                if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                    jit_record_iteration(exec_ctx_.pc - 1);
+                }
                 exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
             }
             return true;
@@ -136,6 +163,10 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() == regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: OSR - record iteration for backward jumps (loops)
+                if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                    jit_record_iteration(exec_ctx_.pc - 1);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -144,6 +175,10 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() != regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: OSR - record iteration for backward jumps (loops)
+                if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                    jit_record_iteration(exec_ctx_.pc - 1);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -152,6 +187,10 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() < regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: OSR - record iteration for backward jumps (loops)
+                if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                    jit_record_iteration(exec_ctx_.pc - 1);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -160,6 +199,10 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() <= regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: OSR - record iteration for backward jumps (loops)
+                if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                    jit_record_iteration(exec_ctx_.pc - 1);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -168,6 +211,10 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() > regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: OSR - record iteration for backward jumps (loops)
+                if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                    jit_record_iteration(exec_ctx_.pc - 1);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -176,6 +223,10 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             auto d = core::decode_type_a(instr);
             if (regs.read(d.rd).as_integer() >= regs.read(d.rs1).as_integer()) {
                 auto offset = static_cast<std::int8_t>(d.rs2);
+                // EXEC-012: OSR - record iteration for backward jumps (loops)
+                if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+                    jit_record_iteration(exec_ctx_.pc - 1);
+                }
                 exec_ctx_.jump_relative(offset - 1);
             }
             return true;
@@ -204,6 +255,16 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
                     exec_ctx_.halt_with_error(ExecResult::CfiViolation);
                     return false;
                 }
+            }
+
+            // EXEC-012: JIT profiling - record call and auto-register function
+            if (vm_ctx_.jit_enabled()) [[unlikely]] {
+                // Compute target PC (relative jump from current position)
+                // Note: PC already advanced past CALL, offset is relative to pre-advance PC
+                auto target_pc = static_cast<std::size_t>(
+                    static_cast<std::int64_t>(exec_ctx_.pc) + d.offset24 - 1);
+                jit_ensure_function_registered(target_pc, target_pc + 256);
+                jit_record_call(target_pc);
             }
 
             exec_ctx_.jump_relative(d.offset24 - 1);
@@ -1201,6 +1262,10 @@ op_CMPI_GE: {
 
 op_JMP: {
     auto d = core::decode_type_c(instr);
+    // EXEC-012: OSR - record iteration for backward jumps (loops)
+    if (d.offset24 < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+        jit_record_iteration(exec_ctx_.pc - 1);
+    }
     exec_ctx_.jump_relative(d.offset24 - 1);
     DOTVM_NEXT();
 }
@@ -1208,6 +1273,11 @@ op_JMP: {
 op_JZ: {
     auto d = core::decode_type_d(instr);
     if (regs.read(d.rs).as_integer() == 0) {
+        // EXEC-012: OSR - record iteration for backward jumps (loops)
+        auto offset = static_cast<std::int16_t>(d.offset16);
+        if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+            jit_record_iteration(exec_ctx_.pc - 1);
+        }
         exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
     }
     DOTVM_NEXT();
@@ -1216,6 +1286,11 @@ op_JZ: {
 op_JNZ: {
     auto d = core::decode_type_d(instr);
     if (regs.read(d.rs).as_integer() != 0) {
+        // EXEC-012: OSR - record iteration for backward jumps (loops)
+        auto offset = static_cast<std::int16_t>(d.offset16);
+        if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+            jit_record_iteration(exec_ctx_.pc - 1);
+        }
         exec_ctx_.jump_relative(static_cast<std::int32_t>(d.offset16) - 1);
     }
     DOTVM_NEXT();
@@ -1225,6 +1300,10 @@ op_BEQ: {
     auto d = core::decode_type_a(instr);
     if (regs.read(d.rd).as_integer() == regs.read(d.rs1).as_integer()) {
         auto offset = static_cast<std::int8_t>(d.rs2);
+        // EXEC-012: OSR - record iteration for backward jumps (loops)
+        if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+            jit_record_iteration(exec_ctx_.pc - 1);
+        }
         exec_ctx_.jump_relative(offset - 1);
     }
     DOTVM_NEXT();
@@ -1234,6 +1313,10 @@ op_BNE: {
     auto d = core::decode_type_a(instr);
     if (regs.read(d.rd).as_integer() != regs.read(d.rs1).as_integer()) {
         auto offset = static_cast<std::int8_t>(d.rs2);
+        // EXEC-012: OSR - record iteration for backward jumps (loops)
+        if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+            jit_record_iteration(exec_ctx_.pc - 1);
+        }
         exec_ctx_.jump_relative(offset - 1);
     }
     DOTVM_NEXT();
@@ -1243,6 +1326,10 @@ op_BLT: {
     auto d = core::decode_type_a(instr);
     if (regs.read(d.rd).as_integer() < regs.read(d.rs1).as_integer()) {
         auto offset = static_cast<std::int8_t>(d.rs2);
+        // EXEC-012: OSR - record iteration for backward jumps (loops)
+        if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+            jit_record_iteration(exec_ctx_.pc - 1);
+        }
         exec_ctx_.jump_relative(offset - 1);
     }
     DOTVM_NEXT();
@@ -1252,6 +1339,10 @@ op_BLE: {
     auto d = core::decode_type_a(instr);
     if (regs.read(d.rd).as_integer() <= regs.read(d.rs1).as_integer()) {
         auto offset = static_cast<std::int8_t>(d.rs2);
+        // EXEC-012: OSR - record iteration for backward jumps (loops)
+        if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+            jit_record_iteration(exec_ctx_.pc - 1);
+        }
         exec_ctx_.jump_relative(offset - 1);
     }
     DOTVM_NEXT();
@@ -1261,6 +1352,10 @@ op_BGT: {
     auto d = core::decode_type_a(instr);
     if (regs.read(d.rd).as_integer() > regs.read(d.rs1).as_integer()) {
         auto offset = static_cast<std::int8_t>(d.rs2);
+        // EXEC-012: OSR - record iteration for backward jumps (loops)
+        if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+            jit_record_iteration(exec_ctx_.pc - 1);
+        }
         exec_ctx_.jump_relative(offset - 1);
     }
     DOTVM_NEXT();
@@ -1270,6 +1365,10 @@ op_BGE: {
     auto d = core::decode_type_a(instr);
     if (regs.read(d.rd).as_integer() >= regs.read(d.rs1).as_integer()) {
         auto offset = static_cast<std::int8_t>(d.rs2);
+        // EXEC-012: OSR - record iteration for backward jumps (loops)
+        if (offset < 0 && vm_ctx_.jit_enabled()) [[unlikely]] {
+            jit_record_iteration(exec_ctx_.pc - 1);
+        }
         exec_ctx_.jump_relative(offset - 1);
     }
     DOTVM_NEXT();
@@ -1297,6 +1396,15 @@ op_CALL: {
             (void)vm_ctx_.call_stack().pop();
             DOTVM_RETURN_ERROR(ExecResult::CfiViolation);
         }
+    }
+
+    // EXEC-012: JIT profiling - record call and auto-register function
+    if (vm_ctx_.jit_enabled()) [[unlikely]] {
+        // Compute target PC (relative jump from current position)
+        auto target_pc = static_cast<std::size_t>(
+            static_cast<std::int64_t>(exec_ctx_.pc) + d.offset24 - 1);
+        jit_ensure_function_registered(target_pc, target_pc + 256);
+        jit_record_call(target_pc);
     }
 
     exec_ctx_.jump_relative(d.offset24 - 1);
@@ -2255,6 +2363,22 @@ void ExecutionEngine::jit_try_compile(std::size_t entry_pc) noexcept {
 
     // Try to compile
     (void)jit->compile_function(*func_id_opt, bytecode_bytes_);
+}
+
+void ExecutionEngine::jit_ensure_function_registered(std::size_t entry_pc,
+                                                      std::size_t estimated_end_pc) noexcept {
+    auto* jit = vm_ctx_.jit_context();
+    if (!jit) [[unlikely]] {
+        return;
+    }
+
+    // Fast path: check if already registered
+    if (jit->find_function(entry_pc).has_value()) {
+        return;  // Already registered
+    }
+
+    // Slow path: register the function
+    (void)jit->register_function(entry_pc, estimated_end_pc);
 }
 
 }  // namespace dotvm::exec
