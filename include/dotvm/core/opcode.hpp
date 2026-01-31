@@ -400,6 +400,19 @@ inline constexpr std::uint8_t CRYPTO_RESERVED_START = 0xBA;
 inline constexpr std::uint8_t CRYPTO_RESERVED_END = 0xBF;
 
 // ============================================================================
+// SIMD/ParaDot Operations (0xC0-0xCF)
+// ============================================================================
+
+/// VADD: V[vd] = V[vs1] + V[vs2]
+inline constexpr std::uint8_t VADD = 0xC0;
+
+/// VSUB: V[vd] = V[vs1] - V[vs2]
+inline constexpr std::uint8_t VSUB = 0xC1;
+
+/// VMUL: V[vd] = V[vs1] * V[vs2]
+inline constexpr std::uint8_t VMUL = 0xC2;
+
+// ============================================================================
 // System opcodes (0xF0-0xFF) - Essential for execution
 // ============================================================================
 
@@ -531,6 +544,11 @@ inline constexpr std::uint8_t SYSCALL = 0xFE;
 ///           VERIFY_ED25519, ENCRYPT_AES256, DECRYPT_AES256
 [[nodiscard]] constexpr bool is_crypto_op(std::uint8_t op) noexcept {
     return op >= opcode::HASH_SHA256 && op <= opcode::CRYPTO_RESERVED_END;
+}
+
+/// Check if opcode is a SIMD operation (0xC0-0xCF)
+[[nodiscard]] constexpr bool is_simd_op(std::uint8_t op) noexcept {
+    return op >= opcode::VADD && op <= 0xCF;
 }
 
 /// Check if opcode is a hash operation (0xB0-0xB2)

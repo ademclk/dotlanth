@@ -12,6 +12,7 @@
 #include <dotvm/core/exception_types.hpp>
 #include <dotvm/core/instruction.hpp>
 #include <dotvm/core/opcode.hpp>
+#include <dotvm/core/simd/simd_opcodes.hpp>
 #include <dotvm/core/value.hpp>
 #include <dotvm/exec/execution_engine.hpp>
 #include <dotvm/exec/opcode_handlers.hpp>
@@ -731,6 +732,51 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             }
             return true;
         }
+        // =====================================================================
+        // SIMD/ParaDot Operations (0xC0-0xCF)
+        // =====================================================================
+        case opcode::VADD: {
+            if (!vm_ctx_.simd_enabled()) [[unlikely]] {
+                exec_ctx_.halt_with_error(ExecResult::InvalidOpcode);
+                return false;
+            }
+            auto inst = core::simd::SimdInstruction::decode(instr);
+            // Only i32 lane type supported in this implementation
+            if (inst.element_size != core::simd::ElementSize::Int32) [[unlikely]] {
+                exec_ctx_.halt_with_error(ExecResult::InvalidOpcode);
+                return false;
+            }
+            vm_ctx_.simd_alu()->vadd_i32(vm_ctx_.vec_registers(), inst.vd, inst.vs1, inst.vs2);
+            return true;
+        }
+        case opcode::VSUB: {
+            if (!vm_ctx_.simd_enabled()) [[unlikely]] {
+                exec_ctx_.halt_with_error(ExecResult::InvalidOpcode);
+                return false;
+            }
+            auto inst = core::simd::SimdInstruction::decode(instr);
+            // Only i32 lane type supported in this implementation
+            if (inst.element_size != core::simd::ElementSize::Int32) [[unlikely]] {
+                exec_ctx_.halt_with_error(ExecResult::InvalidOpcode);
+                return false;
+            }
+            vm_ctx_.simd_alu()->vsub_i32(vm_ctx_.vec_registers(), inst.vd, inst.vs1, inst.vs2);
+            return true;
+        }
+        case opcode::VMUL: {
+            if (!vm_ctx_.simd_enabled()) [[unlikely]] {
+                exec_ctx_.halt_with_error(ExecResult::InvalidOpcode);
+                return false;
+            }
+            auto inst = core::simd::SimdInstruction::decode(instr);
+            // Only i32 lane type supported in this implementation
+            if (inst.element_size != core::simd::ElementSize::Int32) [[unlikely]] {
+                exec_ctx_.halt_with_error(ExecResult::InvalidOpcode);
+                return false;
+            }
+            vm_ctx_.simd_alu()->vmul_i32(vm_ctx_.vec_registers(), inst.vd, inst.vs1, inst.vs2);
+            return true;
+        }
 
         default: {
             // Check for reserved opcodes
@@ -775,6 +821,8 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         // State Opcodes (0xA0-0xAF) - STATE-004
         op_STATE_GET, op_STATE_EXISTS, op_TX_BEGIN, op_TX_COMMIT, op_TX_ROLLBACK, op_STATE_PUT,
         op_STATE_DELETE,
+        // SIMD/ParaDot Operations (0xC0-0xCF)
+        op_VADD, op_VSUB, op_VMUL,
         // System (0xF0-0xFF)
         op_NOP, op_BREAK, op_DEBUG, op_SYSCALL,
         // Error handlers
@@ -895,6 +943,11 @@ ExecResult ExecutionEngine::dispatch_loop() noexcept {
         dispatch_table[core::opcode::TX_ROLLBACK] = &&op_TX_ROLLBACK;
         dispatch_table[core::opcode::STATE_PUT] = &&op_STATE_PUT;
         dispatch_table[core::opcode::STATE_DELETE] = &&op_STATE_DELETE;
+
+        // SIMD handlers (0xC0-0xCF)
+        dispatch_table[opcode::VADD] = &&op_VADD;
+        dispatch_table[opcode::VSUB] = &&op_VSUB;
+        dispatch_table[opcode::VMUL] = &&op_VMUL;
 
         // Mark reserved ranges
         for (std::size_t i = 0x90; i <= 0x9F; ++i) {
@@ -1823,6 +1876,49 @@ op_STATE_DELETE: {
     } else [[unlikely]] {
         DOTVM_RETURN_ERROR(to_exec_result(result));
     }
+    DOTVM_NEXT();
+}
+
+    // =========================================================================
+    // SIMD/ParaDot HANDLERS (0xC0-0xCF)
+    // =========================================================================
+
+op_VADD: {
+    if (!vm_ctx_.simd_enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::InvalidOpcode);
+    }
+    auto inst = core::simd::SimdInstruction::decode(instr);
+    // Only i32 lane type supported in this implementation
+    if (inst.element_size != core::simd::ElementSize::Int32) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::InvalidOpcode);
+    }
+    vm_ctx_.simd_alu()->vadd_i32(vm_ctx_.vec_registers(), inst.vd, inst.vs1, inst.vs2);
+    DOTVM_NEXT();
+}
+
+op_VSUB: {
+    if (!vm_ctx_.simd_enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::InvalidOpcode);
+    }
+    auto inst = core::simd::SimdInstruction::decode(instr);
+    // Only i32 lane type supported in this implementation
+    if (inst.element_size != core::simd::ElementSize::Int32) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::InvalidOpcode);
+    }
+    vm_ctx_.simd_alu()->vsub_i32(vm_ctx_.vec_registers(), inst.vd, inst.vs1, inst.vs2);
+    DOTVM_NEXT();
+}
+
+op_VMUL: {
+    if (!vm_ctx_.simd_enabled()) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::InvalidOpcode);
+    }
+    auto inst = core::simd::SimdInstruction::decode(instr);
+    // Only i32 lane type supported in this implementation
+    if (inst.element_size != core::simd::ElementSize::Int32) [[unlikely]] {
+        DOTVM_RETURN_ERROR(ExecResult::InvalidOpcode);
+    }
+    vm_ctx_.simd_alu()->vmul_i32(vm_ctx_.vec_registers(), inst.vd, inst.vs1, inst.vs2);
     DOTVM_NEXT();
 }
 

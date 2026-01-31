@@ -41,8 +41,7 @@ namespace dotvm::core::security {
 /// - 0xA0-0xA7: STATE_GET (Execute + ReadState)
 /// - 0xA8-0xAF: STATE_PUT (Execute + WriteState)
 /// - 0xB0-0xBF: Crypto (Execute + Crypto)
-/// - 0xC0-0xC3: SPAWN (Execute + SpawnDot)
-/// - 0xC4-0xCF: SEND/RECV (Execute + SendMessage)
+/// - 0xC0-0xCF: SIMD (Execute only)
 /// - 0xD0-0xEF: Reserved (None - always denied)
 /// - 0xF0: NOP (Execute only)
 /// - 0xF1: BREAK (Execute only)
@@ -135,16 +134,10 @@ inline constexpr std::array<Permission, 256> opcode_permission_table = [] {
     }
 
     // ========================================================================
-    // ParaDot opcodes (0xC0-0xCF)
+    // SIMD opcodes (0xC0-0xCF): Execute only
     // ========================================================================
-    // SPAWN (0xC0-0xC3): Require SpawnDot
-    for (std::size_t i = 0xC0; i <= 0xC3; ++i) {
-        table[i] = Permission::Execute | Permission::SpawnDot;
-    }
-
-    // SEND/RECV (0xC4-0xCF): Require SendMessage
-    for (std::size_t i = 0xC4; i <= 0xCF; ++i) {
-        table[i] = Permission::Execute | Permission::SendMessage;
+    for (std::size_t i = 0xC0; i <= 0xCF; ++i) {
+        table[i] = Permission::Execute;
     }
 
     // ========================================================================
@@ -322,10 +315,8 @@ check_opcode_permission(std::uint8_t opcode, SecurityContext& ctx,
         return "StatePut";
     if (opcode <= 0xBF)
         return "Crypto";
-    if (opcode <= 0xC3)
-        return "Spawn";
     if (opcode <= 0xCF)
-        return "Message";
+        return "SIMD";
     if (opcode <= 0xEF)
         return "Reserved";
     if (opcode == 0xF0)

@@ -187,28 +187,15 @@ TEST(OpcodePermissionTest, CryptoOpcodesRequireCrypto) {
 }
 
 // ============================================================================
-// SPAWN Opcodes (0xC0-0xC3) - Execute + SpawnDot
+// SIMD Opcodes (0xC0-0xCF) - Execute only
 // ============================================================================
 
-TEST(OpcodePermissionTest, SpawnOpcodesRequireSpawnDot) {
-    const Permission expected = Permission::Execute | Permission::SpawnDot;
-    for (std::uint8_t opcode = 0xC0; opcode <= 0xC3; ++opcode) {
+TEST(OpcodePermissionTest, SimdOpcodesRequireExecuteOnly) {
+    const Permission expected = Permission::Execute;
+    for (std::uint8_t opcode = 0xC0; opcode <= 0xCF; ++opcode) {
         Permission required = get_required_permission(opcode);
         EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-                                      << " should require Execute + SpawnDot";
-    }
-}
-
-// ============================================================================
-// SEND/RECV Opcodes (0xC4-0xCF) - Execute + SendMessage
-// ============================================================================
-
-TEST(OpcodePermissionTest, MessageOpcodesRequireSendMessage) {
-    const Permission expected = Permission::Execute | Permission::SendMessage;
-    for (std::uint8_t opcode = 0xC4; opcode <= 0xCF; ++opcode) {
-        Permission required = get_required_permission(opcode);
-        EXPECT_EQ(required, expected) << "Opcode 0x" << std::hex << static_cast<int>(opcode)
-                                      << " should require Execute + SendMessage";
+                                      << " should require Execute only";
     }
 }
 
@@ -419,10 +406,10 @@ TEST(OpcodeCategoryTest, CategoriesAreCorrect) {
     EXPECT_EQ(get_opcode_category(0xAF), "StatePut");
     EXPECT_EQ(get_opcode_category(0xB0), "Crypto");
     EXPECT_EQ(get_opcode_category(0xBF), "Crypto");
-    EXPECT_EQ(get_opcode_category(0xC0), "Spawn");
-    EXPECT_EQ(get_opcode_category(0xC3), "Spawn");
-    EXPECT_EQ(get_opcode_category(0xC4), "Message");
-    EXPECT_EQ(get_opcode_category(0xCF), "Message");
+    EXPECT_EQ(get_opcode_category(0xC0), "SIMD");
+    EXPECT_EQ(get_opcode_category(0xC3), "SIMD");
+    EXPECT_EQ(get_opcode_category(0xC4), "SIMD");
+    EXPECT_EQ(get_opcode_category(0xCF), "SIMD");
     EXPECT_EQ(get_opcode_category(0xD0), "Reserved");
     EXPECT_EQ(get_opcode_category(0xEF), "Reserved");
     EXPECT_EQ(get_opcode_category(0xF0), "NOP");
