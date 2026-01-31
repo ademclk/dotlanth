@@ -292,6 +292,16 @@ private:
     /// @param entry_pc PC of function entry
     void jit_try_compile(std::size_t entry_pc) noexcept;
 
+    /// Ensure a function is registered for JIT profiling
+    ///
+    /// Called from CALL handler to auto-register functions on first call.
+    /// Fast-paths when function is already registered.
+    ///
+    /// @param entry_pc PC of function entry
+    /// @param estimated_end_pc Conservative estimate of function end
+    void jit_ensure_function_registered(std::size_t entry_pc,
+                                        std::size_t estimated_end_pc) noexcept;
+
     /// Bytecode as raw bytes for JIT compilation
     std::span<const std::uint8_t> bytecode_bytes_;
 };

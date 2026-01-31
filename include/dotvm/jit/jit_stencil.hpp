@@ -117,50 +117,52 @@ struct Stencil {
 ///       and assembly mnemonics, rather than CamelCase project convention.
 // NOLINTBEGIN(readability-identifier-naming): SCREAMING_CASE matches bytecode spec/asm mnemonics
 enum class JitOpcode : std::uint8_t {
-    // Arithmetic
-    ADD = 0x01,
-    SUB = 0x02,
-    MUL = 0x03,
-    DIV = 0x04,
-    MOD = 0x05,
+    // Arithmetic (0x00-0x04) - matches core::opcode
+    ADD = 0x00,
+    SUB = 0x01,
+    MUL = 0x02,
+    DIV = 0x03,
+    MOD = 0x04,
 
-    // Bitwise
-    AND = 0x10,
-    OR = 0x11,
-    XOR = 0x12,
-    NOT = 0x13,
-    SHL = 0x14,
-    SHR = 0x15,
-    SAR = 0x16,  // Arithmetic shift right
+    // Bitwise (0x20-0x26) - matches core::opcode
+    AND = 0x20,
+    OR = 0x21,
+    XOR = 0x22,
+    NOT = 0x23,
+    SHL = 0x24,
+    SHR = 0x25,
+    SAR = 0x26,  // Arithmetic shift right
 
-    // Comparison
-    CMP_EQ = 0x20,
-    CMP_NE = 0x21,
-    CMP_LT = 0x22,
-    CMP_LE = 0x23,
-    CMP_GT = 0x24,
-    CMP_GE = 0x25,
+    // Comparison (0x30-0x35) - matches core::opcode EQ/NE/LT/LE/GT/GE
+    CMP_EQ = 0x30,
+    CMP_NE = 0x31,
+    CMP_LT = 0x32,
+    CMP_LE = 0x33,
+    CMP_GT = 0x34,
+    CMP_GE = 0x35,
 
-    // Control flow
-    JMP = 0x30,
-    JMP_Z = 0x31,   // Jump if zero
-    JMP_NZ = 0x32,  // Jump if not zero
+    // Control flow (0x40-0x42) - matches core::opcode JMP/JZ/JNZ
+    JMP = 0x40,
+    JMP_Z = 0x41,   // Jump if zero (core::opcode::JZ)
+    JMP_NZ = 0x42,  // Jump if not zero (core::opcode::JNZ)
 
-    // Load/Store (memory)
-    LOAD = 0x40,
-    STORE = 0x41,
-    LOAD_IMM = 0x42,
+    // Function calls (0x50-0x51) - matches core::opcode
+    CALL = 0x50,
+    RET = 0x51,
 
-    // Register moves
-    MOV = 0x50,
+    // Control flow special
+    HALT = 0x5F,  // matches core::opcode::HALT
 
-    // Function calls
-    CALL = 0x60,
-    RET = 0x61,
+    // Load/Store (0x63/0x67) - matches core::opcode LOAD64/STORE64
+    LOAD = 0x63,
+    STORE = 0x67,
 
-    // Special
-    NOP = 0x00,
-    HALT = 0xFF,
+    // JIT-only opcodes (0xFE-0xFF) - no core::opcode equivalents
+    LOAD_IMM = 0xFE,  // Load immediate value (JIT internal)
+    MOV = 0xFF,       // Register move (JIT internal, can emulate via ADD Rd,Rs,R0)
+
+    // System (0xF0) - matches core::opcode
+    NOP = 0xF0,
 };
 // NOLINTEND(readability-identifier-naming): End SCREAMING_CASE block
 
