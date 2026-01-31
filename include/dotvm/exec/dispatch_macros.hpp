@@ -249,6 +249,11 @@ inline constexpr std::uint8_t MOVHI = 0x83;
 inline constexpr std::uint8_t MOVLO = 0x84;
 inline constexpr std::uint8_t XCHG = 0x85;
 
+// SIMD/ParaDot (0xC0-0xCF)
+inline constexpr std::uint8_t VADD = 0xC0;
+inline constexpr std::uint8_t VSUB = 0xC1;
+inline constexpr std::uint8_t VMUL = 0xC2;
+
 // System (0xF0-0xFF)
 inline constexpr std::uint8_t NOP = 0xF0;
 inline constexpr std::uint8_t BREAK = 0xF1;
