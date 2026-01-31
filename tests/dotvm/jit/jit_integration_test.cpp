@@ -3,12 +3,12 @@
 
 #include <gtest/gtest.h>
 
-#include "dotvm/jit/jit_context.hpp"
-#include "dotvm/jit/jit_compiler.hpp"
-#include "dotvm/core/vm_context.hpp"
-#include "dotvm/core/opcode.hpp"
 #include "dotvm/core/instruction.hpp"
+#include "dotvm/core/opcode.hpp"
+#include "dotvm/core/vm_context.hpp"
 #include "dotvm/exec/execution_engine.hpp"
+#include "dotvm/jit/jit_compiler.hpp"
+#include "dotvm/jit/jit_context.hpp"
 
 namespace dotvm::jit {
 namespace {
@@ -188,8 +188,16 @@ TEST_F(JitCompilerTest, EstimateCodeSize_ReturnsPositive) {
     JitCompiler compiler(config_, *buffer_, stencils_);
 
     std::vector<BytecodeInstr> instrs = {
-        {.opcode = static_cast<std::uint8_t>(JitOpcode::ADD), .dst = 1, .src1 = 2, .src2 = 3, .pc = 0},
-        {.opcode = static_cast<std::uint8_t>(JitOpcode::SUB), .dst = 1, .src1 = 2, .src2 = 3, .pc = 4},
+        {.opcode = static_cast<std::uint8_t>(JitOpcode::ADD),
+         .dst = 1,
+         .src1 = 2,
+         .src2 = 3,
+         .pc = 0},
+        {.opcode = static_cast<std::uint8_t>(JitOpcode::SUB),
+         .dst = 1,
+         .src1 = 2,
+         .src2 = 3,
+         .pc = 4},
     };
 
     auto size = compiler.estimate_code_size(instrs);
@@ -200,7 +208,11 @@ TEST_F(JitCompilerTest, Compile_SimpleFunction_Succeeds) {
     JitCompiler compiler(config_, *buffer_, stencils_);
 
     std::vector<BytecodeInstr> instrs = {
-        {.opcode = static_cast<std::uint8_t>(JitOpcode::ADD), .dst = 1, .src1 = 2, .src2 = 3, .pc = 0},
+        {.opcode = static_cast<std::uint8_t>(JitOpcode::ADD),
+         .dst = 1,
+         .src1 = 2,
+         .src2 = 3,
+         .pc = 0},
     };
 
     auto result = compiler.compile(0, instrs);
@@ -274,17 +286,15 @@ protected:
     }
 
     // Helper to encode Type A instruction: [opcode][Rd][Rs1][Rs2]
-    static std::uint32_t encode_a(std::uint8_t op, std::uint8_t rd, std::uint8_t rs1, std::uint8_t rs2) {
-        return (static_cast<std::uint32_t>(op) << 24) |
-               (static_cast<std::uint32_t>(rd) << 16) |
-               (static_cast<std::uint32_t>(rs1) << 8) |
-               static_cast<std::uint32_t>(rs2);
+    static std::uint32_t encode_a(std::uint8_t op, std::uint8_t rd, std::uint8_t rs1,
+                                  std::uint8_t rs2) {
+        return (static_cast<std::uint32_t>(op) << 24) | (static_cast<std::uint32_t>(rd) << 16) |
+               (static_cast<std::uint32_t>(rs1) << 8) | static_cast<std::uint32_t>(rs2);
     }
 
     // Helper to encode Type B instruction: [opcode][Rd][imm16]
     static std::uint32_t encode_b(std::uint8_t op, std::uint8_t rd, std::int16_t imm16) {
-        return (static_cast<std::uint32_t>(op) << 24) |
-               (static_cast<std::uint32_t>(rd) << 16) |
+        return (static_cast<std::uint32_t>(op) << 24) | (static_cast<std::uint32_t>(rd) << 16) |
                (static_cast<std::uint32_t>(static_cast<std::uint16_t>(imm16)));
     }
 
@@ -405,5 +415,5 @@ TEST_F(JitEndToEndTest, StencilRegistryHasCorrectOpcodes) {
     EXPECT_TRUE(registry.has_stencil(core::opcode::STORE64));
 }
 
-} // namespace
-} // namespace dotvm::jit
+}  // namespace
+}  // namespace dotvm::jit

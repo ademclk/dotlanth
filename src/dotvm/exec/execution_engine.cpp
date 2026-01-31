@@ -39,8 +39,8 @@ ExecResult ExecutionEngine::execute(const std::uint32_t* code, std::size_t code_
                                     std::size_t entry_point,
                                     std::span<const core::Value> const_pool) noexcept {
     // EXEC-012: Store bytecode as raw bytes for JIT compilation
-    bytecode_bytes_ = std::span<const std::uint8_t>(
-        reinterpret_cast<const std::uint8_t*>(code), code_size * sizeof(std::uint32_t));
+    bytecode_bytes_ = std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(code),
+                                                    code_size * sizeof(std::uint32_t));
 
     // EXEC-012: Fast path - check if entry point is JIT-compiled
     if (vm_ctx_.jit_enabled() && jit_has_compiled(entry_point)) [[unlikely]] {
@@ -261,8 +261,8 @@ bool ExecutionEngine::execute_instruction(std::uint32_t instr) noexcept {
             if (vm_ctx_.jit_enabled()) [[unlikely]] {
                 // Compute target PC (relative jump from current position)
                 // Note: PC already advanced past CALL, offset is relative to pre-advance PC
-                auto target_pc = static_cast<std::size_t>(
-                    static_cast<std::int64_t>(exec_ctx_.pc) + d.offset24 - 1);
+                auto target_pc = static_cast<std::size_t>(static_cast<std::int64_t>(exec_ctx_.pc) +
+                                                          d.offset24 - 1);
                 jit_ensure_function_registered(target_pc, target_pc + 256);
                 jit_record_call(target_pc);
             }
@@ -1401,8 +1401,8 @@ op_CALL: {
     // EXEC-012: JIT profiling - record call and auto-register function
     if (vm_ctx_.jit_enabled()) [[unlikely]] {
         // Compute target PC (relative jump from current position)
-        auto target_pc = static_cast<std::size_t>(
-            static_cast<std::int64_t>(exec_ctx_.pc) + d.offset24 - 1);
+        auto target_pc =
+            static_cast<std::size_t>(static_cast<std::int64_t>(exec_ctx_.pc) + d.offset24 - 1);
         jit_ensure_function_registered(target_pc, target_pc + 256);
         jit_record_call(target_pc);
     }
@@ -2366,7 +2366,7 @@ void ExecutionEngine::jit_try_compile(std::size_t entry_pc) noexcept {
 }
 
 void ExecutionEngine::jit_ensure_function_registered(std::size_t entry_pc,
-                                                      std::size_t estimated_end_pc) noexcept {
+                                                     std::size_t estimated_end_pc) noexcept {
     auto* jit = vm_ctx_.jit_context();
     if (!jit) [[unlikely]] {
         return;

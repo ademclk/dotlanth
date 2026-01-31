@@ -300,7 +300,7 @@ private:
     /// @param entry_pc PC of function entry
     /// @param estimated_end_pc Conservative estimate of function end
     void jit_ensure_function_registered(std::size_t entry_pc,
-                                         std::size_t estimated_end_pc) noexcept;
+                                        std::size_t estimated_end_pc) noexcept;
 
     /// Bytecode as raw bytes for JIT compilation
     std::span<const std::uint8_t> bytecode_bytes_;
