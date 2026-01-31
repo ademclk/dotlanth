@@ -209,6 +209,10 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/query_optimizer.cpp
     # Object Type Schema (DEP-003)
     src/dotvm/core/schema/schema_registry.cpp
+    # Relationship Model (DEP-004)
+    src/dotvm/core/link/object_id.cpp
+    src/dotvm/core/link/link_key_encoder.cpp
+    src/dotvm/core/link/link_manager.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -590,6 +594,14 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/schema/schema_registry_test.cpp
         tests/dotvm/core/schema/migration_test.cpp
         tests/dotvm/core/schema/supply_chain_test.cpp
+        # Relationship Model tests (DEP-004)
+        tests/dotvm/core/link/object_id_test.cpp
+        tests/dotvm/core/link/link_error_test.cpp
+        tests/dotvm/core/link/link_key_encoder_test.cpp
+        tests/dotvm/core/link/link_manager_test.cpp
+        tests/dotvm/core/link/link_cascade_test.cpp
+        tests/dotvm/core/link/link_traversal_test.cpp
+        tests/dotvm/core/link/link_integration_test.cpp
     )
 
     # JIT tests (EXEC-012)
