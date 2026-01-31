@@ -592,11 +592,13 @@ LinkManager::Result<void> LinkManager::remove_link_internal(ObjectId src,
     std::size_t op_count = 0;
     ops[op_count++] = state::BatchOp{state::BatchOpType::Remove, as_span(forward_key), empty_value};
     ops[op_count++] = state::BatchOp{state::BatchOpType::Remove, as_span(inverse_key), empty_value};
+
+    // Declare encoded_count outside the if/else so it stays alive for batch()
+    const auto encoded_count = encode_u64_le(new_count);
     if (new_count == 0) {
         ops[op_count++] =
             state::BatchOp{state::BatchOpType::Remove, as_span(count_key), empty_value};
     } else {
-        const auto encoded_count = encode_u64_le(new_count);
         ops[op_count++] =
             state::BatchOp{state::BatchOpType::Put, as_span(count_key),
                            std::span<const std::byte>(encoded_count.data(), encoded_count.size())};
