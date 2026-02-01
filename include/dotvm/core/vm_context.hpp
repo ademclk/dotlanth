@@ -17,14 +17,17 @@
 #include "call_stack.hpp"
 #include "capabilities/capability.hpp"
 #include "cfi.hpp"
+#include "collections/registry.hpp"
 #include "dotvm/exec/state_execution_context.hpp"
 #include "exception_context.hpp"
+#include "io/filesystem_sandbox.hpp"
 #include "memory.hpp"
 #include "register_file.hpp"
 #include "security_stats.hpp"
 #include "simd/cpu_features.hpp"
 #include "simd/simd_alu.hpp"
 #include "simd/vector_register_file.hpp"
+#include "string_pool.hpp"
 
 // Forward declaration for JIT support
 namespace dotvm::jit {
@@ -581,6 +584,56 @@ public:
     void disable_state() noexcept { state_ctx_.disable(); }
 
     // =========================================================================
+    // String Pool Access (GROUP-C)
+    // =========================================================================
+
+    /// Get mutable reference to the string pool
+    ///
+    /// The string pool manages VM strings with SSO and optional interning.
+    [[nodiscard]] StringPool& strings() noexcept { return strings_; }
+
+    /// Get const reference to the string pool
+    [[nodiscard]] const StringPool& strings() const noexcept { return strings_; }
+
+    // =========================================================================
+    // Collection Registry Access (GROUP-C)
+    // =========================================================================
+
+    /// Get mutable reference to the collection registry
+    ///
+    /// The collection registry manages lists, maps, and sets.
+    [[nodiscard]] collections::CollectionRegistry& collections() noexcept { return collections_; }
+
+    /// Get const reference to the collection registry
+    [[nodiscard]] const collections::CollectionRegistry& collections() const noexcept {
+        return collections_;
+    }
+
+    // =========================================================================
+    // Filesystem Sandbox Access (GROUP-C)
+    // =========================================================================
+
+    /// Get pointer to filesystem sandbox (nullable)
+    ///
+    /// Returns nullptr if filesystem sandbox is not configured.
+    [[nodiscard]] io::FilesystemSandbox* filesystem() noexcept { return filesystem_.get(); }
+
+    /// Get const pointer to filesystem sandbox
+    [[nodiscard]] const io::FilesystemSandbox* filesystem() const noexcept {
+        return filesystem_.get();
+    }
+
+    /// Enable filesystem operations with a sandbox
+    ///
+    /// @param sandbox Unique pointer to sandbox (takes ownership)
+    void enable_filesystem(std::unique_ptr<io::FilesystemSandbox> sandbox) noexcept {
+        filesystem_ = std::move(sandbox);
+    }
+
+    /// Disable filesystem operations
+    void disable_filesystem() noexcept { filesystem_.reset(); }
+
+    // =========================================================================
     // State Management
     // =========================================================================
 
@@ -661,6 +714,15 @@ private:
 
     // JIT support (EXEC-012)
     std::unique_ptr<jit::JitContext> jit_ctx_;
+
+    // String pool (GROUP-C)
+    StringPool strings_;
+
+    // Collection registry (GROUP-C)
+    collections::CollectionRegistry collections_;
+
+    // Filesystem sandbox (GROUP-C) - nullable for security
+    std::unique_ptr<io::FilesystemSandbox> filesystem_;
 };
 
 }  // namespace dotvm::core
