@@ -1,16 +1,16 @@
 /// @file snapshot_sender_test.cpp
 /// @brief Tests for SnapshotSender snapshot transfer component
 
-#include "dotvm/core/state/replication/snapshot_sender.hpp"
-
-#include <gtest/gtest.h>
-
 #include <atomic>
 #include <chrono>
 #include <map>
 #include <mutex>
 #include <thread>
 #include <vector>
+
+#include <gtest/gtest.h>
+
+#include "dotvm/core/state/replication/snapshot_sender.hpp"
 
 namespace dotvm::core::state::replication {
 namespace {
@@ -48,7 +48,8 @@ public:
 
         std::size_t actual_size = std::min(size, snapshot_data_.size() - offset);
         std::vector<std::byte> chunk(snapshot_data_.begin() + static_cast<std::ptrdiff_t>(offset),
-                                     snapshot_data_.begin() + static_cast<std::ptrdiff_t>(offset + actual_size));
+                                     snapshot_data_.begin() +
+                                         static_cast<std::ptrdiff_t>(offset + actual_size));
         return chunk;
     }
 
@@ -132,8 +133,8 @@ public:
         return ConnectionState::Disconnected;
     }
 
-    [[nodiscard]] std::optional<ConnectionStats> get_stats(const NodeId& /*peer*/) const
-        noexcept override {
+    [[nodiscard]] std::optional<ConnectionStats>
+    get_stats(const NodeId& /*peer*/) const noexcept override {
         return std::nullopt;
     }
 
@@ -472,7 +473,9 @@ TEST_F(SnapshotSenderTest, ProcessTransfersCompletesTransfer) {
 
     // Process until completion
     std::size_t total_chunks = 0;
-    for (int i = 0; i < 5 && sender->get_transfer_state(follower_id)->status != TransferStatus::Completed; ++i) {
+    for (int i = 0;
+         i < 5 && sender->get_transfer_state(follower_id)->status != TransferStatus::Completed;
+         ++i) {
         total_chunks += sender->process_transfers();
     }
 

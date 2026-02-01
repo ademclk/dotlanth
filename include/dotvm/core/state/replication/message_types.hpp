@@ -42,14 +42,13 @@ struct NodeId {
     std::array<std::uint8_t, 16> data{};
 
     [[nodiscard]] bool operator==(const NodeId&) const noexcept = default;
-    [[nodiscard]] bool operator<(const NodeId& other) const noexcept {
-        return data < other.data;
-    }
+    [[nodiscard]] bool operator<(const NodeId& other) const noexcept { return data < other.data; }
 
     /// @brief Check if this is the null/invalid node ID
     [[nodiscard]] bool is_null() const noexcept {
         for (auto b : data) {
-            if (b != 0) return false;
+            if (b != 0)
+                return false;
         }
         return true;
     }
@@ -123,11 +122,11 @@ struct LogIndex {
 
 /// @brief Type of command in Raft log (metadata operations only)
 enum class RaftCommandType : std::uint8_t {
-    AddNode = 0,          ///< Add a node to cluster membership
-    RemoveNode = 1,       ///< Remove a node from cluster membership
-    SnapshotMarker = 2,   ///< Mark a snapshot LSN for truncation
-    ConfigChange = 3,     ///< Cluster configuration change
-    Noop = 4,             ///< No-operation (used for log consistency)
+    AddNode = 0,         ///< Add a node to cluster membership
+    RemoveNode = 1,      ///< Remove a node from cluster membership
+    SnapshotMarker = 2,  ///< Mark a snapshot LSN for truncation
+    ConfigChange = 3,    ///< Cluster configuration change
+    Noop = 4,            ///< No-operation (used for log consistency)
 };
 
 /// @brief A command entry in the Raft log
@@ -142,9 +141,9 @@ struct RaftCommand {
 
 /// @brief A single entry in the Raft log
 struct RaftLogEntry {
-    Term term;              ///< Term when entry was created
-    LogIndex index;         ///< Position in log (1-indexed)
-    RaftCommand command;    ///< The command to apply
+    Term term;            ///< Term when entry was created
+    LogIndex index;       ///< Position in log (1-indexed)
+    RaftCommand command;  ///< The command to apply
 };
 
 // ============================================================================
@@ -153,49 +152,49 @@ struct RaftLogEntry {
 
 /// @brief RequestVote RPC request
 struct RequestVote {
-    Term term;              ///< Candidate's term
-    NodeId candidate_id;    ///< Candidate requesting vote
+    Term term;                ///< Candidate's term
+    NodeId candidate_id;      ///< Candidate requesting vote
     LogIndex last_log_index;  ///< Index of candidate's last log entry
-    Term last_log_term;     ///< Term of candidate's last log entry
+    Term last_log_term;       ///< Term of candidate's last log entry
 };
 
 /// @brief RequestVote RPC response
 struct RequestVoteResponse {
-    Term term;              ///< Current term, for candidate to update itself
+    Term term;                 ///< Current term, for candidate to update itself
     bool vote_granted{false};  ///< True if candidate received vote
 };
 
 /// @brief AppendEntries RPC request (also used for heartbeat when entries is empty)
 struct AppendEntries {
-    Term term;              ///< Leader's term
-    NodeId leader_id;       ///< Leader's ID so followers can redirect clients
-    LogIndex prev_log_index;  ///< Index of log entry immediately preceding new ones
-    Term prev_log_term;     ///< Term of prev_log_index entry
+    Term term;                          ///< Leader's term
+    NodeId leader_id;                   ///< Leader's ID so followers can redirect clients
+    LogIndex prev_log_index;            ///< Index of log entry immediately preceding new ones
+    Term prev_log_term;                 ///< Term of prev_log_index entry
     std::vector<RaftLogEntry> entries;  ///< Log entries to store (empty for heartbeat)
-    LogIndex leader_commit;  ///< Leader's commit index
+    LogIndex leader_commit;             ///< Leader's commit index
 };
 
 /// @brief AppendEntries RPC response
 struct AppendEntriesResponse {
-    Term term;              ///< Current term, for leader to update itself
-    bool success{false};    ///< True if follower matched prev_log_index and term
-    LogIndex match_index;   ///< Follower's last replicated index (for leader tracking)
+    Term term;             ///< Current term, for leader to update itself
+    bool success{false};   ///< True if follower matched prev_log_index and term
+    LogIndex match_index;  ///< Follower's last replicated index (for leader tracking)
 };
 
 /// @brief InstallSnapshot RPC request (for lagging followers)
 struct InstallSnapshot {
-    Term term;              ///< Leader's term
-    NodeId leader_id;       ///< Leader's ID
+    Term term;                     ///< Leader's term
+    NodeId leader_id;              ///< Leader's ID
     LogIndex last_included_index;  ///< Last log index in snapshot
-    Term last_included_term;  ///< Term of last_included_index
-    std::uint64_t offset;   ///< Byte offset where chunk is positioned
-    std::vector<std::byte> data;  ///< Raw snapshot chunk data
-    bool done{false};       ///< True if this is the last chunk
+    Term last_included_term;       ///< Term of last_included_index
+    std::uint64_t offset;          ///< Byte offset where chunk is positioned
+    std::vector<std::byte> data;   ///< Raw snapshot chunk data
+    bool done{false};              ///< True if this is the last chunk
 };
 
 /// @brief InstallSnapshot RPC response
 struct InstallSnapshotResponse {
-    Term term;              ///< Current term, for leader to update itself
+    Term term;  ///< Current term, for leader to update itself
 };
 
 // ============================================================================
@@ -204,12 +203,12 @@ struct InstallSnapshotResponse {
 
 /// @brief A batch of WAL entries for delta streaming
 struct DeltaBatch {
-    NodeId sender_id;       ///< Node that sent this batch
-    LSN start_lsn;          ///< LSN of first entry in batch
-    LSN end_lsn;            ///< LSN of last entry in batch (inclusive)
-    LSN base_lsn;           ///< Base LSN (LSN before first entry, for ordering)
-    std::vector<LogRecord> entries;  ///< The log records
-    std::uint32_t checksum{0};  ///< CRC32 of serialized entries
+    NodeId sender_id;                       ///< Node that sent this batch
+    LSN start_lsn;                          ///< LSN of first entry in batch
+    LSN end_lsn;                            ///< LSN of last entry in batch (inclusive)
+    LSN base_lsn;                           ///< Base LSN (LSN before first entry, for ordering)
+    std::vector<LogRecord> entries;         ///< The log records
+    std::uint32_t checksum{0};              ///< CRC32 of serialized entries
     std::optional<MptHash> mpt_root_after;  ///< Expected MPT root after applying batch
 };
 
@@ -224,16 +223,16 @@ struct DeltaAck {
 
 /// @brief Request for delta entries starting from a specific LSN
 struct DeltaRequest {
-    NodeId node_id;         ///< Node requesting deltas
-    LSN start_lsn;          ///< Starting LSN (exclusive)
-    std::uint32_t max_entries{1000};  ///< Max entries to return
+    NodeId node_id;                      ///< Node requesting deltas
+    LSN start_lsn;                       ///< Starting LSN (exclusive)
+    std::uint32_t max_entries{1000};     ///< Max entries to return
     std::uint32_t max_bytes{64 * 1024};  ///< Max bytes to return
 };
 
 /// @brief Request retransmission of delta entries from a specific LSN
 struct RetransmitRequest {
-    NodeId node_id;         ///< Node requesting retransmission
-    LSN from_lsn;           ///< Starting LSN for retransmission
+    NodeId node_id;  ///< Node requesting retransmission
+    LSN from_lsn;    ///< Starting LSN for retransmission
 };
 
 // ============================================================================
@@ -242,28 +241,28 @@ struct RetransmitRequest {
 
 /// @brief A chunk of snapshot data for bulk transfer
 struct SnapshotChunk {
-    NodeId sender_id;       ///< Node sending the snapshot
-    LSN snapshot_lsn;       ///< LSN at which snapshot was taken
-    std::uint32_t chunk_index;  ///< Zero-based chunk index
-    std::uint32_t total_chunks;  ///< Total number of chunks (0 if unknown)
-    std::uint64_t total_bytes;  ///< Total snapshot size in bytes (0 if unknown)
+    NodeId sender_id;             ///< Node sending the snapshot
+    LSN snapshot_lsn;             ///< LSN at which snapshot was taken
+    std::uint32_t chunk_index;    ///< Zero-based chunk index
+    std::uint32_t total_chunks;   ///< Total number of chunks (0 if unknown)
+    std::uint64_t total_bytes;    ///< Total snapshot size in bytes (0 if unknown)
     std::vector<std::byte> data;  ///< Chunk payload
-    std::uint32_t checksum{0};  ///< CRC32 of chunk data
-    bool is_last{false};    ///< True if this is the final chunk
+    std::uint32_t checksum{0};    ///< CRC32 of chunk data
+    bool is_last{false};          ///< True if this is the final chunk
 };
 
 /// @brief Acknowledgment for received snapshot chunk
 struct SnapshotAck {
-    NodeId node_id;         ///< Node sending the ack
+    NodeId node_id;             ///< Node sending the ack
     std::uint32_t chunk_index;  ///< Index of acknowledged chunk
-    bool success{true};     ///< False if chunk was rejected
-    std::string error_msg;  ///< Error message if success=false
+    bool success{true};         ///< False if chunk was rejected
+    std::string error_msg;      ///< Error message if success=false
 };
 
 /// @brief Request to start snapshot transfer
 struct SnapshotRequest {
-    NodeId node_id;         ///< Node requesting snapshot
-    LSN from_lsn;           ///< Last known LSN (for gap detection)
+    NodeId node_id;  ///< Node requesting snapshot
+    LSN from_lsn;    ///< Last known LSN (for gap detection)
 };
 
 // ============================================================================
@@ -272,32 +271,32 @@ struct SnapshotRequest {
 
 /// @brief Heartbeat message for connection keep-alive
 struct Heartbeat {
-    NodeId sender_id;       ///< Node sending heartbeat
+    NodeId sender_id;            ///< Node sending heartbeat
     std::uint64_t timestamp_us;  ///< Microseconds since epoch
-    LSN current_lsn;        ///< Sender's current LSN
-    bool is_leader{false};  ///< True if sender is cluster leader
+    LSN current_lsn;             ///< Sender's current LSN
+    bool is_leader{false};       ///< True if sender is cluster leader
 };
 
 /// @brief Response to heartbeat
 struct HeartbeatResponse {
-    NodeId node_id;         ///< Node responding
+    NodeId node_id;              ///< Node responding
     std::uint64_t timestamp_us;  ///< Response timestamp
-    LSN current_lsn;        ///< Responder's current LSN
+    LSN current_lsn;             ///< Responder's current LSN
 };
 
 /// @brief Cluster membership configuration
 struct ClusterConfig {
-    std::uint64_t config_index;  ///< Configuration version
-    std::vector<NodeId> members;  ///< Current cluster members
+    std::uint64_t config_index;    ///< Configuration version
+    std::vector<NodeId> members;   ///< Current cluster members
     std::vector<NodeId> learners;  ///< Non-voting learner nodes
 };
 
 /// @brief Request to change cluster membership
 struct ConfigChangeRequest {
-    NodeId requester_id;    ///< Node requesting change
+    NodeId requester_id;          ///< Node requesting change
     RaftCommandType change_type;  ///< AddNode or RemoveNode
-    NodeId target_node;     ///< Node being added/removed
-    std::string address;    ///< Network address for new node
+    NodeId target_node;           ///< Node being added/removed
+    std::string address;          ///< Network address for new node
 };
 
 // ============================================================================
@@ -371,23 +370,11 @@ enum class MessageType : std::uint8_t {
 }
 
 /// @brief Variant holding any replication message
-using ReplicationMessage = std::variant<
-    RequestVote,
-    RequestVoteResponse,
-    AppendEntries,
-    AppendEntriesResponse,
-    InstallSnapshot,
-    InstallSnapshotResponse,
-    DeltaBatch,
-    DeltaAck,
-    DeltaRequest,
-    SnapshotChunk,
-    SnapshotAck,
-    SnapshotRequest,
-    Heartbeat,
-    HeartbeatResponse,
-    ClusterConfig,
-    ConfigChangeRequest>;
+using ReplicationMessage =
+    std::variant<RequestVote, RequestVoteResponse, AppendEntries, AppendEntriesResponse,
+                 InstallSnapshot, InstallSnapshotResponse, DeltaBatch, DeltaAck, DeltaRequest,
+                 SnapshotChunk, SnapshotAck, SnapshotRequest, Heartbeat, HeartbeatResponse,
+                 ClusterConfig, ConfigChangeRequest>;
 
 /// @brief Get the MessageType for a message variant
 [[nodiscard]] constexpr MessageType get_message_type(const ReplicationMessage& msg) noexcept {

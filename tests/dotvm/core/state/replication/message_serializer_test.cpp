@@ -1,14 +1,14 @@
 /// @file message_serializer_test.cpp
 /// @brief Tests for replication message serialization
 
-#include "dotvm/core/state/replication/message_serializer.hpp"
-#include "dotvm/core/state/replication/message_types.hpp"
-#include "dotvm/core/state/replication/replication_error.hpp"
+#include <algorithm>
+#include <random>
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <random>
+#include "dotvm/core/state/replication/message_serializer.hpp"
+#include "dotvm/core/state/replication/message_types.hpp"
+#include "dotvm/core/state/replication/replication_error.hpp"
 
 namespace dotvm::core::state::replication {
 namespace {
@@ -140,7 +140,8 @@ TEST_F(MessageSerializerTest, NodeIdHexConversion) {
 TEST(NodeIdTest, InvalidHexReturnsEmpty) {
     EXPECT_FALSE(NodeId::from_hex("not-valid-hex").has_value());
     EXPECT_FALSE(NodeId::from_hex("abc").has_value());  // Too short
-    EXPECT_FALSE(NodeId::from_hex("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz").has_value());  // Invalid chars
+    EXPECT_FALSE(
+        NodeId::from_hex("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz").has_value());  // Invalid chars
 }
 
 // ============================================================================

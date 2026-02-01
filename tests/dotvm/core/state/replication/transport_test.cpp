@@ -1,13 +1,13 @@
 /// @file transport_test.cpp
 /// @brief Tests for replication transport layer
 
-#include "dotvm/core/state/replication/transport.hpp"
-
-#include <gtest/gtest.h>
-
 #include <atomic>
 #include <chrono>
 #include <thread>
+
+#include <gtest/gtest.h>
+
+#include "dotvm/core/state/replication/transport.hpp"
 
 namespace dotvm::core::state::replication {
 namespace {
@@ -294,13 +294,11 @@ TEST_F(TransportTest, BroadcastWithExclude) {
 
     std::atomic<int> receive_count{0};
 
-    transport2.set_message_callback([&](const NodeId&, StreamType, std::span<const std::byte>) {
-        receive_count.fetch_add(1);
-    });
+    transport2.set_message_callback(
+        [&](const NodeId&, StreamType, std::span<const std::byte>) { receive_count.fetch_add(1); });
 
-    transport3.set_message_callback([&](const NodeId&, StreamType, std::span<const std::byte>) {
-        receive_count.fetch_add(1);
-    });
+    transport3.set_message_callback(
+        [&](const NodeId&, StreamType, std::span<const std::byte>) { receive_count.fetch_add(1); });
 
     auto msg = make_test_message();
     auto count = transport1.broadcast(StreamType::Control, msg, id2);  // Exclude id2
@@ -329,9 +327,8 @@ TEST_F(TransportTest, PartitionDropsMessages) {
 
     std::atomic<int> receive_count{0};
 
-    transport2.set_message_callback([&](const NodeId&, StreamType, std::span<const std::byte>) {
-        receive_count.fetch_add(1);
-    });
+    transport2.set_message_callback(
+        [&](const NodeId&, StreamType, std::span<const std::byte>) { receive_count.fetch_add(1); });
 
     // Send before partition
     auto msg = make_test_message();
@@ -344,7 +341,7 @@ TEST_F(TransportTest, PartitionDropsMessages) {
 
     // Send during partition
     send_result = transport1.send(id2, StreamType::Control, msg);
-    ASSERT_TRUE(send_result.is_ok());  // Send succeeds but message dropped
+    ASSERT_TRUE(send_result.is_ok());    // Send succeeds but message dropped
     EXPECT_EQ(receive_count.load(), 1);  // No increase
 
     // Heal partition
@@ -371,9 +368,8 @@ TEST_F(TransportTest, DropRateAffectsDelivery) {
 
     std::atomic<int> receive_count{0};
 
-    transport2.set_message_callback([&](const NodeId&, StreamType, std::span<const std::byte>) {
-        receive_count.fetch_add(1);
-    });
+    transport2.set_message_callback(
+        [&](const NodeId&, StreamType, std::span<const std::byte>) { receive_count.fetch_add(1); });
 
     transport1.set_drop_rate(0.5);  // 50% drop rate
 
@@ -462,19 +458,19 @@ TEST_F(TransportTest, ConnectionCallbackOnConnect) {
     ConnectionState observed_old_state{ConnectionState::Failed};  // Sentinel value
     ConnectionState observed_new_state{ConnectionState::Disconnected};
 
-    transport1.set_connection_callback(
-        [&](const NodeId& peer, ConnectionState old_state, ConnectionState new_state,
-            std::optional<ReplicationError> error) {
-            // Only check the first callback (connection event), ignore disconnect from cleanup
-            if (new_state == ConnectionState::Connected && !connect_callback_called.load()) {
-                EXPECT_EQ(peer, id2);
-                EXPECT_EQ(old_state, ConnectionState::Disconnected);
-                EXPECT_FALSE(error.has_value());
-                observed_old_state = old_state;
-                observed_new_state = new_state;
-                connect_callback_called.store(true);
-            }
-        });
+    transport1.set_connection_callback([&](const NodeId& peer, ConnectionState old_state,
+                                           ConnectionState new_state,
+                                           std::optional<ReplicationError> error) {
+        // Only check the first callback (connection event), ignore disconnect from cleanup
+        if (new_state == ConnectionState::Connected && !connect_callback_called.load()) {
+            EXPECT_EQ(peer, id2);
+            EXPECT_EQ(old_state, ConnectionState::Disconnected);
+            EXPECT_FALSE(error.has_value());
+            observed_old_state = old_state;
+            observed_new_state = new_state;
+            connect_callback_called.store(true);
+        }
+    });
 
     auto result = transport1.connect(id2, "");
     ASSERT_TRUE(result.is_ok());
@@ -491,14 +487,13 @@ TEST_F(TransportTest, ConnectionCallbackOnFailure) {
     std::atomic<bool> callback_called{false};
     std::optional<ReplicationError> observed_error;
 
-    transport.set_connection_callback(
-        [&](const NodeId&, ConnectionState, ConnectionState new_state,
-            std::optional<ReplicationError> error) {
-            if (new_state == ConnectionState::Failed) {
-                observed_error = error;
-                callback_called.store(true);
-            }
-        });
+    transport.set_connection_callback([&](const NodeId&, ConnectionState, ConnectionState new_state,
+                                          std::optional<ReplicationError> error) {
+        if (new_state == ConnectionState::Failed) {
+            observed_error = error;
+            callback_called.store(true);
+        }
+    });
 
     // Try to connect to unlinked peer
     auto result = transport.connect(make_node_id(99), "");

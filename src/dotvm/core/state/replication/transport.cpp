@@ -90,7 +90,7 @@ bool MockTransport::is_running() const noexcept {
 }
 
 MockTransport::Result<void> MockTransport::connect(const NodeId& peer,
-                                                    std::string_view /*address*/) {
+                                                   std::string_view /*address*/) {
     std::lock_guard lock(impl_->mtx);
     if (!impl_->running) {
         return ReplicationError::ShuttingDown;
@@ -101,8 +101,9 @@ MockTransport::Result<void> MockTransport::connect(const NodeId& peer,
         // No linked transport - fail connection
         // Capture old state BEFORE modifying
         auto state_it = impl_->connection_states.find(peer);
-        auto old_state = (state_it != impl_->connection_states.end()) ? state_it->second
-                                                                      : ConnectionState::Disconnected;
+        auto old_state = (state_it != impl_->connection_states.end())
+                             ? state_it->second
+                             : ConnectionState::Disconnected;
         impl_->connection_states[peer] = ConnectionState::Failed;
         if (impl_->connection_callback) {
             impl_->connection_callback(peer, old_state, ConnectionState::Failed,
@@ -178,7 +179,7 @@ std::vector<NodeId> MockTransport::connected_peers() const {
 }
 
 MockTransport::Result<void> MockTransport::send(const NodeId& to, StreamType stream,
-                                                 std::span<const std::byte> data) {
+                                                std::span<const std::byte> data) {
     MockTransport* target = nullptr;
     bool partitioned = false;
 
@@ -245,7 +246,7 @@ MockTransport::Result<void> MockTransport::send(const NodeId& to, StreamType str
 }
 
 std::size_t MockTransport::broadcast(StreamType stream, std::span<const std::byte> data,
-                                      std::optional<NodeId> exclude) {
+                                     std::optional<NodeId> exclude) {
     std::vector<NodeId> peers;
     {
         std::lock_guard lock(impl_->mtx);
@@ -276,7 +277,9 @@ void MockTransport::set_connection_callback(ConnectionCallback callback) {
     impl_->connection_callback = std::move(callback);
 }
 
-const TransportConfig& MockTransport::config() const noexcept { return impl_->config; }
+const TransportConfig& MockTransport::config() const noexcept {
+    return impl_->config;
+}
 
 NodeId MockTransport::local_id() const noexcept {
     std::lock_guard lock(impl_->mtx);
@@ -346,7 +349,7 @@ std::uint64_t MockTransport::messages_received() const noexcept {
 }
 
 void MockTransport::deliver_message(const NodeId& from, StreamType stream,
-                                     std::vector<std::byte> data) {
+                                    std::vector<std::byte> data) {
     MessageCallback callback;
     {
         std::lock_guard lock(impl_->mtx);

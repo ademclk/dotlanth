@@ -1,9 +1,9 @@
 /// @file raft_log_test.cpp
 /// @brief Tests for Raft log storage
 
-#include "dotvm/core/state/replication/raft_log.hpp"
-
 #include <gtest/gtest.h>
+
+#include "dotvm/core/state/replication/raft_log.hpp"
 
 namespace dotvm::core::state::replication {
 namespace {
@@ -109,8 +109,7 @@ TEST_F(RaftLogTest, AppendBatchWithGapFails) {
 
 TEST_F(RaftLogTest, AppendBatchNonContiguousFails) {
     std::vector<RaftLogEntry> entries = {
-        make_entry(Term{1}, LogIndex{1}),
-        make_entry(Term{1}, LogIndex{3}),  // Gap
+        make_entry(Term{1}, LogIndex{1}), make_entry(Term{1}, LogIndex{3}),  // Gap
     };
 
     auto result = log_.append_batch(std::move(entries));

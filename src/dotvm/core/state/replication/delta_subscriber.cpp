@@ -55,9 +55,7 @@ struct DeltaSubscriber::Impl {
         return {};
     }
 
-    void stop() {
-        running_.store(false);
-    }
+    void stop() { running_.store(false); }
 
     Result<void> receive_batch(const DeltaBatch& batch) {
         if (!running_.load()) {
@@ -201,8 +199,7 @@ struct DeltaSubscriber::Impl {
 
 DeltaSubscriber::DeltaSubscriber(DeltaSubscriberConfig config, DeltaSink& sink,
                                  Transport& transport, NodeId leader_id)
-    : impl_(std::make_unique<Impl>(std::move(config), sink, transport,
-                                   std::move(leader_id))) {}
+    : impl_(std::make_unique<Impl>(std::move(config), sink, transport, std::move(leader_id))) {}
 
 DeltaSubscriber::~DeltaSubscriber() {
     stop();
@@ -263,8 +260,7 @@ void DeltaSubscriber::set_apply_callback(ApplyCallback callback) {
     impl_->apply_callback_ = std::move(callback);
 }
 
-void DeltaSubscriber::set_verification_failure_callback(
-    VerificationFailureCallback callback) {
+void DeltaSubscriber::set_verification_failure_callback(VerificationFailureCallback callback) {
     std::lock_guard lock(impl_->mtx_);
     impl_->verification_failure_callback_ = std::move(callback);
 }

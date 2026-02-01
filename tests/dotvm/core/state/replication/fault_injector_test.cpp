@@ -1,12 +1,12 @@
 /// @file fault_injector_test.cpp
 /// @brief Tests for replication fault injection utility
 
-#include "fault_injector.hpp"
+#include <chrono>
+#include <thread>
 
 #include <gtest/gtest.h>
 
-#include <chrono>
-#include <thread>
+#include "fault_injector.hpp"
 
 namespace dotvm::core::state::replication::testing {
 namespace {
@@ -96,16 +96,16 @@ TEST_F(FaultInjectorTest, ClearFaults) {
     injector_.enable();
 
     // Process a message (should be dropped)
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, make_test_message());
+    auto result = injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta,
+                                            make_test_message());
     EXPECT_FALSE(result.has_value());
 
     // Clear faults
     injector_.clear_faults();
 
     // Now message should pass through
-    result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, make_test_message());
+    result = injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta,
+                                       make_test_message());
     EXPECT_TRUE(result.has_value());
 }
 
@@ -118,8 +118,10 @@ TEST_F(FaultInjectorTest, ResetStats) {
     injector_.enable();
 
     // Drop some messages
-    (void)injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, make_test_message());
-    (void)injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, make_test_message());
+    (void)injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta,
+                                    make_test_message());
+    (void)injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta,
+                                    make_test_message());
 
     EXPECT_EQ(injector_.messages_dropped(), 2);
 
@@ -140,8 +142,8 @@ TEST_F(FaultInjectorTest, MessageDropWithProbability100) {
     injector_.enable();
 
     auto msg = make_test_message();
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
 
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(injector_.messages_dropped(), 1);
@@ -156,8 +158,8 @@ TEST_F(FaultInjectorTest, MessageDropWithProbability0) {
     injector_.enable();
 
     auto msg = make_test_message();
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
 
     EXPECT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), msg);
@@ -176,13 +178,12 @@ TEST_F(FaultInjectorTest, MessageDropTargetSpecificNode) {
     auto msg = make_test_message();
 
     // Message to node 2 should be dropped
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
     EXPECT_FALSE(result.has_value());
 
     // Message to node 3 should pass through
-    result = injector_.process_message(
-        make_node_id(1), make_node_id(3), StreamType::Delta, msg);
+    result = injector_.process_message(make_node_id(1), make_node_id(3), StreamType::Delta, msg);
     EXPECT_TRUE(result.has_value());
 }
 
@@ -198,13 +199,12 @@ TEST_F(FaultInjectorTest, MessageDropTargetSpecificStream) {
     auto msg = make_test_message();
 
     // Delta messages should be dropped
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
     EXPECT_FALSE(result.has_value());
 
     // Raft messages should pass through
-    result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Raft, msg);
+    result = injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Raft, msg);
     EXPECT_TRUE(result.has_value());
 }
 
@@ -220,14 +220,14 @@ TEST_F(FaultInjectorTest, MessageDropMaxOccurrences) {
     auto msg = make_test_message();
 
     // First two should be dropped
-    EXPECT_FALSE(injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg).has_value());
-    EXPECT_FALSE(injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg).has_value());
+    EXPECT_FALSE(injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg)
+                     .has_value());
+    EXPECT_FALSE(injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg)
+                     .has_value());
 
     // Third should pass through
-    EXPECT_TRUE(injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg).has_value());
+    EXPECT_TRUE(injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg)
+                    .has_value());
 
     EXPECT_EQ(injector_.messages_dropped(), 2);
 }
@@ -248,8 +248,8 @@ TEST_F(FaultInjectorTest, MessageDelayAppliesDelay) {
     auto msg = make_test_message();
     auto start = std::chrono::steady_clock::now();
 
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
 
     auto elapsed = std::chrono::steady_clock::now() - start;
 
@@ -272,8 +272,8 @@ TEST_F(FaultInjectorTest, MessageCorruptModifiesData) {
     injector_.enable();
 
     auto msg = make_test_message(100);
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
 
     EXPECT_TRUE(result.has_value());
     EXPECT_EQ(result->size(), msg.size());
@@ -297,13 +297,12 @@ TEST_F(FaultInjectorTest, PartialPartitionAsymmetric) {
     auto msg = make_test_message();
 
     // Messages TO node 2 should be dropped
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
     EXPECT_FALSE(result.has_value());
 
     // Messages FROM node 2 should pass (asymmetric)
-    result = injector_.process_message(
-        make_node_id(2), make_node_id(1), StreamType::Delta, msg);
+    result = injector_.process_message(make_node_id(2), make_node_id(1), StreamType::Delta, msg);
     EXPECT_TRUE(result.has_value());
 }
 
@@ -320,8 +319,8 @@ TEST_F(FaultInjectorTest, DisabledInjectorPassesThrough) {
     // Note: injector is NOT enabled
 
     auto msg = make_test_message();
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
 
     EXPECT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), msg);
@@ -351,8 +350,8 @@ TEST_F(FaultInjectorTest, MultipleFaultsApplyInOrder) {
     auto msg = make_test_message();
 
     // Delta message should be corrupted but not delayed
-    auto result = injector_.process_message(
-        make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+    auto result =
+        injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
     EXPECT_TRUE(result.has_value());
     EXPECT_NE(result.value(), msg);
     EXPECT_EQ(injector_.messages_corrupted(), 1);
@@ -442,9 +441,7 @@ TEST_F(FaultableTransportTest, PassThroughWhenNoFaults) {
 
     std::atomic<bool> received{false};
     transport2_->set_message_callback(
-        [&](const NodeId&, StreamType, std::span<const std::byte>) {
-            received.store(true);
-        });
+        [&](const NodeId&, StreamType, std::span<const std::byte>) { received.store(true); });
 
     auto msg = make_test_message();
     auto result = faultable.send(id2_, StreamType::Delta, msg);
@@ -465,9 +462,7 @@ TEST_F(FaultableTransportTest, DropsMessagesWhenFaultEnabled) {
 
     std::atomic<bool> received{false};
     transport2_->set_message_callback(
-        [&](const NodeId&, StreamType, std::span<const std::byte>) {
-            received.store(true);
-        });
+        [&](const NodeId&, StreamType, std::span<const std::byte>) { received.store(true); });
 
     auto msg = make_test_message();
     auto result = faultable.send(id2_, StreamType::Delta, msg);
@@ -509,8 +504,8 @@ TEST_F(FaultInjectorTest, ProbabilisticDropAppliesRandomly) {
     const int iterations = 1000;
 
     for (int i = 0; i < iterations; ++i) {
-        auto result = injector_.process_message(
-            make_node_id(1), make_node_id(2), StreamType::Delta, msg);
+        auto result =
+            injector_.process_message(make_node_id(1), make_node_id(2), StreamType::Delta, msg);
         if (!result.has_value()) {
             ++dropped;
         }

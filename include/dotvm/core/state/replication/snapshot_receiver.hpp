@@ -49,11 +49,11 @@ struct SnapshotReceiverConfig {
 
 /// @brief Status of snapshot receive operation
 enum class ReceiveStatus : std::uint8_t {
-    Idle = 0,       ///< Not currently receiving
-    Receiving = 1,  ///< Receiving chunks
-    Finalizing = 2, ///< Finalizing snapshot
-    Complete = 3,   ///< Snapshot complete
-    Failed = 4,     ///< Snapshot receive failed
+    Idle = 0,        ///< Not currently receiving
+    Receiving = 1,   ///< Receiving chunks
+    Finalizing = 2,  ///< Finalizing snapshot
+    Complete = 3,    ///< Snapshot complete
+    Failed = 4,      ///< Snapshot receive failed
 };
 
 /// @brief Convert receive status to string
@@ -79,16 +79,16 @@ enum class ReceiveStatus : std::uint8_t {
 
 /// @brief State of an ongoing snapshot receive
 struct ReceiveState {
-    NodeId leader_id;                          ///< Leader sending the snapshot
-    LSN snapshot_lsn{LSN::invalid()};          ///< LSN of the snapshot being received
-    std::size_t total_size{0};                 ///< Total snapshot size in bytes
-    std::size_t bytes_received{0};             ///< Bytes received so far
-    std::uint32_t chunks_received{0};          ///< Number of chunks received
-    std::uint32_t total_chunks{0};             ///< Total number of chunks expected
-    MptHash expected_mpt_root{};               ///< Expected MPT root after applying
-    std::chrono::steady_clock::time_point start_time{};       ///< When reception started
+    NodeId leader_id;                                    ///< Leader sending the snapshot
+    LSN snapshot_lsn{LSN::invalid()};                    ///< LSN of the snapshot being received
+    std::size_t total_size{0};                           ///< Total snapshot size in bytes
+    std::size_t bytes_received{0};                       ///< Bytes received so far
+    std::uint32_t chunks_received{0};                    ///< Number of chunks received
+    std::uint32_t total_chunks{0};                       ///< Total number of chunks expected
+    MptHash expected_mpt_root{};                         ///< Expected MPT root after applying
+    std::chrono::steady_clock::time_point start_time{};  ///< When reception started
     std::chrono::steady_clock::time_point last_chunk_time{};  ///< When last chunk arrived
-    ReceiveStatus status{ReceiveStatus::Idle}; ///< Current status
+    ReceiveStatus status{ReceiveStatus::Idle};                ///< Current status
 };
 
 // ============================================================================
@@ -119,7 +119,7 @@ public:
     /// @param data Chunk data
     /// @return Success or error
     [[nodiscard]] virtual Result<void> write_chunk(std::size_t offset,
-                                                    std::span<const std::byte> data) = 0;
+                                                   std::span<const std::byte> data) = 0;
 
     /// @brief Finalize the snapshot
     ///

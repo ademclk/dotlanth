@@ -1,16 +1,16 @@
 /// @file delta_publisher_test.cpp
 /// @brief Tests for DeltaPublisher delta streaming component
 
-#include "dotvm/core/state/replication/delta_publisher.hpp"
-
-#include <gtest/gtest.h>
-
 #include <atomic>
 #include <chrono>
 #include <map>
 #include <mutex>
 #include <thread>
 #include <vector>
+
+#include <gtest/gtest.h>
+
+#include "dotvm/core/state/replication/delta_publisher.hpp"
 
 namespace dotvm::core::state::replication {
 namespace {
@@ -30,8 +30,8 @@ public:
     }
 
     [[nodiscard]] std::vector<state::LogRecord> read_entries(state::LSN from_lsn,
-                                                              std::size_t max_entries,
-                                                              std::size_t max_bytes) const override {
+                                                             std::size_t max_entries,
+                                                             std::size_t max_bytes) const override {
         std::lock_guard lock(mtx_);
 
         std::vector<state::LogRecord> result;
@@ -42,7 +42,8 @@ public:
                 continue;
             }
 
-            std::size_t record_size = record.key.size() + record.value.size() + sizeof(state::LogRecord);
+            std::size_t record_size =
+                record.key.size() + record.value.size() + sizeof(state::LogRecord);
             if (bytes_read + record_size > max_bytes && !result.empty()) {
                 break;
             }
@@ -129,9 +130,7 @@ public:
         running_ = false;
     }
 
-    [[nodiscard]] bool is_running() const noexcept override {
-        return running_.load();
-    }
+    [[nodiscard]] bool is_running() const noexcept override { return running_.load(); }
 
     [[nodiscard]] Result<void> connect(const NodeId& peer, std::string_view /*address*/) override {
         std::lock_guard lock(mtx_);
@@ -153,8 +152,8 @@ public:
         return ConnectionState::Disconnected;
     }
 
-    [[nodiscard]] std::optional<ConnectionStats> get_stats(const NodeId& /*peer*/) const
-        noexcept override {
+    [[nodiscard]] std::optional<ConnectionStats>
+    get_stats(const NodeId& /*peer*/) const noexcept override {
         return std::nullopt;
     }
 
@@ -179,7 +178,7 @@ public:
     }
 
     [[nodiscard]] std::size_t broadcast(StreamType stream, std::span<const std::byte> data,
-                                         std::optional<NodeId> exclude) override {
+                                        std::optional<NodeId> exclude) override {
         std::lock_guard lock(mtx_);
         std::size_t count = 0;
 
@@ -204,13 +203,9 @@ public:
         connection_callback_ = std::move(callback);
     }
 
-    [[nodiscard]] const TransportConfig& config() const noexcept override {
-        return config_;
-    }
+    [[nodiscard]] const TransportConfig& config() const noexcept override { return config_; }
 
-    [[nodiscard]] NodeId local_id() const noexcept override {
-        return local_id_;
-    }
+    [[nodiscard]] NodeId local_id() const noexcept override { return local_id_; }
 
     // ========================================================================
     // Test Helpers
@@ -278,9 +273,7 @@ protected:
         transport_->start(make_node_id(0));
     }
 
-    void TearDown() override {
-        transport_->stop(std::chrono::milliseconds{100});
-    }
+    void TearDown() override { transport_->stop(std::chrono::milliseconds{100}); }
 
     static NodeId make_node_id(std::uint8_t seed) {
         NodeId id;

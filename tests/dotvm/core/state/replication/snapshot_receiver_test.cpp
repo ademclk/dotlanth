@@ -1,15 +1,14 @@
 /// @file snapshot_receiver_test.cpp
 /// @brief Tests for SnapshotReceiver (follower-side snapshot reception)
 
-#include "dotvm/core/state/replication/snapshot_receiver.hpp"
-
-#include <gtest/gtest.h>
-
 #include <atomic>
 #include <chrono>
 #include <thread>
 
+#include <gtest/gtest.h>
+
 #include "dotvm/core/state/mpt_types.hpp"
+#include "dotvm/core/state/replication/snapshot_receiver.hpp"
 #include "dotvm/core/state/replication/transport.hpp"
 
 namespace dotvm::core::state::replication {
@@ -188,8 +187,8 @@ protected:
         return chunk;
     }
 
-    std::unique_ptr<SnapshotReceiver> create_receiver(
-        SnapshotReceiverConfig config = SnapshotReceiverConfig::defaults()) {
+    std::unique_ptr<SnapshotReceiver>
+    create_receiver(SnapshotReceiverConfig config = SnapshotReceiverConfig::defaults()) {
         return std::make_unique<SnapshotReceiver>(std::move(config), *sink_, *transport_);
     }
 

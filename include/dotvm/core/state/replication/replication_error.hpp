@@ -33,36 +33,36 @@ enum class ReplicationError : std::uint8_t {
     BackpressureExceeded = 149,  ///< Send buffer overflow
 
     // Consensus errors (152-159)
-    NotLeader = 152,            ///< Node is not the leader
-    NoLeader = 153,             ///< No leader elected
-    ElectionTimeout = 154,      ///< Leader election timed out
-    LogInconsistent = 155,      ///< Log entries inconsistent
-    QuorumNotReached = 156,     ///< Failed to reach majority
-    TermMismatch = 157,         ///< Raft term mismatch
-    InvalidLogIndex = 158,      ///< Log index out of range
-    StaleRead = 159,            ///< Read from stale replica
-    AlreadyVoted = 150,         ///< Already voted in this term
-    LogIndexGap = 151,          ///< Non-contiguous log index
-    LogTruncated = 175,         ///< Log entry was truncated
+    NotLeader = 152,         ///< Node is not the leader
+    NoLeader = 153,          ///< No leader elected
+    ElectionTimeout = 154,   ///< Leader election timed out
+    LogInconsistent = 155,   ///< Log entries inconsistent
+    QuorumNotReached = 156,  ///< Failed to reach majority
+    TermMismatch = 157,      ///< Raft term mismatch
+    InvalidLogIndex = 158,   ///< Log index out of range
+    StaleRead = 159,         ///< Read from stale replica
+    AlreadyVoted = 150,      ///< Already voted in this term
+    LogIndexGap = 151,       ///< Non-contiguous log index
+    LogTruncated = 175,      ///< Log entry was truncated
 
     // Sync errors (160-167)
-    DeltaApplyFailed = 160,     ///< Failed to apply delta batch
+    DeltaApplyFailed = 160,        ///< Failed to apply delta batch
     SnapshotTransferFailed = 161,  ///< Snapshot transfer interrupted
-    VerificationFailed = 162,   ///< MPT root hash mismatch
-    LsnGap = 163,               ///< LSN sequence gap detected
-    ChecksumMismatch = 164,     ///< Data checksum verification failed
-    InvalidMessage = 165,       ///< Malformed replication message
-    DeserializationFailed = 166,  ///< Failed to deserialize message
-    SerializationFailed = 167,  ///< Failed to serialize message
+    VerificationFailed = 162,      ///< MPT root hash mismatch
+    LsnGap = 163,                  ///< LSN sequence gap detected
+    ChecksumMismatch = 164,        ///< Data checksum verification failed
+    InvalidMessage = 165,          ///< Malformed replication message
+    DeserializationFailed = 166,   ///< Failed to deserialize message
+    SerializationFailed = 167,     ///< Failed to serialize message
 
     // Configuration errors (168-175)
-    InvalidNodeId = 168,        ///< Node ID is invalid
-    NodeNotFound = 169,         ///< Node not in cluster membership
-    NodeAlreadyExists = 170,    ///< Node already in cluster
-    ClusterNotInitialized = 171,  ///< Cluster not yet bootstrapped
+    InvalidNodeId = 168,            ///< Node ID is invalid
+    NodeNotFound = 169,             ///< Node not in cluster membership
+    NodeAlreadyExists = 170,        ///< Node already in cluster
+    ClusterNotInitialized = 171,    ///< Cluster not yet bootstrapped
     ConfigurationInProgress = 172,  ///< Membership change already pending
-    InvalidClusterConfig = 173,  ///< Invalid cluster configuration
-    ShuttingDown = 174,         ///< Node is shutting down
+    InvalidClusterConfig = 173,     ///< Invalid cluster configuration
+    ShuttingDown = 174,             ///< Node is shutting down
 };
 
 /// @brief Convert replication error to human-readable string

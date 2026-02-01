@@ -1,12 +1,12 @@
 /// @file test_cluster_test.cpp
 /// @brief Tests for TestCluster test infrastructure
 
-#include "test_cluster.hpp"
+#include <chrono>
+#include <thread>
 
 #include <gtest/gtest.h>
 
-#include <chrono>
-#include <thread>
+#include "test_cluster.hpp"
 
 namespace dotvm::core::state::replication::testing {
 namespace {
@@ -45,7 +45,7 @@ TEST(TestClusterHelpers, MakeTestRecord_WithKeyValue) {
     auto record = make_test_record(LSN{5}, "mykey", "myvalue");
 
     EXPECT_EQ(record.lsn, LSN{5});
-    EXPECT_EQ(record.key.size(), 5);  // "mykey"
+    EXPECT_EQ(record.key.size(), 5);    // "mykey"
     EXPECT_EQ(record.value.size(), 7);  // "myvalue"
 }
 

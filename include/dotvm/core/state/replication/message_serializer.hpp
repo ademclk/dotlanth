@@ -188,40 +188,40 @@ public:
 private:
     // Internal helper to build message with header
     [[nodiscard]] static std::vector<std::byte> build_message(MessageType type,
-                                                               std::span<const std::byte> payload);
+                                                              std::span<const std::byte> payload);
 
     // Internal deserializers for each type
-    [[nodiscard]] static Result<RequestVote> deserialize_request_vote(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<RequestVoteResponse> deserialize_request_vote_response(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<AppendEntries> deserialize_append_entries(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<AppendEntriesResponse> deserialize_append_entries_response(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<InstallSnapshot> deserialize_install_snapshot(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<InstallSnapshotResponse> deserialize_install_snapshot_response(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<DeltaBatch> deserialize_delta_batch(
-        std::span<const std::byte> payload);
+    [[nodiscard]] static Result<RequestVote>
+    deserialize_request_vote(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<RequestVoteResponse>
+    deserialize_request_vote_response(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<AppendEntries>
+    deserialize_append_entries(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<AppendEntriesResponse>
+    deserialize_append_entries_response(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<InstallSnapshot>
+    deserialize_install_snapshot(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<InstallSnapshotResponse>
+    deserialize_install_snapshot_response(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<DeltaBatch>
+    deserialize_delta_batch(std::span<const std::byte> payload);
     [[nodiscard]] static Result<DeltaAck> deserialize_delta_ack(std::span<const std::byte> payload);
-    [[nodiscard]] static Result<DeltaRequest> deserialize_delta_request(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<SnapshotChunk> deserialize_snapshot_chunk(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<SnapshotAck> deserialize_snapshot_ack(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<SnapshotRequest> deserialize_snapshot_request(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<Heartbeat> deserialize_heartbeat(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<HeartbeatResponse> deserialize_heartbeat_response(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<ClusterConfig> deserialize_cluster_config(
-        std::span<const std::byte> payload);
-    [[nodiscard]] static Result<ConfigChangeRequest> deserialize_config_change_request(
-        std::span<const std::byte> payload);
+    [[nodiscard]] static Result<DeltaRequest>
+    deserialize_delta_request(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<SnapshotChunk>
+    deserialize_snapshot_chunk(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<SnapshotAck>
+    deserialize_snapshot_ack(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<SnapshotRequest>
+    deserialize_snapshot_request(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<Heartbeat>
+    deserialize_heartbeat(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<HeartbeatResponse>
+    deserialize_heartbeat_response(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<ClusterConfig>
+    deserialize_cluster_config(std::span<const std::byte> payload);
+    [[nodiscard]] static Result<ConfigChangeRequest>
+    deserialize_config_change_request(std::span<const std::byte> payload);
 };
 
 }  // namespace dotvm::core::state::replication

@@ -41,8 +41,7 @@ std::optional<Term> InMemoryRaftLog::term_at(LogIndex index) const {
         return std::nullopt;
     }
 
-    if (index < first_index_ ||
-        index.value >= first_index_.value + entries_.size()) {
+    if (index < first_index_ || index.value >= first_index_.value + entries_.size()) {
         return std::nullopt;
     }
 
@@ -57,8 +56,7 @@ std::optional<RaftLogEntry> InMemoryRaftLog::get(LogIndex index) const {
         return std::nullopt;
     }
 
-    if (index < first_index_ ||
-        index.value >= first_index_.value + entries_.size()) {
+    if (index < first_index_ || index.value >= first_index_.value + entries_.size()) {
         return std::nullopt;
     }
 
@@ -168,8 +166,7 @@ std::optional<LogIndex> InMemoryRaftLog::find_conflict(LogIndex index, Term term
         return std::nullopt;
     }
 
-    if (index < first_index_ ||
-        index.value >= first_index_.value + entries_.size()) {
+    if (index < first_index_ || index.value >= first_index_.value + entries_.size()) {
         return std::nullopt;
     }
 

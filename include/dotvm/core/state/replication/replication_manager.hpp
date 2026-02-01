@@ -59,9 +59,9 @@ struct ReplicationConfig {
     ConsistencyMode consistency{ConsistencyMode::Strong};
 
     // Raft timeouts (per Raft paper recommendations)
-    std::chrono::milliseconds election_timeout_min{150};   ///< Min election timeout
-    std::chrono::milliseconds election_timeout_max{300};   ///< Max election timeout
-    std::chrono::milliseconds heartbeat_interval{50};      ///< Heartbeat interval
+    std::chrono::milliseconds election_timeout_min{150};  ///< Min election timeout
+    std::chrono::milliseconds election_timeout_max{300};  ///< Max election timeout
+    std::chrono::milliseconds heartbeat_interval{50};     ///< Heartbeat interval
 
     // Sub-component configurations
     DeltaPublisherConfig delta_publisher;      ///< Delta streaming publisher config
@@ -100,22 +100,22 @@ struct ReplicationConfig {
 /// Raft consensus state, replication progress, and follower tracking.
 struct ReplicationStats {
     // Raft state
-    RaftRole role;                            ///< Current node role (Leader/Follower/Candidate)
-    Term current_term;                        ///< Current Raft term
-    std::optional<NodeId> current_leader;     ///< Known leader (if any)
-    LogIndex commit_index;                    ///< Highest committed log index
+    RaftRole role;                         ///< Current node role (Leader/Follower/Candidate)
+    Term current_term;                     ///< Current Raft term
+    std::optional<NodeId> current_leader;  ///< Known leader (if any)
+    LogIndex commit_index;                 ///< Highest committed log index
 
     // Replication progress
-    LSN applied_lsn;                          ///< Highest LSN applied to state machine
-    LSN committed_lsn;                        ///< Highest LSN committed (majority ack'd)
-    std::size_t pending_entries;              ///< Entries pending replication
+    LSN applied_lsn;              ///< Highest LSN applied to state machine
+    LSN committed_lsn;            ///< Highest LSN committed (majority ack'd)
+    std::size_t pending_entries;  ///< Entries pending replication
 
     // Follower tracking (populated when leader)
     std::vector<FollowerDeltaState> follower_states;  ///< Per-follower replication state
 
     // Timing information
-    std::chrono::steady_clock::time_point last_heartbeat;      ///< Last heartbeat sent/received
-    std::chrono::steady_clock::time_point last_state_change;   ///< Last role/term change
+    std::chrono::steady_clock::time_point last_heartbeat;     ///< Last heartbeat sent/received
+    std::chrono::steady_clock::time_point last_state_change;  ///< Last role/term change
 };
 
 // ============================================================================
@@ -200,13 +200,9 @@ public:
     /// @param snapshot_sink Sink for writing snapshot data (follower side)
     /// @param transport Transport for cluster communication
     /// @return Configured ReplicationManager, or error
-    [[nodiscard]] static Result<std::unique_ptr<ReplicationManager>> create(
-        ReplicationConfig config,
-        DeltaSource& delta_source,
-        DeltaSink& delta_sink,
-        SnapshotSource& snapshot_source,
-        SnapshotSink& snapshot_sink,
-        Transport& transport);
+    [[nodiscard]] static Result<std::unique_ptr<ReplicationManager>>
+    create(ReplicationConfig config, DeltaSource& delta_source, DeltaSink& delta_sink,
+           SnapshotSource& snapshot_source, SnapshotSink& snapshot_sink, Transport& transport);
 
     /// @brief Destructor
     ~ReplicationManager();

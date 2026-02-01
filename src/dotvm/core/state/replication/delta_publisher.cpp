@@ -40,9 +40,7 @@ struct DeltaPublisher::Impl {
         return {};
     }
 
-    void stop() {
-        running_.store(false);
-    }
+    void stop() { running_.store(false); }
 
     Result<void> add_follower(const NodeId& follower_id, LSN start_lsn) {
         std::lock_guard lock(mtx_);
@@ -116,10 +114,8 @@ struct DeltaPublisher::Impl {
             }
 
             // Read entries starting from sent_lsn + 1
-            auto entries = source.read_entries(
-                state.sent_lsn.next(),
-                config.batch_size,
-                config.max_batch_bytes);
+            auto entries = source.read_entries(state.sent_lsn.next(), config.batch_size,
+                                               config.max_batch_bytes);
 
             if (entries.empty()) {
                 continue;
@@ -248,7 +244,7 @@ bool DeltaPublisher::is_running() const noexcept {
 }
 
 DeltaPublisher::Result<void> DeltaPublisher::add_follower(const NodeId& follower_id,
-                                                           LSN start_lsn) {
+                                                          LSN start_lsn) {
     return impl_->add_follower(follower_id, start_lsn);
 }
 
@@ -256,8 +252,8 @@ DeltaPublisher::Result<void> DeltaPublisher::remove_follower(const NodeId& follo
     return impl_->remove_follower(follower_id);
 }
 
-std::optional<FollowerDeltaState> DeltaPublisher::get_follower_state(
-    const NodeId& follower_id) const {
+std::optional<FollowerDeltaState>
+DeltaPublisher::get_follower_state(const NodeId& follower_id) const {
     return impl_->get_follower_state(follower_id);
 }
 

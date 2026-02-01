@@ -70,27 +70,28 @@ void write_string(std::vector<std::byte>& out, const std::string& str) {
 }
 
 std::uint8_t read_u8(std::span<const std::byte> data, std::size_t& offset) {
-    if (offset >= data.size()) return 0;
+    if (offset >= data.size())
+        return 0;
     return static_cast<std::uint8_t>(data[offset++]);
 }
 
 std::uint32_t read_u32(std::span<const std::byte> data, std::size_t& offset) {
-    if (offset + 4 > data.size()) return 0;
+    if (offset + 4 > data.size())
+        return 0;
     std::uint32_t value = 0;
     for (std::size_t i = 0; i < 4; ++i) {
-        value |= static_cast<std::uint32_t>(static_cast<std::uint8_t>(data[offset + i]))
-                 << (i * 8);
+        value |= static_cast<std::uint32_t>(static_cast<std::uint8_t>(data[offset + i])) << (i * 8);
     }
     offset += 4;
     return value;
 }
 
 std::uint64_t read_u64(std::span<const std::byte> data, std::size_t& offset) {
-    if (offset + 8 > data.size()) return 0;
+    if (offset + 8 > data.size())
+        return 0;
     std::uint64_t value = 0;
     for (std::size_t i = 0; i < 8; ++i) {
-        value |= static_cast<std::uint64_t>(static_cast<std::uint8_t>(data[offset + i]))
-                 << (i * 8);
+        value |= static_cast<std::uint64_t>(static_cast<std::uint8_t>(data[offset + i])) << (i * 8);
     }
     offset += 8;
     return value;
@@ -98,7 +99,8 @@ std::uint64_t read_u64(std::span<const std::byte> data, std::size_t& offset) {
 
 std::vector<std::byte> read_bytes(std::span<const std::byte> data, std::size_t& offset,
                                   std::size_t count) {
-    if (offset + count > data.size()) return {};
+    if (offset + count > data.size())
+        return {};
     std::vector<std::byte> result(data.begin() + static_cast<std::ptrdiff_t>(offset),
                                   data.begin() + static_cast<std::ptrdiff_t>(offset + count));
     offset += count;
@@ -107,7 +109,8 @@ std::vector<std::byte> read_bytes(std::span<const std::byte> data, std::size_t& 
 
 std::string read_string(std::span<const std::byte> data, std::size_t& offset) {
     std::uint32_t len = read_u32(data, offset);
-    if (offset + len > data.size()) return "";
+    if (offset + len > data.size())
+        return "";
     std::string result;
     result.reserve(len);
     for (std::uint32_t i = 0; i < len; ++i) {
@@ -132,7 +135,8 @@ std::string NodeId::to_hex() const {
 }
 
 std::optional<NodeId> NodeId::from_hex(std::string_view hex) {
-    if (hex.size() != 32) return std::nullopt;
+    if (hex.size() != 32)
+        return std::nullopt;
 
     NodeId result;
     for (std::size_t i = 0; i < 16; ++i) {
@@ -140,15 +144,19 @@ std::optional<NodeId> NodeId::from_hex(std::string_view hex) {
         auto low = hex[i * 2 + 1];
 
         auto hex_digit = [](char c) -> std::optional<std::uint8_t> {
-            if (c >= '0' && c <= '9') return static_cast<std::uint8_t>(c - '0');
-            if (c >= 'a' && c <= 'f') return static_cast<std::uint8_t>(c - 'a' + 10);
-            if (c >= 'A' && c <= 'F') return static_cast<std::uint8_t>(c - 'A' + 10);
+            if (c >= '0' && c <= '9')
+                return static_cast<std::uint8_t>(c - '0');
+            if (c >= 'a' && c <= 'f')
+                return static_cast<std::uint8_t>(c - 'a' + 10);
+            if (c >= 'A' && c <= 'F')
+                return static_cast<std::uint8_t>(c - 'A' + 10);
             return std::nullopt;
         };
 
         auto h = hex_digit(high);
         auto l = hex_digit(low);
-        if (!h || !l) return std::nullopt;
+        if (!h || !l)
+            return std::nullopt;
 
         result.data[i] = static_cast<std::uint8_t>((*h << 4) | *l);
     }
@@ -177,8 +185,8 @@ void MessageSerializer::serialize_node_id(const NodeId& id, std::vector<std::byt
     }
 }
 
-MessageSerializer::Result<NodeId> MessageSerializer::deserialize_node_id(
-    std::span<const std::byte> data) {
+MessageSerializer::Result<NodeId>
+MessageSerializer::deserialize_node_id(std::span<const std::byte> data) {
     if (data.size() < 16) {
         return ReplicationError::DeserializationFailed;
     }
@@ -205,8 +213,8 @@ void MessageSerializer::serialize_term(Term term, std::vector<std::byte>& out) {
     write_u64(out, term.value);
 }
 
-MessageSerializer::Result<Term> MessageSerializer::deserialize_term(
-    std::span<const std::byte> data) {
+MessageSerializer::Result<Term>
+MessageSerializer::deserialize_term(std::span<const std::byte> data) {
     if (data.size() < 8) {
         return ReplicationError::DeserializationFailed;
     }
@@ -218,8 +226,8 @@ void MessageSerializer::serialize_log_index(LogIndex index, std::vector<std::byt
     write_u64(out, index.value);
 }
 
-MessageSerializer::Result<LogIndex> MessageSerializer::deserialize_log_index(
-    std::span<const std::byte> data) {
+MessageSerializer::Result<LogIndex>
+MessageSerializer::deserialize_log_index(std::span<const std::byte> data) {
     if (data.size() < 8) {
         return ReplicationError::DeserializationFailed;
     }
@@ -232,7 +240,7 @@ MessageSerializer::Result<LogIndex> MessageSerializer::deserialize_log_index(
 // ============================================================================
 
 std::vector<std::byte> MessageSerializer::build_message(MessageType type,
-                                                         std::span<const std::byte> payload) {
+                                                        std::span<const std::byte> payload) {
     std::vector<std::byte> result;
     result.reserve(MESSAGE_HEADER_SIZE + payload.size());
 
@@ -259,16 +267,16 @@ std::vector<std::byte> MessageSerializer::build_message(MessageType type,
 // Peek Functions
 // ============================================================================
 
-MessageSerializer::Result<MessageType> MessageSerializer::peek_type(
-    std::span<const std::byte> data) {
+MessageSerializer::Result<MessageType>
+MessageSerializer::peek_type(std::span<const std::byte> data) {
     if (data.size() < MESSAGE_HEADER_SIZE) {
         return ReplicationError::InvalidMessage;
     }
     return static_cast<MessageType>(static_cast<std::uint8_t>(data[0]));
 }
 
-MessageSerializer::Result<std::size_t> MessageSerializer::peek_size(
-    std::span<const std::byte> data) {
+MessageSerializer::Result<std::size_t>
+MessageSerializer::peek_size(std::span<const std::byte> data) {
     if (data.size() < MESSAGE_HEADER_SIZE) {
         return ReplicationError::InvalidMessage;
     }
@@ -281,8 +289,8 @@ MessageSerializer::Result<std::size_t> MessageSerializer::peek_size(
 // Serialization Implementations
 // ============================================================================
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const RequestVote& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const RequestVote& msg) {
     std::vector<std::byte> payload;
     serialize_term(msg.term, payload);
     serialize_node_id(msg.candidate_id, payload);
@@ -291,16 +299,16 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::RequestVote, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const RequestVoteResponse& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const RequestVoteResponse& msg) {
     std::vector<std::byte> payload;
     serialize_term(msg.term, payload);
     write_u8(payload, msg.vote_granted ? 1 : 0);
     return build_message(MessageType::RequestVoteResponse, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const AppendEntries& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const AppendEntries& msg) {
     std::vector<std::byte> payload;
     serialize_term(msg.term, payload);
     serialize_node_id(msg.leader_id, payload);
@@ -323,8 +331,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::AppendEntries, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const AppendEntriesResponse& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const AppendEntriesResponse& msg) {
     std::vector<std::byte> payload;
     serialize_term(msg.term, payload);
     write_u8(payload, msg.success ? 1 : 0);
@@ -332,8 +340,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::AppendEntriesResponse, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const InstallSnapshot& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const InstallSnapshot& msg) {
     std::vector<std::byte> payload;
     serialize_term(msg.term, payload);
     serialize_node_id(msg.leader_id, payload);
@@ -346,15 +354,15 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::InstallSnapshot, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const InstallSnapshotResponse& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const InstallSnapshotResponse& msg) {
     std::vector<std::byte> payload;
     serialize_term(msg.term, payload);
     return build_message(MessageType::InstallSnapshotResponse, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const DeltaBatch& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const DeltaBatch& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.sender_id, payload);
     serialize_lsn(msg.start_lsn, payload);
@@ -373,8 +381,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::DeltaBatch, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const DeltaAck& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const DeltaAck& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.node_id, payload);
     serialize_lsn(msg.acked_lsn, payload);
@@ -383,8 +391,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::DeltaAck, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const DeltaRequest& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const DeltaRequest& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.node_id, payload);
     serialize_lsn(msg.start_lsn, payload);
@@ -393,8 +401,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::DeltaRequest, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const SnapshotChunk& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const SnapshotChunk& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.sender_id, payload);
     serialize_lsn(msg.snapshot_lsn, payload);
@@ -408,8 +416,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::SnapshotChunk, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const SnapshotAck& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const SnapshotAck& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.node_id, payload);
     write_u32(payload, msg.chunk_index);
@@ -418,16 +426,16 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::SnapshotAck, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const SnapshotRequest& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const SnapshotRequest& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.node_id, payload);
     serialize_lsn(msg.from_lsn, payload);
     return build_message(MessageType::SnapshotRequest, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const Heartbeat& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const Heartbeat& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.sender_id, payload);
     write_u64(payload, msg.timestamp_us);
@@ -436,8 +444,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::Heartbeat, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const HeartbeatResponse& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const HeartbeatResponse& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.node_id, payload);
     write_u64(payload, msg.timestamp_us);
@@ -445,8 +453,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::HeartbeatResponse, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const ClusterConfig& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const ClusterConfig& msg) {
     std::vector<std::byte> payload;
     write_u64(payload, msg.config_index);
     write_u32(payload, static_cast<std::uint32_t>(msg.members.size()));
@@ -460,8 +468,8 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::ClusterConfig, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const ConfigChangeRequest& msg) {
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const ConfigChangeRequest& msg) {
     std::vector<std::byte> payload;
     serialize_node_id(msg.requester_id, payload);
     write_u8(payload, static_cast<std::uint8_t>(msg.change_type));
@@ -470,18 +478,18 @@ MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
     return build_message(MessageType::ConfigChangeRequest, payload);
 }
 
-MessageSerializer::Result<std::vector<std::byte>> MessageSerializer::serialize(
-    const ReplicationMessage& msg) {
-    return std::visit(
-        [](const auto& m) -> Result<std::vector<std::byte>> { return serialize(m); }, msg);
+MessageSerializer::Result<std::vector<std::byte>>
+MessageSerializer::serialize(const ReplicationMessage& msg) {
+    return std::visit([](const auto& m) -> Result<std::vector<std::byte>> { return serialize(m); },
+                      msg);
 }
 
 // ============================================================================
 // Deserialization Implementations
 // ============================================================================
 
-MessageSerializer::Result<ReplicationMessage> MessageSerializer::deserialize(
-    std::span<const std::byte> data) {
+MessageSerializer::Result<ReplicationMessage>
+MessageSerializer::deserialize(std::span<const std::byte> data) {
     if (data.size() < MESSAGE_HEADER_SIZE) {
         return ReplicationError::InvalidMessage;
     }
@@ -568,8 +576,8 @@ MessageSerializer::Result<ReplicationMessage> MessageSerializer::deserialize(
 // Individual Deserializers
 // ============================================================================
 
-MessageSerializer::Result<RequestVote> MessageSerializer::deserialize_request_vote(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<RequestVote>
+MessageSerializer::deserialize_request_vote(std::span<const std::byte> payload) {
     if (payload.size() < 8 + 16 + 8 + 8) {
         return ReplicationError::DeserializationFailed;
     }
@@ -578,7 +586,8 @@ MessageSerializer::Result<RequestVote> MessageSerializer::deserialize_request_vo
     RequestVote msg;
     msg.term = Term{read_u64(payload, offset)};
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.candidate_id = id_result.value();
     offset += 16;
     msg.last_log_index = LogIndex{read_u64(payload, offset)};
@@ -586,8 +595,8 @@ MessageSerializer::Result<RequestVote> MessageSerializer::deserialize_request_vo
     return msg;
 }
 
-MessageSerializer::Result<RequestVoteResponse> MessageSerializer::deserialize_request_vote_response(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<RequestVoteResponse>
+MessageSerializer::deserialize_request_vote_response(std::span<const std::byte> payload) {
     if (payload.size() < 8 + 1) {
         return ReplicationError::DeserializationFailed;
     }
@@ -599,8 +608,8 @@ MessageSerializer::Result<RequestVoteResponse> MessageSerializer::deserialize_re
     return msg;
 }
 
-MessageSerializer::Result<AppendEntries> MessageSerializer::deserialize_append_entries(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<AppendEntries>
+MessageSerializer::deserialize_append_entries(std::span<const std::byte> payload) {
     if (payload.size() < 8 + 16 + 8 + 8 + 8 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -610,7 +619,8 @@ MessageSerializer::Result<AppendEntries> MessageSerializer::deserialize_append_e
     msg.term = Term{read_u64(payload, offset)};
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.leader_id = id_result.value();
     offset += 16;
 
@@ -656,8 +666,8 @@ MessageSerializer::deserialize_append_entries_response(std::span<const std::byte
     return msg;
 }
 
-MessageSerializer::Result<InstallSnapshot> MessageSerializer::deserialize_install_snapshot(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<InstallSnapshot>
+MessageSerializer::deserialize_install_snapshot(std::span<const std::byte> payload) {
     if (payload.size() < 8 + 16 + 8 + 8 + 8 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -667,7 +677,8 @@ MessageSerializer::Result<InstallSnapshot> MessageSerializer::deserialize_instal
     msg.term = Term{read_u64(payload, offset)};
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.leader_id = id_result.value();
     offset += 16;
 
@@ -697,8 +708,8 @@ MessageSerializer::deserialize_install_snapshot_response(std::span<const std::by
     return msg;
 }
 
-MessageSerializer::Result<DeltaBatch> MessageSerializer::deserialize_delta_batch(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<DeltaBatch>
+MessageSerializer::deserialize_delta_batch(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 8 + 8 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -707,7 +718,8 @@ MessageSerializer::Result<DeltaBatch> MessageSerializer::deserialize_delta_batch
     DeltaBatch msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.sender_id = id_result.value();
     offset += 16;
 
@@ -739,8 +751,8 @@ MessageSerializer::Result<DeltaBatch> MessageSerializer::deserialize_delta_batch
     return msg;
 }
 
-MessageSerializer::Result<DeltaAck> MessageSerializer::deserialize_delta_ack(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<DeltaAck>
+MessageSerializer::deserialize_delta_ack(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 8 + 1 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -749,7 +761,8 @@ MessageSerializer::Result<DeltaAck> MessageSerializer::deserialize_delta_ack(
     DeltaAck msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.node_id = id_result.value();
     offset += 16;
 
@@ -759,8 +772,8 @@ MessageSerializer::Result<DeltaAck> MessageSerializer::deserialize_delta_ack(
     return msg;
 }
 
-MessageSerializer::Result<DeltaRequest> MessageSerializer::deserialize_delta_request(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<DeltaRequest>
+MessageSerializer::deserialize_delta_request(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 8 + 4 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -769,7 +782,8 @@ MessageSerializer::Result<DeltaRequest> MessageSerializer::deserialize_delta_req
     DeltaRequest msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.node_id = id_result.value();
     offset += 16;
 
@@ -779,8 +793,8 @@ MessageSerializer::Result<DeltaRequest> MessageSerializer::deserialize_delta_req
     return msg;
 }
 
-MessageSerializer::Result<SnapshotChunk> MessageSerializer::deserialize_snapshot_chunk(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<SnapshotChunk>
+MessageSerializer::deserialize_snapshot_chunk(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 8 + 4 + 4 + 8 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -789,7 +803,8 @@ MessageSerializer::Result<SnapshotChunk> MessageSerializer::deserialize_snapshot
     SnapshotChunk msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.sender_id = id_result.value();
     offset += 16;
 
@@ -809,8 +824,8 @@ MessageSerializer::Result<SnapshotChunk> MessageSerializer::deserialize_snapshot
     return msg;
 }
 
-MessageSerializer::Result<SnapshotAck> MessageSerializer::deserialize_snapshot_ack(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<SnapshotAck>
+MessageSerializer::deserialize_snapshot_ack(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 4 + 1 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -819,7 +834,8 @@ MessageSerializer::Result<SnapshotAck> MessageSerializer::deserialize_snapshot_a
     SnapshotAck msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.node_id = id_result.value();
     offset += 16;
 
@@ -829,8 +845,8 @@ MessageSerializer::Result<SnapshotAck> MessageSerializer::deserialize_snapshot_a
     return msg;
 }
 
-MessageSerializer::Result<SnapshotRequest> MessageSerializer::deserialize_snapshot_request(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<SnapshotRequest>
+MessageSerializer::deserialize_snapshot_request(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 8) {
         return ReplicationError::DeserializationFailed;
     }
@@ -839,7 +855,8 @@ MessageSerializer::Result<SnapshotRequest> MessageSerializer::deserialize_snapsh
     SnapshotRequest msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.node_id = id_result.value();
     offset += 16;
 
@@ -847,8 +864,8 @@ MessageSerializer::Result<SnapshotRequest> MessageSerializer::deserialize_snapsh
     return msg;
 }
 
-MessageSerializer::Result<Heartbeat> MessageSerializer::deserialize_heartbeat(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<Heartbeat>
+MessageSerializer::deserialize_heartbeat(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 8 + 8 + 1) {
         return ReplicationError::DeserializationFailed;
     }
@@ -857,7 +874,8 @@ MessageSerializer::Result<Heartbeat> MessageSerializer::deserialize_heartbeat(
     Heartbeat msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.sender_id = id_result.value();
     offset += 16;
 
@@ -867,8 +885,8 @@ MessageSerializer::Result<Heartbeat> MessageSerializer::deserialize_heartbeat(
     return msg;
 }
 
-MessageSerializer::Result<HeartbeatResponse> MessageSerializer::deserialize_heartbeat_response(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<HeartbeatResponse>
+MessageSerializer::deserialize_heartbeat_response(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 8 + 8) {
         return ReplicationError::DeserializationFailed;
     }
@@ -877,7 +895,8 @@ MessageSerializer::Result<HeartbeatResponse> MessageSerializer::deserialize_hear
     HeartbeatResponse msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.node_id = id_result.value();
     offset += 16;
 
@@ -886,8 +905,8 @@ MessageSerializer::Result<HeartbeatResponse> MessageSerializer::deserialize_hear
     return msg;
 }
 
-MessageSerializer::Result<ClusterConfig> MessageSerializer::deserialize_cluster_config(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<ClusterConfig>
+MessageSerializer::deserialize_cluster_config(std::span<const std::byte> payload) {
     if (payload.size() < 8 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -903,7 +922,8 @@ MessageSerializer::Result<ClusterConfig> MessageSerializer::deserialize_cluster_
             return ReplicationError::DeserializationFailed;
         }
         auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-        if (id_result.is_err()) return id_result.error();
+        if (id_result.is_err())
+            return id_result.error();
         msg.members.push_back(id_result.value());
         offset += 16;
     }
@@ -918,7 +938,8 @@ MessageSerializer::Result<ClusterConfig> MessageSerializer::deserialize_cluster_
             return ReplicationError::DeserializationFailed;
         }
         auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-        if (id_result.is_err()) return id_result.error();
+        if (id_result.is_err())
+            return id_result.error();
         msg.learners.push_back(id_result.value());
         offset += 16;
     }
@@ -926,8 +947,8 @@ MessageSerializer::Result<ClusterConfig> MessageSerializer::deserialize_cluster_
     return msg;
 }
 
-MessageSerializer::Result<ConfigChangeRequest> MessageSerializer::deserialize_config_change_request(
-    std::span<const std::byte> payload) {
+MessageSerializer::Result<ConfigChangeRequest>
+MessageSerializer::deserialize_config_change_request(std::span<const std::byte> payload) {
     if (payload.size() < 16 + 1 + 16 + 4) {
         return ReplicationError::DeserializationFailed;
     }
@@ -936,14 +957,16 @@ MessageSerializer::Result<ConfigChangeRequest> MessageSerializer::deserialize_co
     ConfigChangeRequest msg;
 
     auto id_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (id_result.is_err()) return id_result.error();
+    if (id_result.is_err())
+        return id_result.error();
     msg.requester_id = id_result.value();
     offset += 16;
 
     msg.change_type = static_cast<RaftCommandType>(read_u8(payload, offset));
 
     auto target_result = deserialize_node_id(payload.subspan(offset, 16));
-    if (target_result.is_err()) return target_result.error();
+    if (target_result.is_err())
+        return target_result.error();
     msg.target_node = target_result.value();
     offset += 16;
 

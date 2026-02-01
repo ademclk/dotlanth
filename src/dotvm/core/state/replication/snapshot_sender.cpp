@@ -67,7 +67,7 @@ struct SnapshotSender::Impl {
 };
 
 SnapshotSender::SnapshotSender(SnapshotSenderConfig config, SnapshotSource& source,
-                                Transport& transport)
+                               Transport& transport)
     : impl_(std::make_unique<Impl>(std::move(config), source, transport)) {}
 
 SnapshotSender::~SnapshotSender() {

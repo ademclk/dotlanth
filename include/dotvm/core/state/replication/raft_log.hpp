@@ -25,10 +25,10 @@ namespace dotvm::core::state::replication {
 
 /// @brief Configuration for Raft log storage
 struct RaftLogConfig {
-    std::string storage_path;            ///< Path to log storage file
-    std::size_t max_entries{100000};     ///< Max entries before compaction
-    std::size_t sync_batch_size{100};    ///< Entries to batch before fsync
-    bool enable_compression{false};      ///< Compress entries on disk
+    std::string storage_path;          ///< Path to log storage file
+    std::size_t max_entries{100000};   ///< Max entries before compaction
+    std::size_t sync_batch_size{100};  ///< Entries to batch before fsync
+    bool enable_compression{false};    ///< Compress entries on disk
 
     /// @brief Create default configuration
     [[nodiscard]] static RaftLogConfig defaults() noexcept { return RaftLogConfig{}; }
@@ -92,7 +92,7 @@ public:
 
     /// @brief Get entries in range [start, end)
     [[nodiscard]] virtual std::vector<RaftLogEntry> get_range(LogIndex start,
-                                                               LogIndex end) const = 0;
+                                                              LogIndex end) const = 0;
 
     // ========================================================================
     // Log Modification
@@ -134,7 +134,7 @@ public:
     /// @param term Expected term at index
     /// @return Index where conflict starts, or nullopt if no conflict
     [[nodiscard]] virtual std::optional<LogIndex> find_conflict(LogIndex index,
-                                                                 Term term) const = 0;
+                                                                Term term) const = 0;
 
     // ========================================================================
     // Compaction
@@ -208,7 +208,7 @@ private:
 ///
 /// @param config Log configuration
 /// @return Log instance or error
-[[nodiscard]] Result<std::unique_ptr<RaftLog>, ReplicationError> create_raft_log(
-    const RaftLogConfig& config);
+[[nodiscard]] Result<std::unique_ptr<RaftLog>, ReplicationError>
+create_raft_log(const RaftLogConfig& config);
 
 }  // namespace dotvm::core::state::replication

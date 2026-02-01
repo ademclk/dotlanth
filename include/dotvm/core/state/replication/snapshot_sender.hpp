@@ -29,14 +29,12 @@ namespace dotvm::core::state::replication {
 
 /// @brief Configuration for snapshot transfer
 struct SnapshotSenderConfig {
-    std::size_t chunk_size{64 * 1024};                   ///< Size of each chunk (64KB)
-    std::size_t max_concurrent_transfers{2};             ///< Max parallel snapshot transfers
-    std::chrono::milliseconds transfer_timeout{30000};   ///< Timeout for entire transfer (30s)
-    bool verify_chunks{true};                            ///< Compute CRC32 for each chunk
+    std::size_t chunk_size{64 * 1024};                  ///< Size of each chunk (64KB)
+    std::size_t max_concurrent_transfers{2};            ///< Max parallel snapshot transfers
+    std::chrono::milliseconds transfer_timeout{30000};  ///< Timeout for entire transfer (30s)
+    bool verify_chunks{true};                           ///< Compute CRC32 for each chunk
 
-    [[nodiscard]] static SnapshotSenderConfig defaults() noexcept {
-        return SnapshotSenderConfig{};
-    }
+    [[nodiscard]] static SnapshotSenderConfig defaults() noexcept { return SnapshotSenderConfig{}; }
 };
 
 // ============================================================================
@@ -75,15 +73,15 @@ enum class TransferStatus : std::uint8_t {
 
 /// @brief Tracking state for a single snapshot transfer
 struct TransferState {
-    NodeId follower_id;                    ///< Target follower receiving the snapshot
-    state::LSN snapshot_lsn;               ///< LSN at which snapshot was taken
-    std::size_t total_size{0};             ///< Total snapshot size in bytes
-    std::size_t bytes_sent{0};             ///< Bytes successfully sent
-    std::uint32_t chunks_sent{0};          ///< Number of chunks sent
-    std::uint32_t total_chunks{0};         ///< Total number of chunks
-    std::chrono::steady_clock::time_point start_time;        ///< When transfer was initiated
+    NodeId follower_id;                                ///< Target follower receiving the snapshot
+    state::LSN snapshot_lsn;                           ///< LSN at which snapshot was taken
+    std::size_t total_size{0};                         ///< Total snapshot size in bytes
+    std::size_t bytes_sent{0};                         ///< Bytes successfully sent
+    std::uint32_t chunks_sent{0};                      ///< Number of chunks sent
+    std::uint32_t total_chunks{0};                     ///< Total number of chunks
+    std::chrono::steady_clock::time_point start_time;  ///< When transfer was initiated
     std::chrono::steady_clock::time_point last_activity_time;  ///< Last chunk sent
-    TransferStatus status{TransferStatus::Pending};  ///< Current status
+    TransferStatus status{TransferStatus::Pending};            ///< Current status
 };
 
 // ============================================================================

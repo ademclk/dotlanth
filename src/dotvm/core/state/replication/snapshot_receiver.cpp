@@ -210,9 +210,8 @@ SnapshotReceiver::Result<void> SnapshotReceiver::receive_chunk(const SnapshotChu
         (void)impl_->process_pending_internal();
 
         // Check if complete
-        if (chunk.is_last ||
-            (impl_->state.total_chunks > 0 &&
-             impl_->state.chunks_received >= impl_->state.total_chunks)) {
+        if (chunk.is_last || (impl_->state.total_chunks > 0 &&
+                              impl_->state.chunks_received >= impl_->state.total_chunks)) {
             return impl_->finalize_receive();
         }
     } else if (chunk.chunk_index > impl_->next_expected_chunk) {

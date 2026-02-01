@@ -1,15 +1,14 @@
 /// @file delta_subscriber_test.cpp
 /// @brief Tests for DeltaSubscriber (follower-side delta streaming)
 
-#include "dotvm/core/state/replication/delta_subscriber.hpp"
-
-#include <gtest/gtest.h>
-
 #include <atomic>
 #include <chrono>
 #include <thread>
 
+#include <gtest/gtest.h>
+
 #include "dotvm/core/state/mpt_types.hpp"
+#include "dotvm/core/state/replication/delta_subscriber.hpp"
 #include "dotvm/core/state/replication/transport.hpp"
 
 namespace dotvm::core::state::replication {
@@ -33,9 +32,7 @@ public:
     MockDeltaSink() = default;
 
     // DeltaSink interface
-    [[nodiscard]] LSN applied_lsn() const noexcept override {
-        return applied_lsn_;
-    }
+    [[nodiscard]] LSN applied_lsn() const noexcept override { return applied_lsn_; }
 
     [[nodiscard]] Result<void> apply_batch(const std::vector<LogRecord>& records) override {
         if (fail_next_apply_) {
@@ -53,9 +50,7 @@ public:
         return {};
     }
 
-    [[nodiscard]] MptHash mpt_root() const override {
-        return current_mpt_root_;
-    }
+    [[nodiscard]] MptHash mpt_root() const override { return current_mpt_root_; }
 
     // Test helpers
     void set_applied_lsn(LSN lsn) { applied_lsn_ = lsn; }
@@ -95,9 +90,7 @@ protected:
         ASSERT_TRUE(result.is_ok());
     }
 
-    void TearDown() override {
-        transport_->stop(std::chrono::milliseconds{100});
-    }
+    void TearDown() override { transport_->stop(std::chrono::milliseconds{100}); }
 
     static NodeId make_node_id(std::uint8_t seed) {
         NodeId id;
@@ -114,14 +107,14 @@ protected:
         record.type = LogRecordType::Put;
         record.key.assign(reinterpret_cast<const std::byte*>(key_str.data()),
                           reinterpret_cast<const std::byte*>(key_str.data() + key_str.size()));
-        record.value.assign(reinterpret_cast<const std::byte*>(value_str.data()),
-                            reinterpret_cast<const std::byte*>(value_str.data() + value_str.size()));
+        record.value.assign(
+            reinterpret_cast<const std::byte*>(value_str.data()),
+            reinterpret_cast<const std::byte*>(value_str.data() + value_str.size()));
         record.checksum = 0;
         return record;
     }
 
-    static DeltaBatch make_batch(LSN start_lsn, LSN end_lsn,
-                                 std::vector<LogRecord> entries = {}) {
+    static DeltaBatch make_batch(LSN start_lsn, LSN end_lsn, std::vector<LogRecord> entries = {}) {
         DeltaBatch batch;
         batch.sender_id = make_node_id(1);  // Leader
         batch.start_lsn = start_lsn;
@@ -148,10 +141,10 @@ protected:
         return hash;
     }
 
-    std::unique_ptr<DeltaSubscriber> create_subscriber(
-        DeltaSubscriberConfig config = DeltaSubscriberConfig::defaults()) {
-        return std::make_unique<DeltaSubscriber>(
-            std::move(config), *sink_, *transport_, leader_id_);
+    std::unique_ptr<DeltaSubscriber>
+    create_subscriber(DeltaSubscriberConfig config = DeltaSubscriberConfig::defaults()) {
+        return std::make_unique<DeltaSubscriber>(std::move(config), *sink_, *transport_,
+                                                 leader_id_);
     }
 
     NodeId local_id_ = make_node_id(2);   // Follower
@@ -244,8 +237,7 @@ TEST_F(DeltaSubscriberTest, ReceiveMultipleBatches_AllQueued) {
     ASSERT_TRUE(subscriber->start().is_ok());
 
     for (int i = 1; i <= 5; ++i) {
-        auto batch = make_batch(LSN{static_cast<uint64_t>(i)},
-                                LSN{static_cast<uint64_t>(i)});
+        auto batch = make_batch(LSN{static_cast<uint64_t>(i)}, LSN{static_cast<uint64_t>(i)});
         auto result = subscriber->receive_batch(batch);
         EXPECT_TRUE(result.is_ok());
     }
@@ -356,7 +348,7 @@ TEST_F(DeltaSubscriberTest, ProcessPending_OutOfOrderBatch_WaitsForMissing) {
 
     // Try to process - should not apply because batch 1 is missing
     auto count = subscriber->process_pending();
-    EXPECT_EQ(count, 0);  // Nothing applied
+    EXPECT_EQ(count, 0);                        // Nothing applied
     EXPECT_EQ(subscriber->pending_count(), 1);  // Still pending
 }
 
@@ -494,8 +486,7 @@ TEST_F(DeltaSubscriberTest, ReceiveBatch_QueueFull_ReturnsBackpressure) {
 
     // Fill the queue
     for (int i = 1; i <= 3; ++i) {
-        auto batch = make_batch(LSN{static_cast<uint64_t>(i)},
-                                LSN{static_cast<uint64_t>(i)});
+        auto batch = make_batch(LSN{static_cast<uint64_t>(i)}, LSN{static_cast<uint64_t>(i)});
         auto result = subscriber->receive_batch(batch);
         EXPECT_TRUE(result.is_ok());
     }
@@ -559,8 +550,7 @@ TEST_F(DeltaSubscriberTest, ClearPending_RemovesAllQueuedBatches) {
 
     // Queue some batches
     for (int i = 1; i <= 5; ++i) {
-        auto batch = make_batch(LSN{static_cast<uint64_t>(i)},
-                                LSN{static_cast<uint64_t>(i)});
+        auto batch = make_batch(LSN{static_cast<uint64_t>(i)}, LSN{static_cast<uint64_t>(i)});
         ASSERT_TRUE(subscriber->receive_batch(batch).is_ok());
     }
 
@@ -612,7 +602,7 @@ TEST_F(DeltaSubscriberTest, Stats_UpdatedAfterReceive) {
 
     auto stats = subscriber->stats();
     EXPECT_EQ(stats.batches_received, 1);
-    EXPECT_GT(stats.bytes_received, 0);  // Should have received some bytes
+    EXPECT_GT(stats.bytes_received, 0);      // Should have received some bytes
     EXPECT_EQ(stats.received_lsn.value, 5);  // Highest received LSN
 }
 
@@ -687,9 +677,7 @@ TEST_F(DeltaSubscriberTest, ApplyCallback_CalledForEachBatch) {
 
     std::atomic<int> callback_count{0};
 
-    subscriber->set_apply_callback([&](LSN, std::size_t) {
-        callback_count.fetch_add(1);
-    });
+    subscriber->set_apply_callback([&](LSN, std::size_t) { callback_count.fetch_add(1); });
 
     auto batch1 = make_batch(LSN{1}, LSN{1});
     auto batch2 = make_batch(LSN{2}, LSN{2});
@@ -813,8 +801,7 @@ TEST_F(DeltaSubscriberTest, ConcurrentReceiveAndProcess) {
     // Producer thread
     std::thread producer([&]() {
         for (int i = 1; i <= 100 && !stop.load(); ++i) {
-            auto batch = make_batch(LSN{static_cast<uint64_t>(i)},
-                                    LSN{static_cast<uint64_t>(i)});
+            auto batch = make_batch(LSN{static_cast<uint64_t>(i)}, LSN{static_cast<uint64_t>(i)});
             auto result = subscriber->receive_batch(batch);
             if (result.is_ok()) {
                 received.fetch_add(1);

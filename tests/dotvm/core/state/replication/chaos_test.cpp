@@ -12,10 +12,6 @@
 /// delivery infrastructure. These tests focus on the building blocks
 /// that enable chaos testing.
 
-#include "dotvm/core/state/replication/replication_manager.hpp"
-
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -24,6 +20,10 @@
 #include <random>
 #include <thread>
 #include <vector>
+
+#include <gtest/gtest.h>
+
+#include "dotvm/core/state/replication/replication_manager.hpp"
 
 namespace dotvm::core::state::replication {
 namespace {
@@ -35,12 +35,10 @@ namespace {
 /// @brief Mock DeltaSource for chaos testing
 class MockDeltaSource : public DeltaSource {
 public:
-    [[nodiscard]] LSN current_lsn() const noexcept override {
-        return current_lsn_.load();
-    }
+    [[nodiscard]] LSN current_lsn() const noexcept override { return current_lsn_.load(); }
 
     [[nodiscard]] std::vector<LogRecord> read_entries(LSN from_lsn, std::size_t max_entries,
-                                                       std::size_t max_bytes) const override {
+                                                      std::size_t max_bytes) const override {
         std::lock_guard lock(mtx_);
         std::vector<LogRecord> result;
         std::size_t bytes_read = 0;
@@ -93,9 +91,7 @@ private:
 /// @brief Mock DeltaSink for chaos testing
 class MockDeltaSink : public DeltaSink {
 public:
-    [[nodiscard]] LSN applied_lsn() const noexcept override {
-        return applied_lsn_.load();
-    }
+    [[nodiscard]] LSN applied_lsn() const noexcept override { return applied_lsn_.load(); }
 
     [[nodiscard]] Result<void> apply_batch(const std::vector<LogRecord>& records) override {
         if (fail_applies_.load()) {
@@ -164,7 +160,7 @@ public:
     [[nodiscard]] std::size_t total_size() const override { return data_.size(); }
 
     [[nodiscard]] Result<std::vector<std::byte>> read_chunk(std::size_t offset,
-                                                             std::size_t size) const override {
+                                                            std::size_t size) const override {
         std::lock_guard lock(mtx_);
         if (offset >= data_.size()) {
             return std::vector<std::byte>{};
@@ -207,7 +203,7 @@ public:
     }
 
     [[nodiscard]] Result<void> write_chunk(std::size_t offset,
-                                            std::span<const std::byte> data) override {
+                                           std::span<const std::byte> data) override {
         std::lock_guard lock(mtx_);
         if (fail_operations_) {
             return ReplicationError::SnapshotTransferFailed;
@@ -314,7 +310,7 @@ protected:
 
         auto config = ReplicationConfig::defaults(local_id_);
         auto result = ReplicationManager::create(config, *delta_source_, *delta_sink_,
-                                                  *snapshot_source_, *snapshot_sink_, *transport_);
+                                                 *snapshot_source_, *snapshot_sink_, *transport_);
         ASSERT_TRUE(result.is_ok());
         manager_ = std::move(result.value());
     }
@@ -471,7 +467,7 @@ TEST_F(TransportFaultTest, PartitionDropsMessages) {
 
     // Send message - should be silently dropped
     result = transport1_->send(id2_, StreamType::Delta, msg);
-    EXPECT_TRUE(result.is_ok());  // Send succeeds, but message is dropped
+    EXPECT_TRUE(result.is_ok());         // Send succeeds, but message is dropped
     EXPECT_EQ(receive_count.load(), 1);  // Count unchanged
 }
 
@@ -520,8 +516,8 @@ TEST_F(TransportFaultTest, MessageDropRate) {
 
     // Should receive roughly 50% of messages (with some tolerance)
     int received = receive_count.load();
-    EXPECT_GT(received, 20);   // At least 20% received
-    EXPECT_LT(received, 80);   // At most 80% received
+    EXPECT_GT(received, 20);  // At least 20% received
+    EXPECT_LT(received, 80);  // At most 80% received
 }
 
 TEST_F(TransportFaultTest, BidirectionalPartition) {
@@ -611,9 +607,7 @@ TEST_F(TransportFaultTest, AsymmetricPartition) {
 
 class DeltaSinkFaultTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        delta_sink_ = std::make_unique<MockDeltaSink>();
-    }
+    void SetUp() override { delta_sink_ = std::make_unique<MockDeltaSink>(); }
 
     std::unique_ptr<MockDeltaSink> delta_sink_;
 };
@@ -661,9 +655,7 @@ TEST_F(DeltaSinkFaultTest, RecoverFromFailure) {
 
 class SnapshotSinkFaultTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        snapshot_sink_ = std::make_unique<MockSnapshotSink>();
-    }
+    void SetUp() override { snapshot_sink_ = std::make_unique<MockSnapshotSink>(); }
 
     std::unique_ptr<MockSnapshotSink> snapshot_sink_;
 };
@@ -787,9 +779,8 @@ TEST_F(MultiTransportTest, BroadcastReachesAllPeers) {
 
     for (int i = 1; i < 3; ++i) {
         transports_[i]->set_message_callback(
-            [&](const NodeId& /*from*/, StreamType /*stream*/, std::span<const std::byte> /*data*/) {
-                receive_count.fetch_add(1);
-            });
+            [&](const NodeId& /*from*/, StreamType /*stream*/,
+                std::span<const std::byte> /*data*/) { receive_count.fetch_add(1); });
     }
 
     auto msg = std::vector<std::byte>{std::byte{0x42}};

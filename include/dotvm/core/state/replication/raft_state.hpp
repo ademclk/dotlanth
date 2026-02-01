@@ -57,10 +57,10 @@ enum class RaftRole : std::uint8_t {
 /// This state is written to stable storage before responding to RPCs.
 /// Per the Raft paper: currentTerm, votedFor, and log[] are persisted.
 struct PersistentState {
-    Term current_term{0};              ///< Latest term server has seen
-    std::optional<NodeId> voted_for;   ///< CandidateId that received vote in current term
-    LogIndex last_log_index{0};        ///< Index of last log entry
-    Term last_log_term{0};             ///< Term of last log entry
+    Term current_term{0};             ///< Latest term server has seen
+    std::optional<NodeId> voted_for;  ///< CandidateId that received vote in current term
+    LogIndex last_log_index{0};       ///< Index of last log entry
+    Term last_log_term{0};            ///< Term of last log entry
 };
 
 // ============================================================================

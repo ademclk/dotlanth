@@ -29,11 +29,11 @@ namespace dotvm::core::state::replication {
 
 /// @brief Configuration for delta subscription
 struct DeltaSubscriberConfig {
-    std::size_t max_pending_batches{100};        ///< Max batches to queue before backpressure
+    std::size_t max_pending_batches{100};           ///< Max batches to queue before backpressure
     std::chrono::milliseconds apply_timeout{1000};  ///< Timeout for applying a batch
-    bool verify_mpt_root{true};                  ///< Verify MPT root after each batch
-    bool verify_checksums{true};                 ///< Verify entry checksums
-    std::size_t reorder_window{10};              ///< Max out-of-order batches to buffer
+    bool verify_mpt_root{true};                     ///< Verify MPT root after each batch
+    bool verify_checksums{true};                    ///< Verify entry checksums
+    std::size_t reorder_window{10};                 ///< Max out-of-order batches to buffer
 
     [[nodiscard]] static DeltaSubscriberConfig defaults() noexcept {
         return DeltaSubscriberConfig{};
@@ -77,8 +77,8 @@ public:
 
 /// @brief Statistics for delta subscription
 struct DeltaSubscriberStats {
-    LSN applied_lsn{0};               ///< Highest applied LSN
-    LSN received_lsn{0};              ///< Highest received LSN
+    LSN applied_lsn{0};   ///< Highest applied LSN
+    LSN received_lsn{0};  ///< Highest received LSN
     std::uint64_t batches_received{0};
     std::uint64_t batches_applied{0};
     std::uint64_t bytes_received{0};
@@ -110,8 +110,8 @@ public:
     using ApplyCallback = std::function<void(LSN applied_lsn, std::size_t entries_count)>;
 
     /// @brief Callback invoked when verification fails
-    using VerificationFailureCallback = std::function<void(LSN lsn, const MptHash& expected,
-                                                            const MptHash& actual)>;
+    using VerificationFailureCallback =
+        std::function<void(LSN lsn, const MptHash& expected, const MptHash& actual)>;
 
     /// @brief Create a delta subscriber
     ///

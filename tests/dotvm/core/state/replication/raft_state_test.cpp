@@ -1,12 +1,12 @@
 /// @file raft_state_test.cpp
 /// @brief Tests for Raft state management
 
-#include "dotvm/core/state/replication/raft_state.hpp"
+#include <thread>
+#include <vector>
 
 #include <gtest/gtest.h>
 
-#include <thread>
-#include <vector>
+#include "dotvm/core/state/replication/raft_state.hpp"
 
 namespace dotvm::core::state::replication {
 namespace {
@@ -129,7 +129,7 @@ TEST_F(RaftStateTest, BecomeCandidate) {
 
     EXPECT_EQ(state.role(), RaftRole::Candidate);
     EXPECT_EQ(state.current_term().value, 1);  // Term incremented
-    EXPECT_EQ(state.voted_for(), id);    // Voted for self
+    EXPECT_EQ(state.voted_for(), id);          // Voted for self
 }
 
 TEST_F(RaftStateTest, BecomeLeader) {

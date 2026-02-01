@@ -89,11 +89,11 @@ enum class StreamType : std::uint8_t {
 
 /// @brief State of a transport connection
 enum class ConnectionState : std::uint8_t {
-    Disconnected = 0,   ///< Not connected
-    Connecting = 1,     ///< Connection in progress
-    Connected = 2,      ///< Connected and ready
-    Draining = 3,       ///< Graceful shutdown in progress
-    Failed = 4,         ///< Connection failed (error occurred)
+    Disconnected = 0,  ///< Not connected
+    Connecting = 1,    ///< Connection in progress
+    Connected = 2,     ///< Connected and ready
+    Draining = 3,      ///< Graceful shutdown in progress
+    Failed = 4,        ///< Connection failed (error occurred)
 };
 
 /// @brief Convert connection state to string
@@ -136,15 +136,15 @@ struct ConnectionStats {
 /// @brief Configuration for transport layer
 struct TransportConfig {
     std::string bind_address{"0.0.0.0"};  ///< Address to bind to
-    std::uint16_t bind_port{4000};         ///< Port to listen on
+    std::uint16_t bind_port{4000};        ///< Port to listen on
 
     // Timeouts
-    std::chrono::milliseconds connect_timeout{5000};   ///< Connection timeout
-    std::chrono::milliseconds idle_timeout{30000};     ///< Idle connection timeout
+    std::chrono::milliseconds connect_timeout{5000};     ///< Connection timeout
+    std::chrono::milliseconds idle_timeout{30000};       ///< Idle connection timeout
     std::chrono::milliseconds heartbeat_interval{1000};  ///< Heartbeat interval
 
     // Buffer sizes
-    std::size_t send_buffer_size{256 * 1024};    ///< Per-connection send buffer
+    std::size_t send_buffer_size{256 * 1024};     ///< Per-connection send buffer
     std::size_t receive_buffer_size{256 * 1024};  ///< Per-connection receive buffer
 
     // TLS configuration (for QUIC)
@@ -178,9 +178,9 @@ using MessageCallback =
 /// @param old_state Previous state
 /// @param new_state New state
 /// @param error Error code if state is Failed
-using ConnectionCallback = std::function<void(const NodeId& peer, ConnectionState old_state,
-                                               ConnectionState new_state,
-                                               std::optional<ReplicationError> error)>;
+using ConnectionCallback =
+    std::function<void(const NodeId& peer, ConnectionState old_state, ConnectionState new_state,
+                       std::optional<ReplicationError> error)>;
 
 // ============================================================================
 // Transport Interface
@@ -265,8 +265,8 @@ public:
     [[nodiscard]] virtual ConnectionState get_state(const NodeId& peer) const noexcept = 0;
 
     /// @brief Get connection statistics for a peer
-    [[nodiscard]] virtual std::optional<ConnectionStats> get_stats(
-        const NodeId& peer) const noexcept = 0;
+    [[nodiscard]] virtual std::optional<ConnectionStats>
+    get_stats(const NodeId& peer) const noexcept = 0;
 
     /// @brief Get list of connected peers
     [[nodiscard]] virtual std::vector<NodeId> connected_peers() const = 0;
@@ -294,9 +294,8 @@ public:
     /// @param data Message bytes
     /// @param exclude Optional node to exclude from broadcast
     /// @return Number of peers the message was queued for
-    [[nodiscard]] virtual std::size_t broadcast(
-        StreamType stream, std::span<const std::byte> data,
-        std::optional<NodeId> exclude = std::nullopt) = 0;
+    [[nodiscard]] virtual std::size_t broadcast(StreamType stream, std::span<const std::byte> data,
+                                                std::optional<NodeId> exclude = std::nullopt) = 0;
 
     // ========================================================================
     // Callbacks
@@ -346,15 +345,14 @@ public:
     [[nodiscard]] Result<void> connect(const NodeId& peer, std::string_view address) override;
     [[nodiscard]] Result<void> disconnect(const NodeId& peer, bool graceful) override;
     [[nodiscard]] ConnectionState get_state(const NodeId& peer) const noexcept override;
-    [[nodiscard]] std::optional<ConnectionStats> get_stats(const NodeId& peer) const
-        noexcept override;
+    [[nodiscard]] std::optional<ConnectionStats>
+    get_stats(const NodeId& peer) const noexcept override;
     [[nodiscard]] std::vector<NodeId> connected_peers() const override;
 
     [[nodiscard]] Result<void> send(const NodeId& to, StreamType stream,
                                     std::span<const std::byte> data) override;
-    [[nodiscard]] std::size_t broadcast(
-        StreamType stream, std::span<const std::byte> data,
-        std::optional<NodeId> exclude = std::nullopt) override;
+    [[nodiscard]] std::size_t broadcast(StreamType stream, std::span<const std::byte> data,
+                                        std::optional<NodeId> exclude = std::nullopt) override;
 
     void set_message_callback(MessageCallback callback) override;
     void set_connection_callback(ConnectionCallback callback) override;

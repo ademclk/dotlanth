@@ -1,10 +1,6 @@
 /// @file replication_manager_test.cpp
 /// @brief Comprehensive tests for ReplicationManager orchestrator
 
-#include "dotvm/core/state/replication/replication_manager.hpp"
-
-#include <gtest/gtest.h>
-
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -14,6 +10,10 @@
 #include <set>
 #include <thread>
 #include <vector>
+
+#include <gtest/gtest.h>
+
+#include "dotvm/core/state/replication/replication_manager.hpp"
 
 namespace dotvm::core::state::replication {
 namespace {
@@ -27,12 +27,10 @@ class MockDeltaSourceForManager : public DeltaSource {
 public:
     MockDeltaSourceForManager() = default;
 
-    [[nodiscard]] LSN current_lsn() const noexcept override {
-        return current_lsn_.load();
-    }
+    [[nodiscard]] LSN current_lsn() const noexcept override { return current_lsn_.load(); }
 
     [[nodiscard]] std::vector<LogRecord> read_entries(LSN from_lsn, std::size_t max_entries,
-                                                       std::size_t max_bytes) const override {
+                                                      std::size_t max_bytes) const override {
         std::lock_guard lock(mtx_);
 
         std::vector<LogRecord> result;
@@ -78,9 +76,7 @@ public:
         }
     }
 
-    void set_current_lsn(LSN lsn) {
-        current_lsn_.store(lsn);
-    }
+    void set_current_lsn(LSN lsn) { current_lsn_.store(lsn); }
 
     void clear() {
         std::lock_guard lock(mtx_);
@@ -103,9 +99,7 @@ class MockDeltaSinkForManager : public DeltaSink {
 public:
     MockDeltaSinkForManager() = default;
 
-    [[nodiscard]] LSN applied_lsn() const noexcept override {
-        return applied_lsn_.load();
-    }
+    [[nodiscard]] LSN applied_lsn() const noexcept override { return applied_lsn_.load(); }
 
     [[nodiscard]] Result<void> apply_batch(const std::vector<LogRecord>& records) override {
         std::lock_guard lock(mtx_);
@@ -125,9 +119,7 @@ public:
         return {};
     }
 
-    [[nodiscard]] MptHash mpt_root() const override {
-        return root_;
-    }
+    [[nodiscard]] MptHash mpt_root() const override { return root_; }
 
     // ========================================================================
     // Test Helpers
@@ -138,9 +130,7 @@ public:
         root_ = root;
     }
 
-    void set_fail_applies(bool fail) {
-        fail_applies_.store(fail);
-    }
+    void set_fail_applies(bool fail) { fail_applies_.store(fail); }
 
     std::size_t batches_applied() const {
         std::lock_guard lock(mtx_);
@@ -177,16 +167,12 @@ class MockSnapshotSourceForManager : public SnapshotSource {
 public:
     MockSnapshotSourceForManager() = default;
 
-    [[nodiscard]] LSN snapshot_lsn() const override {
-        return lsn_;
-    }
+    [[nodiscard]] LSN snapshot_lsn() const override { return lsn_; }
 
-    [[nodiscard]] std::size_t total_size() const override {
-        return data_.size();
-    }
+    [[nodiscard]] std::size_t total_size() const override { return data_.size(); }
 
     [[nodiscard]] Result<std::vector<std::byte>> read_chunk(std::size_t offset,
-                                                             std::size_t size) const override {
+                                                            std::size_t size) const override {
         std::lock_guard lock(mtx_);
 
         if (offset >= data_.size()) {
@@ -198,9 +184,7 @@ public:
                                       data_.begin() + static_cast<std::ptrdiff_t>(end));
     }
 
-    [[nodiscard]] MptHash mpt_root() const override {
-        return root_;
-    }
+    [[nodiscard]] MptHash mpt_root() const override { return root_; }
 
     // ========================================================================
     // Test Helpers
@@ -252,7 +236,7 @@ public:
     }
 
     [[nodiscard]] Result<void> write_chunk(std::size_t offset,
-                                            std::span<const std::byte> data) override {
+                                           std::span<const std::byte> data) override {
         std::lock_guard lock(mtx_);
 
         if (fail_operations_) {
@@ -291,9 +275,7 @@ public:
         data_.clear();
     }
 
-    [[nodiscard]] MptHash mpt_root() const override {
-        return root_;
-    }
+    [[nodiscard]] MptHash mpt_root() const override { return root_; }
 
     // ========================================================================
     // Test Helpers
@@ -304,9 +286,7 @@ public:
         root_ = root;
     }
 
-    void set_fail_operations(bool fail) {
-        fail_operations_.store(fail);
-    }
+    void set_fail_operations(bool fail) { fail_operations_.store(fail); }
 
     bool is_finalized() const {
         std::lock_guard lock(mtx_);
@@ -368,9 +348,7 @@ public:
         running_ = false;
     }
 
-    [[nodiscard]] bool is_running() const noexcept override {
-        return running_.load();
-    }
+    [[nodiscard]] bool is_running() const noexcept override { return running_.load(); }
 
     [[nodiscard]] Result<void> connect(const NodeId& peer, std::string_view /*address*/) override {
         std::lock_guard lock(mtx_);
@@ -392,8 +370,8 @@ public:
         return ConnectionState::Disconnected;
     }
 
-    [[nodiscard]] std::optional<ConnectionStats> get_stats(const NodeId& /*peer*/) const
-        noexcept override {
+    [[nodiscard]] std::optional<ConnectionStats>
+    get_stats(const NodeId& /*peer*/) const noexcept override {
         return std::nullopt;
     }
 
@@ -415,7 +393,7 @@ public:
     }
 
     [[nodiscard]] std::size_t broadcast(StreamType stream, std::span<const std::byte> data,
-                                         std::optional<NodeId> exclude) override {
+                                        std::optional<NodeId> exclude) override {
         std::lock_guard lock(mtx_);
         std::size_t count = 0;
 
@@ -440,13 +418,9 @@ public:
         connection_callback_ = std::move(callback);
     }
 
-    [[nodiscard]] const TransportConfig& config() const noexcept override {
-        return config_;
-    }
+    [[nodiscard]] const TransportConfig& config() const noexcept override { return config_; }
 
-    [[nodiscard]] NodeId local_id() const noexcept override {
-        return local_id_;
-    }
+    [[nodiscard]] NodeId local_id() const noexcept override { return local_id_; }
 
     // ========================================================================
     // Test Helpers
@@ -540,12 +514,12 @@ protected:
     }
 
     std::unique_ptr<ReplicationManager> create_manager(NodeId local_id,
-                                                        std::vector<NodeId> peers = {}) {
+                                                       std::vector<NodeId> peers = {}) {
         auto config = ReplicationConfig::defaults(local_id);
         config.initial_peers = std::move(peers);
 
         auto result = ReplicationManager::create(config, *delta_source_, *delta_sink_,
-                                                  *snapshot_source_, *snapshot_sink_, *transport_);
+                                                 *snapshot_source_, *snapshot_sink_, *transport_);
 
         if (result.is_err()) {
             return nullptr;
@@ -1008,7 +982,7 @@ TEST_F(ReplicationManagerTest, LeaderChangeCallback_InvokedOnStepDown) {
     auto step_result = manager->step_down();
     ASSERT_TRUE(step_result.is_ok());
 
-    EXPECT_GE(callback_count, 2);  // Called again on step down
+    EXPECT_GE(callback_count, 2);           // Called again on step down
     EXPECT_FALSE(last_leader.has_value());  // No leader after step down
 }
 
@@ -1130,9 +1104,8 @@ TEST_F(ReplicationManagerTest, StopCancelsPendingCommits) {
     auto config = ReplicationConfig::defaults(local_id);
     config.initial_peers = {peer_id};
 
-    auto create_result = ReplicationManager::create(config, *delta_source_, *delta_sink_,
-                                                     *snapshot_source_, *snapshot_sink_,
-                                                     *transport_);
+    auto create_result = ReplicationManager::create(
+        config, *delta_source_, *delta_sink_, *snapshot_source_, *snapshot_sink_, *transport_);
     ASSERT_TRUE(create_result.is_ok());
     auto manager = std::move(create_result.value());
 
@@ -1245,7 +1218,7 @@ TEST_F(ReplicationManagerTest, CreateWithCustomConfig) {
     config.heartbeat_interval = std::chrono::milliseconds{100};
 
     auto result = ReplicationManager::create(config, *delta_source_, *delta_sink_,
-                                              *snapshot_source_, *snapshot_sink_, *transport_);
+                                             *snapshot_source_, *snapshot_sink_, *transport_);
     ASSERT_TRUE(result.is_ok());
 
     auto manager = std::move(result.value());

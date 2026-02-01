@@ -29,16 +29,14 @@ namespace dotvm::core::state::replication {
 
 /// @brief Configuration for delta publishing
 struct DeltaPublisherConfig {
-    std::size_t batch_size{100};                         ///< Max entries per batch
-    std::size_t max_batch_bytes{64 * 1024};              ///< Max bytes per batch (64KB)
-    std::chrono::milliseconds batch_timeout{10};         ///< Max time to wait for batch fill
-    std::chrono::milliseconds ack_timeout{5000};         ///< Timeout waiting for ACK
-    std::size_t max_inflight_batches{10};                ///< Max batches awaiting ACK per follower
-    bool verify_checksums{true};                         ///< Verify checksums before sending
+    std::size_t batch_size{100};                  ///< Max entries per batch
+    std::size_t max_batch_bytes{64 * 1024};       ///< Max bytes per batch (64KB)
+    std::chrono::milliseconds batch_timeout{10};  ///< Max time to wait for batch fill
+    std::chrono::milliseconds ack_timeout{5000};  ///< Timeout waiting for ACK
+    std::size_t max_inflight_batches{10};         ///< Max batches awaiting ACK per follower
+    bool verify_checksums{true};                  ///< Verify checksums before sending
 
-    [[nodiscard]] static DeltaPublisherConfig defaults() noexcept {
-        return DeltaPublisherConfig{};
-    }
+    [[nodiscard]] static DeltaPublisherConfig defaults() noexcept { return DeltaPublisherConfig{}; }
 };
 
 // ============================================================================
@@ -48,14 +46,14 @@ struct DeltaPublisherConfig {
 /// @brief Tracking state for a single follower
 struct FollowerDeltaState {
     NodeId follower_id;
-    LSN acknowledged_lsn{0};           ///< Highest LSN acknowledged by follower
-    LSN sent_lsn{0};                   ///< Highest LSN sent to follower
-    std::size_t inflight_batches{0};   ///< Number of batches awaiting ACK
+    LSN acknowledged_lsn{0};          ///< Highest LSN acknowledged by follower
+    LSN sent_lsn{0};                  ///< Highest LSN sent to follower
+    std::size_t inflight_batches{0};  ///< Number of batches awaiting ACK
     std::chrono::steady_clock::time_point last_ack_time;
     std::uint64_t bytes_sent{0};
     std::uint64_t batches_sent{0};
     std::uint64_t retransmissions{0};
-    bool is_caught_up{false};          ///< Follower is within batch_size of leader
+    bool is_caught_up{false};  ///< Follower is within batch_size of leader
 };
 
 // ============================================================================
@@ -79,8 +77,8 @@ public:
     /// @param max_entries Maximum number of entries to read
     /// @param max_bytes Maximum total bytes to read
     /// @return Vector of log records, or empty if from_lsn is past end
-    [[nodiscard]] virtual std::vector<LogRecord> read_entries(
-        LSN from_lsn, std::size_t max_entries, std::size_t max_bytes) const = 0;
+    [[nodiscard]] virtual std::vector<LogRecord> read_entries(LSN from_lsn, std::size_t max_entries,
+                                                              std::size_t max_bytes) const = 0;
 
     /// @brief Check if an LSN is still available (not truncated)
     [[nodiscard]] virtual bool is_available(LSN lsn) const noexcept = 0;
@@ -144,14 +142,14 @@ public:
     /// @param follower_id Follower's node ID
     /// @param start_lsn LSN to start streaming from (0 = from beginning)
     [[nodiscard]] Result<void> add_follower(const NodeId& follower_id,
-                                             state::LSN start_lsn = state::LSN{0});
+                                            state::LSN start_lsn = state::LSN{0});
 
     /// @brief Remove a follower
     [[nodiscard]] Result<void> remove_follower(const NodeId& follower_id);
 
     /// @brief Get state for a specific follower
-    [[nodiscard]] std::optional<FollowerDeltaState> get_follower_state(
-        const NodeId& follower_id) const;
+    [[nodiscard]] std::optional<FollowerDeltaState>
+    get_follower_state(const NodeId& follower_id) const;
 
     /// @brief Get all follower states
     [[nodiscard]] std::vector<FollowerDeltaState> get_all_follower_states() const;

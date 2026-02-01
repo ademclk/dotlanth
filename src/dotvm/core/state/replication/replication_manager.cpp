@@ -130,8 +130,7 @@ struct ReplicationManager::Impl {
     }
 
     [[nodiscard]] bool heartbeat_due() const {
-        return std::chrono::steady_clock::now() >=
-               last_heartbeat_sent + config.heartbeat_interval;
+        return std::chrono::steady_clock::now() >= last_heartbeat_sent + config.heartbeat_interval;
     }
 
     // ========================================================================
@@ -497,8 +496,7 @@ struct ReplicationManager::Impl {
         send_append_entries_response(from, true, match_index);
     }
 
-    void handle_append_entries_response(const NodeId& from,
-                                        const AppendEntriesResponse& response) {
+    void handle_append_entries_response(const NodeId& from, const AppendEntriesResponse& response) {
         // Ignore if not leader
         if (state_manager.role() != RaftRole::Leader) {
             return;
@@ -715,10 +713,9 @@ struct ReplicationManager::Impl {
 
         for (const auto& fstate : follower_states) {
             // If follower is more than SNAPSHOT_THRESHOLD behind
-            std::uint64_t lag =
-                current_lsn.value > fstate.acknowledged_lsn.value
-                    ? current_lsn.value - fstate.acknowledged_lsn.value
-                    : 0;
+            std::uint64_t lag = current_lsn.value > fstate.acknowledged_lsn.value
+                                    ? current_lsn.value - fstate.acknowledged_lsn.value
+                                    : 0;
 
             if (lag > SNAPSHOT_THRESHOLD) {
                 // Check if snapshot transfer is not already in progress
@@ -784,9 +781,10 @@ struct ReplicationManager::Impl {
 // Factory
 // ============================================================================
 
-ReplicationManager::Result<std::unique_ptr<ReplicationManager>> ReplicationManager::create(
-    ReplicationConfig config, DeltaSource& delta_source, DeltaSink& delta_sink,
-    SnapshotSource& snapshot_source, SnapshotSink& snapshot_sink, Transport& transport) {
+ReplicationManager::Result<std::unique_ptr<ReplicationManager>>
+ReplicationManager::create(ReplicationConfig config, DeltaSource& delta_source,
+                           DeltaSink& delta_sink, SnapshotSource& snapshot_source,
+                           SnapshotSink& snapshot_sink, Transport& transport) {
     // Validate configuration
     if (config.local_node_id.is_null()) {
         return ReplicationError::InvalidNodeId;
@@ -805,8 +803,8 @@ ReplicationManager::Result<std::unique_ptr<ReplicationManager>> ReplicationManag
     impl->raft_log = std::move(log_result.value());
 
     // Create delta publisher (used when leader)
-    impl->delta_publisher = std::make_unique<DeltaPublisher>(impl->config.delta_publisher,
-                                                              delta_source, transport);
+    impl->delta_publisher =
+        std::make_unique<DeltaPublisher>(impl->config.delta_publisher, delta_source, transport);
 
     // Create delta subscriber (used when follower)
     impl->delta_subscriber = std::make_unique<DeltaSubscriber>(
@@ -818,7 +816,7 @@ ReplicationManager::Result<std::unique_ptr<ReplicationManager>> ReplicationManag
 
     // Create snapshot receiver (used when follower)
     impl->snapshot_receiver = std::make_unique<SnapshotReceiver>(impl->config.snapshot_receiver,
-                                                                  snapshot_sink, transport);
+                                                                 snapshot_sink, transport);
 
     // Set up message handler for transport
     impl->setup_message_handler();
