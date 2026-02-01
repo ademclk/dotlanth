@@ -193,6 +193,12 @@ enum class AuditEventType : std::uint8_t {
     HandleGranted = 61,       ///< Handle granted from parent to child Dot
     HandleRevoked = 62,       ///< Handle grant revoked
     SyscallBlocked = 63,      ///< Syscall blocked by whitelist
+
+    // SEC-008: Secrets management (70-79)
+    SecretAccessed = 70,      ///< A secret was successfully accessed
+    SecretNotFound = 71,      ///< A secret lookup returned not found
+    SecretAccessDenied = 72,  ///< Access to a secret was denied
+    SecretRedacted = 73,      ///< A secret value was redacted from logs
 };
 
 /// @brief Convert AuditEventType to human-readable string
@@ -248,6 +254,15 @@ enum class AuditEventType : std::uint8_t {
             return "HandleRevoked";
         case AuditEventType::SyscallBlocked:
             return "SyscallBlocked";
+        // SEC-008: Secrets management
+        case AuditEventType::SecretAccessed:
+            return "SecretAccessed";
+        case AuditEventType::SecretNotFound:
+            return "SecretNotFound";
+        case AuditEventType::SecretAccessDenied:
+            return "SecretAccessDenied";
+        case AuditEventType::SecretRedacted:
+            return "SecretRedacted";
     }
     return "Unknown";
 }
