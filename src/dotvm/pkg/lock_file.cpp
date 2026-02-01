@@ -52,7 +52,8 @@ void write_string(std::vector<std::uint8_t>& buf, std::string_view str) {
 
 /// @brief Read a 16-bit little-endian value
 [[nodiscard]] std::uint16_t read_u16(const std::uint8_t* data) {
-    return static_cast<std::uint16_t>(data[0]) | (static_cast<std::uint16_t>(data[1]) << 8);
+    return static_cast<std::uint16_t>(static_cast<std::uint16_t>(data[0]) |
+                                      static_cast<std::uint16_t>(data[1] << 8));
 }
 
 /// @brief Read a 32-bit little-endian value

@@ -437,7 +437,8 @@ PackageCache::write_checksum(const std::filesystem::path& pkg_dir,
         return PackageError::FileWriteError;
     }
 
-    file.write(reinterpret_cast<const char*>(checksum.data()), checksum.size());
+    file.write(reinterpret_cast<const char*>(checksum.data()),
+                static_cast<std::streamsize>(checksum.size()));
     if (!file) {
         return PackageError::FileWriteError;
     }
