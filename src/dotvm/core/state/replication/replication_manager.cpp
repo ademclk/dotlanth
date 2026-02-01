@@ -259,7 +259,7 @@ struct ReplicationManager::Impl {
             return;
         }
 
-        transport.broadcast(StreamType::Raft, serialize_result.value());
+        (void)transport.broadcast(StreamType::Raft, serialize_result.value());
     }
 
     void send_heartbeat() {
@@ -276,7 +276,7 @@ struct ReplicationManager::Impl {
             return;
         }
 
-        transport.broadcast(StreamType::Raft, serialize_result.value());
+        (void)transport.broadcast(StreamType::Raft, serialize_result.value());
         last_heartbeat_sent = std::chrono::steady_clock::now();
     }
 

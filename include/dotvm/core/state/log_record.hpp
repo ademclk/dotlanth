@@ -43,8 +43,15 @@ struct LSN {
     // Arithmetic operators
     [[nodiscard]] constexpr LSN operator+(std::uint64_t n) const noexcept { return LSN{value + n}; }
     [[nodiscard]] constexpr LSN operator-(std::uint64_t n) const noexcept { return LSN{value - n}; }
-    constexpr LSN& operator++() noexcept { ++value; return *this; }
-    constexpr LSN operator++(int) noexcept { LSN tmp = *this; ++value; return tmp; }
+    constexpr LSN& operator++() noexcept {
+        ++value;
+        return *this;
+    }
+    constexpr LSN operator++(int) noexcept {
+        LSN tmp = *this;
+        ++value;
+        return tmp;
+    }
 
     // Comparison operators
     [[nodiscard]] constexpr bool operator==(const LSN& other) const noexcept = default;
