@@ -77,12 +77,14 @@ enum class AuditSeverity : std::uint8_t {
         case AuditEventType::OpcodeDenied:
         case AuditEventType::DotFailed:
         case AuditEventType::MemoryLimitExceeded:
-        case AuditEventType::SyscallBlocked:  // SEC-007
+        case AuditEventType::SyscallBlocked:      // SEC-007
+        case AuditEventType::SecretAccessDenied:  // SEC-008
             return AuditSeverity::Error;
 
         // Warning severity
         case AuditEventType::CapabilityRevoked:
-        case AuditEventType::HandleRevoked:  // SEC-007
+        case AuditEventType::HandleRevoked:   // SEC-007
+        case AuditEventType::SecretNotFound:  // SEC-008
             return AuditSeverity::Warning;
 
         // Info severity (default)
@@ -95,7 +97,9 @@ enum class AuditSeverity : std::uint8_t {
         case AuditEventType::DotStarted:
         case AuditEventType::DotCompleted:
         case AuditEventType::CapabilityCreated:
-        case AuditEventType::HandleGranted:  // SEC-007
+        case AuditEventType::HandleGranted:   // SEC-007
+        case AuditEventType::SecretAccessed:  // SEC-008
+        case AuditEventType::SecretRedacted:  // SEC-008
             return AuditSeverity::Info;
     }
     return AuditSeverity::Info;
