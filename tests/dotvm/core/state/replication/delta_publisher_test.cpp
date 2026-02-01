@@ -270,7 +270,7 @@ protected:
     void SetUp() override {
         source_ = std::make_unique<MockDeltaSource>();
         transport_ = std::make_unique<TestMockTransport>();
-        transport_->start(make_node_id(0));
+        (void)transport_->start(make_node_id(0));
     }
 
     void TearDown() override { transport_->stop(std::chrono::milliseconds{100}); }
@@ -713,7 +713,7 @@ TEST_F(DeltaPublisherTest, BackpressureWhenMaxInflightReached) {
 
     // First publish - sends 2 batches (max_inflight_batches = 2)
     // Note: The implementation sends batches until inflight reaches max
-    auto batches1 = publisher->publish();
+    (void)publisher->publish();
 
     auto state = publisher->get_follower_state(follower_id);
     ASSERT_TRUE(state.has_value());
@@ -722,9 +722,8 @@ TEST_F(DeltaPublisherTest, BackpressureWhenMaxInflightReached) {
     EXPECT_GE(state->inflight_batches, 1);
 
     // Keep publishing until backpressure kicks in
-    std::size_t total_batches = batches1;
     for (int i = 0; i < 5; ++i) {
-        total_batches += publisher->publish();
+        (void)publisher->publish();
     }
 
     state = publisher->get_follower_state(follower_id);

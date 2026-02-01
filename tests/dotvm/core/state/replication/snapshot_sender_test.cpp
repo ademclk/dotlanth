@@ -251,7 +251,7 @@ protected:
     void SetUp() override {
         source_ = std::make_unique<MockSnapshotSource>();
         transport_ = std::make_unique<TestMockTransport>();
-        transport_->start(make_node_id(0));
+        (void)transport_->start(make_node_id(0));
     }
 
     void TearDown() override { transport_->stop(std::chrono::milliseconds{100}); }

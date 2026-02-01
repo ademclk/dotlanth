@@ -449,7 +449,6 @@ TEST_F(DeltaSubscriberTest, ProcessPending_SendsAckAfterApply) {
     sink_->set_applied_lsn(LSN{0});
 
     // Set up transport to track sent messages
-    std::atomic<int> messages_sent{0};
     transport_->set_message_callback(
         [&](const NodeId& from, StreamType stream, std::span<const std::byte> data) {
             // This would be receiving on the other end
