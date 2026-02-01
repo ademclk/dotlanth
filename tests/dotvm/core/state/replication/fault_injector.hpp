@@ -33,13 +33,13 @@ namespace dotvm::core::state::replication::testing {
 
 /// @brief Types of faults that can be injected
 enum class FaultType : std::uint8_t {
-    None = 0,             ///< No fault (passthrough)
-    MessageDrop = 1,      ///< Drop messages randomly
-    MessageDelay = 2,     ///< Add latency to messages
-    MessageCorrupt = 3,   ///< Corrupt message data
-    PartialPartition = 4, ///< Asymmetric partition (one-way)
-    NodeCrash = 5,        ///< Simulate node failure
-    SlowNode = 6,         ///< Slow down a node's processing
+    None = 0,              ///< No fault (passthrough)
+    MessageDrop = 1,       ///< Drop messages randomly
+    MessageDelay = 2,      ///< Add latency to messages
+    MessageCorrupt = 3,    ///< Corrupt message data
+    PartialPartition = 4,  ///< Asymmetric partition (one-way)
+    NodeCrash = 5,         ///< Simulate node failure
+    SlowNode = 6,          ///< Slow down a node's processing
 };
 
 // ============================================================================
@@ -49,10 +49,10 @@ enum class FaultType : std::uint8_t {
 /// @brief Configuration for a single fault injection rule
 struct FaultConfig {
     FaultType type{FaultType::None};
-    double probability{0.0};                 ///< 0.0 - 1.0 for random faults
-    std::chrono::milliseconds delay{0};      ///< For MessageDelay
-    std::optional<NodeId> target_node;       ///< Target specific node (nullopt = all)
-    std::optional<StreamType> target_stream; ///< Target specific stream
+    double probability{0.0};                  ///< 0.0 - 1.0 for random faults
+    std::chrono::milliseconds delay{0};       ///< For MessageDelay
+    std::optional<NodeId> target_node;        ///< Target specific node (nullopt = all)
+    std::optional<StreamType> target_stream;  ///< Target specific stream
     std::size_t max_occurrences{std::numeric_limits<std::size_t>::max()};
 };
 
@@ -111,9 +111,7 @@ public:
     void disable() { enabled_.store(false, std::memory_order_release); }
 
     /// @brief Check if fault injection is enabled
-    [[nodiscard]] bool is_enabled() const {
-        return enabled_.load(std::memory_order_acquire);
-    }
+    [[nodiscard]] bool is_enabled() const { return enabled_.load(std::memory_order_acquire); }
 
     /// @brief Process a message through the fault injector
     ///
@@ -126,12 +124,9 @@ public:
     /// @param stream Stream type
     /// @param data Message data
     /// @return Modified message data, or nullopt if dropped
-    [[nodiscard]] std::optional<std::vector<std::byte>> process_message(
-        const NodeId& from,
-        const NodeId& to,
-        StreamType stream,
-        std::span<const std::byte> data) {
-
+    [[nodiscard]] std::optional<std::vector<std::byte>>
+    process_message(const NodeId& from, const NodeId& to, StreamType stream,
+                    std::span<const std::byte> data) {
         // If disabled, pass through unchanged
         if (!is_enabled()) {
             return std::vector<std::byte>(data.begin(), data.end());
@@ -202,12 +197,8 @@ public:
 
 private:
     /// @brief Check if a fault configuration matches the message
-    [[nodiscard]] bool fault_matches(
-        const FaultConfig& fault,
-        const NodeId& from,
-        const NodeId& to,
-        StreamType stream) const {
-
+    [[nodiscard]] bool fault_matches(const FaultConfig& fault, const NodeId& from, const NodeId& to,
+                                     StreamType stream) const {
         // Check target node (destination for most faults, source for PartialPartition)
         if (fault.target_node.has_value()) {
             if (fault.type == FaultType::PartialPartition) {
@@ -247,14 +238,9 @@ private:
     }
 
     /// @brief Apply a fault to a message
-    [[nodiscard]] std::optional<std::vector<std::byte>> apply_fault(
-        const FaultConfig& fault,
-        std::atomic<std::size_t>& count,
-        const NodeId& /*from*/,
-        const NodeId& /*to*/,
-        StreamType /*stream*/,
-        std::vector<std::byte>& data) {
-
+    [[nodiscard]] std::optional<std::vector<std::byte>>
+    apply_fault(const FaultConfig& fault, std::atomic<std::size_t>& count, const NodeId& /*from*/,
+                const NodeId& /*to*/, StreamType /*stream*/, std::vector<std::byte>& data) {
         count.fetch_add(1, std::memory_order_relaxed);
 
         switch (fault.type) {
@@ -291,7 +277,8 @@ private:
         }
 
         // Flip 1-5 random bytes
-        std::uniform_int_distribution<std::size_t> count_dist(1, std::min<std::size_t>(5, data.size()));
+        std::uniform_int_distribution<std::size_t> count_dist(
+            1, std::min<std::size_t>(5, data.size()));
         std::uniform_int_distribution<std::size_t> pos_dist(0, data.size() - 1);
         std::uniform_int_distribution<std::uint8_t> byte_dist(1, 255);
 
@@ -299,8 +286,8 @@ private:
         for (std::size_t i = 0; i < num_corruptions; ++i) {
             std::size_t pos = pos_dist(rng_);
             // XOR with random non-zero value to ensure change
-            data[pos] = static_cast<std::byte>(
-                static_cast<std::uint8_t>(data[pos]) ^ byte_dist(rng_));
+            data[pos] =
+                static_cast<std::byte>(static_cast<std::uint8_t>(data[pos]) ^ byte_dist(rng_));
         }
     }
 
@@ -341,13 +328,9 @@ public:
         return inner_.start(local_id);
     }
 
-    void stop(std::chrono::milliseconds timeout) override {
-        inner_.stop(timeout);
-    }
+    void stop(std::chrono::milliseconds timeout) override { inner_.stop(timeout); }
 
-    [[nodiscard]] bool is_running() const noexcept override {
-        return inner_.is_running();
-    }
+    [[nodiscard]] bool is_running() const noexcept override { return inner_.is_running(); }
 
     [[nodiscard]] Result<void> connect(const NodeId& peer, std::string_view address) override {
         return inner_.connect(peer, address);
@@ -361,7 +344,8 @@ public:
         return inner_.get_state(peer);
     }
 
-    [[nodiscard]] std::optional<ConnectionStats> get_stats(const NodeId& peer) const noexcept override {
+    [[nodiscard]] std::optional<ConnectionStats>
+    get_stats(const NodeId& peer) const noexcept override {
         return inner_.get_stats(peer);
     }
 
@@ -369,11 +353,8 @@ public:
         return inner_.connected_peers();
     }
 
-    [[nodiscard]] Result<void> send(
-        const NodeId& to,
-        StreamType stream,
-        std::span<const std::byte> data) override {
-
+    [[nodiscard]] Result<void> send(const NodeId& to, StreamType stream,
+                                    std::span<const std::byte> data) override {
         // Process through fault injector
         auto result = injector_.process_message(local_id_, to, stream, data);
 
@@ -386,11 +367,8 @@ public:
         return inner_.send(to, stream, result.value());
     }
 
-    [[nodiscard]] std::size_t broadcast(
-        StreamType stream,
-        std::span<const std::byte> data,
-        std::optional<NodeId> exclude = std::nullopt) override {
-
+    [[nodiscard]] std::size_t broadcast(StreamType stream, std::span<const std::byte> data,
+                                        std::optional<NodeId> exclude = std::nullopt) override {
         std::size_t count = 0;
         for (const auto& peer : inner_.connected_peers()) {
             if (exclude.has_value() && peer == exclude.value()) {
@@ -417,9 +395,7 @@ public:
         return inner_.config();
     }
 
-    [[nodiscard]] NodeId local_id() const noexcept override {
-        return local_id_;
-    }
+    [[nodiscard]] NodeId local_id() const noexcept override { return local_id_; }
 
 private:
     Transport& inner_;
@@ -436,10 +412,7 @@ private:
 /// @param target The node to target
 /// @param probability Drop probability (0.0 - 1.0)
 /// @return Configured FaultConfig
-[[nodiscard]] inline FaultConfig drop_messages_to(
-    const NodeId& target,
-    double probability) {
-
+[[nodiscard]] inline FaultConfig drop_messages_to(const NodeId& target, double probability) {
     FaultConfig config;
     config.type = FaultType::MessageDrop;
     config.probability = probability;
@@ -451,9 +424,7 @@ private:
 ///
 /// @param delay The delay to apply
 /// @return Configured FaultConfig
-[[nodiscard]] inline FaultConfig delay_all_messages(
-    std::chrono::milliseconds delay) {
-
+[[nodiscard]] inline FaultConfig delay_all_messages(std::chrono::milliseconds delay) {
     FaultConfig config;
     config.type = FaultType::MessageDelay;
     config.probability = 1.0;
@@ -490,10 +461,7 @@ private:
 /// @param target The node to slow down (messages TO this node are delayed)
 /// @param delay The processing delay to simulate
 /// @return Configured FaultConfig
-[[nodiscard]] inline FaultConfig slow_node(
-    const NodeId& target,
-    std::chrono::milliseconds delay) {
-
+[[nodiscard]] inline FaultConfig slow_node(const NodeId& target, std::chrono::milliseconds delay) {
     FaultConfig config;
     config.type = FaultType::SlowNode;
     config.probability = 1.0;

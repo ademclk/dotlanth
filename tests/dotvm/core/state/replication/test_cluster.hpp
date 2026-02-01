@@ -53,7 +53,7 @@ public:
     }
 
     [[nodiscard]] std::vector<LogRecord> read_entries(LSN from_lsn, std::size_t max_entries,
-                                                       std::size_t max_bytes) const override {
+                                                      std::size_t max_bytes) const override {
         std::lock_guard lock(mtx_);
 
         std::vector<LogRecord> result;
@@ -243,7 +243,7 @@ public:
     }
 
     [[nodiscard]] Result<std::vector<std::byte>> read_chunk(std::size_t offset,
-                                                             std::size_t size) const override {
+                                                            std::size_t size) const override {
         std::lock_guard lock(mtx_);
 
         if (offset >= data_.size()) {
@@ -314,7 +314,7 @@ public:
     }
 
     [[nodiscard]] Result<void> write_chunk(std::size_t offset,
-                                            std::span<const std::byte> data) override {
+                                           std::span<const std::byte> data) override {
         std::lock_guard lock(mtx_);
 
         if (fail_operations_) {
@@ -472,7 +472,7 @@ struct TestNode {
 /// @param value_str String view for the value
 /// @return A LogRecord with the specified data
 [[nodiscard]] inline LogRecord make_test_record(LSN lsn, std::string_view key_str,
-                                                 std::string_view value_str) {
+                                                std::string_view value_str) {
     LogRecord record;
     record.lsn = lsn;
     record.type = LogRecordType::Put;
@@ -575,9 +575,9 @@ public:
             config.election_timeout_max = std::chrono::milliseconds{100};
             config.heartbeat_interval = std::chrono::milliseconds{20};
 
-            auto result = ReplicationManager::create(
-                config, *node.delta_source, *node.delta_sink,
-                *node.snapshot_source, *node.snapshot_sink, *node.transport);
+            auto result = ReplicationManager::create(config, *node.delta_source, *node.delta_sink,
+                                                     *node.snapshot_source, *node.snapshot_sink,
+                                                     *node.transport);
 
             if (result.is_ok()) {
                 node.manager = std::move(result.value());
@@ -750,8 +750,8 @@ public:
     /// Blocks until exactly one node becomes leader or timeout expires.
     /// @param timeout Maximum time to wait
     /// @return true if leader was elected, false on timeout
-    [[nodiscard]] bool wait_for_leader(
-        std::chrono::milliseconds timeout = std::chrono::milliseconds{1000}) {
+    [[nodiscard]] bool
+    wait_for_leader(std::chrono::milliseconds timeout = std::chrono::milliseconds{1000}) {
         auto start = std::chrono::steady_clock::now();
 
         while (std::chrono::steady_clock::now() - start < timeout) {
@@ -781,8 +781,8 @@ public:
     /// @param lsn The LSN to wait for
     /// @param timeout Maximum time to wait
     /// @return true if all nodes committed, false on timeout
-    [[nodiscard]] bool wait_for_commit(
-        LSN lsn, std::chrono::milliseconds timeout = std::chrono::milliseconds{1000}) {
+    [[nodiscard]] bool
+    wait_for_commit(LSN lsn, std::chrono::milliseconds timeout = std::chrono::milliseconds{1000}) {
         auto start = std::chrono::steady_clock::now();
 
         while (std::chrono::steady_clock::now() - start < timeout) {
@@ -887,7 +887,7 @@ public:
     /// @param value The value bytes
     /// @return The LSN of the written record
     [[nodiscard]] LSN write_to_leader(const std::vector<std::byte>& key,
-                                       const std::vector<std::byte>& value) {
+                                      const std::vector<std::byte>& value) {
         auto& leader_node = leader();
 
         // Determine next LSN
