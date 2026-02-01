@@ -589,12 +589,12 @@ public:
         // Link all transports together
         for (std::size_t i = 0; i < num_nodes; ++i) {
             // Start transport so it has a local_id
-            cluster->nodes_[i].transport->start(cluster->nodes_[i].id);
+            (void)cluster->nodes_[i].transport->start(cluster->nodes_[i].id);
 
             for (std::size_t j = i + 1; j < num_nodes; ++j) {
                 // Start j's transport if not already started
                 if (!cluster->nodes_[j].transport->is_running()) {
-                    cluster->nodes_[j].transport->start(cluster->nodes_[j].id);
+                    (void)cluster->nodes_[j].transport->start(cluster->nodes_[j].id);
                 }
                 cluster->nodes_[i].transport->link_to(*cluster->nodes_[j].transport);
             }
@@ -604,7 +604,7 @@ public:
         for (std::size_t i = 0; i < num_nodes; ++i) {
             for (std::size_t j = 0; j < num_nodes; ++j) {
                 if (i != j) {
-                    cluster->nodes_[i].transport->connect(cluster->nodes_[j].id, "test-address");
+                    (void)cluster->nodes_[i].transport->connect(cluster->nodes_[j].id, "test-address");
                 }
             }
         }
