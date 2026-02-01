@@ -218,6 +218,16 @@ add_library(dotvm_core STATIC
     # Standard Library Runtime (GROUP-C)
     src/dotvm/core/string_pool.cpp
     src/dotvm/core/io/filesystem_sandbox.cpp
+    # Multi-Node State Replication (STATE-006)
+    src/dotvm/core/state/replication/message_serializer.cpp
+    src/dotvm/core/state/replication/transport.cpp
+    src/dotvm/core/state/replication/raft_state.cpp
+    src/dotvm/core/state/replication/raft_log.cpp
+    src/dotvm/core/state/replication/delta_publisher.cpp
+    src/dotvm/core/state/replication/delta_subscriber.cpp
+    src/dotvm/core/state/replication/snapshot_sender.cpp
+    src/dotvm/core/state/replication/snapshot_receiver.cpp
+    src/dotvm/core/state/replication/replication_manager.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -614,6 +624,22 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/string_pool_test.cpp
         tests/dotvm/core/collections_test.cpp
         tests/dotvm/core/io/sandbox_test.cpp
+        # Multi-Node State Replication tests (STATE-006)
+        tests/dotvm/core/state/replication/message_serializer_test.cpp
+        tests/dotvm/core/state/replication/transport_test.cpp
+        tests/dotvm/core/state/replication/raft_state_test.cpp
+        tests/dotvm/core/state/replication/raft_log_test.cpp
+        tests/dotvm/core/state/replication/delta_publisher_test.cpp
+        tests/dotvm/core/state/replication/delta_subscriber_test.cpp
+        tests/dotvm/core/state/replication/snapshot_sender_test.cpp
+        tests/dotvm/core/state/replication/snapshot_receiver_test.cpp
+        tests/dotvm/core/state/replication/replication_manager_test.cpp
+        # Test cluster infrastructure (STATE-006)
+        tests/dotvm/core/state/replication/test_cluster_test.cpp
+        # Fault injection test utility (STATE-006)
+        tests/dotvm/core/state/replication/fault_injector_test.cpp
+        # Chaos/fault injection integration tests (STATE-006)
+        tests/dotvm/core/state/replication/chaos_test.cpp
     )
 
     # JIT tests (EXEC-012)
@@ -632,6 +658,7 @@ if(DOTVM_BUILD_TESTS)
 
     target_include_directories(dotvm_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/tests/dotvm/test_utils
+        ${CMAKE_SOURCE_DIR}/tests/dotvm/core/state/replication
     )
 
     target_compile_options(dotvm_tests PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
