@@ -19,7 +19,6 @@ constexpr const char* kYellow = "\033[33m";
 constexpr const char* kGreen = "\033[32m";
 constexpr const char* kRed = "\033[31m";
 constexpr const char* kMagenta = "\033[35m";
-constexpr const char* kBlue = "\033[34m";
 
 }  // namespace
 
