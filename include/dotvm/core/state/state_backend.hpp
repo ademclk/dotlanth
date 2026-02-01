@@ -60,6 +60,18 @@ enum class StateBackendError : std::uint8_t {
     // Configuration errors (64-79)
     InvalidConfig = 64,         ///< Invalid configuration
     UnsupportedOperation = 65,  ///< Operation not supported by this backend
+
+    // Import/Export errors (80-95)
+    InvalidMagic = 80,         ///< File does not start with expected magic bytes
+    InvalidVersion = 81,       ///< Unsupported file format version
+    ChecksumMismatch = 82,     ///< CRC32 checksum verification failed
+    TruncatedData = 83,        ///< Unexpected end of data
+    InvalidChunkHeader = 84,   ///< Malformed chunk header
+    InvalidRecordFormat = 85,  ///< Malformed record within chunk
+    ChunkSequenceError = 86,   ///< Chunk sequence number out of order
+    ImportAborted = 87,        ///< Import was aborted (partial import possible)
+    ExportAborted = 88,        ///< Export was aborted by callback
+    TooManyErrors = 89,        ///< Import stopped due to excessive errors
 };
 
 /// @brief Convert error to human-readable string
@@ -99,6 +111,26 @@ enum class StateBackendError : std::uint8_t {
             return "InvalidConfig";
         case StateBackendError::UnsupportedOperation:
             return "UnsupportedOperation";
+        case StateBackendError::InvalidMagic:
+            return "InvalidMagic";
+        case StateBackendError::InvalidVersion:
+            return "InvalidVersion";
+        case StateBackendError::ChecksumMismatch:
+            return "ChecksumMismatch";
+        case StateBackendError::TruncatedData:
+            return "TruncatedData";
+        case StateBackendError::InvalidChunkHeader:
+            return "InvalidChunkHeader";
+        case StateBackendError::InvalidRecordFormat:
+            return "InvalidRecordFormat";
+        case StateBackendError::ChunkSequenceError:
+            return "ChunkSequenceError";
+        case StateBackendError::ImportAborted:
+            return "ImportAborted";
+        case StateBackendError::ExportAborted:
+            return "ExportAborted";
+        case StateBackendError::TooManyErrors:
+            return "TooManyErrors";
     }
     return "Unknown";
 }
@@ -112,6 +144,8 @@ enum class StateBackendError : std::uint8_t {
         case StateBackendError::DeadlockDetected:
         case StateBackendError::TransactionTimeout:
         case StateBackendError::ReadSetValidationFailed:
+        case StateBackendError::ImportAborted:  // Can resume from checkpoint
+        case StateBackendError::ExportAborted:  // Can retry export
             return true;
         default:
             return false;
