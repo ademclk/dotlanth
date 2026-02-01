@@ -201,7 +201,9 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/mpt_proof.cpp
     # Snapshot Manager (STATE-009)
     src/dotvm/core/state/snapshot_manager.cpp
-    # Query Optimizer (STATE-010)
+    # State Import/Export (STATE-010)
+    src/dotvm/core/state/state_import_export.cpp
+    # Query Optimizer (STATE-011)
     src/dotvm/core/state/query_ast.cpp
     src/dotvm/core/state/statistics.cpp
     src/dotvm/core/state/cost_model.cpp
@@ -582,7 +584,9 @@ if(DOTVM_BUILD_TESTS)
         # Snapshot Manager tests (STATE-009)
         tests/dotvm/core/state/snapshot_manager_test.cpp
         tests/dotvm/core/state/snapshot_benchmark_test.cpp
-        # Query Optimizer tests (STATE-010)
+        # State Import/Export tests (STATE-010)
+        tests/dotvm/core/state/state_import_export_test.cpp
+        # Query Optimizer tests (STATE-011)
         tests/dotvm/core/state/query_ast_test.cpp
         tests/dotvm/core/state/statistics_test.cpp
         tests/dotvm/core/state/cost_model_test.cpp
