@@ -306,7 +306,7 @@ protected:
         snapshot_source_ = std::make_unique<MockSnapshotSource>();
         snapshot_sink_ = std::make_unique<MockSnapshotSink>();
         transport_ = std::make_unique<MockTransport>();
-        transport_->start(local_id_);
+        (void)transport_->start(local_id_);
 
         auto config = ReplicationConfig::defaults(local_id_);
         auto result = ReplicationManager::create(config, *delta_source_, *delta_sink_,
@@ -404,8 +404,8 @@ protected:
         transport1_ = std::make_unique<MockTransport>();
         transport2_ = std::make_unique<MockTransport>();
 
-        transport1_->start(id1_);
-        transport2_->start(id2_);
+        (void)transport1_->start(id1_);
+        (void)transport2_->start(id2_);
 
         // Link transports
         transport1_->link_to(*transport2_);
@@ -704,8 +704,8 @@ protected:
         transport1_ = std::make_unique<MockTransport>();
         transport2_ = std::make_unique<MockTransport>();
 
-        transport1_->start(id1_);
-        transport2_->start(id2_);
+        (void)transport1_->start(id1_);
+        (void)transport2_->start(id2_);
 
         transport1_->link_to(*transport2_);
         ASSERT_TRUE(transport1_->connect(id2_, "").is_ok());
@@ -752,7 +752,7 @@ protected:
         for (int i = 0; i < 3; ++i) {
             ids_[i] = make_node_id(static_cast<std::uint8_t>(i + 1));
             transports_[i] = std::make_unique<MockTransport>();
-            transports_[i]->start(ids_[i]);
+            (void)transports_[i]->start(ids_[i]);
         }
 
         // Link all transports
@@ -817,12 +817,12 @@ TEST_F(MultiTransportTest, PartitionIsolatesOneNode) {
     auto msg = std::vector<std::byte>{std::byte{0x42}};
 
     // Node 0 broadcasts - should reach node 1 only
-    transports_[0]->broadcast(StreamType::Delta, msg);
+    (void)transports_[0]->broadcast(StreamType::Delta, msg);
     EXPECT_EQ(receive1.load(), 1);
     EXPECT_EQ(receive2.load(), 0);
 
     // Node 2 broadcasts - should reach nobody
-    transports_[2]->broadcast(StreamType::Delta, msg);
+    (void)transports_[2]->broadcast(StreamType::Delta, msg);
     EXPECT_EQ(receive0.load(), 0);
     EXPECT_EQ(receive1.load(), 1);  // Still 1 from before
 }
