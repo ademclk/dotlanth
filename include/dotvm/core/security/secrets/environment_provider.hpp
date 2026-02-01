@@ -81,8 +81,7 @@ public:
     /// @par Error Conditions
     /// - SecretsError::InvalidName if name is empty
     /// - SecretsError::NotFound if the environment variable doesn't exist
-    [[nodiscard]] std::expected<Secret, SecretsError> get(
-        std::string_view name) const override;
+    [[nodiscard]] std::expected<Secret, SecretsError> get(std::string_view name) const override;
 
     /// @brief Check if an environment variable exists
     ///

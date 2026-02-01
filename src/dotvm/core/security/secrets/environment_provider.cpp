@@ -14,8 +14,8 @@ EnvironmentProvider::EnvironmentProvider(std::string prefix,
     // Validate that all required secrets exist
     for (const auto& name : required_names_) {
         if (!exists(name)) {
-            throw std::runtime_error(std::format(
-                "Required environment variable '{}{}' is not set", prefix_, name));
+            throw std::runtime_error(
+                std::format("Required environment variable '{}{}' is not set", prefix_, name));
         }
     }
 }

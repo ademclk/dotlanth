@@ -342,8 +342,7 @@ TEST(Secret, LargeSecret) {
 
     EXPECT_EQ(secret.size(), large_size);
     auto view = secret.view();
-    EXPECT_TRUE(
-        std::all_of(view.begin(), view.end(), [](char c) { return c == 'X'; }));
+    EXPECT_TRUE(std::all_of(view.begin(), view.end(), [](char c) { return c == 'X'; }));
 }
 
 TEST(Secret, SpecialCharacters) {

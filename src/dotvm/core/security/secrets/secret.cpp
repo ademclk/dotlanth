@@ -32,13 +32,9 @@ void secure_zero(std::span<char> data) noexcept {
 // Secret Implementation
 // ============================================================================
 
-Secret::Secret(std::string_view data)
-    : data_(data.begin(), data.end()) {
-}
+Secret::Secret(std::string_view data) : data_(data.begin(), data.end()) {}
 
-Secret::Secret(std::span<const char> data)
-    : data_(data.begin(), data.end()) {
-}
+Secret::Secret(std::span<const char> data) : data_(data.begin(), data.end()) {}
 
 Secret::~Secret() {
     if (!data_.empty()) {
@@ -46,8 +42,7 @@ Secret::~Secret() {
     }
 }
 
-Secret::Secret(Secret&& other) noexcept
-    : data_(std::move(other.data_)) {
+Secret::Secret(Secret&& other) noexcept : data_(std::move(other.data_)) {
     // other.data_ is now in a valid but unspecified state
     // Clear it to ensure it's empty
     other.data_.clear();
@@ -82,8 +77,7 @@ bool Secret::empty() const noexcept {
 }
 
 std::size_t Secret::redaction_id() const noexcept {
-    return std::hash<std::string_view>{}(
-        std::string_view(data_.data(), data_.size()));
+    return std::hash<std::string_view>{}(std::string_view(data_.data(), data_.size()));
 }
 
 }  // namespace dotvm::core::security::secrets

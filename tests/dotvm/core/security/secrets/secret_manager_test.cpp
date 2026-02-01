@@ -31,8 +31,7 @@ public:
         secrets_[std::move(name)] = std::move(value);
     }
 
-    [[nodiscard]] std::expected<Secret, SecretsError> get(
-        std::string_view name) const override {
+    [[nodiscard]] std::expected<Secret, SecretsError> get(std::string_view name) const override {
         if (name.empty()) {
             return std::unexpected(SecretsError::InvalidName);
         }
@@ -56,9 +55,7 @@ public:
         return names;
     }
 
-    [[nodiscard]] std::string_view provider_id() const noexcept override {
-        return id_;
-    }
+    [[nodiscard]] std::string_view provider_id() const noexcept override { return id_; }
 
 private:
     std::string id_;
@@ -507,8 +504,7 @@ static_assert(!std::is_copy_assignable_v<SecretManager>,
               "SecretManager should not be copy assignable");
 static_assert(std::is_move_constructible_v<SecretManager>,
               "SecretManager should be move constructible");
-static_assert(std::is_move_assignable_v<SecretManager>,
-              "SecretManager should be move assignable");
+static_assert(std::is_move_assignable_v<SecretManager>, "SecretManager should be move assignable");
 
 }  // namespace
 }  // namespace dotvm::core::security::secrets

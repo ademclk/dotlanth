@@ -128,8 +128,7 @@ public:
     ///
     /// @par Thread Safety
     /// Thread-safe with respect to redaction registration.
-    [[nodiscard]] std::expected<Secret, SecretsError> get_secret(
-        std::string_view name) const;
+    [[nodiscard]] std::expected<Secret, SecretsError> get_secret(std::string_view name) const;
 
     /// @brief Check if a secret exists in any vault
     ///

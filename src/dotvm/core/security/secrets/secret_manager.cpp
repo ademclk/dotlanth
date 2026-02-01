@@ -16,8 +16,7 @@ namespace dotvm::core::security::secrets {
 // Move Operations
 // ============================================================================
 
-SecretManager::SecretManager(SecretManager&& other) noexcept
-    : vaults_(std::move(other.vaults_)) {
+SecretManager::SecretManager(SecretManager&& other) noexcept : vaults_(std::move(other.vaults_)) {
     // Lock other's mutex to safely move redaction_patterns_
     std::lock_guard lock(other.redaction_mutex_);
     redaction_patterns_ = std::move(other.redaction_patterns_);
@@ -52,8 +51,7 @@ std::size_t SecretManager::vault_count() const noexcept {
 // Secret Access
 // ============================================================================
 
-std::expected<Secret, SecretsError> SecretManager::get_secret(
-    std::string_view name) const {
+std::expected<Secret, SecretsError> SecretManager::get_secret(std::string_view name) const {
     // Search vaults in priority order
     for (const auto& vault : vaults_) {
         auto result = vault->get(name);
@@ -68,10 +66,7 @@ std::expected<Secret, SecretsError> SecretManager::get_secret(
             // Log successful access using legacy AuditEvent
             if (audit_logger_ != nullptr && audit_logger_->is_enabled()) {
                 audit_logger_->log(security::AuditEvent::now(
-                    security::AuditEventType::SecretAccessed,
-                    security::Permission::None,
-                    0,
-                    name));
+                    security::AuditEventType::SecretAccessed, security::Permission::None, 0, name));
             }
 
             return result;
@@ -82,11 +77,8 @@ std::expected<Secret, SecretsError> SecretManager::get_secret(
 
     // Log not found using legacy AuditEvent
     if (audit_logger_ != nullptr && audit_logger_->is_enabled()) {
-        audit_logger_->log(security::AuditEvent::now(
-            security::AuditEventType::SecretNotFound,
-            security::Permission::None,
-            0,
-            name));
+        audit_logger_->log(security::AuditEvent::now(security::AuditEventType::SecretNotFound,
+                                                     security::Permission::None, 0, name));
     }
 
     // Not found in any vault

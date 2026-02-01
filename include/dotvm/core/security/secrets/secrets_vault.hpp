@@ -125,8 +125,7 @@ public:
     /// - SecretsError::AccessDenied if access is denied
     /// - SecretsError::ConnectionFailed for network/connection errors
     /// - SecretsError::Expired if the secret has expired
-    [[nodiscard]] virtual std::expected<Secret, SecretsError> get(
-        std::string_view name) const = 0;
+    [[nodiscard]] virtual std::expected<Secret, SecretsError> get(std::string_view name) const = 0;
 
     /// @brief Check if a secret exists without retrieving it
     ///
