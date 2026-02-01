@@ -5,6 +5,7 @@
 
 #include <cstring>
 #include <filesystem>
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 
@@ -28,8 +29,10 @@ namespace {
 class WalBackendTest : public ::testing::Test {
 protected:
     void SetUp() override {
+        // Use PID + counter for unique directories across parallel test processes
         test_dir_ = std::filesystem::temp_directory_path() /
-                    ("wal_backend_test_" + std::to_string(test_counter_++));
+                    ("wal_backend_test_" + std::to_string(getpid()) + "_" +
+                     std::to_string(test_counter_++));
         std::filesystem::create_directories(test_dir_);
     }
 
