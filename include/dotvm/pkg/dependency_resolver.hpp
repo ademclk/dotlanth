@@ -43,9 +43,7 @@ struct ResolverConfig {
     std::size_t max_packages{10000};
 
     /// @brief Default configuration
-    [[nodiscard]] static constexpr ResolverConfig defaults() noexcept {
-        return ResolverConfig{};
-    }
+    [[nodiscard]] static constexpr ResolverConfig defaults() noexcept { return ResolverConfig{}; }
 };
 
 /// @brief Callback to fetch package manifests by name and version constraint
@@ -91,14 +89,14 @@ public:
     /// @param name Package name
     /// @param constraint Version constraint
     /// @return Resolution result with packages in install order
-    [[nodiscard]] core::Result<ResolutionResult, PackageError> resolve(
-        std::string_view name, const VersionConstraint& constraint) noexcept;
+    [[nodiscard]] core::Result<ResolutionResult, PackageError>
+    resolve(std::string_view name, const VersionConstraint& constraint) noexcept;
 
     /// @brief Resolve multiple packages and their dependencies
     /// @param packages Map of package names to version constraints
     /// @return Resolution result with packages in install order
-    [[nodiscard]] core::Result<ResolutionResult, PackageError> resolve_all(
-        const std::unordered_map<std::string, VersionConstraint>& packages) noexcept;
+    [[nodiscard]] core::Result<ResolutionResult, PackageError>
+    resolve_all(const std::unordered_map<std::string, VersionConstraint>& packages) noexcept;
 
     // =========================================================================
     // Query Operations
@@ -116,9 +114,9 @@ private:
     };
 
     /// @brief Recursively resolve a package
-    [[nodiscard]] core::Result<void, PackageError> resolve_recursive(
-        std::string_view name, const VersionConstraint& constraint,
-        ResolveState& state) noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    resolve_recursive(std::string_view name, const VersionConstraint& constraint,
+                      ResolveState& state) noexcept;
 
     ResolverConfig config_;
     PackageProvider provider_;

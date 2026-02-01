@@ -1,11 +1,11 @@
 /// @file package_cache_test.cpp
 /// @brief Unit tests for PRD-007 package cache
 
-#include <gtest/gtest.h>
-
 #include <array>
 #include <filesystem>
 #include <fstream>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/pkg/package_cache.hpp"
 

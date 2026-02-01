@@ -64,12 +64,12 @@ struct PackageManifest {
     // =========================================================================
 
     /// @brief Parse a package manifest from JSON string
-    [[nodiscard]] static core::Result<PackageManifest, PackageError> from_json(
-        std::string_view json) noexcept;
+    [[nodiscard]] static core::Result<PackageManifest, PackageError>
+    from_json(std::string_view json) noexcept;
 
     /// @brief Load a package manifest from file
-    [[nodiscard]] static core::Result<PackageManifest, PackageError> from_file(
-        const std::filesystem::path& path) noexcept;
+    [[nodiscard]] static core::Result<PackageManifest, PackageError>
+    from_file(const std::filesystem::path& path) noexcept;
 
     // =========================================================================
     // Serialization
@@ -79,8 +79,8 @@ struct PackageManifest {
     [[nodiscard]] std::string to_json() const;
 
     /// @brief Save manifest to file
-    [[nodiscard]] core::Result<void, PackageError> save(
-        const std::filesystem::path& path) const noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    save(const std::filesystem::path& path) const noexcept;
 };
 
 /// @brief Installed package entry in the registry
@@ -151,7 +151,6 @@ struct LockedPackage {
 [[nodiscard]] std::string checksum_to_hex(const Checksum& checksum) noexcept;
 
 /// @brief Parse checksum from hex string
-[[nodiscard]] core::Result<Checksum, PackageError> checksum_from_hex(
-    std::string_view hex) noexcept;
+[[nodiscard]] core::Result<Checksum, PackageError> checksum_from_hex(std::string_view hex) noexcept;
 
 }  // namespace dotvm::pkg

@@ -19,8 +19,8 @@ namespace {
 
 }  // namespace
 
-core::Result<VersionConstraint, PackageError> VersionConstraint::parse(
-    std::string_view constraint_str) noexcept {
+core::Result<VersionConstraint, PackageError>
+VersionConstraint::parse(std::string_view constraint_str) noexcept {
     constraint_str = trim_start(constraint_str);
 
     if (constraint_str.empty()) {

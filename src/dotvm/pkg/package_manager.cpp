@@ -80,8 +80,9 @@ core::Result<void, PackageError> PackageManager::load_lock_file() noexcept {
     return core::Ok;
 }
 
-core::Result<void, PackageError> PackageManager::install_from_source(
-    const PackageSource& source, ProgressCallback progress) noexcept {
+core::Result<void, PackageError>
+PackageManager::install_from_source(const PackageSource& source,
+                                    ProgressCallback progress) noexcept {
     if (!initialized_) {
         auto init = initialize();
         if (init.is_err()) {
@@ -237,7 +238,7 @@ core::Result<void, PackageError> PackageManager::uninstall(std::string_view name
 }
 
 core::Result<void, PackageError> PackageManager::update(std::string_view name,
-                                                         ProgressCallback progress) noexcept {
+                                                        ProgressCallback progress) noexcept {
     // For local package manager, update is just reinstall from source
     // This is a simplified implementation
     (void)name;
@@ -278,7 +279,8 @@ bool PackageManager::is_installed(std::string_view name) const noexcept {
     return registry_.has(name);
 }
 
-std::optional<InstalledPackage> PackageManager::get_installed(std::string_view name) const noexcept {
+std::optional<InstalledPackage>
+PackageManager::get_installed(std::string_view name) const noexcept {
     const auto* entry = registry_.get(name);
     if (!entry) {
         return std::nullopt;
@@ -349,8 +351,8 @@ core::Result<void, PackageError> PackageManager::save_lock_file() const noexcept
     return lock_file_.save(lock_path);
 }
 
-core::Result<void, PackageError> PackageManager::install_resolved_package(
-    const ResolvedPackage& pkg) noexcept {
+core::Result<void, PackageError>
+PackageManager::install_resolved_package(const ResolvedPackage& pkg) noexcept {
     // This would install a resolved package from cache
     // Implementation depends on how packages are stored
     (void)pkg;

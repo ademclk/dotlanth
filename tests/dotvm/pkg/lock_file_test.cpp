@@ -1,11 +1,11 @@
 /// @file lock_file_test.cpp
 /// @brief Unit tests for PRD-007 lock file
 
-#include <gtest/gtest.h>
-
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/pkg/lock_file.hpp"
 
@@ -219,7 +219,8 @@ TEST_F(LockFileTest, ParseEmptyDataFails) {
 }
 
 TEST_F(LockFileTest, ParseInvalidMagicFails) {
-    std::vector<std::uint8_t> bad_magic(LockFileConstants::HEADER_SIZE + LockFileConstants::FOOTER_SIZE, 0);
+    std::vector<std::uint8_t> bad_magic(
+        LockFileConstants::HEADER_SIZE + LockFileConstants::FOOTER_SIZE, 0);
     bad_magic[0] = 'X';  // Invalid magic
 
     auto result = LockFile::parse(bad_magic);

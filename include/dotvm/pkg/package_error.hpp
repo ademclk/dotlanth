@@ -26,13 +26,13 @@ namespace dotvm::pkg {
 /// - 81-95: Reserved for future use
 enum class PackageError : std::uint8_t {
     // Version parsing errors (1-10)
-    InvalidVersionFormat = 1,      ///< Version string cannot be parsed
-    EmptyVersion = 2,              ///< Empty version string
-    InvalidMajorVersion = 3,       ///< Major version component invalid
-    InvalidMinorVersion = 4,       ///< Minor version component invalid
-    InvalidPatchVersion = 5,       ///< Patch version component invalid
-    InvalidPrerelease = 6,         ///< Prerelease identifier invalid
-    VersionOverflow = 7,           ///< Version number too large
+    InvalidVersionFormat = 1,  ///< Version string cannot be parsed
+    EmptyVersion = 2,          ///< Empty version string
+    InvalidMajorVersion = 3,   ///< Major version component invalid
+    InvalidMinorVersion = 4,   ///< Minor version component invalid
+    InvalidPatchVersion = 5,   ///< Patch version component invalid
+    InvalidPrerelease = 6,     ///< Prerelease identifier invalid
+    VersionOverflow = 7,       ///< Version number too large
 
     // Constraint errors (11-20)
     InvalidConstraint = 11,        ///< Constraint string cannot be parsed
@@ -41,13 +41,13 @@ enum class PackageError : std::uint8_t {
     IncompatibleConstraints = 14,  ///< Constraints cannot be satisfied together
 
     // Manifest/package errors (21-30)
-    ManifestNotFound = 21,         ///< dotpkg.json not found
-    InvalidManifest = 22,          ///< Manifest JSON is invalid
-    MissingPackageName = 23,       ///< Package name not specified
-    MissingPackageVersion = 24,    ///< Package version not specified
-    InvalidPackageName = 25,       ///< Package name contains invalid characters
-    PackageNotFound = 26,          ///< Package not found in registry or cache
-    PackageAlreadyExists = 27,     ///< Package already installed
+    ManifestNotFound = 21,       ///< dotpkg.json not found
+    InvalidManifest = 22,        ///< Manifest JSON is invalid
+    MissingPackageName = 23,     ///< Package name not specified
+    MissingPackageVersion = 24,  ///< Package version not specified
+    InvalidPackageName = 25,     ///< Package name contains invalid characters
+    PackageNotFound = 26,        ///< Package not found in registry or cache
+    PackageAlreadyExists = 27,   ///< Package already installed
 
     // Lock file errors (31-40)
     LockFileNotFound = 31,         ///< dotpkg.lock not found
@@ -57,38 +57,38 @@ enum class PackageError : std::uint8_t {
     ChecksumMismatch = 35,         ///< Package checksum doesn't match lock file
 
     // Cache errors (41-50)
-    CacheNotFound = 41,            ///< Cache directory not found
-    CacheCorrupted = 42,           ///< Cache is corrupted
-    CacheWriteError = 43,          ///< Failed to write to cache
-    CacheReadError = 44,           ///< Failed to read from cache
-    CacheCleanupError = 45,        ///< Failed to clean up cache
+    CacheNotFound = 41,      ///< Cache directory not found
+    CacheCorrupted = 42,     ///< Cache is corrupted
+    CacheWriteError = 43,    ///< Failed to write to cache
+    CacheReadError = 44,     ///< Failed to read from cache
+    CacheCleanupError = 45,  ///< Failed to clean up cache
 
     // Registry errors (51-60)
-    RegistryNotFound = 51,         ///< Registry not found
-    RegistryCorrupted = 52,        ///< Registry is corrupted
-    RegistryWriteError = 53,       ///< Failed to write to registry
-    RegistryReadError = 54,        ///< Failed to read from registry
+    RegistryNotFound = 51,    ///< Registry not found
+    RegistryCorrupted = 52,   ///< Registry is corrupted
+    RegistryWriteError = 53,  ///< Failed to write to registry
+    RegistryReadError = 54,   ///< Failed to read from registry
 
     // Dependency resolution errors (61-70)
-    DependencyCycle = 61,          ///< Circular dependency detected
-    UnresolvableDependency = 62,   ///< Cannot satisfy dependency
-    ConflictingVersions = 63,      ///< Multiple versions required for same package
-    MaxDepthExceeded = 64,         ///< Dependency tree too deep
-    ResolutionTimeout = 65,        ///< Dependency resolution took too long
+    DependencyCycle = 61,         ///< Circular dependency detected
+    UnresolvableDependency = 62,  ///< Cannot satisfy dependency
+    ConflictingVersions = 63,     ///< Multiple versions required for same package
+    MaxDepthExceeded = 64,        ///< Dependency tree too deep
+    ResolutionTimeout = 65,       ///< Dependency resolution took too long
 
     // I/O errors (71-80)
-    FileNotFound = 71,             ///< File not found
-    FileReadError = 72,            ///< Failed to read file
-    FileWriteError = 73,           ///< Failed to write file
-    DirectoryCreateError = 74,     ///< Failed to create directory
-    DirectoryNotFound = 75,        ///< Directory not found
-    PermissionDenied = 76,         ///< Permission denied
-    PathTooLong = 77,              ///< Path exceeds system limits
+    FileNotFound = 71,          ///< File not found
+    FileReadError = 72,         ///< Failed to read file
+    FileWriteError = 73,        ///< Failed to write file
+    DirectoryCreateError = 74,  ///< Failed to create directory
+    DirectoryNotFound = 75,     ///< Directory not found
+    PermissionDenied = 76,      ///< Permission denied
+    PathTooLong = 77,           ///< Path exceeds system limits
 
     // Archive errors (81-90)
-    InvalidArchive = 81,           ///< Archive format invalid
-    ArchiveExtractError = 82,      ///< Failed to extract archive
-    ArchiveCreateError = 83,       ///< Failed to create archive
+    InvalidArchive = 81,       ///< Archive format invalid
+    ArchiveExtractError = 82,  ///< Failed to extract archive
+    ArchiveCreateError = 83,   ///< Failed to create archive
 };
 
 /// @brief Convert PackageError to human-readable string

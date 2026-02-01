@@ -46,12 +46,13 @@ bool PackageCache::is_valid() const noexcept {
 }
 
 std::filesystem::path PackageCache::package_path(std::string_view name,
-                                                  const Version& version) const noexcept {
+                                                 const Version& version) const noexcept {
     return config_.root_dir / "cache" / "packages" / name / version.to_string();
 }
 
-core::Result<CachedPackage, PackageError> PackageCache::add_from_source(
-    const PackageSource& source, const PackageManifest& manifest) noexcept {
+core::Result<CachedPackage, PackageError>
+PackageCache::add_from_source(const PackageSource& source,
+                              const PackageManifest& manifest) noexcept {
     if (source.is_archive) {
         // TODO: Implement archive extraction
         return PackageError::InvalidArchive;
@@ -59,8 +60,9 @@ core::Result<CachedPackage, PackageError> PackageCache::add_from_source(
     return add_from_directory(source.path, manifest);
 }
 
-core::Result<CachedPackage, PackageError> PackageCache::add_from_directory(
-    const std::filesystem::path& source_dir, const PackageManifest& manifest) noexcept {
+core::Result<CachedPackage, PackageError>
+PackageCache::add_from_directory(const std::filesystem::path& source_dir,
+                                 const PackageManifest& manifest) noexcept {
     if (!initialized_) {
         return PackageError::CacheNotFound;
     }
@@ -122,8 +124,7 @@ core::Result<CachedPackage, PackageError> PackageCache::add_from_directory(
 
     // Compute size
     std::uint64_t size = 0;
-    for (const auto& entry :
-         std::filesystem::recursive_directory_iterator(contents_dir, ec)) {
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(contents_dir, ec)) {
         if (entry.is_regular_file()) {
             size += entry.file_size(ec);
         }
@@ -143,7 +144,7 @@ core::Result<CachedPackage, PackageError> PackageCache::add_from_directory(
 }
 
 std::optional<CachedPackage> PackageCache::get(std::string_view name,
-                                                const Version& version) const noexcept {
+                                               const Version& version) const noexcept {
     auto pkg_dir = package_path(name, version);
 
     std::error_code ec;
@@ -164,8 +165,7 @@ std::optional<CachedPackage> PackageCache::get(std::string_view name,
     // Compute size
     auto contents_dir = pkg_dir / "contents";
     if (std::filesystem::exists(contents_dir, ec)) {
-        for (const auto& entry :
-             std::filesystem::recursive_directory_iterator(contents_dir, ec)) {
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(contents_dir, ec)) {
             if (entry.is_regular_file()) {
                 cached.size += entry.file_size(ec);
             }
@@ -181,7 +181,7 @@ bool PackageCache::has(std::string_view name, const Version& version) const noex
 }
 
 core::Result<bool, PackageError> PackageCache::remove(std::string_view name,
-                                                       const Version& version) noexcept {
+                                                      const Version& version) noexcept {
     auto pkg_dir = package_path(name, version);
 
     std::error_code ec;
@@ -203,8 +203,7 @@ core::Result<bool, PackageError> PackageCache::remove(std::string_view name,
     return true;
 }
 
-core::Result<std::size_t, PackageError> PackageCache::remove_all(
-    std::string_view name) noexcept {
+core::Result<std::size_t, PackageError> PackageCache::remove_all(std::string_view name) noexcept {
     auto name_dir = config_.root_dir / "cache" / "packages" / name;
 
     std::error_code ec;
@@ -304,7 +303,7 @@ std::size_t PackageCache::package_count() const noexcept {
 }
 
 core::Result<bool, PackageError> PackageCache::verify(std::string_view name,
-                                                       const Version& version) const noexcept {
+                                                      const Version& version) const noexcept {
     auto pkg = get(name, version);
     if (!pkg) {
         return PackageError::PackageNotFound;
@@ -368,8 +367,8 @@ core::Result<void, PackageError> PackageCache::clear() noexcept {
     return core::Ok;
 }
 
-core::Result<Checksum, PackageError> PackageCache::compute_directory_checksum(
-    const std::filesystem::path& dir) const noexcept {
+core::Result<Checksum, PackageError>
+PackageCache::compute_directory_checksum(const std::filesystem::path& dir) const noexcept {
     core::crypto::Sha256 hasher;
 
     std::error_code ec;
@@ -387,8 +386,8 @@ core::Result<Checksum, PackageError> PackageCache::compute_directory_checksum(
         // Hash relative path
         auto rel = std::filesystem::relative(path, dir, ec);
         auto rel_str = rel.string();
-        hasher.update(std::span{reinterpret_cast<const std::uint8_t*>(rel_str.data()),
-                                rel_str.size()});
+        hasher.update(
+            std::span{reinterpret_cast<const std::uint8_t*>(rel_str.data()), rel_str.size()});
 
         // Hash file contents
         std::ifstream file(path, std::ios::binary);
@@ -409,8 +408,8 @@ core::Result<Checksum, PackageError> PackageCache::compute_directory_checksum(
     return checksum;
 }
 
-std::optional<Checksum> PackageCache::read_stored_checksum(
-    const std::filesystem::path& pkg_dir) const noexcept {
+std::optional<Checksum>
+PackageCache::read_stored_checksum(const std::filesystem::path& pkg_dir) const noexcept {
     auto checksum_file = pkg_dir / ".checksum";
 
     std::ifstream file(checksum_file, std::ios::binary);
@@ -428,8 +427,9 @@ std::optional<Checksum> PackageCache::read_stored_checksum(
     return checksum;
 }
 
-core::Result<void, PackageError> PackageCache::write_checksum(
-    const std::filesystem::path& pkg_dir, const Checksum& checksum) const noexcept {
+core::Result<void, PackageError>
+PackageCache::write_checksum(const std::filesystem::path& pkg_dir,
+                             const Checksum& checksum) const noexcept {
     auto checksum_file = pkg_dir / ".checksum";
 
     std::ofstream file(checksum_file, std::ios::binary);

@@ -58,12 +58,13 @@ void write_string(std::vector<std::uint8_t>& buf, std::string_view str) {
 /// @brief Read a 32-bit little-endian value
 [[nodiscard]] std::uint32_t read_u32(const std::uint8_t* data) {
     return static_cast<std::uint32_t>(data[0]) | (static_cast<std::uint32_t>(data[1]) << 8) |
-           (static_cast<std::uint32_t>(data[2]) << 16) | (static_cast<std::uint32_t>(data[3]) << 24);
+           (static_cast<std::uint32_t>(data[2]) << 16) |
+           (static_cast<std::uint32_t>(data[3]) << 24);
 }
 
 /// @brief Read a length-prefixed string
 [[nodiscard]] core::Result<std::string, PackageError> read_string(const std::uint8_t*& ptr,
-                                                                   const std::uint8_t* end) {
+                                                                  const std::uint8_t* end) {
     if (ptr + 2 > end) {
         return PackageError::InvalidLockFile;
     }
@@ -267,8 +268,8 @@ std::vector<std::uint8_t> LockFile::serialize() const noexcept {
 
 void LockFile::add_package(LockedPackage package) noexcept {
     // Update existing or add new
-    auto it = std::ranges::find_if(packages_,
-                                   [&](const auto& p) { return p.name == package.name; });
+    auto it =
+        std::ranges::find_if(packages_, [&](const auto& p) { return p.name == package.name; });
 
     if (it != packages_.end()) {
         *it = std::move(package);
@@ -278,8 +279,7 @@ void LockFile::add_package(LockedPackage package) noexcept {
 }
 
 bool LockFile::remove_package(std::string_view name) noexcept {
-    auto it =
-        std::ranges::find_if(packages_, [&](const auto& p) { return p.name == name; });
+    auto it = std::ranges::find_if(packages_, [&](const auto& p) { return p.name == name; });
 
     if (it != packages_.end()) {
         packages_.erase(it);
@@ -289,8 +289,7 @@ bool LockFile::remove_package(std::string_view name) noexcept {
 }
 
 const LockedPackage* LockFile::get_package(std::string_view name) const noexcept {
-    auto it =
-        std::ranges::find_if(packages_, [&](const auto& p) { return p.name == name; });
+    auto it = std::ranges::find_if(packages_, [&](const auto& p) { return p.name == name; });
 
     return it != packages_.end() ? &*it : nullptr;
 }

@@ -18,8 +18,8 @@ protected:
     }
 
     // Simple in-memory package provider
-    core::Result<PackageManifest, PackageError> provide_package(
-        std::string_view name, const VersionConstraint& constraint) {
+    core::Result<PackageManifest, PackageError>
+    provide_package(std::string_view name, const VersionConstraint& constraint) {
         auto it = available_packages_.find(std::string(name));
         if (it == available_packages_.end()) {
             return PackageError::PackageNotFound;

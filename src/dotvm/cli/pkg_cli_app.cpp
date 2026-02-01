@@ -105,22 +105,19 @@ void PkgCliApp::setup_global_options() {
     global_group->add_flag("--no-color", global_opts_.no_color,
                            "Disable ANSI color codes in output");
 
-    global_group
-        ->add_option("-C,--config-dir", global_opts_.config_dir, "Package cache directory")
+    global_group->add_option("-C,--config-dir", global_opts_.config_dir, "Package cache directory")
         ->type_name("DIR")
         ->default_val(default_config_dir().string());
 
-    global_group
-        ->add_option("-P,--project-dir", global_opts_.project_dir, "Project directory")
+    global_group->add_option("-P,--project-dir", global_opts_.project_dir, "Project directory")
         ->type_name("DIR")
         ->check(CLI::ExistingDirectory);
 }
 
 void PkgCliApp::setup_install_command() {
     install_cmd_ = app_->add_subcommand("install", "Install a package from local path");
-    install_cmd_->description(
-        "Installs a package from a local directory or archive.\n"
-        "The package must contain a dotpkg.json manifest file.");
+    install_cmd_->description("Installs a package from a local directory or archive.\n"
+                              "The package must contain a dotpkg.json manifest file.");
 
     install_cmd_->add_option("path", install_opts_.package_path, "Path to package directory")
         ->required()
@@ -133,9 +130,8 @@ void PkgCliApp::setup_install_command() {
 
 void PkgCliApp::setup_uninstall_command() {
     uninstall_cmd_ = app_->add_subcommand("uninstall", "Uninstall a package");
-    uninstall_cmd_->description(
-        "Removes an installed package.\n"
-        "Fails if other packages depend on it (use --force to override).");
+    uninstall_cmd_->description("Removes an installed package.\n"
+                                "Fails if other packages depend on it (use --force to override).");
 
     uninstall_cmd_->add_option("name", uninstall_opts_.package_name, "Package name to uninstall")
         ->required()

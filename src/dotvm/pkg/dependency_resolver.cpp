@@ -8,15 +8,14 @@
 
 namespace dotvm::pkg {
 
-DependencyResolver::DependencyResolver(ResolverConfig config) noexcept
-    : config_(config) {}
+DependencyResolver::DependencyResolver(ResolverConfig config) noexcept : config_(config) {}
 
 void DependencyResolver::set_provider(PackageProvider provider) noexcept {
     provider_ = std::move(provider);
 }
 
-core::Result<ResolutionResult, PackageError> DependencyResolver::resolve(
-    std::string_view name, const VersionConstraint& constraint) noexcept {
+core::Result<ResolutionResult, PackageError>
+DependencyResolver::resolve(std::string_view name, const VersionConstraint& constraint) noexcept {
     std::unordered_map<std::string, VersionConstraint> packages;
     packages.emplace(std::string(name), constraint);
     return resolve_all(packages);
@@ -53,9 +52,9 @@ core::Result<ResolutionResult, PackageError> DependencyResolver::resolve_all(
     return result;
 }
 
-core::Result<void, PackageError> DependencyResolver::resolve_recursive(
-    std::string_view name, const VersionConstraint& constraint,
-    ResolveState& state) noexcept {
+core::Result<void, PackageError>
+DependencyResolver::resolve_recursive(std::string_view name, const VersionConstraint& constraint,
+                                      ResolveState& state) noexcept {
     // Check depth limit
     if (state.depth >= config_.max_depth) {
         return PackageError::MaxDepthExceeded;

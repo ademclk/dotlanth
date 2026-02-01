@@ -119,15 +119,16 @@ public:
     /// @param source Package source (directory or archive)
     /// @param manifest Package manifest
     /// @return Cached package info on success
-    [[nodiscard]] core::Result<CachedPackage, PackageError> add_from_source(
-        const PackageSource& source, const PackageManifest& manifest) noexcept;
+    [[nodiscard]] core::Result<CachedPackage, PackageError>
+    add_from_source(const PackageSource& source, const PackageManifest& manifest) noexcept;
 
     /// @brief Add a package to the cache from a directory
     /// @param source_dir Directory containing the package
     /// @param manifest Package manifest
     /// @return Cached package info on success
-    [[nodiscard]] core::Result<CachedPackage, PackageError> add_from_directory(
-        const std::filesystem::path& source_dir, const PackageManifest& manifest) noexcept;
+    [[nodiscard]] core::Result<CachedPackage, PackageError>
+    add_from_directory(const std::filesystem::path& source_dir,
+                       const PackageManifest& manifest) noexcept;
 
     /// @brief Get a cached package
     /// @param name Package name
@@ -149,8 +150,8 @@ public:
     /// @brief Remove all versions of a package from the cache
     /// @param name Package name
     /// @return Number of versions removed
-    [[nodiscard]] core::Result<std::size_t, PackageError> remove_all(
-        std::string_view name) noexcept;
+    [[nodiscard]] core::Result<std::size_t, PackageError>
+    remove_all(std::string_view name) noexcept;
 
     // =========================================================================
     // Query Operations
@@ -203,20 +204,22 @@ public:
                                                      const Version& version) const noexcept;
 
     /// @brief Get the cache root directory
-    [[nodiscard]] const std::filesystem::path& root_dir() const noexcept { return config_.root_dir; }
+    [[nodiscard]] const std::filesystem::path& root_dir() const noexcept {
+        return config_.root_dir;
+    }
 
 private:
     /// @brief Compute checksum of a directory's contents
-    [[nodiscard]] core::Result<Checksum, PackageError> compute_directory_checksum(
-        const std::filesystem::path& dir) const noexcept;
+    [[nodiscard]] core::Result<Checksum, PackageError>
+    compute_directory_checksum(const std::filesystem::path& dir) const noexcept;
 
     /// @brief Read stored checksum from .checksum file
-    [[nodiscard]] std::optional<Checksum> read_stored_checksum(
-        const std::filesystem::path& pkg_dir) const noexcept;
+    [[nodiscard]] std::optional<Checksum>
+    read_stored_checksum(const std::filesystem::path& pkg_dir) const noexcept;
 
     /// @brief Write checksum to .checksum file
-    [[nodiscard]] core::Result<void, PackageError> write_checksum(
-        const std::filesystem::path& pkg_dir, const Checksum& checksum) const noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    write_checksum(const std::filesystem::path& pkg_dir, const Checksum& checksum) const noexcept;
 
     CacheConfig config_;
     bool initialized_{false};

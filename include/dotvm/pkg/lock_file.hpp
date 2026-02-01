@@ -34,6 +34,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <vector>
 
 #include "dotvm/core/result.hpp"
@@ -91,14 +92,14 @@ public:
     /// @brief Load a lock file from disk
     /// @param path Path to the lock file
     /// @return LockFile on success, PackageError on failure
-    [[nodiscard]] static core::Result<LockFile, PackageError> load(
-        const std::filesystem::path& path) noexcept;
+    [[nodiscard]] static core::Result<LockFile, PackageError>
+    load(const std::filesystem::path& path) noexcept;
 
     /// @brief Parse a lock file from binary data
     /// @param data Binary lock file data
     /// @return LockFile on success, PackageError on failure
-    [[nodiscard]] static core::Result<LockFile, PackageError> parse(
-        std::span<const std::uint8_t> data) noexcept;
+    [[nodiscard]] static core::Result<LockFile, PackageError>
+    parse(std::span<const std::uint8_t> data) noexcept;
 
     // =========================================================================
     // Persistence
@@ -107,8 +108,8 @@ public:
     /// @brief Save the lock file to disk
     /// @param path Path to save to
     /// @return void on success, PackageError on failure
-    [[nodiscard]] core::Result<void, PackageError> save(
-        const std::filesystem::path& path) const noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    save(const std::filesystem::path& path) const noexcept;
 
     /// @brief Serialize to binary format
     /// @return Binary lock file data

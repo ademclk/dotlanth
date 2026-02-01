@@ -15,8 +15,8 @@ namespace dotvm::pkg {
 // PackageManifest Implementation
 // ============================================================================
 
-core::Result<PackageManifest, PackageError> PackageManifest::from_json(
-    std::string_view json) noexcept {
+core::Result<PackageManifest, PackageError>
+PackageManifest::from_json(std::string_view json) noexcept {
     auto parse_result = core::policy::JsonParser::parse(json);
     if (parse_result.is_err()) {
         return PackageError::InvalidManifest;
@@ -76,8 +76,8 @@ core::Result<PackageManifest, PackageError> PackageManifest::from_json(
     return manifest;
 }
 
-core::Result<PackageManifest, PackageError> PackageManifest::from_file(
-    const std::filesystem::path& path) noexcept {
+core::Result<PackageManifest, PackageError>
+PackageManifest::from_file(const std::filesystem::path& path) noexcept {
     std::error_code ec;
     if (!std::filesystem::exists(path, ec)) {
         return PackageError::ManifestNotFound;
@@ -121,8 +121,8 @@ std::string PackageManifest::to_json() const {
     return oss.str();
 }
 
-core::Result<void, PackageError> PackageManifest::save(
-    const std::filesystem::path& path) const noexcept {
+core::Result<void, PackageError>
+PackageManifest::save(const std::filesystem::path& path) const noexcept {
     std::ofstream file(path);
     if (!file) {
         return PackageError::FileWriteError;

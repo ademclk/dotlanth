@@ -20,8 +20,8 @@ namespace {
 /// @param str String view to parse
 /// @param error_code Error to return on failure
 /// @return Parsed value on success, error on failure
-[[nodiscard]] core::Result<std::uint32_t, PackageError> parse_component(
-    std::string_view str, PackageError error_code) noexcept {
+[[nodiscard]] core::Result<std::uint32_t, PackageError>
+parse_component(std::string_view str, PackageError error_code) noexcept {
     if (str.empty()) {
         return error_code;
     }

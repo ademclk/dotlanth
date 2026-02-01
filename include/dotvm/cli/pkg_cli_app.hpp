@@ -41,11 +41,11 @@ enum class PkgExitCode : int {
 
 /// @brief Global options shared by all package manager subcommands
 struct PkgGlobalOptions {
-    bool verbose = false;                                ///< Enable verbose output
-    bool quiet = false;                                  ///< Suppress non-essential output
-    bool no_color = false;                               ///< Disable ANSI color codes
-    std::filesystem::path config_dir;                    ///< Package cache directory (~/.dotpkg)
-    std::filesystem::path project_dir;                   ///< Project directory (cwd by default)
+    bool verbose = false;               ///< Enable verbose output
+    bool quiet = false;                 ///< Suppress non-essential output
+    bool no_color = false;              ///< Disable ANSI color codes
+    std::filesystem::path config_dir;   ///< Package cache directory (~/.dotpkg)
+    std::filesystem::path project_dir;  ///< Project directory (cwd by default)
 };
 
 /// @brief Options for the install command

@@ -41,8 +41,8 @@ struct PackageManagerConfig {
 };
 
 /// @brief Progress callback for install/update operations
-using ProgressCallback = std::function<void(std::string_view package, std::size_t current,
-                                            std::size_t total)>;
+using ProgressCallback =
+    std::function<void(std::string_view package, std::size_t current, std::size_t total)>;
 
 /// @brief Package manager - main entry point for dotpkg operations
 ///
@@ -104,14 +104,14 @@ public:
     /// @param source Package source (directory or archive path)
     /// @param progress Optional progress callback
     /// @return void on success, error on failure
-    [[nodiscard]] core::Result<void, PackageError> install_from_source(
-        const PackageSource& source, ProgressCallback progress = nullptr) noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    install_from_source(const PackageSource& source, ProgressCallback progress = nullptr) noexcept;
 
     /// @brief Install all dependencies from the manifest
     /// @param progress Optional progress callback
     /// @return void on success, error on failure
-    [[nodiscard]] core::Result<void, PackageError> install_all(
-        ProgressCallback progress = nullptr) noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    install_all(ProgressCallback progress = nullptr) noexcept;
 
     // =========================================================================
     // Package Removal
@@ -121,8 +121,8 @@ public:
     /// @param name Package name
     /// @param force Force removal even if other packages depend on it
     /// @return void on success, error on failure
-    [[nodiscard]] core::Result<void, PackageError> uninstall(
-        std::string_view name, bool force = false) noexcept;
+    [[nodiscard]] core::Result<void, PackageError> uninstall(std::string_view name,
+                                                             bool force = false) noexcept;
 
     // =========================================================================
     // Package Updates
@@ -132,14 +132,14 @@ public:
     /// @param name Package name
     /// @param progress Optional progress callback
     /// @return void on success, error on failure
-    [[nodiscard]] core::Result<void, PackageError> update(
-        std::string_view name, ProgressCallback progress = nullptr) noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    update(std::string_view name, ProgressCallback progress = nullptr) noexcept;
 
     /// @brief Update all packages
     /// @param progress Optional progress callback
     /// @return void on success, error on failure
-    [[nodiscard]] core::Result<void, PackageError> update_all(
-        ProgressCallback progress = nullptr) noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    update_all(ProgressCallback progress = nullptr) noexcept;
 
     // =========================================================================
     // Query Operations
@@ -160,8 +160,8 @@ public:
     [[nodiscard]] bool is_installed(std::string_view name) const noexcept;
 
     /// @brief Get an installed package
-    [[nodiscard]] std::optional<InstalledPackage> get_installed(
-        std::string_view name) const noexcept;
+    [[nodiscard]] std::optional<InstalledPackage>
+    get_installed(std::string_view name) const noexcept;
 
     /// @brief List outdated packages (installed version < available)
     [[nodiscard]] std::vector<std::pair<std::string, Version>> list_outdated() const noexcept;
@@ -189,8 +189,8 @@ public:
 
 private:
     /// @brief Install a resolved package from cache
-    [[nodiscard]] core::Result<void, PackageError> install_resolved_package(
-        const ResolvedPackage& pkg) noexcept;
+    [[nodiscard]] core::Result<void, PackageError>
+    install_resolved_package(const ResolvedPackage& pkg) noexcept;
 
     PackageManagerConfig config_;
     PackageCache cache_;

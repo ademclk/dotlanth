@@ -1,10 +1,10 @@
 /// @file package_manager_test.cpp
 /// @brief Unit tests for PRD-007 package manager
 
-#include <gtest/gtest.h>
-
 #include <filesystem>
 #include <fstream>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/pkg/package_manager.hpp"
 
@@ -22,9 +22,7 @@ protected:
         config_.cache_config.root_dir = test_dir_ / ".dotpkg";
     }
 
-    void TearDown() override {
-        std::filesystem::remove_all(test_dir_);
-    }
+    void TearDown() override { std::filesystem::remove_all(test_dir_); }
 
     // Create a test package directory with manifest
     std::filesystem::path create_test_package(std::string_view name, std::string_view version) {

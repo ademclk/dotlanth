@@ -58,8 +58,8 @@ struct Version {
     ///
     /// @param version_str The version string to parse
     /// @return Version on success, PackageError on failure
-    [[nodiscard]] static core::Result<Version, PackageError> parse(
-        std::string_view version_str) noexcept;
+    [[nodiscard]] static core::Result<Version, PackageError>
+    parse(std::string_view version_str) noexcept;
 
     // =========================================================================
     // Comparison Operators
@@ -71,8 +71,7 @@ struct Version {
     /// - Compare major, minor, patch numerically (most significant first)
     /// - A prerelease version has lower precedence than a normal version
     /// - Prereleases are compared lexicographically by component
-    [[nodiscard]] constexpr std::strong_ordering operator<=>(
-        const Version& other) const noexcept;
+    [[nodiscard]] constexpr std::strong_ordering operator<=>(const Version& other) const noexcept;
 
     /// @brief Equality operator
     [[nodiscard]] constexpr bool operator==(const Version& other) const noexcept = default;
@@ -91,9 +90,7 @@ struct Version {
     // =========================================================================
 
     /// @brief Check if this is a prerelease version
-    [[nodiscard]] constexpr bool is_prerelease() const noexcept {
-        return !prerelease.empty();
-    }
+    [[nodiscard]] constexpr bool is_prerelease() const noexcept { return !prerelease.empty(); }
 
     /// @brief Check if this is a stable version (major > 0, no prerelease)
     [[nodiscard]] constexpr bool is_stable() const noexcept {

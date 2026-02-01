@@ -90,8 +90,8 @@ struct VersionConstraint {
     ///
     /// @param constraint_str The constraint string to parse
     /// @return VersionConstraint on success, PackageError on failure
-    [[nodiscard]] static core::Result<VersionConstraint, PackageError> parse(
-        std::string_view constraint_str) noexcept;
+    [[nodiscard]] static core::Result<VersionConstraint, PackageError>
+    parse(std::string_view constraint_str) noexcept;
 
     // =========================================================================
     // Constraint Checking

@@ -1,10 +1,10 @@
 /// @file package_registry_test.cpp
 /// @brief Unit tests for PRD-007 package registry
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <filesystem>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/pkg/package_registry.hpp"
 
@@ -19,9 +19,7 @@ protected:
         registry_path_ = test_dir_ / "dotpkg_registry.json";
     }
 
-    void TearDown() override {
-        std::filesystem::remove_all(test_dir_);
-    }
+    void TearDown() override { std::filesystem::remove_all(test_dir_); }
 
     RegistryEntry make_entry(std::uint32_t major, std::uint32_t minor, std::uint32_t patch) {
         RegistryEntry entry;

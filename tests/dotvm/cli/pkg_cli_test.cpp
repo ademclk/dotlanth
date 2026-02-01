@@ -1,11 +1,11 @@
 /// @file pkg_cli_test.cpp
 /// @brief Unit tests for PRD-007 package manager CLI
 
-#include <gtest/gtest.h>
-
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+
+#include <gtest/gtest.h>
 
 #include "dotvm/cli/pkg_cli_app.hpp"
 
@@ -282,9 +282,8 @@ TEST_F(PkgCliAppTest, RunListEmptyProject) {
 
 TEST_F(PkgCliAppTest, RunUninstallNotInstalled) {
     PkgCliApp app;
-    const char* argv[] = {"dotpkg",   "-P",          test_dir_.c_str(),
-                          "-C",       test_dir_.c_str(), "-q",
-                          "uninstall", "nonexistent"};
+    const char* argv[] = {"dotpkg",          "-P", test_dir_.c_str(), "-C",
+                          test_dir_.c_str(), "-q", "uninstall",       "nonexistent"};
     (void)app.parse(8, argv);
 
     auto result = app.run();
@@ -295,9 +294,8 @@ TEST_F(PkgCliAppTest, RunInstallDryRun) {
     auto pkg_dir = create_test_package("dryrun", "1.0.0");
 
     PkgCliApp app;
-    const char* argv[] = {"dotpkg",   "-P",       test_dir_.c_str(), "-C",
-                          test_dir_.c_str(), "-q", "install",   pkg_dir.c_str(),
-                          "--dry-run"};
+    const char* argv[] = {"dotpkg", "-P",      test_dir_.c_str(), "-C",       test_dir_.c_str(),
+                          "-q",     "install", pkg_dir.c_str(),   "--dry-run"};
     (void)app.parse(9, argv);
 
     auto result = app.run();
