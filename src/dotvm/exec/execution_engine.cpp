@@ -1797,6 +1797,9 @@ op_SYSCALL: {
         .regs = regs,
         .granted_caps = vm_ctx_.config().granted_caps,
         .const_pool = const_pool_,
+        .strings = &vm_ctx_.strings(),
+        .collections = &vm_ctx_.collections(),
+        .filesystem = vm_ctx_.filesystem(),
     };
 
     auto result = syscall_dispatcher().dispatch(syscall_id, ctx, d.rd);

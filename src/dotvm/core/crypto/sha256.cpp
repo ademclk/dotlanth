@@ -226,12 +226,7 @@ Sha256::process_block_sha_ni(std::span<const std::uint8_t, 64> block) noexcept {
     STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
     MSG1 = _mm_sha256msg1_epu32(MSG1, MSG2);
 
-    // Rounds 12-15
-    MSG = _mm_add_epi32(
-        MSG3, _mm_set_epi64x(static_cast<std::int64_t>(
-                                 0xC19BF174C19BF174ull),  // Note: repeated value, fix below
-                             static_cast<std::int64_t>(0x80DEB1FE72BE5D74ull)));
-    // Correct K values for rounds 12-15: 0x80deb1fe, 0x9bdc06a7, 0xc19bf174
+    // Rounds 12-15: K[12]=0x80deb1fe, K[13]=0x9bdc06a7, K[14]=0xc19bf174, K[15]=0xe49b69c1
     MSG = _mm_add_epi32(MSG3, _mm_set_epi64x(static_cast<std::int64_t>(0xC19BF1749BDC06A7ull),
                                              static_cast<std::int64_t>(0x80DEB1FE72BE5D74ull)));
     STATE1 = _mm_sha256rnds2_epu32(STATE1, STATE0, MSG);
@@ -275,10 +270,7 @@ Sha256::process_block_sha_ni(std::span<const std::uint8_t, 64> block) noexcept {
     STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
     MSG1 = _mm_sha256msg1_epu32(MSG1, MSG2);
 
-    // Rounds 28-31
-    MSG = _mm_add_epi32(
-        MSG3, _mm_set_epi64x(static_cast<std::int64_t>(0x14292967142929ull),  // Placeholder
-                             static_cast<std::int64_t>(0xD5A79147C6E00BF3ull)));
+    // Rounds 28-31: K[28]=0xc6e00bf3, K[29]=0xd5a79147, K[30]=0x06ca6351, K[31]=0x14292967
     MSG = _mm_add_epi32(MSG3, _mm_set_epi64x(static_cast<std::int64_t>(0x1429296706CA6351ull),
                                              static_cast<std::int64_t>(0xD5A79147C6E00BF3ull)));
     STATE1 = _mm_sha256rnds2_epu32(STATE1, STATE0, MSG);
@@ -364,9 +356,9 @@ Sha256::process_block_sha_ni(std::span<const std::uint8_t, 64> block) noexcept {
     MSG = _mm_shuffle_epi32(MSG, 0x0E);
     STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);
 
-    // Rounds 60-63
+    // Rounds 60-63: K[60]=0x90befffa, K[61]=0xa4506ceb, K[62]=0xbef9a3f7, K[63]=0xc67178f2
     MSG = _mm_add_epi32(MSG3, _mm_set_epi64x(static_cast<std::int64_t>(0xC67178F2BEF9A3F7ull),
-                                             static_cast<std::int64_t>(0xA4506CEBB90BEFFAull)));
+                                             static_cast<std::int64_t>(0xA4506CEB90BEFFFAull)));
     STATE1 = _mm_sha256rnds2_epu32(STATE1, STATE0, MSG);
     MSG = _mm_shuffle_epi32(MSG, 0x0E);
     STATE0 = _mm_sha256rnds2_epu32(STATE0, STATE1, MSG);

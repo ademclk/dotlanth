@@ -13,9 +13,23 @@
 #include <unordered_map>
 
 #include "dotvm/core/capabilities/capability.hpp"
+#include "dotvm/core/collections/registry.hpp"
+#include "dotvm/core/io/filesystem_sandbox.hpp"
 #include "dotvm/core/register_file.hpp"
+#include "dotvm/core/string_pool.hpp"
 #include "dotvm/core/value.hpp"
 #include "dotvm/core/vm_context.hpp"
+
+// Forward declarations
+namespace dotvm::core {
+class StringPool;
+namespace collections {
+class CollectionRegistry;
+}
+namespace io {
+class FilesystemSandbox;
+}
+}  // namespace dotvm::core
 
 namespace dotvm::exec {
 
@@ -32,10 +46,13 @@ enum class SyscallResult : std::uint8_t {
 
 /// @brief Context passed to syscall handlers
 struct SyscallContext {
-    core::VmContext& vm_ctx;                      ///< Full VM context
-    core::ArchRegisterFile& regs;                 ///< Register file for args/return
-    core::capabilities::Permission granted_caps;  ///< Capabilities granted at compile time
-    std::span<const core::Value> const_pool;      ///< Constant pool
+    core::VmContext& vm_ctx;                             ///< Full VM context
+    core::ArchRegisterFile& regs;                        ///< Register file for args/return
+    core::capabilities::Permission granted_caps;         ///< Capabilities granted at compile time
+    std::span<const core::Value> const_pool;             ///< Constant pool
+    core::StringPool* strings;                           ///< String pool (may be null)
+    core::collections::CollectionRegistry* collections;  ///< Collection registry (may be null)
+    core::io::FilesystemSandbox* filesystem;             ///< Filesystem sandbox (may be null)
 
     /// Read argument from register (R1-R6 calling convention)
     [[nodiscard]] core::Value arg(std::size_t index) const {
@@ -44,6 +61,17 @@ struct SyscallContext {
 
     /// Set return value in destination register
     void set_return(std::uint8_t dest_reg, core::Value val) { regs.write(dest_reg, val); }
+
+    /// Helper to read a string argument
+    /// @param index Argument index (0-based)
+    /// @return String view if valid, empty view if not a string
+    [[nodiscard]] std::string_view get_string_arg(std::size_t index) const;
+
+    /// Helper to create and return a string result
+    /// @param dest_reg Destination register
+    /// @param str The string to return
+    /// @return SyscallResult indicating success or failure
+    [[nodiscard]] SyscallResult return_string(std::uint8_t dest_reg, std::string_view str);
 };
 
 /// @brief Type for syscall handler functions

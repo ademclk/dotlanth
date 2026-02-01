@@ -213,6 +213,9 @@ add_library(dotvm_core STATIC
     src/dotvm/core/link/object_id.cpp
     src/dotvm/core/link/link_key_encoder.cpp
     src/dotvm/core/link/link_manager.cpp
+    # Standard Library Runtime (GROUP-C)
+    src/dotvm/core/string_pool.cpp
+    src/dotvm/core/io/filesystem_sandbox.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -603,6 +606,10 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/link/link_cascade_test.cpp
         tests/dotvm/core/link/link_traversal_test.cpp
         tests/dotvm/core/link/link_integration_test.cpp
+        # Standard Library Runtime tests (GROUP-C)
+        tests/dotvm/core/string_pool_test.cpp
+        tests/dotvm/core/collections_test.cpp
+        tests/dotvm/core/io/sandbox_test.cpp
     )
 
     # JIT tests (EXEC-012)
