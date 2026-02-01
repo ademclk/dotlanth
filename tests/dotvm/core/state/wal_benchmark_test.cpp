@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iostream>
 #include <random>
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 
@@ -58,8 +59,10 @@ constexpr std::size_t VALUE_SIZE = 256;
 class WalBenchmarkTest : public ::testing::Test {
 protected:
     void SetUp() override {
+        // Use PID + counter for unique directories across parallel test processes
         test_dir_ = std::filesystem::temp_directory_path() /
-                    ("wal_benchmark_test_" + std::to_string(test_counter_++));
+                    ("wal_benchmark_test_" + std::to_string(getpid()) + "_" +
+                     std::to_string(test_counter_++));
         std::filesystem::create_directories(test_dir_);
 
         // Seed RNG for reproducibility
