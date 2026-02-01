@@ -56,6 +56,12 @@ struct VmInfoOptions {
     std::string input_file;  ///< Input .dot bytecode file to inspect
 };
 
+/// @brief Options for the debug command
+struct VmDebugOptions {
+    std::string input_file;  ///< Input .dot bytecode file to debug
+    bool no_color = false;   ///< Disable ANSI colors in debugger
+};
+
 /// @brief Main VM CLI application class
 ///
 /// Provides the command-line interface for the dotvm bytecode executor tool.
@@ -100,6 +106,9 @@ public:
     /// @brief Get the info options
     [[nodiscard]] const VmInfoOptions& info_options() const noexcept { return info_opts_; }
 
+    /// @brief Get the debug options
+    [[nodiscard]] const VmDebugOptions& debug_options() const noexcept { return debug_opts_; }
+
     /// @brief Get the currently selected subcommand name
     [[nodiscard]] std::string current_subcommand() const;
 
@@ -114,6 +123,7 @@ private:
     void setup_run_command();
     void setup_validate_command();
     void setup_info_command();
+    void setup_debug_command();
 
     std::unique_ptr<CLI::App> app_;
 
@@ -121,11 +131,13 @@ private:
     VmRunOptions run_opts_;
     VmValidateOptions validate_opts_;
     VmInfoOptions info_opts_;
+    VmDebugOptions debug_opts_;
 
     // Subcommand pointers (owned by app_)
     CLI::App* run_cmd_ = nullptr;
     CLI::App* validate_cmd_ = nullptr;
     CLI::App* info_cmd_ = nullptr;
+    CLI::App* debug_cmd_ = nullptr;
 
     // Flag to track if help/version was handled during parse
     bool help_requested_ = false;

@@ -399,6 +399,14 @@ if(DOTVM_BUILD_CLI)
         src/dotvm/cli/commands/pkg_uninstall_command.cpp
         src/dotvm/cli/commands/pkg_list_command.cpp
         src/dotvm/cli/commands/pkg_update_command.cpp
+        # Debug Client (TOOL-011)
+        src/dotvm/debugger/command_parser.cpp
+        src/dotvm/debugger/debug_session.cpp
+        src/dotvm/debugger/breakpoint_manager.cpp
+        src/dotvm/debugger/watch_manager.cpp
+        src/dotvm/debugger/debug_formatter.cpp
+        src/dotvm/debugger/debug_client.cpp
+        src/dotvm/cli/commands/vm_debug_command.cpp
     )
 
     target_link_libraries(dotvm_cli PUBLIC
@@ -727,6 +735,13 @@ if(DOTVM_BUILD_TESTS)
             tests/dotvm/cli/bench_formatter_test.cpp
             # Package Manager CLI tests (PRD-007)
             tests/dotvm/cli/pkg_cli_test.cpp
+            # Debug Client tests (TOOL-011)
+            tests/dotvm/debugger/command_parser_test.cpp
+            tests/dotvm/debugger/debug_session_test.cpp
+            tests/dotvm/debugger/breakpoint_manager_test.cpp
+            tests/dotvm/debugger/watch_manager_test.cpp
+            tests/dotvm/debugger/debug_formatter_test.cpp
+            tests/dotvm/debugger/debug_client_test.cpp
         )
 
         target_link_libraries(dotvm_cli_tests PRIVATE
