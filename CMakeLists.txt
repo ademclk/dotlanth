@@ -228,6 +228,15 @@ add_library(dotvm_core STATIC
     src/dotvm/core/state/replication/snapshot_sender.cpp
     src/dotvm/core/state/replication/snapshot_receiver.cpp
     src/dotvm/core/state/replication/replication_manager.cpp
+    # Package Manager (PRD-007)
+    src/dotvm/pkg/version.cpp
+    src/dotvm/pkg/version_constraint.cpp
+    src/dotvm/pkg/lock_file.cpp
+    src/dotvm/pkg/package_cache.cpp
+    src/dotvm/pkg/package_registry.cpp
+    src/dotvm/pkg/package.cpp
+    src/dotvm/pkg/dependency_resolver.cpp
+    src/dotvm/pkg/package_manager.cpp
 )
 
 # PostgreSQL backend subsystem (STATE-006)
@@ -380,6 +389,12 @@ if(DOTVM_BUILD_CLI)
         # Benchmark Suite CLI (TOOL-010) - core files that don't need benchmark lib
         src/dotvm/cli/bench_cli_app.cpp
         src/dotvm/cli/bench_formatter.cpp
+        # Package Manager CLI (PRD-007)
+        src/dotvm/cli/pkg_cli_app.cpp
+        src/dotvm/cli/commands/pkg_install_command.cpp
+        src/dotvm/cli/commands/pkg_uninstall_command.cpp
+        src/dotvm/cli/commands/pkg_list_command.cpp
+        src/dotvm/cli/commands/pkg_update_command.cpp
     )
 
     target_link_libraries(dotvm_cli PUBLIC
@@ -443,6 +458,16 @@ if(DOTVM_BUILD_CLI)
     target_compile_options(dotinfo PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
 
     install(TARGETS dotinfo RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+    # dotpkg package manager CLI (PRD-007)
+    add_executable(dotpkg
+        src/dotvm/cli/pkg_main.cpp
+    )
+
+    target_link_libraries(dotpkg PRIVATE dotvm_cli)
+    target_compile_options(dotpkg PRIVATE ${DOTVM_WARNING_FLAGS} ${DOTVM_SANITIZER_FLAGS} ${DOTVM_COVERAGE_FLAGS})
+
+    install(TARGETS dotpkg RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 # Main executable
@@ -640,6 +665,14 @@ if(DOTVM_BUILD_TESTS)
         tests/dotvm/core/state/replication/fault_injector_test.cpp
         # Chaos/fault injection integration tests (STATE-006)
         tests/dotvm/core/state/replication/chaos_test.cpp
+        # Package Manager tests (PRD-007)
+        tests/dotvm/pkg/version_test.cpp
+        tests/dotvm/pkg/version_constraint_test.cpp
+        tests/dotvm/pkg/lock_file_test.cpp
+        tests/dotvm/pkg/package_cache_test.cpp
+        tests/dotvm/pkg/package_registry_test.cpp
+        tests/dotvm/pkg/dependency_resolver_test.cpp
+        tests/dotvm/pkg/package_manager_test.cpp
     )
 
     # JIT tests (EXEC-012)
@@ -684,6 +717,8 @@ if(DOTVM_BUILD_TESTS)
             # Benchmark CLI tests (TOOL-010)
             tests/dotvm/cli/bench_cli_test.cpp
             tests/dotvm/cli/bench_formatter_test.cpp
+            # Package Manager CLI tests (PRD-007)
+            tests/dotvm/cli/pkg_cli_test.cpp
         )
 
         target_link_libraries(dotvm_cli_tests PRIVATE
