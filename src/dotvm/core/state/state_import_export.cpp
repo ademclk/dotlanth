@@ -280,7 +280,7 @@ struct FileFooter {
 
 /// @brief Encode a key-value pair as RLP list [key, value]
 [[nodiscard]] std::vector<std::byte> encode_record(std::span<const std::byte> key,
-                                                    std::span<const std::byte> value) {
+                                                   std::span<const std::byte> value) {
     std::vector<std::vector<std::byte>> items;
     items.emplace_back(key.begin(), key.end());
     items.emplace_back(value.begin(), value.end());
@@ -289,7 +289,7 @@ struct FileFooter {
 
 /// @brief Decode a record from RLP
 [[nodiscard]] ::dotvm::core::Result<std::pair<std::vector<std::byte>, std::vector<std::byte>>,
-                                     StateBackendError>
+                                    StateBackendError>
 decode_record(std::span<const std::byte> data, std::size_t& bytes_consumed) {
     auto list_result = rlp::decode_list(data);
     if (list_result.is_err()) {
@@ -329,7 +329,7 @@ StateExporter::StateExporter(const StateBackend& backend, const ExportConfig& co
     : backend_{backend}, config_{config} {}
 
 StateExporter::Result<void> StateExporter::export_state(StateBackend::Key prefix,
-                                                         const ChunkCallback& callback) {
+                                                        const ChunkCallback& callback) {
     // Collect all records first to know counts
     struct Record {
         std::vector<std::byte> key;
@@ -337,14 +337,12 @@ StateExporter::Result<void> StateExporter::export_state(StateBackend::Key prefix
     };
     std::vector<Record> records;
 
-    auto iterate_result = backend_.iterate(prefix, [&records](StateBackend::Key key,
-                                                               StateBackend::Value value) {
-        records.push_back(Record{
-            std::vector<std::byte>(key.begin(), key.end()),
-            std::vector<std::byte>(value.begin(), value.end())
+    auto iterate_result =
+        backend_.iterate(prefix, [&records](StateBackend::Key key, StateBackend::Value value) {
+            records.push_back(Record{std::vector<std::byte>(key.begin(), key.end()),
+                                     std::vector<std::byte>(value.begin(), value.end())});
+            return true;  // Continue iteration
         });
-        return true;  // Continue iteration
-    });
 
     if (iterate_result.is_err()) {
         return iterate_result.error();
@@ -456,14 +454,15 @@ StateExporter::Result<void> StateExporter::export_state(StateBackend::Key prefix
     return {};
 }
 
-StateExporter::Result<std::vector<std::byte>> StateExporter::export_to_bytes(StateBackend::Key prefix) {
+StateExporter::Result<std::vector<std::byte>>
+StateExporter::export_to_bytes(StateBackend::Key prefix) {
     std::vector<std::byte> result;
 
-    auto export_result = export_state(prefix, [&result](std::uint32_t,
-                                                         std::span<const std::byte> data) {
-        result.insert(result.end(), data.begin(), data.end());
-        return true;
-    });
+    auto export_result =
+        export_state(prefix, [&result](std::uint32_t, std::span<const std::byte> data) {
+            result.insert(result.end(), data.begin(), data.end());
+            return true;
+        });
 
     if (export_result.is_err()) {
         return export_result.error();
@@ -540,7 +539,8 @@ StateImporter::Result<ImportResult> StateImporter::import_state(std::span<const 
         // Skip to resume point if configured
         if (chunk_header.index < config_.resume_from_chunk) {
             // Calculate chunk size and skip
-            std::size_t chunk_total = CHUNK_HEADER_SIZE + chunk_header.payload_size + 4;  // +4 for CRC
+            std::size_t chunk_total =
+                CHUNK_HEADER_SIZE + chunk_header.payload_size + 4;  // +4 for CRC
             offset += chunk_total;
             ++expected_chunk_index;
             continue;
@@ -554,8 +554,10 @@ StateImporter::Result<ImportResult> StateImporter::import_state(std::span<const 
 
         // Verify chunk CRC if enabled
         if (config_.verify_checksums) {
-            auto chunk_content = data.subspan(offset, CHUNK_HEADER_SIZE + chunk_header.payload_size);
-            auto stored_crc = read_u32(data, offset + CHUNK_HEADER_SIZE + chunk_header.payload_size);
+            auto chunk_content =
+                data.subspan(offset, CHUNK_HEADER_SIZE + chunk_header.payload_size);
+            auto stored_crc =
+                read_u32(data, offset + CHUNK_HEADER_SIZE + chunk_header.payload_size);
             auto computed_crc = crc32(chunk_content);
             if (computed_crc != stored_crc) {
                 return StateBackendError::ChecksumMismatch;

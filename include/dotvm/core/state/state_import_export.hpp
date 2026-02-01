@@ -36,8 +36,8 @@ namespace dotvm::core::state {
 // ============================================================================
 
 /// @brief Magic bytes identifying a DotVM State File ("DVSF")
-inline constexpr std::array<std::byte, 4> STATE_FILE_MAGIC = {
-    std::byte{'D'}, std::byte{'V'}, std::byte{'S'}, std::byte{'F'}};
+inline constexpr std::array<std::byte, 4> STATE_FILE_MAGIC = {std::byte{'D'}, std::byte{'V'},
+                                                              std::byte{'S'}, std::byte{'F'}};
 
 /// @brief Current file format version
 inline constexpr std::uint16_t STATE_FILE_VERSION = 1;
@@ -64,9 +64,9 @@ inline constexpr std::size_t FILE_FOOTER_SIZE = 16;
 
 /// @brief Strategy for handling key conflicts during import
 enum class MergeStrategy : std::uint8_t {
-    Replace = 0,      ///< Overwrite existing keys with imported values
-    Merge = 1,        ///< Update existing keys, insert new keys
-    SkipExisting = 2, ///< Only insert keys that don't already exist
+    Replace = 0,       ///< Overwrite existing keys with imported values
+    Merge = 1,         ///< Update existing keys, insert new keys
+    SkipExisting = 2,  ///< Only insert keys that don't already exist
 };
 
 /// @brief Convert merge strategy to string
@@ -88,17 +88,15 @@ enum class MergeStrategy : std::uint8_t {
 
 /// @brief Statistics and status from an import operation
 struct ImportResult {
-    std::size_t inserted_count{0};  ///< Number of new keys inserted
-    std::size_t updated_count{0};   ///< Number of existing keys updated
-    std::size_t skipped_count{0};   ///< Number of keys skipped (SkipExisting strategy)
-    std::size_t failed_count{0};    ///< Number of records that failed to import
-    std::uint32_t last_chunk{0};    ///< Last successfully imported chunk (for resume)
+    std::size_t inserted_count{0};    ///< Number of new keys inserted
+    std::size_t updated_count{0};     ///< Number of existing keys updated
+    std::size_t skipped_count{0};     ///< Number of keys skipped (SkipExisting strategy)
+    std::size_t failed_count{0};      ///< Number of records that failed to import
+    std::uint32_t last_chunk{0};      ///< Last successfully imported chunk (for resume)
     std::vector<std::string> errors;  ///< Detailed error messages
 
     /// @brief Check if import completed successfully
-    [[nodiscard]] bool is_success() const noexcept {
-        return failed_count == 0 && errors.empty();
-    }
+    [[nodiscard]] bool is_success() const noexcept { return failed_count == 0 && errors.empty(); }
 
     /// @brief Get total number of records processed
     [[nodiscard]] std::size_t total_processed() const noexcept {
@@ -113,12 +111,10 @@ struct ImportResult {
 /// @brief Configuration for state export operations
 struct ExportConfig {
     std::size_t target_chunk_size{DEFAULT_CHUNK_SIZE};  ///< Target size per chunk
-    bool include_metadata{true};  ///< Include export metadata in header
+    bool include_metadata{true};                        ///< Include export metadata in header
 
     /// @brief Create default export configuration
-    [[nodiscard]] static constexpr ExportConfig defaults() noexcept {
-        return ExportConfig{};
-    }
+    [[nodiscard]] static constexpr ExportConfig defaults() noexcept { return ExportConfig{}; }
 };
 
 // ============================================================================
@@ -128,14 +124,12 @@ struct ExportConfig {
 /// @brief Configuration for state import operations
 struct ImportConfig {
     MergeStrategy strategy{MergeStrategy::Merge};  ///< How to handle conflicts
-    std::uint32_t resume_from_chunk{0};  ///< Chunk to resume from (0 = start)
-    std::size_t max_errors{100};  ///< Stop import after this many errors
-    bool verify_checksums{true};  ///< Verify CRC32 checksums
+    std::uint32_t resume_from_chunk{0};            ///< Chunk to resume from (0 = start)
+    std::size_t max_errors{100};                   ///< Stop import after this many errors
+    bool verify_checksums{true};                   ///< Verify CRC32 checksums
 
     /// @brief Create default import configuration
-    [[nodiscard]] static constexpr ImportConfig defaults() noexcept {
-        return ImportConfig{};
-    }
+    [[nodiscard]] static constexpr ImportConfig defaults() noexcept { return ImportConfig{}; }
 };
 
 // ============================================================================
@@ -149,8 +143,8 @@ struct ImportConfig {
 /// @param chunk_index Zero-based chunk index
 /// @param data Chunk data bytes
 /// @return true to continue, false to abort
-using ChunkCallback = std::function<bool(std::uint32_t chunk_index,
-                                          std::span<const std::byte> data)>;
+using ChunkCallback =
+    std::function<bool(std::uint32_t chunk_index, std::span<const std::byte> data)>;
 
 // ============================================================================
 // StateExporter

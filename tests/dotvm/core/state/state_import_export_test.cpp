@@ -77,14 +77,13 @@ protected:
     /// @brief Helper to get a value
     [[nodiscard]] std::string get(std::string_view key) {
         auto result = backend_->get(to_bytes(key));
-        if (result.is_err()) return "";
+        if (result.is_err())
+            return "";
         return to_string(result.value());
     }
 
     /// @brief Helper to check if key exists
-    [[nodiscard]] bool exists(std::string_view key) {
-        return backend_->exists(to_bytes(key));
-    }
+    [[nodiscard]] bool exists(std::string_view key) { return backend_->exists(to_bytes(key)); }
 
     std::unique_ptr<StateBackend> backend_;
 };
@@ -350,10 +349,11 @@ TEST_F(StateImportExportTest, MultiChunkExport) {
     StateExporter exporter(*backend_, config);
 
     std::uint32_t chunk_count = 0;
-    auto result = exporter.export_state({}, [&chunk_count](std::uint32_t, std::span<const std::byte>) {
-        ++chunk_count;
-        return true;
-    });
+    auto result =
+        exporter.export_state({}, [&chunk_count](std::uint32_t, std::span<const std::byte>) {
+            ++chunk_count;
+            return true;
+        });
 
     ASSERT_TRUE(result.is_ok());
     EXPECT_GT(chunk_count, 1u) << "Expected multiple chunks";
@@ -503,8 +503,8 @@ TEST_F(StateImportExportTest, MergeStrategyMerge) {
     ASSERT_TRUE(import_result.is_ok());
 
     const auto& stats = import_result.value();
-    EXPECT_EQ(stats.updated_count, 1u);  // existing updated
-    EXPECT_EQ(stats.inserted_count, 1u); // new_key inserted
+    EXPECT_EQ(stats.updated_count, 1u);   // existing updated
+    EXPECT_EQ(stats.inserted_count, 1u);  // new_key inserted
 
     // Verify values
     auto val1 = import_backend->get(to_bytes("existing"));
@@ -539,8 +539,8 @@ TEST_F(StateImportExportTest, MergeStrategySkipExisting) {
     ASSERT_TRUE(import_result.is_ok());
 
     const auto& stats = import_result.value();
-    EXPECT_EQ(stats.skipped_count, 1u);  // existing skipped
-    EXPECT_EQ(stats.inserted_count, 1u); // new_key inserted
+    EXPECT_EQ(stats.skipped_count, 1u);   // existing skipped
+    EXPECT_EQ(stats.inserted_count, 1u);  // new_key inserted
 
     // existing should keep original value
     auto val1 = import_backend->get(to_bytes("existing"));
@@ -659,11 +659,12 @@ TEST_F(StateImportExportTest, StreamingExportCallback) {
     std::vector<std::vector<std::byte>> chunks;
     StateExporter exporter(*backend_);
 
-    auto result = exporter.export_state({}, [&chunks](std::uint32_t idx, std::span<const std::byte> data) {
-        EXPECT_EQ(idx, static_cast<std::uint32_t>(chunks.size()));
-        chunks.emplace_back(data.begin(), data.end());
-        return true;
-    });
+    auto result =
+        exporter.export_state({}, [&chunks](std::uint32_t idx, std::span<const std::byte> data) {
+            EXPECT_EQ(idx, static_cast<std::uint32_t>(chunks.size()));
+            chunks.emplace_back(data.begin(), data.end());
+            return true;
+        });
 
     ASSERT_TRUE(result.is_ok());
     EXPECT_FALSE(chunks.empty());
@@ -696,10 +697,11 @@ TEST_F(StateImportExportTest, StreamingExportAbort) {
     StateExporter exporter(*backend_, config);
 
     std::uint32_t chunks_received = 0;
-    auto result = exporter.export_state({}, [&chunks_received](std::uint32_t, std::span<const std::byte>) {
-        ++chunks_received;
-        return chunks_received < 2;  // Abort after first callback chunk
-    });
+    auto result =
+        exporter.export_state({}, [&chunks_received](std::uint32_t, std::span<const std::byte>) {
+            ++chunks_received;
+            return chunks_received < 2;  // Abort after first callback chunk
+        });
 
     // With >64KB of data, we should get multiple callback chunks
     // If only one callback chunk, the export completes successfully (no abort)

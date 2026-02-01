@@ -62,16 +62,16 @@ enum class StateBackendError : std::uint8_t {
     UnsupportedOperation = 65,  ///< Operation not supported by this backend
 
     // Import/Export errors (80-95)
-    InvalidMagic = 80,          ///< File does not start with expected magic bytes
-    InvalidVersion = 81,        ///< Unsupported file format version
-    ChecksumMismatch = 82,      ///< CRC32 checksum verification failed
-    TruncatedData = 83,         ///< Unexpected end of data
-    InvalidChunkHeader = 84,    ///< Malformed chunk header
-    InvalidRecordFormat = 85,   ///< Malformed record within chunk
-    ChunkSequenceError = 86,    ///< Chunk sequence number out of order
-    ImportAborted = 87,         ///< Import was aborted (partial import possible)
-    ExportAborted = 88,         ///< Export was aborted by callback
-    TooManyErrors = 89,         ///< Import stopped due to excessive errors
+    InvalidMagic = 80,         ///< File does not start with expected magic bytes
+    InvalidVersion = 81,       ///< Unsupported file format version
+    ChecksumMismatch = 82,     ///< CRC32 checksum verification failed
+    TruncatedData = 83,        ///< Unexpected end of data
+    InvalidChunkHeader = 84,   ///< Malformed chunk header
+    InvalidRecordFormat = 85,  ///< Malformed record within chunk
+    ChunkSequenceError = 86,   ///< Chunk sequence number out of order
+    ImportAborted = 87,        ///< Import was aborted (partial import possible)
+    ExportAborted = 88,        ///< Export was aborted by callback
+    TooManyErrors = 89,        ///< Import stopped due to excessive errors
 };
 
 /// @brief Convert error to human-readable string
