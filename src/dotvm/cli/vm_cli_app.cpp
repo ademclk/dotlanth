@@ -6,6 +6,7 @@
 #include <CLI/CLI.hpp>
 #include <iostream>
 
+#include "dotvm/cli/commands/vm_debug_command.hpp"
 #include "dotvm/cli/commands/vm_info_command.hpp"
 #include "dotvm/cli/commands/vm_run_command.hpp"
 #include "dotvm/cli/commands/vm_validate_command.hpp"
@@ -78,6 +79,7 @@ VmCliApp::VmCliApp() : app_(std::make_unique<CLI::App>(kAppDescription, "dotvm")
     setup_run_command();
     setup_validate_command();
     setup_info_command();
+    setup_debug_command();
 }
 
 VmCliApp::~VmCliApp() = default;
@@ -156,6 +158,20 @@ void VmCliApp::setup_info_command() {
         ->type_name("FILE");
 }
 
+void VmCliApp::setup_debug_command() {
+    debug_cmd_ = app_->add_subcommand("debug", "Interactive debugger (REPL)");
+    debug_cmd_->description("Launches an interactive debugger for a .dot bytecode file.\n"
+                            "Provides LLDB-style commands: breakpoints, stepping, inspection.");
+
+    debug_cmd_->add_option("file", debug_opts_.input_file, "Input .dot bytecode file to debug")
+        ->required()
+        ->check(CLI::ExistingFile)
+        ->type_name("FILE");
+
+    debug_cmd_->add_flag("--no-color", debug_opts_.no_color,
+                         "Disable ANSI colors in debugger output");
+}
+
 VmExitCode VmCliApp::parse(int argc, const char* const* argv) {
     help_requested_ = false;
     try {
@@ -196,6 +212,10 @@ VmExitCode VmCliApp::run() {
 
     if (cmd == "info") {
         return commands::execute_info(info_opts_, global_opts_, term);
+    }
+
+    if (cmd == "debug") {
+        return commands::execute_debug(debug_opts_, global_opts_, term);
     }
 
     return VmExitCode::Success;
