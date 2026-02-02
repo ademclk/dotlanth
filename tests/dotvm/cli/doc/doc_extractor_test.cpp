@@ -1,6 +1,8 @@
 /// @file doc_extractor_test.cpp
 /// @brief CLI-005 Doc extractor tests
 
+#include <algorithm>
+
 #include <gtest/gtest.h>
 
 #include "dotvm/cli/doc/doc_extractor.hpp"
