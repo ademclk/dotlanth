@@ -57,6 +57,19 @@ struct WatchOptions {
     std::string directory;  ///< Directory to watch for changes
 };
 
+/// @brief Output format for documentation
+enum class DocFormatOption : std::uint8_t {
+    Markdown,  ///< Markdown format
+    Html,      ///< HTML format
+};
+
+/// @brief Options for the doc command
+struct DocOptions {
+    std::string input_file;                              ///< Input .dsl source file
+    std::string output_file;                             ///< Output file (default: stdout)
+    DocFormatOption format = DocFormatOption::Markdown;  ///< Output format
+};
+
 /// @brief Main CLI application class
 ///
 /// Provides the command-line interface for the dotdsl compiler tool.
@@ -102,6 +115,9 @@ public:
     /// @brief Get the watch options
     [[nodiscard]] const WatchOptions& watch_options() const noexcept { return watch_opts_; }
 
+    /// @brief Get the doc options
+    [[nodiscard]] const DocOptions& doc_options() const noexcept { return doc_opts_; }
+
     /// @brief Get the currently selected subcommand name
     [[nodiscard]] std::string current_subcommand() const;
 
@@ -117,6 +133,7 @@ private:
     void setup_check_command();
     void setup_format_command();
     void setup_watch_command();
+    void setup_doc_command();
 
     std::unique_ptr<CLI::App> app_;
 
@@ -125,12 +142,14 @@ private:
     CheckOptions check_opts_;
     FormatOptions format_opts_;
     WatchOptions watch_opts_;
+    DocOptions doc_opts_;
 
     // Subcommand pointers (owned by app_)
     CLI::App* compile_cmd_ = nullptr;
     CLI::App* check_cmd_ = nullptr;
     CLI::App* format_cmd_ = nullptr;
     CLI::App* watch_cmd_ = nullptr;
+    CLI::App* doc_cmd_ = nullptr;
 
     // Flag to track if help/version was handled during parse
     bool help_requested_ = false;

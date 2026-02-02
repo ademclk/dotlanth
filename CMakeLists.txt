@@ -407,6 +407,11 @@ if(DOTVM_BUILD_CLI)
         src/dotvm/debugger/debug_formatter.cpp
         src/dotvm/debugger/debug_client.cpp
         src/dotvm/cli/commands/vm_debug_command.cpp
+        # Documentation Generator (CLI-005)
+        src/dotvm/cli/doc/doc_comment.cpp
+        src/dotvm/cli/doc/doc_extractor.cpp
+        src/dotvm/cli/doc/doc_generator.cpp
+        src/dotvm/cli/commands/doc_command.cpp
     )
 
     target_link_libraries(dotvm_cli PUBLIC
@@ -742,6 +747,9 @@ if(DOTVM_BUILD_TESTS)
             tests/dotvm/debugger/watch_manager_test.cpp
             tests/dotvm/debugger/debug_formatter_test.cpp
             tests/dotvm/debugger/debug_client_test.cpp
+            # Documentation Generator tests (CLI-005)
+            tests/dotvm/cli/doc/doc_comment_test.cpp
+            tests/dotvm/cli/doc/doc_extractor_test.cpp
         )
 
         target_link_libraries(dotvm_cli_tests PRIVATE

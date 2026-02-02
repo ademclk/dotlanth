@@ -8,6 +8,7 @@
 
 #include "dotvm/cli/commands/check_command.hpp"
 #include "dotvm/cli/commands/compile_command.hpp"
+#include "dotvm/cli/commands/doc_command.hpp"
 #include "dotvm/cli/commands/format_command.hpp"
 #include "dotvm/cli/commands/watch_command.hpp"
 
@@ -104,6 +105,7 @@ CliApp::CliApp() : app_(std::make_unique<CLI::App>(kAppDescription, "dotdsl")) {
     setup_check_command();
     setup_format_command();
     setup_watch_command();
+    setup_doc_command();
 }
 
 CliApp::~CliApp() = default;
@@ -204,6 +206,33 @@ void CliApp::setup_watch_command() {
         ->type_name("PATH");
 }
 
+void CliApp::setup_doc_command() {
+    doc_cmd_ = app_->add_subcommand("doc", "Generate documentation from DSL source");
+    doc_cmd_->description(
+        "Generates documentation from a .dsl source file.\n"
+        "Supports Markdown and HTML output formats. Extracts Doxygen-style doc comments.");
+
+    doc_cmd_->add_option("file", doc_opts_.input_file, "Input .dsl source file to document")
+        ->required()
+        ->check(CLI::ExistingFile)
+        ->type_name("FILE");
+
+    doc_cmd_->add_option("-o,--output", doc_opts_.output_file, "Output file path (default: stdout)")
+        ->type_name("FILE");
+
+    // Format option with transformer
+    static const std::map<std::string, DocFormatOption> format_map = {
+        {"md", DocFormatOption::Markdown},
+        {"markdown", DocFormatOption::Markdown},
+        {"html", DocFormatOption::Html},
+    };
+
+    doc_cmd_->add_option("--format,-f", doc_opts_.format, "Output format: md (default), html")
+        ->transform(CLI::CheckedTransformer(format_map, CLI::ignore_case))
+        ->default_val(DocFormatOption::Markdown)
+        ->type_name("{md,html}");
+}
+
 ExitCode CliApp::parse(int argc, const char* const* argv) {
     help_requested_ = false;
     try {
@@ -248,6 +277,16 @@ ExitCode CliApp::run() {
 
     if (cmd == "watch") {
         return commands::execute_watch(watch_opts_, global_opts_, term);
+    }
+
+    if (cmd == "doc") {
+        // Convert DocFormatOption to doc::DocFormat
+        commands::DocOptions cmd_opts;
+        cmd_opts.input_file = doc_opts_.input_file;
+        cmd_opts.output_file = doc_opts_.output_file;
+        cmd_opts.format = (doc_opts_.format == DocFormatOption::Html) ? doc::DocFormat::Html
+                                                                      : doc::DocFormat::Markdown;
+        return commands::execute_doc(cmd_opts, global_opts_, term);
     }
 
     return ExitCode::Success;
