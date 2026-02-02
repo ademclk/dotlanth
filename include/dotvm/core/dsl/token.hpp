@@ -39,6 +39,9 @@ enum class TokenType : std::uint8_t {
     /// Indentation decrease
     Dedent = 4,
 
+    /// Documentation comment (# @brief, # @param, etc.)
+    Comment = 5,
+
     // ===== Literals =====
 
     /// Identifier (variable/function names)
@@ -185,6 +188,8 @@ enum class TokenType : std::uint8_t {
             return "Indent";
         case TokenType::Dedent:
             return "Dedent";
+        case TokenType::Comment:
+            return "Comment";
         // Literals
         case TokenType::Identifier:
             return "Identifier";

@@ -61,6 +61,16 @@ public:
     /// @brief Get the source being lexed
     [[nodiscard]] std::string_view source() const noexcept { return source_; }
 
+    /// @brief Enable or disable comment token emission
+    ///
+    /// When enabled, comments are emitted as Comment tokens instead of being
+    /// skipped. This is used by the documentation extractor to capture doc comments.
+    /// @param collect True to emit comment tokens, false to skip them (default)
+    void set_collect_comments(bool collect) noexcept { collect_comments_ = collect; }
+
+    /// @brief Check if comment collection is enabled
+    [[nodiscard]] bool collect_comments() const noexcept { return collect_comments_; }
+
 private:
     // ===== Character Classification =====
 
@@ -90,8 +100,11 @@ private:
     /// Check if current character matches expected
     bool match(char expected) noexcept;
 
-    /// Skip to end of line (for comments)
+    /// Skip to end of line (for non-collected comments)
     void skip_comment() noexcept;
+
+    /// Scan a comment and return it as a token
+    [[nodiscard]] Token scan_comment();
 
     // ===== Token Scanning =====
 
@@ -175,6 +188,9 @@ private:
 
     /// Whether we have a peeked token
     bool has_peeked_{false};
+
+    /// Whether to emit comment tokens (false = skip, true = emit)
+    bool collect_comments_{false};
 };
 
 }  // namespace dotvm::core::dsl

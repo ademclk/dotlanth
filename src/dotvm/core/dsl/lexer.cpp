@@ -79,6 +79,18 @@ void Lexer::skip_comment() noexcept {
     }
 }
 
+Token Lexer::scan_comment() {
+    // Position is already past the '#'
+    // Scan to end of line
+    while (pos_ < source_.size() && source_[pos_] != '\n') {
+        advance();
+    }
+
+    // Extract the comment text (including the '#')
+    std::string_view lexeme = source_.substr(token_start_, pos_ - token_start_);
+    return Token::make(TokenType::Comment, SourceSpan::from(token_start_loc_, location()), lexeme);
+}
+
 // ============================================================================
 // Public Interface
 // ============================================================================
@@ -149,8 +161,13 @@ Token Lexer::next_token() {
 
     char c = advance();
 
-    // Skip comments
+    // Handle comments
     if (c == '#') {
+        if (collect_comments_) {
+            // Emit comment as a token for documentation extraction
+            return scan_comment();
+        }
+        // Skip comment (default behavior)
         skip_comment();
         // Try again after comment
         return next_token();

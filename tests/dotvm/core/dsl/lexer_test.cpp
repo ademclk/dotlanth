@@ -319,3 +319,88 @@ TEST(LexerTest, PeekDoesNotAdvance) {
     Token next = lexer.next_token();
     EXPECT_EQ(next.lexeme, "bar");
 }
+
+// ============================================================================
+// Comment Collection Tests (for documentation extraction)
+// ============================================================================
+
+/// Collect all tokens with comment collection enabled
+std::vector<Token> tokenize_with_comments(std::string_view source) {
+    Lexer lexer{source};
+    lexer.set_collect_comments(true);
+    std::vector<Token> tokens;
+    while (true) {
+        Token token = lexer.next_token();
+        tokens.push_back(token);
+        if (token.type == TokenType::Eof)
+            break;
+    }
+    return tokens;
+}
+
+TEST(LexerTest, CommentCollection_EmitsCommentTokens) {
+    auto tokens = tokenize_with_comments("# this is a comment\n");
+    check_token_types(tokens, {TokenType::Comment, TokenType::Newline, TokenType::Eof});
+    EXPECT_EQ(tokens[0].lexeme, "# this is a comment");
+}
+
+TEST(LexerTest, CommentCollection_PreservesCommentContent) {
+    auto tokens = tokenize_with_comments("# @brief This is a doc comment\nfoo\n");
+    check_token_types(tokens, {TokenType::Comment, TokenType::Newline, TokenType::Identifier,
+                               TokenType::Newline, TokenType::Eof});
+    EXPECT_EQ(tokens[0].lexeme, "# @brief This is a doc comment");
+    EXPECT_EQ(tokens[2].lexeme, "foo");
+}
+
+TEST(LexerTest, CommentCollection_MultipleComments) {
+    auto tokens = tokenize_with_comments("# comment 1\n# comment 2\nfoo\n");
+    check_token_types(tokens, {TokenType::Comment, TokenType::Newline, TokenType::Comment,
+                               TokenType::Newline, TokenType::Identifier, TokenType::Newline,
+                               TokenType::Eof});
+    EXPECT_EQ(tokens[0].lexeme, "# comment 1");
+    EXPECT_EQ(tokens[2].lexeme, "# comment 2");
+}
+
+TEST(LexerTest, CommentCollection_InlineComment) {
+    auto tokens = tokenize_with_comments("foo # inline comment\n");
+    check_token_types(
+        tokens, {TokenType::Identifier, TokenType::Comment, TokenType::Newline, TokenType::Eof});
+    EXPECT_EQ(tokens[0].lexeme, "foo");
+    EXPECT_EQ(tokens[1].lexeme, "# inline comment");
+}
+
+TEST(LexerTest, CommentCollection_CommentAtEof) {
+    auto tokens = tokenize_with_comments("foo # comment at eof");
+    check_token_types(tokens, {TokenType::Identifier, TokenType::Comment, TokenType::Eof});
+    EXPECT_EQ(tokens[1].lexeme, "# comment at eof");
+}
+
+TEST(LexerTest, CommentCollection_Disabled_SkipsComments) {
+    // Verify default behavior is unchanged
+    Lexer lexer{"# comment\nfoo\n"};
+    EXPECT_FALSE(lexer.collect_comments());
+
+    auto tokens = tokenize("# comment\nfoo\n");
+    check_token_types(
+        tokens, {TokenType::Newline, TokenType::Identifier, TokenType::Newline, TokenType::Eof});
+}
+
+TEST(LexerTest, CommentCollection_DocComment_WithTags) {
+    auto tokens = tokenize_with_comments(
+        "# @brief Brief description\n# @param name Description\ndot agent:\n");
+    check_token_types(tokens, {TokenType::Comment, TokenType::Newline, TokenType::Comment,
+                               TokenType::Newline, TokenType::KwDot, TokenType::Identifier,
+                               TokenType::Colon, TokenType::Newline, TokenType::Eof});
+    EXPECT_EQ(tokens[0].lexeme, "# @brief Brief description");
+    EXPECT_EQ(tokens[2].lexeme, "# @param name Description");
+}
+
+TEST(LexerTest, CommentCollection_PreservesSourceLocation) {
+    Lexer lexer{"# comment on line 1\nfoo\n"};
+    lexer.set_collect_comments(true);
+
+    Token comment = lexer.next_token();
+    EXPECT_EQ(comment.type, TokenType::Comment);
+    EXPECT_EQ(comment.span.start.line, 1);
+    EXPECT_EQ(comment.span.start.column, 1);
+}
