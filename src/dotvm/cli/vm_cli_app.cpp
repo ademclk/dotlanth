@@ -6,6 +6,7 @@
 #include <CLI/CLI.hpp>
 #include <iostream>
 
+#include "dotvm/cli/commands/vm_bench_command.hpp"
 #include "dotvm/cli/commands/vm_debug_command.hpp"
 #include "dotvm/cli/commands/vm_info_command.hpp"
 #include "dotvm/cli/commands/vm_run_command.hpp"
@@ -38,6 +39,18 @@ EXAMPLES:
 
     Display bytecode file information:
         dotvm info program.dot
+
+    Benchmark bytecode execution:
+        dotvm bench program.dot --warmup 50 --runs 200
+
+    Benchmark with baseline comparison:
+        dotvm bench program.dot --compare baseline.json --threshold 10.0
+
+    Save benchmark results as baseline:
+        dotvm bench program.dot --save-baseline baseline.json
+
+    Generate flamegraph data:
+        dotvm bench program.dot --flamegraph --flamegraph-out perf.folded
 
     Execute with verbose output:
         dotvm -v run program.dot
@@ -80,6 +93,7 @@ VmCliApp::VmCliApp() : app_(std::make_unique<CLI::App>(kAppDescription, "dotvm")
     setup_validate_command();
     setup_info_command();
     setup_debug_command();
+    setup_bench_command();
 }
 
 VmCliApp::~VmCliApp() = default;
@@ -172,6 +186,87 @@ void VmCliApp::setup_debug_command() {
                          "Disable ANSI colors in debugger output");
 }
 
+void VmCliApp::setup_bench_command() {
+    bench_cmd_ = app_->add_subcommand("bench", "Benchmark bytecode execution");
+    bench_cmd_->description(
+        "Benchmarks a .dot bytecode file execution.\n"
+        "Provides timing statistics, baseline comparison, and optional flamegraph generation.");
+
+    // Input file (positional argument)
+    bench_cmd_->add_option("file", bench_opts_.input_file, "Input .dot bytecode file to benchmark")
+        ->required()
+        ->check(CLI::ExistingFile)
+        ->type_name("FILE");
+
+    // Benchmark configuration
+    bench_cmd_->add_option("-w,--warmup", bench_opts_.warmup_iterations, "Warm-up iterations")
+        ->default_val(10)
+        ->type_name("N");
+
+    bench_cmd_->add_option("-n,--runs", bench_opts_.measurement_runs, "Number of measurement runs")
+        ->default_val(100)
+        ->type_name("N");
+
+    bench_cmd_
+        ->add_option("-l,--limit", bench_opts_.instruction_limit,
+                     "Max instructions per run (0 = unlimited)")
+        ->default_val(0)
+        ->type_name("N");
+
+    // Baseline comparison
+    bench_cmd_->add_option("--compare", bench_opts_.baseline_file, "Compare against baseline JSON")
+        ->check(CLI::ExistingFile)
+        ->type_name("FILE");
+
+    bench_cmd_
+        ->add_option("--save-baseline", bench_opts_.save_baseline_path, "Save results as baseline")
+        ->type_name("FILE");
+
+    bench_cmd_
+        ->add_option("--threshold", bench_opts_.regression_threshold,
+                     "Regression threshold percentage")
+        ->default_val(5.0)
+        ->check(CLI::Range(0.0, 100.0))
+        ->type_name("PCT");
+
+    // Flamegraph generation
+    bench_cmd_->add_flag("--flamegraph", bench_opts_.generate_flamegraph,
+                         "Generate flamegraph folded stacks");
+
+    bench_cmd_
+        ->add_option("--flamegraph-out", bench_opts_.flamegraph_output,
+                     "Output path for flamegraph (default: <input>.folded)")
+        ->type_name("FILE");
+
+    bench_cmd_
+        ->add_option("--sample-rate", bench_opts_.sample_rate_instructions,
+                     "Sample every N instructions for flamegraph")
+        ->default_val(1000)
+        ->type_name("N");
+
+    // Output formatting
+    bench_cmd_->add_option("--format", bench_format_str_, "Output format: console, json, csv")
+        ->default_str("console")
+        ->check(CLI::IsMember({"console", "json", "csv"}))
+        ->type_name("FMT");
+
+    bench_cmd_->add_option("-o,--output", bench_opts_.output_file, "Write results to file")
+        ->type_name("FILE");
+
+    // Post-parse callback to convert format string to enum
+    bench_cmd_->callback([this]() {
+        if (bench_format_str_ == "json") {
+            bench_opts_.format = VmBenchOutputFormat::Json;
+        } else if (bench_format_str_ == "csv") {
+            bench_opts_.format = VmBenchOutputFormat::Csv;
+        } else {
+            bench_opts_.format = VmBenchOutputFormat::Console;
+        }
+        // Mark save_baseline true if path was provided
+        bench_opts_.save_baseline = !bench_opts_.save_baseline_path.empty();
+    });
+}
+
 VmExitCode VmCliApp::parse(int argc, const char* const* argv) {
     help_requested_ = false;
     try {
@@ -216,6 +311,10 @@ VmExitCode VmCliApp::run() {
 
     if (cmd == "debug") {
         return commands::execute_debug(debug_opts_, global_opts_, term);
+    }
+
+    if (cmd == "bench") {
+        return commands::execute_bench(bench_opts_, global_opts_, term);
     }
 
     return VmExitCode::Success;

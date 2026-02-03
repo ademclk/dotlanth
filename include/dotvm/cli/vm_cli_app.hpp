@@ -62,6 +62,36 @@ struct VmDebugOptions {
     bool no_color = false;   ///< Disable ANSI colors in debugger
 };
 
+/// @brief Output format for benchmark results
+enum class VmBenchOutputFormat {
+    Console,  ///< Human-readable console output with optional colors
+    Json,     ///< Structured JSON output
+    Csv       ///< CSV format for spreadsheet import
+};
+
+/// @brief Options for the bench command (bytecode benchmarking)
+struct VmBenchOptions {
+    std::string input_file;               ///< Input .dot bytecode file to benchmark
+    std::size_t warmup_iterations = 10;   ///< Warm-up iterations before measurement
+    std::size_t measurement_runs = 100;   ///< Number of measurement runs
+    std::uint64_t instruction_limit = 0;  ///< Max instructions per run (0 = unlimited)
+
+    // Baseline comparison
+    std::string baseline_file;          ///< Compare against this baseline JSON file
+    bool save_baseline = false;         ///< Save results as new baseline
+    std::string save_baseline_path;     ///< Path to save baseline (if save_baseline)
+    double regression_threshold = 5.0;  ///< Regression threshold percentage (5% default)
+
+    // Flamegraph generation
+    bool generate_flamegraph = false;             ///< Generate flamegraph data
+    std::string flamegraph_output;                ///< Output path for folded stacks
+    std::size_t sample_rate_instructions = 1000;  ///< Sample every N instructions
+
+    // Output formatting
+    VmBenchOutputFormat format = VmBenchOutputFormat::Console;  ///< Output format
+    std::string output_file;  ///< Write results to file (empty = stdout)
+};
+
 /// @brief Main VM CLI application class
 ///
 /// Provides the command-line interface for the dotvm bytecode executor tool.
@@ -109,6 +139,9 @@ public:
     /// @brief Get the debug options
     [[nodiscard]] const VmDebugOptions& debug_options() const noexcept { return debug_opts_; }
 
+    /// @brief Get the bench options
+    [[nodiscard]] const VmBenchOptions& bench_options() const noexcept { return bench_opts_; }
+
     /// @brief Get the currently selected subcommand name
     [[nodiscard]] std::string current_subcommand() const;
 
@@ -124,6 +157,7 @@ private:
     void setup_validate_command();
     void setup_info_command();
     void setup_debug_command();
+    void setup_bench_command();
 
     std::unique_ptr<CLI::App> app_;
 
@@ -132,12 +166,17 @@ private:
     VmValidateOptions validate_opts_;
     VmInfoOptions info_opts_;
     VmDebugOptions debug_opts_;
+    VmBenchOptions bench_opts_;
 
     // Subcommand pointers (owned by app_)
     CLI::App* run_cmd_ = nullptr;
     CLI::App* validate_cmd_ = nullptr;
     CLI::App* info_cmd_ = nullptr;
     CLI::App* debug_cmd_ = nullptr;
+    CLI::App* bench_cmd_ = nullptr;
+
+    // CLI11 bound strings for enum parsing
+    std::string bench_format_str_ = "console";
 
     // Flag to track if help/version was handled during parse
     bool help_requested_ = false;
