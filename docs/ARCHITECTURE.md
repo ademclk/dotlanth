@@ -1,6 +1,20 @@
 # DotVM Architecture
 
-This document describes the internal architecture of DotVM, a high-performance virtual machine designed for the DotLanth platform.
+This document describes the internal architecture of DotVM, a high-performance virtual machine designed for the Dotlanth platform.
+
+## Decision References
+
+For rationale behind major architectural decisions, see the Architecture Decision Records:
+
+| Decision | ADR |
+|----------|-----|
+| Value representation | [ADR-0001: NaN-Boxing](./adr/0001-nan-boxing-values.md) |
+| Memory management | [ADR-0002: Handle-Based Memory](./adr/0002-handle-based-memory.md) |
+| Instruction dispatch | [ADR-0003: Computed-Goto](./adr/0003-computed-goto-dispatch.md) |
+| Instruction encoding | [ADR-0004: Fixed 32-bit Encoding](./adr/0004-fixed-instruction-encoding.md) |
+| Type constraints | [ADR-0005: C++20 Concepts](./adr/0005-cpp20-concepts.md) |
+| Error handling | [ADR-0006: std::expected](./adr/0006-std-expected-errors.md) |
+| Architecture modes | [ADR-0007: Dual Architecture](./adr/0007-dual-architecture.md) |
 
 ## Overview
 

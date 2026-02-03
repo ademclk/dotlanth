@@ -1,192 +1,205 @@
 # Dotlanth
 
+**An intent-driven execution platform for building deterministic, state-centric applications.**
+
 [![CI](https://github.com/ademclk/dotlanth/actions/workflows/ci.yml/badge.svg)](https://github.com/ademclk/dotlanth/actions/workflows/ci.yml)
 [![C++26](https://img.shields.io/badge/C%2B%2B-26-blue.svg)](https://en.cppreference.com/w/cpp/26)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
-AI-Powered Automation Platform
+## Why Dotlanth?
 
-## Overview
+**Coordination is the hard problem.**
 
-Dotlanth is a modular automation platform designed for building intelligent workflows. It provides a unified runtime for executing tasks, managing state, and orchestrating autonomous agents—suitable for individual developers, teams, and organizations of any size.
+Building reliable systems requires more than fast execution. It requires:
+- Deterministic behavior that produces the same results across runs and machines
+- First-class state management with transactional guarantees
+- Clear boundaries between what code can and cannot do
+- The ability to express *intent*—what you want to happen—not just the steps to get there
 
-### Core Components
+Existing runtimes optimize for raw speed or web compatibility. Dotlanth optimizes for *correctness* and *coordination*.
 
-- **DotVM** - High-performance virtual machine for executing automation workflows with sandboxed execution and resource management
-- **DotDB** - Integrated data layer for state persistence, caching, and cross-workflow data sharing
-- **DotAgent** - Autonomous agent framework with configurable decision-making, human-in-the-loop oversight, and multi-agent coordination
+## What Dotlanth Is
 
-### Key Features
+- **Virtual execution environment (DotVM)** — A register-based VM with NaN-boxed values, handle-based memory, computed-goto dispatch, and optional JIT compilation
+- **State-centric runtime (DotDB)** — Transactional state with write-ahead logging, Merkle Patricia tries, and snapshot support
+- **Intent-based behavior system** — Declarative specification of desired outcomes, resolved at runtime
+- **Platform for applications, services, and contracts** — Foundation layer for building higher-level systems
 
-- **Workflow Orchestration** - Define, schedule, and monitor complex multi-step automation pipelines
-- **Plugin Architecture** - Extend functionality with custom plugins and integrations
-- **Event-Driven Execution** - Trigger workflows based on events, schedules, or external signals
-- **Observability** - Built-in logging, metrics, and tracing for debugging and monitoring
+## What Dotlanth Is Not
 
-## Requirements
+| Category | Clarification |
+|----------|--------------|
+| A blockchain | No consensus mechanism, no distributed ledger, no cryptocurrency |
+| A decentralized network | Single-node execution; distribution is a separate layer |
+| A smart contract chain | No on-chain execution, no gas, no native token |
+| A cloud wrapper | Runs locally; not a managed service |
 
-- **C++26 Compiler**: GCC 14+ or Clang 19+
-- **CMake**: 3.28+
-- **Ninja** (recommended) or Make
+Dotlanth provides the execution and state primitives. What you build on top is up to you.
 
-## Building
+## Core Concepts
 
-### Quick Start
+### Intent-Based Execution
+
+Instead of specifying step-by-step instructions, express what you want to achieve. The runtime figures out how to satisfy your intent within defined constraints.
+
+### Deterministic State
+
+All state changes are explicit, transactional, and reproducible. Given the same inputs, you get the same outputs—always. This enables testing, debugging, and distributed consensus without the complexity.
+
+### Parallelism by Design
+
+The execution model identifies independent operations and evaluates them concurrently. No manual threading, no race conditions by construction.
+
+### No Infrastructure Coupling
+
+Dotlanth runs locally. It doesn't require cloud services, blockchain networks, or specific deployment targets. Your code, your machine, your control.
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Applications                         │
+├─────────────────────────────────────────────────────────────┤
+│  DotDSL Compiler  │  Package Manager  │  CLI Tools          │
+├───────────────────┴───────────────────┴─────────────────────┤
+│                     DotVM Execution                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐ │
+│  │ Interpreter │  │     JIT     │  │   Security Context   │ │
+│  │  (computed  │  │ (x86-64)    │  │   Capabilities       │ │
+│  │   goto)     │  │             │  │   Resource Limits    │ │
+│  └─────────────┘  └─────────────┘  └──────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│                     DotDB State Layer                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐ │
+│  │ Transaction │  │  Write-     │  │  Merkle Patricia     │ │
+│  │  Manager    │  │  Ahead Log  │  │  Trie                │ │
+│  └─────────────┘  └─────────────┘  └──────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Quick Start
+
+### Requirements
+
+- **C++26 Compiler**: Clang 19+ (recommended) or GCC 14+
+- **Meson**: 1.2.0+
+- **Ninja**: (recommended build backend)
+
+### Build
 
 ```bash
-cmake -B build -G Ninja
-cmake --build build
+# Configure and build (uses Clang+libc++ by default)
+./meson-setup build
+meson compile -C build
+
+# Run tests
+meson test -C build
+```
+
+### Sanitizer Builds
+
+```bash
+# AddressSanitizer + UndefinedBehaviorSanitizer
+./meson-setup build-asan --native-file cross/clang-asan.ini --buildtype=debug
+meson compile -C build-asan
+meson test -C build-asan
+
+# ThreadSanitizer (disable JIT for TSan compatibility)
+./meson-setup build-tsan --native-file cross/clang-tsan.ini --buildtype=debug -Djit=false
 ```
 
 ### Build Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `DOTVM_BUILD_TESTS` | ON | Build unit tests |
-| `DOTVM_BUILD_BENCHMARKS` | OFF | Build benchmarks |
-| `DOTVM_ENABLE_SIMD` | ON | Enable SIMD optimizations |
-| `DOTVM_ENABLE_SANITIZERS` | OFF | Enable AddressSanitizer/UBSan (Debug) |
-| `DOTVM_ENABLE_COVERAGE` | OFF | Enable code coverage instrumentation |
+| `simd` | true | SIMD optimizations (-march=native) |
+| `jit` | true | JIT compilation (x86-64 only) |
+| `tests` | true | Build unit tests |
+| `benchmarks` | false | Build benchmarks |
+| `cli` | true | Build CLI tools (dotdsl, dotvm, dotdis, dotinfo, dotpkg) |
+| `fuzzers` | false | Build fuzzing targets (requires Clang) |
+| `sanitizers` | none | address / thread / memory / undefined |
+| `postgresql` | false | Enable PostgreSQL state backend |
 
-### Build Configurations
+## Project Status
 
-**Release build (default):**
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-```
+**v26.1.0-alpha** — APIs are unstable and will change.
 
-**Debug build with sanitizers:**
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DDOTVM_ENABLE_SANITIZERS=ON
-cmake --build build
-```
+Current state:
+- Core VM execution: functional
+- State layer: functional
+- DSL compiler: functional
+- JIT compilation: experimental (x86-64)
+- Documentation: in progress
 
-**Build with coverage:**
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DDOTVM_ENABLE_COVERAGE=ON
-cmake --build build
-ctest --test-dir build
-lcov --directory build --capture --output-file coverage.info
-```
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
-## Running
+## Who Is Dotlanth For?
 
-```bash
-./build/dotlanth
-```
+**Systems developers** building:
+- Deterministic execution environments
+- State machine implementations
+- Coordination systems
+- Custom runtimes and languages
 
-## Testing
+**Application developers** who need:
+- Reproducible computation
+- Transactional state semantics
+- Intent-based programming models
 
-```bash
-# Run all tests
-ctest --test-dir build --output-on-failure
+## Philosophy
 
-# Run tests with verbose output
-ctest --test-dir build --output-on-failure --verbose
+Dotlanth follows a few guiding principles:
 
-# Run specific test
-./build/dotvm_tests --gtest_filter="ValueTest.*"
-```
+1. **Correctness over cleverness** — Predictable behavior beats micro-optimizations. When in doubt, choose the approach that's easier to reason about.
+
+2. **Explicit over implicit** — State changes, side effects, and failure modes should be visible in the code, not hidden in runtime magic.
+
+3. **Composition over inheritance** — Small, focused components that combine cleanly. No god objects, no deep hierarchies.
+
+4. **Tools over conventions** — Enforce constraints with types and static analysis, not documentation that no one reads.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | VM internals and design |
+| [docs/adr/](docs/adr/) | Architecture Decision Records |
+| [docs/pdr/](docs/pdr/) | Product Decision Records |
 
 ## Development
 
-### Pre-commit Hooks
+### Code Style
 
-Install pre-commit hooks for code quality checks:
+- C++26 features preferred
+- `snake_case` for functions/variables, `PascalCase` for types
+- RAII for resource management—no raw `new`/`delete`
+- All warnings treated as errors (`-Werror`)
+
+### Pre-commit Hooks
 
 ```bash
 pip install pre-commit
 pre-commit install
-```
-
-Run on all files:
-```bash
 pre-commit run --all-files
-```
-
-### Code Formatting
-
-The project uses clang-format for consistent code style:
-
-```bash
-# Format all files
-find include src tests -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
-
-# Check formatting (CI uses this)
-find include src tests -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror
 ```
 
 ### Static Analysis
 
-The project uses clang-tidy for static analysis:
-
 ```bash
-# Generate compile_commands.json
-cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+# clang-tidy
+meson compile -C build clang-tidy
 
-# Run clang-tidy
-clang-tidy -p build include/dotvm/core/*.hpp
-```
-
-## Project Structure
-
-```
-dotlanth/
-├── include/dotvm/core/    # Public header files
-│   ├── value.hpp          # NaN-boxed value type system
-│   ├── instruction.hpp    # Instruction encoding/decoding
-│   ├── register_file.hpp  # Register file management
-│   ├── memory.hpp         # Memory manager with handles
-│   ├── vm_context.hpp     # VM execution context
-│   ├── bytecode.hpp       # Bytecode format and validation
-│   ├── alu.hpp            # Arithmetic Logic Unit
-│   ├── cfi.hpp            # Control Flow Integrity
-│   ├── concepts.hpp       # C++20 concepts
-│   └── result.hpp         # Enhanced Result type
-├── src/dotvm/core/        # Implementation files
-├── tests/dotvm/core/      # Test suite
-├── .github/workflows/     # CI configuration
-├── .clang-format          # Code formatting rules
-├── .clang-tidy            # Static analysis rules
-├── .pre-commit-config.yaml # Pre-commit hooks
-├── CMakeLists.txt         # Build configuration
-└── README.md
-```
-
-## Architecture
-
-### DotVM Core
-
-- **Value System**: NaN-boxed 64-bit values supporting Float, Integer (48-bit), Bool, Handle, Nil, and Pointer types
-- **Instruction Set**: 32-bit fixed-format instructions with three encoding types (A, B, C)
-- **Memory Management**: Generation-based handle system preventing use-after-free vulnerabilities
-- **Security**: Control Flow Integrity (CFI), bounds checking, and comprehensive validation
-
-## CI/CD
-
-The project uses GitHub Actions for continuous integration:
-
-| Check | Description |
-|-------|-------------|
-| **Build & Test** | Builds with Clang 19 and runs all unit tests |
-| **Sanitizers** | Runs tests with AddressSanitizer and UndefinedBehaviorSanitizer |
-| **Static Analysis** | clang-tidy checks for bugs and best practices |
-| **Format Check** | Verifies code formatting with clang-format |
-
-### CMake Presets
-
-```bash
-# Release build
-cmake --preset ci-clang-release
-cmake --build --preset ci-clang-release
-ctest --preset ci-clang-release
-
-# Debug with sanitizers
-cmake --preset ci-clang-sanitizers
-cmake --build --preset ci-clang-sanitizers
+# cppcheck
+meson compile -C build cppcheck
 ```
 
 ## License
 
-This project is licensed under the GNU General Public License v2.0 - see the [LICENSE](LICENSE) file for details.
+GNU General Public License v2.0 — see [LICENSE](LICENSE).
+
+---
+
+Developed by [Synerthink](https://synerthink.com)
