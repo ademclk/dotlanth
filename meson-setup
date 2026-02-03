@@ -1,0 +1,41 @@
+#!/bin/bash
+# DotLanth Meson Setup Script
+# Defaults to Clang+libc++ toolchain for best C++26 and sanitizer support
+#
+# Usage:
+#   ./meson-setup [build-dir] [extra-args...]
+#
+# Examples:
+#   ./meson-setup                          # Default: build with Clang+libc++
+#   ./meson-setup build-debug --buildtype=debug
+#   ./meson-setup build-asan --native-file cross/clang-asan.ini
+
+set -euo pipefail
+
+BUILD_DIR="${1:-build}"
+shift 2>/dev/null || true
+
+# Check if a native file was explicitly provided
+NATIVE_FILE_PROVIDED=false
+for arg in "$@"; do
+    if [[ "$arg" == "--native-file"* ]] || [[ "$arg" == "-Dnative_file"* ]]; then
+        NATIVE_FILE_PROVIDED=true
+        break
+    fi
+done
+
+# Default to Clang+libc++ if no native file specified
+if [[ "$NATIVE_FILE_PROVIDED" == false ]]; then
+    if [[ -f "cross/clang-libcxx.ini" ]]; then
+        echo "Using default toolchain: Clang+libc++ (cross/clang-libcxx.ini)"
+        NATIVE_FILE_ARG="--native-file=cross/clang-libcxx.ini"
+    else
+        echo "Warning: cross/clang-libcxx.ini not found, using system compiler"
+        NATIVE_FILE_ARG=""
+    fi
+else
+    NATIVE_FILE_ARG=""
+fi
+
+# Run meson setup
+exec meson setup "$BUILD_DIR" $NATIVE_FILE_ARG "$@"

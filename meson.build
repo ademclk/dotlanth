@@ -1,14 +1,17 @@
 # DotLanth - AI-Powered Automation Platform
 # Meson build system configuration
 #
-# Quick start:
-#   meson setup build --native-file cross/clang-libcxx.ini
+# Quick start (uses Clang+libc++ by default):
+#   ./meson-setup build
 #   meson compile -C build
 #   meson test -C build
 #
+# Or explicitly with native file:
+#   meson setup build --native-file cross/clang-libcxx.ini
+#
 # Sanitizer builds:
-#   meson setup build-asan --native-file cross/clang-asan.ini --buildtype=debug
-#   meson setup build-tsan --native-file cross/clang-tsan.ini --buildtype=debug -Djit=false
+#   ./meson-setup build-asan --native-file cross/clang-asan.ini --buildtype=debug
+#   ./meson-setup build-tsan --native-file cross/clang-tsan.ini --buildtype=debug -Djit=false
 
 project('dotlanth',
     'cpp', 'c',
@@ -34,6 +37,12 @@ cpp = meson.get_compiler('cpp')
 cc = meson.get_compiler('c')
 host_system = host_machine.system()
 host_cpu = host_machine.cpu_family()
+
+# Recommend Clang+libc++ for best C++26 support and sanitizer compatibility
+if cpp.get_id() != 'clang'
+    warning('Using ' + cpp.get_id() + ' compiler. Clang+libc++ is recommended.')
+    warning('Run: meson setup build --native-file cross/clang-libcxx.ini')
+endif
 
 # Strict warning flags for our code (not applied to dependencies)
 dotvm_warning_flags = []
