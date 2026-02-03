@@ -412,6 +412,11 @@ if(DOTVM_BUILD_CLI)
         src/dotvm/cli/doc/doc_extractor.cpp
         src/dotvm/cli/doc/doc_generator.cpp
         src/dotvm/cli/commands/doc_command.cpp
+        # Bytecode Benchmark Runner (CLI-005 bench subcommand)
+        src/dotvm/cli/bench/benchmark_statistics.cpp
+        src/dotvm/cli/bench/baseline_manager.cpp
+        src/dotvm/cli/bench/flamegraph_collector.cpp
+        src/dotvm/cli/commands/vm_bench_command.cpp
     )
 
     target_link_libraries(dotvm_cli PUBLIC
@@ -750,6 +755,11 @@ if(DOTVM_BUILD_TESTS)
             # Documentation Generator tests (CLI-005)
             tests/dotvm/cli/doc/doc_comment_test.cpp
             tests/dotvm/cli/doc/doc_extractor_test.cpp
+            # Bytecode Benchmark Runner tests (CLI-005 bench subcommand)
+            tests/dotvm/cli/bench/benchmark_statistics_test.cpp
+            tests/dotvm/cli/bench/baseline_manager_test.cpp
+            tests/dotvm/cli/bench/flamegraph_collector_test.cpp
+            tests/dotvm/cli/vm_bench_command_test.cpp
         )
 
         target_link_libraries(dotvm_cli_tests PRIVATE
