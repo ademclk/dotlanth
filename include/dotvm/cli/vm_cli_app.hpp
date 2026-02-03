@@ -71,25 +71,25 @@ enum class VmBenchOutputFormat {
 
 /// @brief Options for the bench command (bytecode benchmarking)
 struct VmBenchOptions {
-    std::string input_file;                 ///< Input .dot bytecode file to benchmark
-    std::size_t warmup_iterations = 10;     ///< Warm-up iterations before measurement
-    std::size_t measurement_runs = 100;     ///< Number of measurement runs
-    std::uint64_t instruction_limit = 0;    ///< Max instructions per run (0 = unlimited)
+    std::string input_file;               ///< Input .dot bytecode file to benchmark
+    std::size_t warmup_iterations = 10;   ///< Warm-up iterations before measurement
+    std::size_t measurement_runs = 100;   ///< Number of measurement runs
+    std::uint64_t instruction_limit = 0;  ///< Max instructions per run (0 = unlimited)
 
     // Baseline comparison
-    std::string baseline_file;              ///< Compare against this baseline JSON file
-    bool save_baseline = false;             ///< Save results as new baseline
-    std::string save_baseline_path;         ///< Path to save baseline (if save_baseline)
-    double regression_threshold = 5.0;      ///< Regression threshold percentage (5% default)
+    std::string baseline_file;          ///< Compare against this baseline JSON file
+    bool save_baseline = false;         ///< Save results as new baseline
+    std::string save_baseline_path;     ///< Path to save baseline (if save_baseline)
+    double regression_threshold = 5.0;  ///< Regression threshold percentage (5% default)
 
     // Flamegraph generation
-    bool generate_flamegraph = false;       ///< Generate flamegraph data
-    std::string flamegraph_output;          ///< Output path for folded stacks
+    bool generate_flamegraph = false;             ///< Generate flamegraph data
+    std::string flamegraph_output;                ///< Output path for folded stacks
     std::size_t sample_rate_instructions = 1000;  ///< Sample every N instructions
 
     // Output formatting
     VmBenchOutputFormat format = VmBenchOutputFormat::Console;  ///< Output format
-    std::string output_file;                ///< Write results to file (empty = stdout)
+    std::string output_file;  ///< Write results to file (empty = stdout)
 };
 
 /// @brief Main VM CLI application class

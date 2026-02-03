@@ -199,13 +199,11 @@ void VmCliApp::setup_bench_command() {
         ->type_name("FILE");
 
     // Benchmark configuration
-    bench_cmd_
-        ->add_option("-w,--warmup", bench_opts_.warmup_iterations, "Warm-up iterations")
+    bench_cmd_->add_option("-w,--warmup", bench_opts_.warmup_iterations, "Warm-up iterations")
         ->default_val(10)
         ->type_name("N");
 
-    bench_cmd_
-        ->add_option("-n,--runs", bench_opts_.measurement_runs, "Number of measurement runs")
+    bench_cmd_->add_option("-n,--runs", bench_opts_.measurement_runs, "Number of measurement runs")
         ->default_val(100)
         ->type_name("N");
 
@@ -247,8 +245,7 @@ void VmCliApp::setup_bench_command() {
         ->type_name("N");
 
     // Output formatting
-    bench_cmd_
-        ->add_option("--format", bench_format_str_, "Output format: console, json, csv")
+    bench_cmd_->add_option("--format", bench_format_str_, "Output format: console, json, csv")
         ->default_str("console")
         ->check(CLI::IsMember({"console", "json", "csv"}))
         ->type_name("FMT");
