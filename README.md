@@ -123,18 +123,25 @@ meson test -C build-asan
 | `sanitizers` | none | address / thread / memory / undefined |
 | `postgresql` | false | Enable PostgreSQL state backend |
 
-## Project Status
+## Release Status
 
-**v26.1.0-alpha** — APIs are unstable and will change.
+**v26.1.0-alpha** — First public technical preview.
 
-Current state:
-- Core VM execution: functional
-- State layer: functional
-- DSL compiler: functional
-- JIT compilation: experimental (x86-64)
-- Documentation: in progress
+This release establishes the core execution foundation:
 
-See [CHANGELOG.md](CHANGELOG.md) for version history.
+| Component | Status |
+|-----------|--------|
+| VM Execution | Stable—suitable for evaluation |
+| State Layer | Stable—suitable for evaluation |
+| DSL Compiler | Stable—suitable for evaluation |
+| JIT Compilation | Experimental—x86-64 only |
+| Replication | Experimental—not for production |
+
+DotVM is a low-level execution platform. It provides deterministic computation and transactional state—nothing more. Higher-level constructs (governance, policies, coordination protocols) are built by users on top.
+
+**API Stability**: All interfaces will change. Pin to specific versions.
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for current limitations.
 
 ## Who Is Dotlanth For?
 
