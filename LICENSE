@@ -1,0 +1,17 @@
+Dotlanth Dual License
+=====================
+
+This project is offered under a dual license:
+
+1) GNU General Public License, version 3 or later (GPLv3+)
+   - Terms: see LICENSE-GPLv3
+   - SPDX identifier: GPL-3.0-or-later
+
+2) Commercial License
+   - Terms: see LICENSE-COMMERCIAL
+
+You may choose either license.
+
+If your use case is compatible with GPLv3+, you can use the project under GPL terms.
+If you need to distribute proprietary derivatives or require commercial terms,
+use the Commercial License.
