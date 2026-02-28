@@ -54,15 +54,20 @@ dot logs --last 20
 Illustrative `dot` file:
 
 ```dot
-app: hello-api
-server:
-  port: 8080
-routes:
-  - method: GET
-    path: /hello
-    run:
-      return:
-        message: "Hello from Dotlanth"
+dot 0.1
+
+app "hello-api"
+
+allow log
+allow net.http.listen
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
 ```
 
 ## Status

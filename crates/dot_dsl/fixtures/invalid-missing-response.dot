@@ -1,0 +1,10 @@
+dot 0.1
+
+app "missing-response"
+
+allow net.http.listen
+
+api "public"
+  route GET "/hello"
+  end
+end

@@ -1,0 +1,11 @@
+dot 0.1
+app "unknown-statement"
+
+allow net.http.listen
+unknown "what"
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end

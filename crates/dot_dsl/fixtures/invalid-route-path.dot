@@ -1,0 +1,11 @@
+dot 0.1
+
+app "invalid-route-path"
+
+allow net.http.listen
+
+api "public"
+  route GET "hello"
+    respond 200 "ok"
+  end
+end

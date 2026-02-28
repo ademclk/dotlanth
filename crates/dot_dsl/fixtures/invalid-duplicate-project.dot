@@ -1,0 +1,9 @@
+dot 0.1
+project "first"
+project "second"
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
