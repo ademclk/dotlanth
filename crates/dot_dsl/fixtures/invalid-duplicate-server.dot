@@ -1,0 +1,11 @@
+dot 0.1
+server listen 8080
+server listen 9090
+
+allow net.http.listen
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end

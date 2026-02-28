@@ -1,0 +1,11 @@
+dot 0.1
+
+app "unknown-verb"
+
+allow net.http.listen
+
+api "public"
+  route FETCH "/hello"
+    respond 200 "ok"
+  end
+end

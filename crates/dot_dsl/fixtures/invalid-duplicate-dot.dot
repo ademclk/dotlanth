@@ -1,0 +1,10 @@
+dot 0.1
+dot 0.1
+
+app "hello"
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end

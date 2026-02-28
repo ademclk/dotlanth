@@ -1,0 +1,15 @@
+dot 0.1
+
+app "hello-api"
+project "dotlanth"
+
+allow log
+allow net.http.listen
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
