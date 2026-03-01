@@ -62,7 +62,7 @@ curl http://localhost:8080/hello
 Inspect runs:
 
 ```bash
-dot logs --last 20
+dot logs <run_id> # from `dot run` output
 ```
 
 Illustrative `dot` file:
