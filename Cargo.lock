@@ -65,6 +65,9 @@ version = "26.1.0-alpha"
 [[package]]
 name = "dot_vm"
 version = "26.1.0-alpha"
+dependencies = [
+ "dot_ops",
+]
 
 [[package]]
 name = "equivalent"
