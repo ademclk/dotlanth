@@ -51,16 +51,11 @@ pub trait OpValue: Clone {
     fn as_str(&self) -> Option<&str>;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum RecordMode {
+    #[default]
     Record,
     Passthrough,
-}
-
-impl Default for RecordMode {
-    fn default() -> Self {
-        Self::Record
-    }
 }
 
 /// A capability-gated syscall host that records structured events into DotDB.
@@ -204,10 +199,10 @@ impl OpsHost {
 
         let mut served = 0_usize;
         let result = loop {
-            if let Some(limit) = max_requests {
-                if served >= limit {
-                    break Ok(());
-                }
+            if let Some(limit) = max_requests
+                && served >= limit
+            {
+                break Ok(());
             }
 
             let (stream, _) = match http.listener.accept() {
