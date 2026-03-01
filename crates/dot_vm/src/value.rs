@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+use dot_ops::OpValue;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Unit,
@@ -36,5 +38,21 @@ impl From<&str> for Value {
 impl From<Vec<u8>> for Value {
     fn from(value: Vec<u8>) -> Self {
         Self::Bytes(value)
+    }
+}
+
+impl OpValue for Value {
+    fn as_i64(&self) -> Option<i64> {
+        match self {
+            Self::I64(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::Str(value) => Some(value),
+            _ => None,
+        }
     }
 }

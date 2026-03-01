@@ -1,17 +1,58 @@
 #![forbid(unsafe_code)]
 
-const BANNER: &str = "dot CLI placeholder";
+mod commands;
 
-fn main() {
-    println!("{BANNER}");
+use clap::{Parser, Subcommand};
+use std::path::PathBuf;
+use std::process::ExitCode;
+
+#[derive(Parser)]
+#[command(name = "dot", version, about = "Dotlanth CLI")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::BANNER;
+#[derive(Subcommand)]
+enum Command {
+    /// Scaffold a runnable hello-api project.
+    Init {
+        /// Target directory to create.
+        dir: PathBuf,
+    },
+    /// Run the current project (record-first).
+    Run {
+        /// Path to the `.dot` file (defaults to `./app.dot` when present).
+        #[arg(long, short = 'f')]
+        file: Option<PathBuf>,
 
-    #[test]
-    fn smoke_banner_is_not_empty() {
-        assert!(!BANNER.trim().is_empty());
+        /// Stop after serving N HTTP requests (useful for tests).
+        #[arg(long)]
+        max_requests: Option<u64>,
+    },
+    /// Print persisted logs for a run id.
+    Logs {
+        /// Run id printed by `dot run`.
+        run_id: String,
+    },
+}
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+
+    let result = match cli.command {
+        Command::Init { dir } => commands::init::run(&dir),
+        Command::Run { file, max_requests } => {
+            commands::run::run(commands::run::RunOptions { file, max_requests })
+        }
+        Command::Logs { run_id } => commands::logs::run(&run_id),
+    };
+
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(message) => {
+            eprintln!("{message}");
+            ExitCode::from(1)
+        }
     }
 }
