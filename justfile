@@ -12,3 +12,6 @@ test:
     cargo test --workspace --locked
 
 check: fmt clippy test
+
+dist:
+    bash scripts/dist.sh

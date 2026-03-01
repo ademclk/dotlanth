@@ -29,7 +29,21 @@ Not wiring, scaffolding, and repetitive glue code.
 
 Dotlanth removes setup drag so teams can move from idea to endpoint fast.
 
-## A 60-Second Flow (Target UX)
+## Quickstart (Current)
+
+See `docs/quickstart.md` for a copy/paste walkthrough.
+
+```bash
+cargo run -p dot -- run examples/hello-api/hello-api.dot
+```
+
+```bash
+curl http://127.0.0.1:18080/hello
+```
+
+## A 60-Second Flow (Aspirational UX)
+
+This is the intended future CLI UX (not all commands exist yet).
 
 Create and run:
 
@@ -76,7 +90,7 @@ Dotlanth is early, by design.
 
 Current milestone focus:
 - [x] Foundation (workspace, local gates, CI/CD)
-- [ ] HTTP runtime
+- [x] HTTP runtime (static routes)
 - [ ] State model
 - [ ] Database connectors
 - [ ] Security model

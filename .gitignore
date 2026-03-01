@@ -1,5 +1,6 @@
 # Rust
 /target/
+.dotlanth/
 
 # macOS
 .DS_Store
@@ -7,3 +8,6 @@
 # IDEs
 .idea/
 .vscode/
+
+# Release artifacts
+/dist/
