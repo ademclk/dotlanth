@@ -125,7 +125,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          find release-artifacts -type f \\( -name '*.tar.gz' -o -name '*.zip' \\) -exec cp {} release/ \\;
+          find release-artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} release/ \;
 
       - name: Generate checksums
         run: |
