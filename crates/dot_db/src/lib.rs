@@ -164,6 +164,23 @@ impl DotDb {
 
     /// Returns all log lines for a run, in stable append order.
     pub fn run_logs(&mut self, run_id: RunId) -> Result<Vec<RunLogEntry>, DotDbError> {
+        let exists: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM runs WHERE id = ?1",
+                params![run_id.0],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|source| DotDbError::Sql {
+                action: "query run existence",
+                source,
+            })?;
+
+        if exists.is_none() {
+            return Err(DotDbError::RunNotFound { run_id });
+        }
+
         let mut stmt = self
             .conn
             .prepare(
@@ -308,6 +325,11 @@ impl RunId {
     pub const fn as_i64(self) -> i64 {
         self.0
     }
+
+    /// Creates a run id from a raw SQLite integer id.
+    pub const fn new(value: i64) -> Self {
+        Self(value)
+    }
 }
 
 impl std::fmt::Display for RunId {
@@ -449,7 +471,7 @@ fn now_ms() -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{DotDb, RunStatus};
+    use super::{DotDb, DotDbError, RunId, RunStatus};
     use tempfile::TempDir;
 
     #[test]
@@ -491,6 +513,17 @@ mod tests {
         let logs = db.run_logs(run_id).expect("query must succeed");
         let lines: Vec<_> = logs.into_iter().map(|entry| entry.line).collect();
         assert_eq!(lines, vec!["first", "second", "third"]);
+    }
+
+    #[test]
+    fn run_logs_errors_when_run_is_missing() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let error = db
+            .run_logs(RunId::new(999))
+            .expect_err("missing run must error");
+        assert!(matches!(error, DotDbError::RunNotFound { .. }));
     }
 
     #[test]
