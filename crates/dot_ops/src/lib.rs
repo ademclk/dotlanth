@@ -3,8 +3,8 @@
 use dot_db::{DotDb, RunId, RunLogEntry};
 use dot_dsl::Document;
 use dot_sec::{CapabilitySet, Syscall};
-use std::io::{BufRead, BufReader};
 use std::io::Write;
+use std::io::{BufRead, BufReader};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -75,9 +75,9 @@ pub struct OpsHost {
 
 impl OpsHost {
     pub fn new(capabilities: CapabilitySet, mut db: DotDb) -> Result<Self, HostError> {
-        let run_id = db.create_run().map_err(|error| {
-            HostError::new(format!("failed to create run in DotDB: {error}"))
-        })?;
+        let run_id = db
+            .create_run()
+            .map_err(|error| HostError::new(format!("failed to create run in DotDB: {error}")))?;
         Ok(Self {
             capabilities,
             db,
@@ -125,7 +125,9 @@ impl OpsHost {
     }
 
     pub fn http_addr(&self) -> Option<SocketAddr> {
-        self.http.as_ref().and_then(|http| http.listener.local_addr().ok())
+        self.http
+            .as_ref()
+            .and_then(|http| http.listener.local_addr().ok())
     }
 
     fn record_event(&mut self, event: RunEvent) -> Result<(), HostError> {
@@ -257,9 +259,8 @@ impl OpsHost {
                 body: "Not Found".to_owned(),
             });
 
-        write_http_response(&mut stream, response.status, &response.body).map_err(|error| {
-            HostError::new(format!("failed to write http response: {error}"))
-        })?;
+        write_http_response(&mut stream, response.status, &response.body)
+            .map_err(|error| HostError::new(format!("failed to write http response: {error}")))?;
 
         self.record_event_best_effort(RunEvent::HttpResponse {
             status: response.status,
@@ -290,10 +291,9 @@ enum RunEvent {
 impl RunEvent {
     fn to_json_line(&self) -> String {
         match self {
-            Self::Log { message } => format!(
-                "{{\"type\":\"log\",\"message\":{}}}",
-                json_string(message)
-            ),
+            Self::Log { message } => {
+                format!("{{\"type\":\"log\",\"message\":{}}}", json_string(message))
+            }
             Self::HttpServerStart { addr } => format!(
                 "{{\"type\":\"http.server_start\",\"addr\":{}}}",
                 json_string(&addr.to_string())
@@ -492,10 +492,7 @@ mod tests {
 
     impl std::io::Write for SharedWrite {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            self.0
-                .lock()
-                .expect("lock poisoned")
-                .extend_from_slice(buf);
+            self.0.lock().expect("lock poisoned").extend_from_slice(buf);
             Ok(buf.len())
         }
 
@@ -513,9 +510,11 @@ mod tests {
         let error = host
             .syscall(SYSCALL_LOG_EMIT, &[TestValue::from("hi")])
             .unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("capability denied: syscall `log.emit`"));
+        assert!(
+            error
+                .to_string()
+                .contains("capability denied: syscall `log.emit`")
+        );
         assert!(error.to_string().contains("allow log"));
     }
 
@@ -538,8 +537,8 @@ mod tests {
         host.syscall(SYSCALL_LOG_EMIT, &[TestValue::from("hello")])
             .expect("log syscall must succeed");
 
-        let stdout = String::from_utf8(buffer.lock().expect("lock").clone())
-            .expect("stdout must be utf8");
+        let stdout =
+            String::from_utf8(buffer.lock().expect("lock").clone()).expect("stdout must be utf8");
         assert_eq!(stdout, "hello\n");
 
         let logs = host.run_logs().expect("run logs must read");
@@ -593,9 +592,11 @@ end
         let error = host
             .syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)])
             .unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("capability denied: syscall `net.http.serve`"));
+        assert!(
+            error
+                .to_string()
+                .contains("capability denied: syscall `net.http.serve`")
+        );
     }
 
     #[test]
