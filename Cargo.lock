@@ -49,6 +49,12 @@ version = "26.1.0-alpha"
 [[package]]
 name = "dot_ops"
 version = "26.1.0-alpha"
+dependencies = [
+ "dot_db",
+ "dot_dsl",
+ "dot_sec",
+ "tempfile",
+]
 
 [[package]]
 name = "dot_rt"

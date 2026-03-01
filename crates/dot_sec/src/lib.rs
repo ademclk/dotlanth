@@ -52,8 +52,8 @@ impl FromStr for Capability {
 pub enum Syscall {
     /// Emitting a log line to the host.
     LogEmit,
-    /// Binding an HTTP listener.
-    NetHttpListen,
+    /// Serving HTTP requests (listen/accept/respond).
+    NetHttpServe,
 }
 
 impl Syscall {
@@ -61,7 +61,7 @@ impl Syscall {
     pub const fn name(self) -> &'static str {
         match self {
             Self::LogEmit => "log.emit",
-            Self::NetHttpListen => "net.http.listen",
+            Self::NetHttpServe => "net.http.serve",
         }
     }
 
@@ -69,7 +69,7 @@ impl Syscall {
     pub const fn required_capability(self) -> Capability {
         match self {
             Self::LogEmit => Capability::Log,
-            Self::NetHttpListen => Capability::NetHttpListen,
+            Self::NetHttpServe => Capability::NetHttpListen,
         }
     }
 
@@ -77,7 +77,7 @@ impl Syscall {
     pub const fn allow_statement(self) -> &'static str {
         match self {
             Self::LogEmit => "allow log",
-            Self::NetHttpListen => "allow net.http.listen",
+            Self::NetHttpServe => "allow net.http.listen",
         }
     }
 }
@@ -251,16 +251,16 @@ mod tests {
     }
 
     #[test]
-    fn missing_http_listen_capability_denies_listen_syscall_with_actionable_error() {
+    fn missing_http_listen_capability_denies_http_serve_syscall_with_actionable_error() {
         let set = CapabilitySet::empty();
         let error = set
-            .enforce(Syscall::NetHttpListen)
+            .enforce(Syscall::NetHttpServe)
             .expect_err("listen must be denied without capability");
-        assert_eq!(error.syscall(), Syscall::NetHttpListen);
+        assert_eq!(error.syscall(), Syscall::NetHttpServe);
         assert_eq!(error.required_capability(), Capability::NetHttpListen);
         assert_eq!(
             error.to_string(),
-            "capability denied: syscall `net.http.listen` requires capability `net.http.listen`. Hint: add `allow net.http.listen`. Declare it in your `.dot` file with an `allow ...` statement."
+            "capability denied: syscall `net.http.serve` requires capability `net.http.listen`. Hint: add `allow net.http.listen`. Declare it in your `.dot` file with an `allow ...` statement."
         );
     }
 }

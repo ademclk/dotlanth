@@ -9,3 +9,9 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+dot_db = { path = "../dot_db" }
+dot_sec = { path = "../dot_sec" }
+dot_dsl = { path = "../dot_dsl" }
+
+[dev-dependencies]
+tempfile = "3.10"
