@@ -1,5 +1,6 @@
 # Rust
 /target/
+.dotlanth/
 
 # macOS
 .DS_Store

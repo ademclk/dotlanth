@@ -1,0 +1,14 @@
+dot 0.1
+
+app "hello-api-deny"
+project "dotlanth"
+
+allow log
+
+server listen 18080
+
+api "public"
+  route GET "/hello"
+    respond 200 "This should fail validation"
+  end
+end
