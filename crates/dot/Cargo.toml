@@ -9,3 +9,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+dot_db = { path = "../dot_db" }
+dot_dsl = { path = "../dot_dsl" }
+dot_ops = { path = "../dot_ops" }
+dot_rt = { path = "../dot_rt" }
+dot_sec = { path = "../dot_sec" }
