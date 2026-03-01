@@ -50,13 +50,16 @@ jobs:
         include:
           - os: ubuntu-latest
             bin: target/release/dot
-            artifact: dot-linux-x86_64
+            platform: linux-x86_64
+            ext: tar.gz
           - os: macos-latest
             bin: target/release/dot
-            artifact: dot-macos
+            platform: macos
+            ext: tar.gz
           - os: windows-latest
             bin: target/release/dot.exe
-            artifact: dot-windows-x86_64
+            platform: windows-x86_64
+            ext: zip
 
     steps:
       - name: Checkout
@@ -73,9 +76,69 @@ jobs:
       - name: Build release binary
         run: cargo build --release -p dot --locked
 
+      - name: Package (unix)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          pkg="dotlanth-${GITHUB_REF_NAME}-${{ matrix.platform }}"
+          mkdir -p "${pkg}"
+          cp "${{ matrix.bin }}" "${pkg}/dot"
+          cp README.md LICENSE LICENSE-GPLv3 LICENSE-COMMERCIAL "${pkg}/"
+          tar -czf "${pkg}.tar.gz" "${pkg}"
+
+      - name: Package (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pkg = "dotlanth-$env:GITHUB_REF_NAME-${{ matrix.platform }}"
+          New-Item -ItemType Directory -Force -Path $pkg | Out-Null
+          Copy-Item "${{ matrix.bin }}" "$pkg\\dot.exe"
+          Copy-Item "README.md","LICENSE","LICENSE-GPLv3","LICENSE-COMMERCIAL" "$pkg\\"
+          Compress-Archive -Path "$pkg\\*" -DestinationPath "$pkg.zip" -Force
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.bin }}
+          name: ${{ matrix.platform }}
+          path: dotlanth-${{ github.ref_name }}-${{ matrix.platform }}.${{ matrix.ext }}
           if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: artifacts
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Collect archives
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find release-artifacts -type f \\( -name '*.tar.gz' -o -name '*.zip' \\) -exec cp {} release/ \\;
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          cd release
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: docs/releases/v26.1.0-alpha/Documentation.md
+          files: |
+            release/*.tar.gz
+            release/*.zip
+            release/SHA256SUMS.txt

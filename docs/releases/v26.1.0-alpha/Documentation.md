@@ -51,6 +51,20 @@ Capability error demo:
 cargo run -p dot -- run examples/hello-api/hello-api-deny.dot
 ```
 
+## Packaging / publishing
+
+Local build:
+
+```bash
+cargo build --release -p dot --locked
+```
+
+Local tarball (current host only):
+
+```bash
+just dist
+```
+
 ## Known issues / limitations
 - `dot` CLI is minimal: supports `run`, `--help`, and `--version` only.
 - HTTP server is intentionally tiny: plain-text responses; exact match on method + path; no TLS; no graceful shutdown; binds to `127.0.0.1`.
@@ -58,9 +72,9 @@ cargo run -p dot -- run examples/hello-api/hello-api-deny.dot
 - Some capability checks happen at validation time (e.g. `server listen` requires `allow net.http.listen`).
 
 ## ADR list (major decisions)
-- Capabilities are deny-by-default and granted explicitly via `allow ...` (`crates/dot_sec`).
-- dotDSL v0.1 uses explicit block structure with `end` and rejects unknown statements (fail-closed) (`crates/dot_dsl`).
-- Local-first persistence uses bundled SQLite via `rusqlite` and records structured run events as JSON lines (`crates/dot_db`, `crates/dot_ops`).
-- HTTP serving uses `std::net` with a minimal parser/response writer and a static route table derived from the dot document (`crates/dot_ops`).
-- Side effects are isolated behind a host syscall interface so the VM core stays deterministic (`crates/dot_vm`, `crates/dot_ops`).
-- Workspace forbids `unsafe` code via a workspace lint (`Cargo.toml`).
+
+Not released yet
+
+## RFC list (design writeups)
+
+Not released yet

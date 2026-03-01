@@ -8,3 +8,6 @@
 # IDEs
 .idea/
 .vscode/
+
+# Release artifacts
+/dist/
