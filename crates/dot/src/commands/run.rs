@@ -126,7 +126,29 @@ mod tests {
     use super::{RunOptions, build_program, resolve_dot_file, run};
     use dot_ops::SYSCALL_NET_HTTP_SERVE;
     use dot_vm::{Instruction, Reg, Value};
+    use std::path::PathBuf;
+    use std::sync::Mutex;
     use tempfile::TempDir;
+
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
+
+    struct CwdGuard {
+        prev: PathBuf,
+    }
+
+    impl CwdGuard {
+        fn set(path: &std::path::Path) -> Self {
+            let prev = std::env::current_dir().expect("cwd should read");
+            std::env::set_current_dir(path).expect("cwd should set");
+            Self { prev }
+        }
+    }
+
+    impl Drop for CwdGuard {
+        fn drop(&mut self) {
+            let _ = std::env::set_current_dir(&self.prev);
+        }
+    }
 
     #[test]
     fn build_program_uses_http_serve_syscall() {
@@ -166,31 +188,26 @@ mod tests {
 
     #[test]
     fn run_errors_when_no_dot_file_is_present() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
         let temp = TempDir::new().expect("temp dir must create");
-        let prev = std::env::current_dir().expect("cwd should read");
-        std::env::set_current_dir(temp.path()).expect("cwd should set");
+        let _cwd = CwdGuard::set(temp.path());
 
         let err = run(RunOptions::default()).expect_err("run must fail");
         assert!(err.contains("no `.dot` file found"));
-
-        std::env::set_current_dir(prev).expect("cwd restore");
     }
 
     #[test]
     fn resolve_dot_file_prefers_app_dot() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
         let temp = TempDir::new().expect("temp dir must create");
         std::fs::write(
             temp.path().join("app.dot"),
             "dot 0.1\napp \"x\"\napi \"a\"\nend\n",
         )
         .expect("dot file write");
-
-        let prev = std::env::current_dir().expect("cwd should read");
-        std::env::set_current_dir(temp.path()).expect("cwd should set");
+        let _cwd = CwdGuard::set(temp.path());
 
         let resolved = resolve_dot_file(None).expect("file should resolve");
         assert!(resolved.ends_with("app.dot"));
-
-        std::env::set_current_dir(prev).expect("cwd restore");
     }
 }
