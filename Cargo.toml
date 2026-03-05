@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/dot",
+    "crates/dot", "crates/dot_artifacts",
     "crates/dot_db",
     "crates/dot_dsl",
     "crates/dot_ops",
