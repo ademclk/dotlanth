@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::{Reg, Value};
-use dot_ops::SyscallId;
+use dot_ops::{SourceRef, SyscallId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Instruction {
@@ -18,5 +18,6 @@ pub enum Instruction {
         id: SyscallId,
         args: Vec<Reg>,
         results: Vec<Reg>,
+        source: Option<SourceRef>,
     },
 }

@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 
-use crate::{EventSink, Instruction, Reg, RegisterFile, SyscallEvent, Value, VmError, VmEvent};
+use crate::{
+    EventSink, Instruction, Reg, RegisterFile, SyscallAttemptEvent, SyscallResultEvent, Value,
+    VmError, VmEvent,
+};
 use dot_ops::Host;
 
 pub const DEFAULT_REGISTER_COUNT: usize = 32;
@@ -108,7 +111,12 @@ impl Vm {
                 self.ip += 1;
                 Ok(StepOutcome::Continued)
             }
-            Instruction::Syscall { id, args, results } => {
+            Instruction::Syscall {
+                id,
+                args,
+                results,
+                source,
+            } => {
                 let host = host.ok_or(VmError::SyscallWithoutHost { id })?;
 
                 let mut values = Vec::with_capacity(args.len());
@@ -116,23 +124,42 @@ impl Vm {
                     values.push(self.read(reg)?.clone());
                 }
 
-                let returned = match host.syscall(id, &values) {
+                if let Some(events) = events.as_mut() {
+                    (*events).emit(VmEvent::SyscallAttempt(SyscallAttemptEvent {
+                        ip: self.ip,
+                        id,
+                        args: values.clone(),
+                        source: source.clone(),
+                    }));
+                }
+
+                let syscall_outcome = host.syscall(id, &values);
+                let runtime_events = host.take_runtime_events();
+                if let Some(events) = events.as_mut() {
+                    for runtime_event in runtime_events {
+                        (*events).emit(VmEvent::Runtime(runtime_event));
+                    }
+                }
+
+                let returned = match syscall_outcome {
                     Ok(returned) => {
                         if let Some(events) = events.as_mut() {
-                            (*events).emit(VmEvent::Syscall(SyscallEvent {
+                            (*events).emit(VmEvent::SyscallResult(SyscallResultEvent {
+                                ip: self.ip,
                                 id,
-                                args: values,
                                 result: Ok(returned.clone()),
+                                source: source.clone(),
                             }));
                         }
                         returned
                     }
                     Err(error) => {
                         if let Some(events) = events.as_mut() {
-                            (*events).emit(VmEvent::Syscall(SyscallEvent {
+                            (*events).emit(VmEvent::SyscallResult(SyscallResultEvent {
+                                ip: self.ip,
                                 id,
-                                args: values,
                                 result: Err(error.clone()),
+                                source,
                             }));
                         }
                         return Err(VmError::SyscallFailed { id, error });

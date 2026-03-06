@@ -34,12 +34,24 @@ Dotlanth removes setup drag so teams can move from idea to endpoint fast.
 See `docs/quickstart.md` for a copy/paste walkthrough.
 
 ```bash
-cargo run -p dot -- run examples/hello-api/hello-api.dot
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 ```
 
 ```bash
 curl http://127.0.0.1:18080/hello
 ```
+
+Expected runtime output:
+
+```text
+run run_<uuid> listening on http://127.0.0.1:18080
+```
+
+The bounded run writes an artifact bundle to `.dotlanth/bundles/<run_id>/` with:
+- `manifest.json`
+- `inputs/entry.dot`
+- `trace.jsonl`
+- `capability_report.json`
 
 ## A 60-Second Flow (Aspirational UX)
 
@@ -50,7 +62,7 @@ Create and run:
 ```bash
 dot init hello-api
 cd hello-api
-dot run
+dot run --max-requests 1
 ```
 
 Call it:

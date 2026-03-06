@@ -76,6 +76,10 @@ pub struct SectionManifest {
     pub path: String,
     pub status: SectionStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<SectionErrorMarker>,
 }
 
@@ -84,6 +88,8 @@ impl SectionManifest {
         Self {
             path: path.to_owned(),
             status: SectionStatus::Unavailable,
+            sha256: None,
+            bytes: None,
             error: Some(SectionErrorMarker::new(
                 DEFAULT_UNAVAILABLE_CODE,
                 DEFAULT_SECTION_UNAVAILABLE_MESSAGE,

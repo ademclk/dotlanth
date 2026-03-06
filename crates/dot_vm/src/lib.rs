@@ -8,7 +8,7 @@ mod value;
 mod vm;
 
 pub use error::VmError;
-pub use event::{EventSink, SyscallEvent, VmEvent};
+pub use event::{EventSink, SyscallAttemptEvent, SyscallResultEvent, VmEvent};
 pub use instruction::Instruction;
 pub use registers::{Reg, RegisterFile};
 pub use value::Value;
@@ -17,9 +17,10 @@ pub use vm::{DEFAULT_REGISTER_COUNT, StepOutcome, Vm};
 #[cfg(test)]
 mod tests {
     use super::{
-        EventSink, Instruction, Reg, StepOutcome, SyscallEvent, Value, Vm, VmError, VmEvent,
+        EventSink, Instruction, Reg, StepOutcome, SyscallAttemptEvent, SyscallResultEvent, Value,
+        Vm, VmError, VmEvent,
     };
-    use dot_ops::{Host, HostError, SyscallId};
+    use dot_ops::{Host, HostError, RuntimeEvent, SyscallId};
 
     #[test]
     fn step_executes_loadconst_and_advances_ip() {
@@ -98,6 +99,7 @@ mod tests {
                     id: SyscallId(7),
                     args: vec![Reg(0), Reg(1)],
                     results: vec![Reg(2)],
+                    source: None,
                 },
                 Instruction::Halt,
             ],
@@ -124,6 +126,7 @@ mod tests {
                 id: SyscallId(1),
                 args: vec![],
                 results: vec![],
+                source: None,
             }],
             1,
         );
@@ -173,6 +176,7 @@ mod tests {
                     id: SyscallId(9),
                     args: vec![Reg(0)],
                     results: vec![],
+                    source: None,
                 },
                 Instruction::Halt,
             ],
@@ -185,11 +189,20 @@ mod tests {
 
         assert_eq!(
             sink.events,
-            vec![VmEvent::Syscall(SyscallEvent {
-                id: SyscallId(9),
-                args: vec![Value::from("hi")],
-                result: Ok(vec![]),
-            })]
+            vec![
+                VmEvent::SyscallAttempt(SyscallAttemptEvent {
+                    ip: 1,
+                    id: SyscallId(9),
+                    args: vec![Value::from("hi")],
+                    source: None,
+                }),
+                VmEvent::SyscallResult(SyscallResultEvent {
+                    ip: 1,
+                    id: SyscallId(9),
+                    result: Ok(vec![]),
+                    source: None,
+                }),
+            ]
         );
     }
 
@@ -220,6 +233,7 @@ mod tests {
                 id: SyscallId(2),
                 args: vec![],
                 results: vec![],
+                source: None,
             }],
             1,
         );
@@ -236,11 +250,95 @@ mod tests {
         );
         assert_eq!(
             sink.0,
-            vec![VmEvent::Syscall(SyscallEvent {
-                id: SyscallId(2),
-                args: vec![],
-                result: Err(HostError::new("boom")),
-            })]
+            vec![
+                VmEvent::SyscallAttempt(SyscallAttemptEvent {
+                    ip: 0,
+                    id: SyscallId(2),
+                    args: vec![],
+                    source: None,
+                }),
+                VmEvent::SyscallResult(SyscallResultEvent {
+                    ip: 0,
+                    id: SyscallId(2),
+                    result: Err(HostError::new("boom")),
+                    source: None,
+                }),
+            ]
+        );
+    }
+
+    #[test]
+    fn runtime_events_are_emitted_between_syscall_attempt_and_result() {
+        struct TraceHost {
+            pending: Vec<RuntimeEvent>,
+        }
+
+        impl Host<Value> for TraceHost {
+            fn syscall(
+                &mut self,
+                _id: SyscallId,
+                _args: &[Value],
+            ) -> Result<Vec<Value>, HostError> {
+                self.pending.push(RuntimeEvent::Log {
+                    message: "during-call".to_owned(),
+                    source: None,
+                });
+                Ok(vec![])
+            }
+
+            fn take_runtime_events(&mut self) -> Vec<RuntimeEvent> {
+                std::mem::take(&mut self.pending)
+            }
+        }
+
+        struct CollectSink(Vec<VmEvent>);
+
+        impl EventSink for CollectSink {
+            fn emit(&mut self, event: VmEvent) {
+                self.0.push(event);
+            }
+        }
+
+        let mut vm = Vm::with_register_count(
+            vec![
+                Instruction::Syscall {
+                    id: SyscallId(3),
+                    args: vec![],
+                    results: vec![],
+                    source: None,
+                },
+                Instruction::Halt,
+            ],
+            1,
+        );
+
+        let mut host = TraceHost {
+            pending: Vec::new(),
+        };
+        let mut sink = CollectSink(Vec::new());
+        vm.run_with_host_and_events(&mut host, &mut sink)
+            .expect("vm should succeed");
+
+        assert_eq!(
+            sink.0,
+            vec![
+                VmEvent::SyscallAttempt(SyscallAttemptEvent {
+                    ip: 0,
+                    id: SyscallId(3),
+                    args: vec![],
+                    source: None,
+                }),
+                VmEvent::Runtime(RuntimeEvent::Log {
+                    message: "during-call".to_owned(),
+                    source: None,
+                }),
+                VmEvent::SyscallResult(SyscallResultEvent {
+                    ip: 0,
+                    id: SyscallId(3),
+                    result: Ok(vec![]),
+                    source: None,
+                }),
+            ]
         );
     }
 }

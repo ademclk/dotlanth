@@ -62,7 +62,7 @@ Declares a static response for the route:
 If you forget the listen capability, validation fails clearly. Try:
 
 ```bash
-cargo run -p dot -- run examples/hello-api/hello-api-deny.dot
+cargo run -p dot -- run --file examples/hello-api/hello-api-deny.dot
 ```
 
 Expected output:
@@ -70,3 +70,21 @@ Expected output:
 ```text
 examples/hello-api/hello-api-deny.dot:8:1:19 capabilities | missing required capability `net.http.listen` for `server listen`
 ```
+
+## Runtime artifacts
+
+A successful bounded run such as:
+
+```bash
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
+```
+
+prints a stable external `run_id` and writes an artifact bundle under `.dotlanth/bundles/<run_id>/`.
+
+The bundle captures:
+- `inputs/entry.dot`
+- `trace.jsonl`
+- `manifest.json`
+- `capability_report.json`
+
+`trace.jsonl` is ordered by `seq` and includes lifecycle events, syscall boundaries, and source mappings back to the `server`, `route`, and `respond` statements when that mapping is known.

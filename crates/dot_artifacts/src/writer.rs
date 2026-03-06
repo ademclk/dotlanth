@@ -7,7 +7,6 @@ use crate::schema::{
 use crate::util::{build_staging_dir, create_dir_all, sha256_hex, write_bytes};
 use serde::Serialize;
 use std::fs;
-use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 pub struct BundleWriter {
@@ -138,35 +137,14 @@ impl BundleWriter {
         if let Some(parent) = path.parent() {
             create_dir_all(parent, "create artifact parent directory")?;
         }
-        let file = fs::File::create(&path).map_err(|source| BundleWriterError::Io {
-            action: "write trace artifact file",
-            path: path.clone(),
-            source,
-        })?;
-        let mut writer = BufWriter::new(file);
+        let mut bytes = Vec::new();
         for line in lines {
-            writer
-                .write_all(line.as_ref().as_bytes())
-                .map_err(|source| BundleWriterError::Io {
-                    action: "write trace artifact file",
-                    path: path.clone(),
-                    source,
-                })?;
-            writer
-                .write_all(b"\n")
-                .map_err(|source| BundleWriterError::Io {
-                    action: "write trace artifact file",
-                    path: path.clone(),
-                    source,
-                })?;
+            bytes.extend_from_slice(line.as_ref().as_bytes());
+            bytes.push(b'\n');
         }
-        writer.flush().map_err(|source| BundleWriterError::Io {
-            action: "write trace artifact file",
-            path,
-            source,
-        })?;
+        write_bytes(&path, "write trace artifact file", &bytes)?;
 
-        self.mark_section_ok(BundleSection::Trace)
+        self.mark_section_written(BundleSection::Trace, &bytes)
     }
 
     pub fn write_state_diff_json<T: Serialize>(
@@ -291,6 +269,8 @@ impl BundleWriter {
             if section_manifest.status == SectionStatus::Ok {
                 section_manifest.status = SectionStatus::Unavailable;
             }
+            section_manifest.sha256 = None;
+            section_manifest.bytes = None;
             if section_manifest.error.is_none() {
                 section_manifest.error = Some(SectionErrorMarker::new(
                     DEFAULT_UNAVAILABLE_CODE,
@@ -317,16 +297,24 @@ impl BundleWriter {
             .ok_or(BundleWriterError::MissingManifestSection { section })?;
 
         section_manifest.status = status;
+        section_manifest.sha256 = None;
+        section_manifest.bytes = None;
         section_manifest.error = Some(SectionErrorMarker::new(code, message));
         Ok(())
     }
 
-    fn mark_section_ok(&mut self, section: BundleSection) -> Result<(), BundleWriterError> {
+    fn mark_section_written(
+        &mut self,
+        section: BundleSection,
+        bytes: &[u8],
+    ) -> Result<(), BundleWriterError> {
         let section_manifest = self
             .manifest
             .section_mut(section)
             .ok_or(BundleWriterError::MissingManifestSection { section })?;
         section_manifest.status = SectionStatus::Ok;
+        section_manifest.sha256 = Some(sha256_hex(bytes));
+        section_manifest.bytes = Some(bytes.len() as u64);
         section_manifest.error = None;
         Ok(())
     }
@@ -344,7 +332,7 @@ impl BundleWriter {
             "write json artifact section",
             &bytes,
         )?;
-        self.mark_section_ok(section)
+        self.mark_section_written(section, &bytes)
     }
 
     fn write_section_marker_file(

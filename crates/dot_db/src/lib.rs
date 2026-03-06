@@ -3,11 +3,13 @@
 use rusqlite::{Connection, OptionalExtension, params};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 const DEFAULT_DB_DIR: &str = ".dotlanth";
 const DEFAULT_DB_FILE: &str = "dotdb.sqlite";
 
-const MIGRATIONS: &[&str] = &[r#"
+const MIGRATIONS: &[&str] = &[
+    r#"
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     status TEXT NOT NULL,
@@ -33,7 +35,18 @@ CREATE TABLE IF NOT EXISTS state_kv (
     updated_at_ms INTEGER NOT NULL,
     PRIMARY KEY(namespace, key)
 );
-"#];
+"#,
+    r#"
+ALTER TABLE runs ADD COLUMN run_id TEXT;
+
+UPDATE runs
+SET run_id = printf('legacy-%lld', id)
+WHERE run_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_run_id
+    ON runs(run_id);
+"#,
+];
 
 /// A local-first SQLite backend for Dotlanth.
 #[derive(Debug)]
@@ -90,19 +103,29 @@ impl DotDb {
         &self.path
     }
 
-    /// Creates a new run and returns its id.
-    pub fn create_run(&mut self) -> Result<RunId, DotDbError> {
+    /// Creates a new run and returns its internal row id plus stable external run id.
+    pub fn create_run(&mut self) -> Result<CreatedRun, DotDbError> {
+        let run_id = new_external_run_id();
+        self.create_run_with_id(&run_id)
+    }
+
+    /// Creates a new run using an explicit external run id.
+    pub fn create_run_with_id(&mut self, run_id: &str) -> Result<CreatedRun, DotDbError> {
+        let run_id = normalize_run_id(run_id)?;
         let created_at_ms = now_ms();
         self.conn
             .execute(
-                "INSERT INTO runs(status, created_at_ms) VALUES (?1, ?2)",
-                params![RunStatus::Running.as_str(), created_at_ms],
+                "INSERT INTO runs(run_id, status, created_at_ms) VALUES (?1, ?2, ?3)",
+                params![run_id, RunStatus::Running.as_str(), created_at_ms],
             )
             .map_err(|source| DotDbError::Sql {
                 action: "insert run",
                 source,
             })?;
-        Ok(RunId(self.conn.last_insert_rowid()))
+        Ok(CreatedRun {
+            row_id: RunId(self.conn.last_insert_rowid()),
+            run_id,
+        })
     }
 
     /// Finalizes a run, persisting its status and finalization timestamp.
@@ -120,7 +143,7 @@ impl DotDb {
             })?;
 
         if updated == 0 {
-            return Err(DotDbError::RunNotFound { run_id });
+            return Err(DotDbError::RunRowNotFound { row_id: run_id });
         }
 
         Ok(())
@@ -162,8 +185,13 @@ impl DotDb {
         Ok(())
     }
 
-    /// Returns all log lines for a run, in stable append order.
-    pub fn run_logs(&mut self, run_id: RunId) -> Result<Vec<RunLogEntry>, DotDbError> {
+    /// Returns all log lines for an external run id, in stable append order.
+    pub fn run_logs(&mut self, run_id: &str) -> Result<Vec<RunLogEntry>, DotDbError> {
+        let run_row_id = self.lookup_run_row_id(run_id)?;
+        self.run_logs_by_row_id(run_row_id)
+    }
+
+    fn run_logs_by_row_id(&mut self, run_id: RunId) -> Result<Vec<RunLogEntry>, DotDbError> {
         let exists: Option<i64> = self
             .conn
             .query_row(
@@ -178,7 +206,7 @@ impl DotDb {
             })?;
 
         if exists.is_none() {
-            return Err(DotDbError::RunNotFound { run_id });
+            return Err(DotDbError::RunRowNotFound { row_id: run_id });
         }
 
         let mut stmt = self
@@ -314,6 +342,50 @@ ON CONFLICT(namespace, key) DO UPDATE SET
 
         Ok(())
     }
+
+    fn lookup_run_row_id(&self, run_id: &str) -> Result<RunId, DotDbError> {
+        let run_id = normalize_lookup_run_id(run_id)?;
+        let row_id: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM runs WHERE run_id = ?1",
+                params![run_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|source| DotDbError::Sql {
+                action: "query run row id",
+                source,
+            })?;
+
+        row_id
+            .map(RunId::new)
+            .ok_or(DotDbError::RunNotFound { run_id })
+    }
+}
+
+/// A newly created run, including both internal and external identifiers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CreatedRun {
+    row_id: RunId,
+    run_id: String,
+}
+
+impl CreatedRun {
+    /// Returns the internal SQLite row id used for foreign keys.
+    pub const fn row_id(&self) -> RunId {
+        self.row_id
+    }
+
+    /// Returns the stable external run id exposed through the CLI and artifacts.
+    pub fn run_id(&self) -> &str {
+        &self.run_id
+    }
+
+    /// Splits the created run into its internal and external identifiers.
+    pub fn into_parts(self) -> (RunId, String) {
+        (self.row_id, self.run_id)
+    }
 }
 
 /// A stable id for a persisted run.
@@ -392,7 +464,13 @@ pub enum DotDbError {
         supported: u32,
     },
     RunNotFound {
-        run_id: RunId,
+        run_id: String,
+    },
+    RunRowNotFound {
+        row_id: RunId,
+    },
+    InvalidRunId {
+        run_id: String,
     },
 }
 
@@ -416,6 +494,8 @@ impl std::fmt::Display for DotDbError {
                 "sqlite schema version {current} is newer than supported {supported}"
             ),
             Self::RunNotFound { run_id } => write!(f, "run not found: {run_id}"),
+            Self::RunRowNotFound { row_id } => write!(f, "run row not found: {row_id}"),
+            Self::InvalidRunId { run_id } => write!(f, "invalid run id `{run_id}`"),
         }
     }
 }
@@ -425,7 +505,10 @@ impl std::error::Error for DotDbError {
         match self {
             Self::Io { source, .. } => Some(source),
             Self::Sql { source, .. } => Some(source),
-            Self::SchemaVersionTooNew { .. } | Self::RunNotFound { .. } => None,
+            Self::SchemaVersionTooNew { .. }
+            | Self::RunNotFound { .. }
+            | Self::RunRowNotFound { .. }
+            | Self::InvalidRunId { .. } => None,
         }
     }
 }
@@ -469,9 +552,28 @@ fn now_ms() -> i64 {
     i64::try_from(delta.as_millis()).unwrap_or(i64::MAX)
 }
 
+fn new_external_run_id() -> String {
+    format!("run_{}", Uuid::new_v4())
+}
+
+fn normalize_run_id(run_id: &str) -> Result<String, DotDbError> {
+    let trimmed = run_id.trim();
+    if trimmed.is_empty() {
+        return Err(DotDbError::InvalidRunId {
+            run_id: run_id.to_owned(),
+        });
+    }
+    Ok(trimmed.to_owned())
+}
+
+fn normalize_lookup_run_id(run_id: &str) -> Result<String, DotDbError> {
+    normalize_run_id(run_id)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{DotDb, DotDbError, RunId, RunStatus};
+    use super::{DotDb, DotDbError, RunStatus};
+    use rusqlite::Connection;
     use tempfile::TempDir;
 
     #[test]
@@ -483,34 +585,45 @@ mod tests {
         assert_eq!(db.path(), expected.as_path());
         assert!(expected.exists(), "sqlite file should exist after open");
 
-        let run_id = db.create_run().expect("run must create");
-        db.finalize_run(run_id, RunStatus::Succeeded)
+        let created_run = db.create_run().expect("run must create");
+        db.finalize_run(created_run.row_id(), RunStatus::Succeeded)
             .expect("run must finalize");
 
-        let (status, created_at_ms, finalized_at_ms): (String, i64, Option<i64>) = db
+        let (stored_run_id, status, created_at_ms, finalized_at_ms): (
+            String,
+            String,
+            i64,
+            Option<i64>,
+        ) = db
             .conn
             .query_row(
-                "SELECT status, created_at_ms, finalized_at_ms FROM runs WHERE id = ?1",
-                [run_id.as_i64()],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                "SELECT run_id, status, created_at_ms, finalized_at_ms FROM runs WHERE id = ?1",
+                [created_run.row_id().as_i64()],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .expect("run row must exist");
 
+        assert_eq!(stored_run_id, created_run.run_id());
+        assert!(stored_run_id.starts_with("run_"));
         assert_eq!(status, "succeeded");
         assert!(created_at_ms > 0);
         assert!(finalized_at_ms.unwrap_or(0) >= created_at_ms);
     }
 
     #[test]
-    fn run_logs_roundtrip_in_order() {
+    fn run_logs_roundtrip_in_order_by_external_run_id() {
         let temp = TempDir::new().expect("temp dir must create");
         let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
 
-        let run_id = db.create_run().expect("run must create");
-        db.append_run_logs(run_id, ["first", "second", "third"])
+        let created_run = db
+            .create_run_with_id("run_test_roundtrip")
+            .expect("run must create");
+        db.append_run_logs(created_run.row_id(), ["first", "second", "third"])
             .expect("append must succeed");
 
-        let logs = db.run_logs(run_id).expect("query must succeed");
+        let logs = db
+            .run_logs(created_run.run_id())
+            .expect("query must succeed");
         let lines: Vec<_> = logs.into_iter().map(|entry| entry.line).collect();
         assert_eq!(lines, vec!["first", "second", "third"]);
     }
@@ -521,9 +634,69 @@ mod tests {
         let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
 
         let error = db
-            .run_logs(RunId::new(999))
+            .run_logs("missing-run-id")
             .expect_err("missing run must error");
         assert!(matches!(error, DotDbError::RunNotFound { .. }));
+    }
+
+    #[test]
+    fn migration_backfills_external_run_ids_for_existing_rows() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let path = DotDb::default_path_in(temp.path());
+        std::fs::create_dir_all(path.parent().expect("db path must have parent"))
+            .expect("db parent directory must create");
+        let conn = Connection::open(&path).expect("sqlite connection must open");
+        conn.execute_batch(
+            r#"
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    status TEXT NOT NULL,
+    created_at_ms INTEGER NOT NULL,
+    finalized_at_ms INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS run_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    created_at_ms INTEGER NOT NULL,
+    line TEXT NOT NULL,
+    FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_logs_run_id_id
+    ON run_logs(run_id, id);
+
+CREATE TABLE IF NOT EXISTS state_kv (
+    namespace TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value BLOB NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    PRIMARY KEY(namespace, key)
+);
+
+INSERT INTO runs(status, created_at_ms) VALUES ('running', 1);
+INSERT INTO run_logs(run_id, created_at_ms, line) VALUES (1, 1, 'legacy-log');
+PRAGMA user_version = 1;
+"#,
+        )
+        .expect("legacy schema must initialize");
+        drop(conn);
+
+        let mut db = DotDb::open(&path).expect("db open must migrate");
+        let logs = db.run_logs("legacy-1").expect("legacy run id must resolve");
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0].line, "legacy-log");
+    }
+
+    #[test]
+    fn create_run_with_id_rejects_blank_ids() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let error = db
+            .create_run_with_id("   ")
+            .expect_err("blank run id must fail");
+        assert!(matches!(error, DotDbError::InvalidRunId { .. }));
     }
 
     #[test]

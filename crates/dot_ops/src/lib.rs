@@ -1,10 +1,11 @@
 #![forbid(unsafe_code)]
 
-use dot_db::{DotDb, RunId, RunLogEntry};
+use dot_db::{DotDb, RunId, RunLogEntry, RunStatus};
 use dot_dsl::Document;
 use dot_sec::{CapabilitySet, Syscall};
 use std::io::Write;
 use std::io::{BufRead, BufReader};
+use std::mem;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -12,6 +13,48 @@ pub struct SyscallId(pub u32);
 
 pub const SYSCALL_LOG_EMIT: SyscallId = SyscallId(1);
 pub const SYSCALL_NET_HTTP_SERVE: SyscallId = SyscallId(2);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SourceSpan {
+    pub line: usize,
+    pub column: usize,
+    pub length: usize,
+}
+
+impl SourceSpan {
+    pub const fn new(line: usize, column: usize, length: usize) -> Self {
+        Self {
+            line,
+            column,
+            length,
+        }
+    }
+}
+
+impl From<dot_dsl::Span> for SourceSpan {
+    fn from(value: dot_dsl::Span) -> Self {
+        Self::new(value.line, value.column, value.length)
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct SourceRef {
+    pub span: Option<SourceSpan>,
+    pub semantic_path: Option<String>,
+}
+
+impl SourceRef {
+    pub fn with_span_and_path(span: SourceSpan, semantic_path: impl Into<String>) -> Self {
+        Self {
+            span: Some(span),
+            semantic_path: Some(semantic_path.into()),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.span.is_none() && self.semantic_path.is_none()
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HostError {
@@ -38,11 +81,36 @@ impl std::fmt::Display for HostError {
 
 impl std::error::Error for HostError {}
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RuntimeEvent {
+    Log {
+        message: String,
+        source: Option<SourceRef>,
+    },
+    HttpServerStart {
+        addr: SocketAddr,
+        source: Option<SourceRef>,
+    },
+    HttpRequest {
+        method: String,
+        path: String,
+        source: Option<SourceRef>,
+    },
+    HttpResponse {
+        status: u16,
+        source: Option<SourceRef>,
+    },
+}
+
 /// Host interface used by the VM to perform capability-gated side effects.
 ///
 /// The VM remains deterministic: nondeterminism may only enter via this interface.
 pub trait Host<V> {
     fn syscall(&mut self, id: SyscallId, args: &[V]) -> Result<Vec<V>, HostError>;
+
+    fn take_runtime_events(&mut self) -> Vec<RuntimeEvent> {
+        Vec::new()
+    }
 }
 
 /// Minimal value conversions needed by dot_ops syscall implementations.
@@ -62,7 +130,9 @@ pub enum RecordMode {
 pub struct OpsHost {
     capabilities: CapabilitySet,
     db: DotDb,
-    run_id: RunId,
+    run_row_id: RunId,
+    run_id: String,
+    pending_runtime_events: Vec<RuntimeEvent>,
     record_mode: RecordMode,
     stdout: Box<dyn Write + Send>,
     http: Option<HttpConfig>,
@@ -70,13 +140,16 @@ pub struct OpsHost {
 
 impl OpsHost {
     pub fn new(capabilities: CapabilitySet, mut db: DotDb) -> Result<Self, HostError> {
-        let run_id = db
+        let created_run = db
             .create_run()
             .map_err(|error| HostError::new(format!("failed to create run in DotDB: {error}")))?;
+        let (run_row_id, run_id) = created_run.into_parts();
         Ok(Self {
             capabilities,
             db,
+            run_row_id,
             run_id,
+            pending_runtime_events: Vec::new(),
             record_mode: RecordMode::default(),
             stdout: Box::new(std::io::stdout()),
             http: None,
@@ -92,18 +165,24 @@ impl OpsHost {
         self.record_mode = record_mode;
     }
 
-    pub fn run_id(&self) -> RunId {
-        self.run_id
+    pub fn run_id(&self) -> &str {
+        &self.run_id
+    }
+
+    pub fn finalize_run(&mut self, status: RunStatus) -> Result<(), HostError> {
+        self.db
+            .finalize_run(self.run_row_id, status)
+            .map_err(|error| HostError::new(format!("failed to finalize run: {error}")))
     }
 
     pub fn run_logs(&mut self) -> Result<Vec<RunLogEntry>, HostError> {
         self.db
-            .run_logs(self.run_id)
+            .run_logs(&self.run_id)
             .map_err(|error| HostError::new(format!("failed to read run logs: {error}")))
     }
 
     pub fn configure_http(&mut self, listener: TcpListener, routes: RouteTable) {
-        self.http = Some(HttpConfig { listener, routes });
+        self.configure_http_with_source(listener, routes, None);
     }
 
     pub fn configure_http_from_document(&mut self, document: &Document) -> Result<(), HostError> {
@@ -115,7 +194,11 @@ impl OpsHost {
         let listener = TcpListener::bind(addr).map_err(|error| {
             HostError::new(format!("failed to bind http listener on {addr}: {error}"))
         })?;
-        self.configure_http(listener, RouteTable::from_document(document));
+        self.configure_http_with_source(
+            listener,
+            RouteTable::from_document(document),
+            Some(SourceRef::with_span_and_path(server.span.into(), "server")),
+        );
         Ok(())
     }
 
@@ -125,20 +208,34 @@ impl OpsHost {
             .and_then(|http| http.listener.local_addr().ok())
     }
 
-    fn record_event(&mut self, event: RunEvent) -> Result<(), HostError> {
+    fn configure_http_with_source(
+        &mut self,
+        listener: TcpListener,
+        routes: RouteTable,
+        server_source: Option<SourceRef>,
+    ) {
+        self.http = Some(HttpConfig {
+            listener,
+            routes,
+            server_source,
+        });
+    }
+
+    fn record_runtime_event(&mut self, event: RuntimeEvent) -> Result<(), HostError> {
+        self.pending_runtime_events.push(event.clone());
         if self.record_mode != RecordMode::Record {
             return Ok(());
         }
 
         let line = event.to_json_line();
         self.db
-            .append_run_log(self.run_id, &line)
+            .append_run_log(self.run_row_id, &line)
             .map_err(|error| HostError::new(format!("failed to append run log: {error}")))?;
         Ok(())
     }
 
-    fn record_event_best_effort(&mut self, event: RunEvent) {
-        let _ = self.record_event(event);
+    fn record_runtime_event_best_effort(&mut self, event: RuntimeEvent) {
+        let _ = self.record_runtime_event(event);
     }
 
     fn syscall_log_emit<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
@@ -153,8 +250,9 @@ impl OpsHost {
         writeln!(self.stdout, "{message}")
             .map_err(|error| HostError::new(format!("failed to write log to stdout: {error}")))?;
 
-        self.record_event(RunEvent::Log {
+        self.record_runtime_event(RuntimeEvent::Log {
             message: message.to_owned(),
+            source: None,
         })?;
 
         Ok(vec![])
@@ -194,7 +292,10 @@ impl OpsHost {
         };
 
         if let Ok(addr) = http.listener.local_addr() {
-            self.record_event_best_effort(RunEvent::HttpServerStart { addr });
+            self.record_runtime_event_best_effort(RuntimeEvent::HttpServerStart {
+                addr,
+                source: http.server_source.clone(),
+            });
         }
 
         let mut served = 0_usize;
@@ -241,24 +342,36 @@ impl OpsHost {
             }
         };
 
-        self.record_event_best_effort(RunEvent::HttpRequest {
+        let matched_route = routes.match_route(&method, &path);
+        let (response, request_source, response_source) = if let Some(route) = matched_route {
+            (
+                route.response.clone(),
+                route.source.clone(),
+                route.response_source.clone(),
+            )
+        } else {
+            (
+                StaticResponse {
+                    status: 404,
+                    body: "Not Found".to_owned(),
+                },
+                None,
+                None,
+            )
+        };
+
+        self.record_runtime_event_best_effort(RuntimeEvent::HttpRequest {
             method: method.clone(),
             path: path.clone(),
+            source: request_source,
         });
-
-        let response = routes
-            .match_route(&method, &path)
-            .map(|route| route.response.clone())
-            .unwrap_or_else(|| StaticResponse {
-                status: 404,
-                body: "Not Found".to_owned(),
-            });
 
         write_http_response(&mut stream, response.status, &response.body)
             .map_err(|error| HostError::new(format!("failed to write http response: {error}")))?;
 
-        self.record_event_best_effort(RunEvent::HttpResponse {
+        self.record_runtime_event_best_effort(RuntimeEvent::HttpResponse {
             status: response.status,
+            source: response_source,
         });
 
         Ok(())
@@ -273,33 +386,45 @@ impl<V: OpValue> Host<V> for OpsHost {
             _ => Err(HostError::new(format!("unknown syscall id: {}", id.0))),
         }
     }
+
+    fn take_runtime_events(&mut self) -> Vec<RuntimeEvent> {
+        mem::take(&mut self.pending_runtime_events)
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum RunEvent {
-    Log { message: String },
-    HttpServerStart { addr: SocketAddr },
-    HttpRequest { method: String, path: String },
-    HttpResponse { status: u16 },
-}
-
-impl RunEvent {
-    fn to_json_line(&self) -> String {
+impl RuntimeEvent {
+    pub fn to_json_line(&self) -> String {
         match self {
-            Self::Log { message } => {
-                format!("{{\"type\":\"log\",\"message\":{}}}", json_string(message))
+            Self::Log { message, source } => {
+                let mut out = format!("{{\"type\":\"log\",\"message\":{}}}", json_string(message));
+                insert_source_json(&mut out, source);
+                out
             }
-            Self::HttpServerStart { addr } => format!(
-                "{{\"type\":\"http.server_start\",\"addr\":{}}}",
-                json_string(&addr.to_string())
-            ),
-            Self::HttpRequest { method, path } => format!(
-                "{{\"type\":\"http.request\",\"method\":{},\"path\":{}}}",
-                json_string(method),
-                json_string(path)
-            ),
-            Self::HttpResponse { status } => {
-                format!("{{\"type\":\"http.response\",\"status\":{status}}}")
+            Self::HttpServerStart { addr, source } => {
+                let mut out = format!(
+                    "{{\"type\":\"http.server_start\",\"addr\":{}}}",
+                    json_string(&addr.to_string())
+                );
+                insert_source_json(&mut out, source);
+                out
+            }
+            Self::HttpRequest {
+                method,
+                path,
+                source,
+            } => {
+                let mut out = format!(
+                    "{{\"type\":\"http.request\",\"method\":{},\"path\":{}}}",
+                    json_string(method),
+                    json_string(path)
+                );
+                insert_source_json(&mut out, source);
+                out
+            }
+            Self::HttpResponse { status, source } => {
+                let mut out = format!("{{\"type\":\"http.response\",\"status\":{status}}}");
+                insert_source_json(&mut out, source);
+                out
             }
         }
     }
@@ -325,6 +450,35 @@ fn json_string(value: &str) -> String {
     out
 }
 
+fn insert_source_json(buffer: &mut String, source: &Option<SourceRef>) {
+    let Some(source) = source.as_ref().filter(|source| !source.is_empty()) else {
+        return;
+    };
+
+    let mut source_json = String::from("\"source\":{");
+    let mut needs_comma = false;
+
+    if let Some(span) = source.span {
+        source_json.push_str(&format!(
+            "\"span\":{{\"line\":{},\"column\":{},\"length\":{}}}",
+            span.line, span.column, span.length
+        ));
+        needs_comma = true;
+    }
+
+    if let Some(semantic_path) = source.semantic_path.as_deref() {
+        if needs_comma {
+            source_json.push(',');
+        }
+        source_json.push_str("\"semantic_path\":");
+        source_json.push_str(&json_string(semantic_path));
+    }
+
+    source_json.push('}');
+    buffer.insert(buffer.len() - 1, ',');
+    buffer.insert_str(buffer.len() - 1, &source_json);
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RouteTable {
     routes: Vec<StaticRoute>,
@@ -333,8 +487,8 @@ pub struct RouteTable {
 impl RouteTable {
     pub fn from_document(document: &Document) -> Self {
         let mut routes = Vec::new();
-        for api in &document.apis {
-            for route in &api.routes {
+        for (api_index, api) in document.apis.iter().enumerate() {
+            for (route_index, route) in api.routes.iter().enumerate() {
                 let Some(response) = &route.response else {
                     continue;
                 };
@@ -345,6 +499,14 @@ impl RouteTable {
                         status: response.status.value,
                         body: response.body.value.clone(),
                     },
+                    source: Some(SourceRef::with_span_and_path(
+                        route.span.into(),
+                        format!("apis[{api_index}].routes[{route_index}]"),
+                    )),
+                    response_source: Some(SourceRef::with_span_and_path(
+                        response.span.into(),
+                        format!("apis[{api_index}].routes[{route_index}].response"),
+                    )),
                 });
             }
         }
@@ -363,6 +525,8 @@ pub struct StaticRoute {
     pub method: String,
     pub path: String,
     pub response: StaticResponse,
+    pub source: Option<SourceRef>,
+    pub response_source: Option<SourceRef>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -374,6 +538,7 @@ pub struct StaticResponse {
 struct HttpConfig {
     listener: TcpListener,
     routes: RouteTable,
+    server_source: Option<SourceRef>,
 }
 
 fn read_http_request_line(stream: &mut TcpStream) -> Result<(String, String), std::io::Error> {

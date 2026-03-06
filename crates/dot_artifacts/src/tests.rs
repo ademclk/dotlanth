@@ -106,6 +106,15 @@ fn snapshot_capture_hashes_entry_dot_and_updates_manifest() {
         Value::String(crate::util::sha256_hex(content.as_bytes()))
     );
     assert_eq!(manifest["sections"]["trace"]["status"], "ok");
+    let expected_trace = "{\"type\":\"log\",\"message\":\"boot\"}\n";
+    assert_eq!(
+        manifest["sections"]["trace"]["bytes"],
+        Value::from(expected_trace.len() as u64)
+    );
+    assert_eq!(
+        manifest["sections"]["trace"]["sha256"],
+        Value::String(crate::util::sha256_hex(expected_trace.as_bytes()))
+    );
     assert_eq!(manifest["sections"]["state_diff"]["status"], "ok");
     assert_eq!(manifest["sections"]["capability_report"]["status"], "ok");
 }
@@ -167,6 +176,8 @@ fn finalize_downgrades_manifest_when_section_file_missing() {
 
     let manifest = read_json(&bundle.join(MANIFEST_FILE));
     assert_eq!(manifest["sections"]["trace"]["status"], "unavailable");
+    assert!(manifest["sections"]["trace"]["bytes"].is_null());
+    assert!(manifest["sections"]["trace"]["sha256"].is_null());
     assert_eq!(
         manifest["sections"]["trace"]["error"]["code"],
         "unavailable"

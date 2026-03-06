@@ -9,13 +9,13 @@
 From the repo root:
 
 ```bash
-cargo run -p dot -- run examples/hello-api/hello-api.dot
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 ```
 
 Expected output:
 
 ```text
-Listening on http://127.0.0.1:18080 (Ctrl+C to stop)
+run run_<uuid> listening on http://127.0.0.1:18080
 ```
 
 In a second terminal:
@@ -29,6 +29,8 @@ Expected output:
 ```text
 Hello from Dotlanth
 ```
+
+After the request completes, the bounded run exits and writes an artifact bundle to `.dotlanth/bundles/<run_id>/`. The bundle includes `manifest.json`, `inputs/entry.dot`, `trace.jsonl`, and `capability_report.json`.
 
 ## Troubleshooting
 
