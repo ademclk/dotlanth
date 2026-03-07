@@ -21,6 +21,16 @@ mod tests {
         Vm, VmError, VmEvent,
     };
     use dot_ops::{Host, HostError, RuntimeEvent, SyscallId};
+    use std::future::Future;
+    use std::pin::Pin;
+
+    fn block_on<F: Future>(future: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime must build")
+            .block_on(future)
+    }
 
     #[test]
     fn step_executes_loadconst_and_advances_ip() {
@@ -78,10 +88,16 @@ mod tests {
         struct MockHost;
 
         impl Host<Value> for MockHost {
-            fn syscall(&mut self, id: SyscallId, args: &[Value]) -> Result<Vec<Value>, HostError> {
-                assert_eq!(id, SyscallId(7));
-                assert_eq!(args, &[Value::from(2_i64), Value::from(40_i64)]);
-                Ok(vec![Value::from(42_i64)])
+            fn syscall<'a>(
+                &'a mut self,
+                id: SyscallId,
+                args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                Box::pin(async move {
+                    assert_eq!(id, SyscallId(7));
+                    assert_eq!(args, &[Value::from(2_i64), Value::from(40_i64)]);
+                    Ok(vec![Value::from(42_i64)])
+                })
             }
         }
 
@@ -107,7 +123,7 @@ mod tests {
         );
 
         let mut host = MockHost;
-        vm.run_with_host(&mut host).unwrap();
+        block_on(vm.run_with_host(&mut host)).unwrap();
         assert_eq!(vm.read(Reg(2)).unwrap(), &Value::from(42_i64));
     }
 
@@ -116,8 +132,12 @@ mod tests {
         struct ErrorHost;
 
         impl Host<Value> for ErrorHost {
-            fn syscall(&mut self, id: SyscallId, _args: &[Value]) -> Result<Vec<Value>, HostError> {
-                Err(HostError::new(format!("denied: {}", id.0)))
+            fn syscall<'a>(
+                &'a mut self,
+                id: SyscallId,
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                Box::pin(async move { Err(HostError::new(format!("denied: {}", id.0))) })
             }
         }
 
@@ -133,7 +153,7 @@ mod tests {
 
         let mut host = ErrorHost;
         assert_eq!(
-            vm.run_with_host(&mut host).unwrap_err(),
+            block_on(vm.run_with_host(&mut host)).unwrap_err(),
             VmError::SyscallFailed {
                 id: SyscallId(1),
                 error: HostError::new("denied: 1"),
@@ -146,12 +166,12 @@ mod tests {
         struct MockHost;
 
         impl Host<Value> for MockHost {
-            fn syscall(
-                &mut self,
+            fn syscall<'a>(
+                &'a mut self,
                 _id: SyscallId,
-                _args: &[Value],
-            ) -> Result<Vec<Value>, HostError> {
-                Ok(vec![])
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                Box::pin(async { Ok(vec![]) })
             }
         }
 
@@ -185,7 +205,7 @@ mod tests {
 
         let mut host = MockHost;
         let mut sink = CollectSink::default();
-        vm.run_with_host_and_events(&mut host, &mut sink).unwrap();
+        block_on(vm.run_with_host_and_events(&mut host, &mut sink)).unwrap();
 
         assert_eq!(
             sink.events,
@@ -211,12 +231,12 @@ mod tests {
         struct ErrorHost;
 
         impl Host<Value> for ErrorHost {
-            fn syscall(
-                &mut self,
+            fn syscall<'a>(
+                &'a mut self,
                 _id: SyscallId,
-                _args: &[Value],
-            ) -> Result<Vec<Value>, HostError> {
-                Err(HostError::new("boom"))
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                Box::pin(async { Err(HostError::new("boom")) })
             }
         }
 
@@ -241,8 +261,7 @@ mod tests {
         let mut host = ErrorHost;
         let mut sink = CollectSink(vec![]);
         assert_eq!(
-            vm.run_with_host_and_events(&mut host, &mut sink)
-                .unwrap_err(),
+            block_on(vm.run_with_host_and_events(&mut host, &mut sink)).unwrap_err(),
             VmError::SyscallFailed {
                 id: SyscallId(2),
                 error: HostError::new("boom"),
@@ -274,16 +293,18 @@ mod tests {
         }
 
         impl Host<Value> for TraceHost {
-            fn syscall(
-                &mut self,
+            fn syscall<'a>(
+                &'a mut self,
                 _id: SyscallId,
-                _args: &[Value],
-            ) -> Result<Vec<Value>, HostError> {
-                self.pending.push(RuntimeEvent::Log {
-                    message: "during-call".to_owned(),
-                    source: None,
-                });
-                Ok(vec![])
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                Box::pin(async move {
+                    self.pending.push(RuntimeEvent::Log {
+                        message: "during-call".to_owned(),
+                        source: None,
+                    });
+                    Ok(vec![])
+                })
             }
 
             fn take_runtime_events(&mut self) -> Vec<RuntimeEvent> {
@@ -316,8 +337,7 @@ mod tests {
             pending: Vec::new(),
         };
         let mut sink = CollectSink(Vec::new());
-        vm.run_with_host_and_events(&mut host, &mut sink)
-            .expect("vm should succeed");
+        block_on(vm.run_with_host_and_events(&mut host, &mut sink)).expect("vm should succeed");
 
         assert_eq!(
             sink.0,

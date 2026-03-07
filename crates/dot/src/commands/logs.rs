@@ -6,13 +6,10 @@ pub(crate) fn run(run_id: &str) -> Result<(), String> {
     let run_id = parse_run_id(run_id)?;
 
     let mut db = DotDb::open_default().map_err(|error| format!("failed to open DotDB: {error}"))?;
-    let logs = db
-        .run_logs(&run_id)
-        .map_err(|error| format!("failed to read logs for run {run_id}: {error}"))?;
-
-    for entry in logs {
+    db.for_each_run_log(&run_id, |entry| {
         println!("{} INFO {}", entry.created_at_ms, entry.line);
-    }
+    })
+    .map_err(|error| format!("failed to read logs for run {run_id}: {error}"))?;
 
     Ok(())
 }

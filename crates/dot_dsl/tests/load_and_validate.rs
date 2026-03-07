@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use dot_dsl::{Diagnostic, LoadError, load_and_validate};
+use dot_dsl::{Diagnostic, LoadError, load_and_validate, parse_and_validate};
 
 #[test]
 fn hello_api_fixture_validates() {
@@ -135,6 +135,47 @@ fn duplicate_server_statement_is_rejected() {
         snapshot(&error),
         "3:1:18 server | duplicate `server` statement"
     );
+}
+
+#[test]
+fn duplicate_routes_are_rejected_before_runtime() {
+    let error = parse_and_validate(
+        r#"
+dot 0.1
+app "x"
+allow net.http.listen
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "one"
+  end
+end
+
+api "admin"
+  route GET "/hello"
+    respond 200 "two"
+  end
+end
+"#,
+        "<test>",
+    )
+    .expect_err("duplicate routes must fail validation");
+
+    assert_eq!(
+        snapshot(&error),
+        "15:3:18 apis[1].routes[0] | duplicate route `GET` `/hello`; already declared at `apis[0].routes[0]`"
+    );
+}
+
+#[test]
+fn tab_separated_statements_are_accepted() {
+    parse_and_validate(
+        "dot\t0.1\napp\t\"x\"\nallow\tnet.http.listen\nserver\tlisten\t8080\napi\t\"public\"\n  route\tGET\t\"/hello\"\n    respond\t200\t\"ok\"\n  end\nend\n",
+        "<test>",
+    )
+    .expect("tab-separated statements should validate");
 }
 
 #[test]

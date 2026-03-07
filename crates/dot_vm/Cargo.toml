@@ -10,3 +10,6 @@ workspace = true
 
 [dependencies]
 dot_ops = { path = "../dot_ops" }
+
+[dev-dependencies]
+tokio = { version = "1.48", features = ["rt", "time"] }

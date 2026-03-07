@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use dot_artifacts::BundleWriter;
+use dot_artifacts::{BundleSection, BundleWriter, TRACE_FILE};
 use dot_db::DotDb;
 use dot_ops::{
     OpsHost, RecordMode, RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef,
@@ -12,8 +12,12 @@ use dot_vm::{
     VmError, VmEvent,
 };
 use serde_json::{Map, Value as JsonValue, json};
+use std::cell::RefCell;
 use std::collections::BTreeSet;
+use std::fs::OpenOptions;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 const DOTLANTH_DIR: &str = ".dotlanth";
 const BUNDLES_DIR: &str = "bundles";
@@ -25,75 +29,155 @@ pub(crate) struct RunOptions {
 }
 
 pub(crate) fn run(options: RunOptions) -> Result<(), String> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| format!("failed to initialize tokio runtime: {error}"))?;
+    runtime.block_on(run_async(options))
+}
+
+async fn run_async(options: RunOptions) -> Result<(), String> {
     let dot_path = resolve_dot_file(options.file)?;
-    let document = dot_dsl::load_and_validate(&dot_path).map_err(|error| error.to_string())?;
+    let project_root = project_root_for_dot_path(&dot_path)?;
+    let dot_source = read_dot_source(&dot_path)?;
+    let document =
+        dot_dsl::parse_and_validate(&dot_source, &dot_path).map_err(|error| error.to_string())?;
     let ctx = RuntimeContext::from_dot_dsl(&document).map_err(|error| error.to_string())?;
 
-    let db = DotDb::open_default().map_err(|error| format!("failed to open DotDB: {error}"))?;
+    let db =
+        DotDb::open_in(&project_root).map_err(|error| format!("failed to open DotDB: {error}"))?;
     let mut host = OpsHost::new(ctx.capabilities().clone(), db)
         .map_err(|error| format!("failed to initialize runtime host: {error}"))?;
     host.set_record_mode(RecordMode::Record);
 
     let run_id = host.run_id().to_owned();
-    let bundle_dir = bundle_dir_for_run(&run_id)?;
+    let bundle_dir = bundle_dir_for_run(&project_root, &run_id);
     let mut bundle = match BundleWriter::new(&bundle_dir, &run_id) {
         Ok(bundle) => bundle,
         Err(error) => {
-            let _ = host.finalize_run(dot_db::RunStatus::Failed);
-            return Err(format!(
+            let primary = format!(
                 "failed to initialize artifact bundle `{}`: {error}",
                 bundle_dir.display()
-            ));
+            );
+            let finalize_error = host
+                .finalize_run(dot_db::RunStatus::Failed)
+                .err()
+                .map(|error| error.to_string());
+            return Err(combine_errors(primary, [finalize_error]));
         }
     };
-    bundle
-        .snapshot_entry_dot_from_path(&dot_path)
-        .map_err(|error| {
-            format!(
-                "failed to snapshot `{}` into bundle: {error}",
-                dot_path.display()
-            )
-        })?;
 
-    let mut trace = TraceRecorder::new(&run_id);
+    let trace_path = bundle.staging_dir().join(TRACE_FILE);
+    let mut trace = match TraceRecorder::new(&run_id, &trace_path) {
+        Ok(trace) => trace,
+        Err(error) => {
+            let finalize_error = host
+                .finalize_run(dot_db::RunStatus::Failed)
+                .err()
+                .map(|error| error.to_string());
+            return Err(combine_errors(error, [finalize_error]));
+        }
+    };
+    host.set_runtime_event_forwarder(trace.runtime_event_forwarder());
+
     trace.record_run_start(&dot_path);
+    let execution_result = match bundle.snapshot_entry_dot_bytes(dot_source.as_bytes()) {
+        Ok(()) => {
+            run_vm_execution(
+                &mut host,
+                &document,
+                options.max_requests,
+                &run_id,
+                &mut trace,
+            )
+            .await
+        }
+        Err(error) => Err(format!(
+            "failed to snapshot `{}` into bundle: {error}",
+            dot_path.display()
+        )),
+    };
 
-    let execution_result = run_vm_execution(
-        &mut host,
-        &document,
-        options.max_requests,
-        &run_id,
-        &mut trace,
-    );
-    let run_status = if execution_result.is_ok() {
+    let capability_report_result = write_capability_report(&mut bundle, &document);
+    let pre_bundle_status = if execution_result.is_ok() && capability_report_result.is_ok() {
         dot_db::RunStatus::Succeeded
     } else {
         dot_db::RunStatus::Failed
     };
-    trace.record_run_finish(
-        run_status,
-        execution_result.as_ref().err().map(String::as_str),
-    );
-
-    let bundle_result = write_bundle(&mut bundle, &trace, &document);
     let finalize_result = host
-        .finalize_run(run_status)
+        .finalize_run(pre_bundle_status)
         .map_err(|error| error.to_string());
+    let finalize_recovery_result = if finalize_result.is_err() {
+        Some(
+            host.finalize_run(dot_db::RunStatus::Failed)
+                .map_err(|error| error.to_string()),
+        )
+    } else {
+        None
+    };
 
-    match execution_result {
-        Ok(()) => {
-            bundle_result?;
-            finalize_result?;
-            Ok(())
-        }
-        Err(error) => Err(combine_errors(
-            error,
-            [bundle_result.err(), finalize_result.err()],
+    let trace_status = if execution_result.is_ok()
+        && capability_report_result.is_ok()
+        && finalize_result.is_ok()
+    {
+        dot_db::RunStatus::Succeeded
+    } else {
+        dot_db::RunStatus::Failed
+    };
+    let trace_error = summarize_errors([
+        execution_result.as_ref().err().cloned(),
+        capability_report_result.as_ref().err().cloned(),
+        finalize_result.as_ref().err().cloned(),
+        finalize_recovery_result
+            .as_ref()
+            .and_then(|result| result.as_ref().err())
+            .cloned(),
+    ]);
+    trace.record_run_finish(trace_status, trace_error.as_deref());
+
+    let bundle_result = finalize_bundle(&mut bundle, &trace);
+    let bundle_recovery_finalize_result = if bundle_result.is_err()
+        && pre_bundle_status == dot_db::RunStatus::Succeeded
+        && finalize_result.is_ok()
+    {
+        Some(
+            host.finalize_run(dot_db::RunStatus::Failed)
+                .map_err(|error| error.to_string()),
+        )
+    } else {
+        None
+    };
+    let mut errors = Vec::new();
+
+    if let Err(error) = execution_result {
+        errors.push(error);
+    }
+    if let Err(error) = capability_report_result {
+        errors.push(error);
+    }
+    if let Err(error) = bundle_result {
+        errors.push(error);
+    }
+    if let Err(error) = finalize_result {
+        errors.push(error);
+    }
+    if let Some(Err(error)) = finalize_recovery_result {
+        errors.push(error);
+    }
+    if let Some(Err(error)) = bundle_recovery_finalize_result {
+        errors.push(error);
+    }
+
+    match errors.split_first() {
+        None => Ok(()),
+        Some((primary, extras)) => Err(combine_errors(
+            primary.clone(),
+            extras.iter().cloned().map(Some),
         )),
     }
 }
 
-fn run_vm_execution(
+async fn run_vm_execution(
     host: &mut OpsHost,
     document: &dot_dsl::Document,
     max_requests: Option<u64>,
@@ -111,6 +195,7 @@ fn run_vm_execution(
     let program = build_program(document, max_requests)?;
     let mut vm = Vm::new(program);
     vm.run_with_host_and_events(host, trace)
+        .await
         .map_err(format_vm_error)
 }
 
@@ -157,19 +242,38 @@ fn format_vm_error(error: VmError) -> String {
     }
 }
 
-fn write_bundle(
+fn write_capability_report(
     bundle: &mut BundleWriter,
-    trace: &TraceRecorder,
     document: &dot_dsl::Document,
 ) -> Result<(), String> {
+    match bundle.write_capability_report_json(&json!({
+        "granted": granted_capabilities(document),
+    })) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            let message = format!("failed to write capability_report.json: {error}");
+            match bundle.mark_section_error(
+                BundleSection::CapabilityReport,
+                "artifact_write_failed",
+                &message,
+            ) {
+                Ok(()) => Err(message),
+                Err(marker_error) => Err(combine_errors(
+                    message,
+                    [Some(format!(
+                        "failed to mark capability_report.json as errored: {marker_error}"
+                    ))],
+                )),
+            }
+        }
+    }
+}
+
+fn finalize_bundle(bundle: &mut BundleWriter, trace: &TraceRecorder) -> Result<(), String> {
+    trace.flush()?;
     bundle
-        .write_trace_jsonl(trace.lines.iter().map(String::as_str))
-        .map_err(|error| format!("failed to write trace.jsonl: {error}"))?;
-    bundle
-        .write_capability_report_json(&json!({
-            "granted": granted_capabilities(document),
-        }))
-        .map_err(|error| format!("failed to write capability_report.json: {error}"))?;
+        .commit_existing_trace_jsonl()
+        .map_err(|error| format!("failed to finalize trace.jsonl: {error}"))?;
     bundle
         .finalize()
         .map_err(|error| format!("failed to finalize artifact bundle: {error}"))
@@ -183,10 +287,33 @@ fn granted_capabilities(document: &dot_dsl::Document) -> Vec<String> {
     capabilities.into_iter().collect()
 }
 
-fn bundle_dir_for_run(run_id: &str) -> Result<PathBuf, String> {
-    let cwd = std::env::current_dir()
-        .map_err(|error| format!("failed to read current directory: {error}"))?;
-    Ok(cwd.join(DOTLANTH_DIR).join(BUNDLES_DIR).join(run_id))
+fn bundle_dir_for_run(project_root: &Path, run_id: &str) -> PathBuf {
+    project_root
+        .join(DOTLANTH_DIR)
+        .join(BUNDLES_DIR)
+        .join(run_id)
+}
+
+fn project_root_for_dot_path(path: &Path) -> Result<PathBuf, String> {
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        if parent.is_absolute() {
+            return Ok(parent.to_path_buf());
+        }
+
+        let cwd = std::env::current_dir()
+            .map_err(|error| format!("failed to read current directory: {error}"))?;
+        return Ok(cwd.join(parent));
+    }
+
+    std::env::current_dir().map_err(|error| format!("failed to read current directory: {error}"))
+}
+
+fn read_dot_source(path: &Path) -> Result<String, String> {
+    std::fs::read_to_string(path)
+        .map_err(|error| format!("failed to read `{}`: {error}", path.display()))
 }
 
 fn combine_errors(primary: String, extras: impl IntoIterator<Item = Option<String>>) -> String {
@@ -198,53 +325,102 @@ fn combine_errors(primary: String, extras: impl IntoIterator<Item = Option<Strin
     }
 }
 
-#[derive(Debug)]
+fn summarize_errors(errors: impl IntoIterator<Item = Option<String>>) -> Option<String> {
+    let errors = errors.into_iter().flatten().collect::<Vec<_>>();
+    let (primary, extras) = errors.split_first()?;
+    Some(combine_errors(
+        primary.clone(),
+        extras.iter().cloned().map(Some),
+    ))
+}
+
+#[derive(Clone, Debug)]
 struct TraceRecorder {
+    inner: Rc<RefCell<TraceRecorderState>>,
+}
+
+#[derive(Debug)]
+struct TraceRecorderState {
     run_id: String,
     next_seq: u64,
-    lines: Vec<String>,
+    writer: BufWriter<std::fs::File>,
+    error: Option<String>,
 }
 
 impl TraceRecorder {
-    fn new(run_id: &str) -> Self {
-        Self {
-            run_id: run_id.to_owned(),
-            next_seq: 0,
-            lines: Vec::new(),
+    fn new(run_id: &str, path: &Path) -> Result<Self, String> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|error| {
+                format!(
+                    "failed to create trace directory `{}`: {error}",
+                    parent.display()
+                )
+            })?;
         }
+        let file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(path)
+            .map_err(|error| format!("failed to open trace file `{}`: {error}", path.display()))?;
+        Ok(Self {
+            inner: Rc::new(RefCell::new(TraceRecorderState {
+                run_id: run_id.to_owned(),
+                next_seq: 0,
+                writer: BufWriter::new(file),
+                error: None,
+            })),
+        })
+    }
+
+    fn runtime_event_forwarder(&self) -> impl FnMut(RuntimeEvent) + 'static {
+        let mut recorder = self.clone();
+        move |event| recorder.record_runtime_event(event)
+    }
+
+    fn flush(&self) -> Result<(), String> {
+        self.inner.borrow_mut().flush()
+    }
+
+    fn with_state(&mut self, op: impl FnOnce(&mut TraceRecorderState)) {
+        op(&mut self.inner.borrow_mut());
+    }
+
+    fn new_payload(&self) -> Map<String, JsonValue> {
+        Map::new()
     }
 
     fn record_run_start(&mut self, entry_dot: &Path) {
-        let mut payload = Map::new();
+        let mut payload = self.new_payload();
         payload.insert(
             "entry_dot".to_owned(),
             json!(entry_dot.as_os_str().to_string_lossy().to_string()),
         );
-        self.push("run.start", payload, None);
+        self.with_state(|state| state.push("run.start", payload, None));
     }
 
     fn record_run_finish(&mut self, status: dot_db::RunStatus, error: Option<&str>) {
-        let mut payload = Map::new();
+        let mut payload = self.new_payload();
         payload.insert("status".to_owned(), json!(status.to_string()));
         if let Some(error) = error {
             payload.insert("error".to_owned(), json!(error));
         }
-        self.push("run.finish", payload, None);
+        self.with_state(|state| state.push("run.finish", payload, None));
     }
 
     fn record_syscall_attempt(&mut self, event: SyscallAttemptEvent) {
-        let mut payload = Map::new();
+        let mut payload = self.new_payload();
         payload.insert("syscall_id".to_owned(), json!(event.id.0));
         payload.insert("syscall".to_owned(), json!(syscall_name(event.id)));
         payload.insert(
             "args".to_owned(),
             JsonValue::Array(event.args.iter().map(vm_value_to_json).collect()),
         );
-        self.push("syscall.attempt", payload, event.source.as_ref());
+        self.with_state(|state| state.push("syscall.attempt", payload, event.source.as_ref()));
     }
 
     fn record_syscall_result(&mut self, event: SyscallResultEvent) {
-        let mut payload = Map::new();
+        let mut payload = self.new_payload();
         payload.insert("syscall_id".to_owned(), json!(event.id.0));
         payload.insert("syscall".to_owned(), json!(syscall_name(event.id)));
         match event.result {
@@ -260,56 +436,79 @@ impl TraceRecorder {
                 payload.insert("error".to_owned(), json!(error.message()));
             }
         }
-        self.push("syscall.result", payload, event.source.as_ref());
+        self.with_state(|state| state.push("syscall.result", payload, event.source.as_ref()));
     }
 
     fn record_runtime_event(&mut self, event: RuntimeEvent) {
         match event {
             RuntimeEvent::Log { message, source } => {
-                let mut payload = Map::new();
+                let mut payload = self.new_payload();
                 payload.insert("message".to_owned(), json!(message));
-                self.push("log", payload, source.as_ref());
+                self.with_state(|state| state.push("log", payload, source.as_ref()));
             }
             RuntimeEvent::HttpServerStart { addr, source } => {
-                let mut payload = Map::new();
+                let mut payload = self.new_payload();
                 payload.insert("addr".to_owned(), json!(addr.to_string()));
-                self.push("http.server_start", payload, source.as_ref());
+                self.with_state(|state| state.push("http.server_start", payload, source.as_ref()));
             }
             RuntimeEvent::HttpRequest {
                 method,
                 path,
                 source,
             } => {
-                let mut payload = Map::new();
+                let mut payload = self.new_payload();
                 payload.insert("method".to_owned(), json!(method));
                 payload.insert("path".to_owned(), json!(path));
-                self.push("http.request", payload, source.as_ref());
+                self.with_state(|state| state.push("http.request", payload, source.as_ref()));
             }
             RuntimeEvent::HttpResponse { status, source } => {
-                let mut payload = Map::new();
+                let mut payload = self.new_payload();
                 payload.insert("status".to_owned(), json!(status));
-                self.push("http.response", payload, source.as_ref());
+                self.with_state(|state| state.push("http.response", payload, source.as_ref()));
             }
         }
     }
+}
 
+impl TraceRecorderState {
     fn push(
         &mut self,
         event: &str,
         mut payload: Map<String, JsonValue>,
         source: Option<&SourceRef>,
     ) {
+        if self.error.is_some() {
+            return;
+        }
+
         payload.insert("seq".to_owned(), json!(self.next_seq));
         payload.insert("run_id".to_owned(), json!(self.run_id.as_str()));
         payload.insert("event".to_owned(), json!(event));
         if let Some(source) = source.and_then(source_to_json) {
             payload.insert("source".to_owned(), source);
         }
-        self.lines.push(
-            serde_json::to_string(&JsonValue::Object(payload))
-                .expect("trace events should serialize"),
-        );
-        self.next_seq += 1;
+
+        match serde_json::to_writer(&mut self.writer, &JsonValue::Object(payload)) {
+            Ok(()) => {
+                if let Err(error) = self.writer.write_all(b"\n") {
+                    self.error = Some(format!("failed to write trace event: {error}"));
+                    return;
+                }
+                self.next_seq += 1;
+            }
+            Err(error) => {
+                self.error = Some(format!("failed to serialize trace event: {error}"));
+            }
+        }
+    }
+
+    fn flush(&mut self) -> Result<(), String> {
+        if let Some(error) = self.error.take() {
+            return Err(error);
+        }
+        self.writer
+            .flush()
+            .map_err(|error| format!("failed to flush trace file: {error}"))
     }
 }
 
@@ -667,5 +866,68 @@ end
             trace_raw.len()
         );
         assert_eq!(manifest["sections"]["capability_report"]["status"], "ok");
+    }
+
+    #[test]
+    fn run_with_explicit_file_writes_state_into_the_dot_file_project() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
+        let temp = TempDir::new().expect("temp dir must create");
+        let caller_dir = temp.path().join("caller");
+        let project_dir = temp.path().join("project");
+        std::fs::create_dir_all(&caller_dir).expect("caller dir must create");
+        std::fs::create_dir_all(&project_dir).expect("project dir must create");
+
+        let port = reserve_port();
+        let dot_path = project_dir.join("app.dot");
+        std::fs::write(
+            &dot_path,
+            format!(
+                r#"dot 0.1
+app "x"
+allow net.http.listen
+
+server listen {port}
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#
+            ),
+        )
+        .expect("dot file write");
+
+        let _cwd = CwdGuard::set(&caller_dir);
+        let client = std::thread::spawn(move || {
+            for _ in 0..50 {
+                match TcpStream::connect(("127.0.0.1", port)) {
+                    Ok(mut stream) => {
+                        stream
+                            .write_all(b"GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                            .expect("client write must succeed");
+                        let mut response = String::new();
+                        stream
+                            .read_to_string(&mut response)
+                            .expect("client read must succeed");
+                        return response;
+                    }
+                    Err(_) => std::thread::sleep(Duration::from_millis(20)),
+                }
+            }
+            panic!("client failed to connect to runtime");
+        });
+
+        run(RunOptions {
+            file: Some(dot_path),
+            max_requests: Some(1),
+        })
+        .expect("run should succeed");
+
+        let response = client.join().expect("client must join");
+        assert!(response.contains("Hello from Dotlanth"));
+        assert!(project_dir.join(".dotlanth").join("dotdb.sqlite").is_file());
+        assert!(project_dir.join(".dotlanth").join("bundles").is_dir());
+        assert!(!caller_dir.join(".dotlanth").exists());
     }
 }

@@ -3,16 +3,27 @@
 use dot_db::{DotDb, RunId, RunLogEntry, RunStatus};
 use dot_dsl::Document;
 use dot_sec::{CapabilitySet, Syscall};
+use std::future::Future;
 use std::io::Write;
-use std::io::{BufRead, BufReader};
 use std::mem;
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpListener};
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::task::JoinSet;
+use tokio::time::{Instant, timeout, timeout_at};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SyscallId(pub u32);
 
 pub const SYSCALL_LOG_EMIT: SyscallId = SyscallId(1);
 pub const SYSCALL_NET_HTTP_SERVE: SyscallId = SyscallId(2);
+
+const MAX_HTTP_REQUEST_LINE_BYTES: usize = 8 * 1024;
+const HTTP_READ_TIMEOUT: Duration = Duration::from_secs(5);
+const HTTP_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_IN_FLIGHT_HTTP_REQUESTS: usize = 256;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SourceSpan {
@@ -106,7 +117,11 @@ pub enum RuntimeEvent {
 ///
 /// The VM remains deterministic: nondeterminism may only enter via this interface.
 pub trait Host<V> {
-    fn syscall(&mut self, id: SyscallId, args: &[V]) -> Result<Vec<V>, HostError>;
+    fn syscall<'a>(
+        &'a mut self,
+        id: SyscallId,
+        args: &'a [V],
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<V>, HostError>> + 'a>>;
 
     fn take_runtime_events(&mut self) -> Vec<RuntimeEvent> {
         Vec::new()
@@ -133,6 +148,7 @@ pub struct OpsHost {
     run_row_id: RunId,
     run_id: String,
     pending_runtime_events: Vec<RuntimeEvent>,
+    runtime_event_forwarder: Option<Box<dyn FnMut(RuntimeEvent)>>,
     record_mode: RecordMode,
     stdout: Box<dyn Write + Send>,
     http: Option<HttpConfig>,
@@ -150,6 +166,7 @@ impl OpsHost {
             run_row_id,
             run_id,
             pending_runtime_events: Vec::new(),
+            runtime_event_forwarder: None,
             record_mode: RecordMode::default(),
             stdout: Box::new(std::io::stdout()),
             http: None,
@@ -163,6 +180,13 @@ impl OpsHost {
 
     pub fn set_record_mode(&mut self, record_mode: RecordMode) {
         self.record_mode = record_mode;
+    }
+
+    pub fn set_runtime_event_forwarder<F>(&mut self, forwarder: F)
+    where
+        F: FnMut(RuntimeEvent) + 'static,
+    {
+        self.runtime_event_forwarder = Some(Box::new(forwarder));
     }
 
     pub fn run_id(&self) -> &str {
@@ -222,20 +246,40 @@ impl OpsHost {
     }
 
     fn record_runtime_event(&mut self, event: RuntimeEvent) -> Result<(), HostError> {
-        self.pending_runtime_events.push(event.clone());
-        if self.record_mode != RecordMode::Record {
+        self.record_runtime_events([event])
+    }
+
+    fn record_runtime_events<I>(&mut self, events: I) -> Result<(), HostError>
+    where
+        I: IntoIterator<Item = RuntimeEvent>,
+    {
+        let events = events.into_iter().collect::<Vec<_>>();
+        if events.is_empty() {
             return Ok(());
         }
 
-        let line = event.to_json_line();
-        self.db
-            .append_run_log(self.run_row_id, &line)
-            .map_err(|error| HostError::new(format!("failed to append run log: {error}")))?;
+        if self.record_mode == RecordMode::Record {
+            let lines = events
+                .iter()
+                .map(RuntimeEvent::to_json_line)
+                .collect::<Vec<_>>();
+            self.db
+                .append_run_logs(self.run_row_id, lines.iter().map(String::as_str))
+                .map_err(|error| HostError::new(format!("failed to append run log: {error}")))?;
+        }
+
+        for event in events {
+            self.dispatch_runtime_event(event);
+        }
         Ok(())
     }
 
-    fn record_runtime_event_best_effort(&mut self, event: RuntimeEvent) {
-        let _ = self.record_runtime_event(event);
+    fn dispatch_runtime_event(&mut self, event: RuntimeEvent) {
+        if let Some(forwarder) = self.runtime_event_forwarder.as_mut() {
+            forwarder(event);
+        } else {
+            self.pending_runtime_events.push(event);
+        }
     }
 
     fn syscall_log_emit<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
@@ -258,7 +302,7 @@ impl OpsHost {
         Ok(vec![])
     }
 
-    fn syscall_http_serve<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
+    async fn syscall_http_serve<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
         self.capabilities
             .enforce(Syscall::NetHttpServe)
             .map_err(|error| HostError::new(error.to_string()))?;
@@ -292,99 +336,98 @@ impl OpsHost {
         };
 
         if let Ok(addr) = http.listener.local_addr() {
-            self.record_runtime_event_best_effort(RuntimeEvent::HttpServerStart {
+            self.record_runtime_event(RuntimeEvent::HttpServerStart {
                 addr,
                 source: http.server_source.clone(),
-            });
+            })?;
         }
 
-        let mut served = 0_usize;
+        http.listener.set_nonblocking(true).map_err(|error| {
+            HostError::new(format!("failed to make listener nonblocking: {error}"))
+        })?;
+        let listener = tokio::net::TcpListener::from_std(http.listener).map_err(|error| {
+            HostError::new(format!(
+                "failed to attach listener to tokio runtime: {error}"
+            ))
+        })?;
+
+        let routes = Arc::new(http.routes.clone());
+        let server_source = http.server_source.clone();
+        let mut tasks = JoinSet::new();
+        let mut accepted = 0_usize;
+
         let result = loop {
             if let Some(limit) = max_requests
-                && served >= limit
+                && accepted >= limit
+                && tasks.is_empty()
             {
                 break Ok(());
             }
 
-            let (stream, _) = match http.listener.accept() {
-                Ok(pair) => pair,
-                Err(error) => {
-                    break Err(HostError::new(format!(
-                        "failed to accept incoming http connection: {error}"
-                    )));
-                }
-            };
+            let can_accept_more = max_requests.is_none_or(|limit| accepted < limit)
+                && tasks.len() < MAX_IN_FLIGHT_HTTP_REQUESTS;
 
-            if let Err(error) = self.handle_http_connection(stream, &http.routes) {
-                break Err(error);
+            tokio::select! {
+                accept_result = listener.accept(), if can_accept_more => {
+                    let (stream, _) = match accept_result {
+                        Ok(value) => value,
+                        Err(error) => {
+                            break Err(HostError::new(format!(
+                                "failed to accept incoming http connection: {error}"
+                            )));
+                        }
+                    };
+                    accepted += 1;
+                    let routes = Arc::clone(&routes);
+                    tasks.spawn(async move { handle_http_connection_async(stream, routes).await });
+                }
+                join_result = tasks.join_next(), if !tasks.is_empty() => {
+                    let joined = match join_result.expect("join_next must yield while tasks are pending") {
+                        Ok(outcome) => outcome,
+                        Err(error) => {
+                            break Err(HostError::new(format!("http connection task failed: {error}")));
+                        }
+                    };
+                    let outcome = match joined {
+                        Ok(outcome) => outcome,
+                        Err(error) => break Err(error),
+                    };
+                    if let Err(error) = self.record_runtime_events(outcome.runtime_events) {
+                        break Err(error);
+                    }
+                }
             }
-            served += 1;
         };
 
-        self.http = Some(http);
+        let listener = listener.into_std().map_err(|error| {
+            HostError::new(format!(
+                "failed to detach listener from tokio runtime: {error}"
+            ))
+        })?;
+        self.http = Some(HttpConfig {
+            listener,
+            routes: Arc::unwrap_or_clone(routes),
+            server_source,
+        });
 
         result?;
         Ok(vec![])
     }
-
-    fn handle_http_connection(
-        &mut self,
-        mut stream: TcpStream,
-        routes: &RouteTable,
-    ) -> Result<(), HostError> {
-        let (method, path) = match read_http_request_line(&mut stream) {
-            Ok(value) => value,
-            Err(error) => {
-                let _ = write_http_response(&mut stream, 400, "Bad Request");
-                return Err(HostError::new(format!(
-                    "failed to parse http request line: {error}"
-                )));
-            }
-        };
-
-        let matched_route = routes.match_route(&method, &path);
-        let (response, request_source, response_source) = if let Some(route) = matched_route {
-            (
-                route.response.clone(),
-                route.source.clone(),
-                route.response_source.clone(),
-            )
-        } else {
-            (
-                StaticResponse {
-                    status: 404,
-                    body: "Not Found".to_owned(),
-                },
-                None,
-                None,
-            )
-        };
-
-        self.record_runtime_event_best_effort(RuntimeEvent::HttpRequest {
-            method: method.clone(),
-            path: path.clone(),
-            source: request_source,
-        });
-
-        write_http_response(&mut stream, response.status, &response.body)
-            .map_err(|error| HostError::new(format!("failed to write http response: {error}")))?;
-
-        self.record_runtime_event_best_effort(RuntimeEvent::HttpResponse {
-            status: response.status,
-            source: response_source,
-        });
-
-        Ok(())
-    }
 }
 
 impl<V: OpValue> Host<V> for OpsHost {
-    fn syscall(&mut self, id: SyscallId, args: &[V]) -> Result<Vec<V>, HostError> {
-        match id {
-            SYSCALL_LOG_EMIT => self.syscall_log_emit(args),
-            SYSCALL_NET_HTTP_SERVE => self.syscall_http_serve(args),
-            _ => Err(HostError::new(format!("unknown syscall id: {}", id.0))),
-        }
+    fn syscall<'a>(
+        &'a mut self,
+        id: SyscallId,
+        args: &'a [V],
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<V>, HostError>> + 'a>> {
+        Box::pin(async move {
+            match id {
+                SYSCALL_LOG_EMIT => self.syscall_log_emit(args),
+                SYSCALL_NET_HTTP_SERVE => self.syscall_http_serve(args).await,
+                _ => Err(HostError::new(format!("unknown syscall id: {}", id.0))),
+            }
+        })
     }
 
     fn take_runtime_events(&mut self) -> Vec<RuntimeEvent> {
@@ -428,6 +471,10 @@ impl RuntimeEvent {
             }
         }
     }
+}
+
+struct ConnectionOutcome {
+    runtime_events: Vec<RuntimeEvent>,
 }
 
 fn json_string(value: &str) -> String {
@@ -541,20 +588,163 @@ struct HttpConfig {
     server_source: Option<SourceRef>,
 }
 
-fn read_http_request_line(stream: &mut TcpStream) -> Result<(String, String), std::io::Error> {
-    let mut reader = BufReader::new(stream);
-    let mut line = String::new();
-    reader.read_line(&mut line)?;
+async fn handle_http_connection_async<S>(
+    mut stream: S,
+    routes: Arc<RouteTable>,
+) -> Result<ConnectionOutcome, HostError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let (method, path) = match read_http_request_line_async(&mut stream).await {
+        Ok(value) => value,
+        Err(error) => {
+            let status = match error.kind() {
+                std::io::ErrorKind::TimedOut => 408,
+                _ => 400,
+            };
+            let body = reason_phrase(status);
+            let runtime_event = match write_http_response_async(&mut stream, status, body).await {
+                Ok(()) => RuntimeEvent::HttpResponse {
+                    status,
+                    source: None,
+                },
+                Err(write_error) => RuntimeEvent::Log {
+                    message: format!(
+                        "failed to write malformed request response {status}: {write_error}"
+                    ),
+                    source: None,
+                },
+            };
+            return Ok(ConnectionOutcome {
+                runtime_events: vec![runtime_event],
+            });
+        }
+    };
 
+    let matched_route = routes.match_route(&method, &path);
+    let (response, request_source, response_source) = if let Some(route) = matched_route {
+        (
+            route.response.clone(),
+            route.source.clone(),
+            route.response_source.clone(),
+        )
+    } else {
+        (
+            StaticResponse {
+                status: 404,
+                body: "Not Found".to_owned(),
+            },
+            None,
+            None,
+        )
+    };
+
+    let request_event = RuntimeEvent::HttpRequest {
+        method: method.clone(),
+        path: path.clone(),
+        source: request_source.clone(),
+    };
+    let error_source = response_source.clone().or(request_source);
+
+    match write_http_response_async(&mut stream, response.status, &response.body).await {
+        Ok(()) => Ok(ConnectionOutcome {
+            runtime_events: vec![
+                request_event,
+                RuntimeEvent::HttpResponse {
+                    status: response.status,
+                    source: response_source,
+                },
+            ],
+        }),
+        Err(error) => Ok(ConnectionOutcome {
+            runtime_events: vec![
+                request_event,
+                RuntimeEvent::Log {
+                    message: format!(
+                        "failed to write http response {} for {} {}: {error}",
+                        response.status, method, path
+                    ),
+                    source: error_source,
+                },
+            ],
+        }),
+    }
+}
+
+async fn read_http_request_line_async<S>(stream: &mut S) -> Result<(String, String), std::io::Error>
+where
+    S: AsyncRead + Unpin,
+{
+    let deadline = Instant::now() + HTTP_READ_TIMEOUT;
+    let mut line = Vec::with_capacity(128);
+    let mut chunk = [0_u8; 256];
+
+    loop {
+        let bytes_read = timeout_at(deadline, stream.read(&mut chunk))
+            .await
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "request line timed out")
+            })??;
+        if bytes_read == 0 {
+            if line.is_empty() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "missing request line",
+                ));
+            }
+            break;
+        }
+
+        let bytes = &chunk[..bytes_read];
+        if let Some(newline_index) = bytes.iter().position(|&byte| byte == b'\n') {
+            let needed = newline_index + 1;
+            if line.len() + needed > MAX_HTTP_REQUEST_LINE_BYTES {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "request line exceeds maximum supported length",
+                ));
+            }
+            line.extend_from_slice(&bytes[..needed]);
+            break;
+        }
+
+        if line.len() + bytes.len() > MAX_HTTP_REQUEST_LINE_BYTES {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "request line exceeds maximum supported length",
+            ));
+        }
+        line.extend_from_slice(bytes);
+    }
+
+    let line = String::from_utf8(line).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "request line is not valid utf-8",
+        )
+    })?;
     let line = line.trim_end_matches(&['\r', '\n'][..]);
     let mut parts = line.split_whitespace();
     let method = parts.next().unwrap_or_default();
     let path = parts.next().unwrap_or_default();
+    let version = parts.next().unwrap_or_default();
 
-    if method.is_empty() || path.is_empty() {
+    if method.is_empty() || path.is_empty() || version.is_empty() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
-            "missing method or path in request line",
+            "request line must include method, path, and HTTP version",
+        ));
+    }
+    if parts.next().is_some() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "request line contains unexpected trailing content",
+        ));
+    }
+    if !matches!(version, "HTTP/1.0" | "HTTP/1.1") {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "unsupported HTTP version",
         ));
     }
 
@@ -563,16 +753,48 @@ fn read_http_request_line(stream: &mut TcpStream) -> Result<(String, String), st
 
 fn reason_phrase(status: u16) -> &'static str {
     match status {
+        100 => "Continue",
+        101 => "Switching Protocols",
         200 => "OK",
+        201 => "Created",
+        202 => "Accepted",
+        204 => "No Content",
+        301 => "Moved Permanently",
+        302 => "Found",
+        304 => "Not Modified",
         400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
         404 => "Not Found",
+        405 => "Method Not Allowed",
+        408 => "Request Timeout",
+        409 => "Conflict",
+        410 => "Gone",
+        422 => "Unprocessable Entity",
+        429 => "Too Many Requests",
         500 => "Internal Server Error",
-        _ => "OK",
+        501 => "Not Implemented",
+        502 => "Bad Gateway",
+        503 => "Service Unavailable",
+        504 => "Gateway Timeout",
+        _ => status_class_reason_phrase(status),
     }
 }
 
+fn status_class_reason_phrase(status: u16) -> &'static str {
+    match status {
+        100..=199 => "Informational",
+        200..=299 => "Success",
+        300..=399 => "Redirection",
+        400..=499 => "Client Error",
+        500..=599 => "Server Error",
+        _ => "Unknown Status",
+    }
+}
+
+#[cfg(test)]
 fn write_http_response(
-    stream: &mut TcpStream,
+    stream: &mut std::net::TcpStream,
     status: u16,
     body: &str,
 ) -> Result<(), std::io::Error> {
@@ -589,16 +811,59 @@ fn write_http_response(
     Ok(())
 }
 
+async fn write_http_response_async<S>(
+    stream: &mut S,
+    status: u16,
+    body: &str,
+) -> Result<(), std::io::Error>
+where
+    S: AsyncWrite + Unpin,
+{
+    let reason = reason_phrase(status);
+    let bytes = body.as_bytes();
+    let header = format!(
+        "HTTP/1.1 {status} {reason}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        bytes.len()
+    );
+
+    timeout(HTTP_WRITE_TIMEOUT, stream.write_all(header.as_bytes()))
+        .await
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "response header write timed out",
+            )
+        })??;
+    timeout(HTTP_WRITE_TIMEOUT, stream.write_all(bytes))
+        .await
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "response body write timed out",
+            )
+        })??;
+    timeout(HTTP_WRITE_TIMEOUT, stream.flush())
+        .await
+        .map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::TimedOut, "response flush timed out")
+        })??;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        Host, HostError, OpValue, OpsHost, RecordMode, RouteTable, SYSCALL_LOG_EMIT,
-        SYSCALL_NET_HTTP_SERVE, SyscallId,
+        Host, HostError, MAX_HTTP_REQUEST_LINE_BYTES, OpValue, OpsHost, RecordMode, RouteTable,
+        RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SyscallId,
+        handle_http_connection_async, write_http_response,
     };
     use dot_db::DotDb;
     use dot_dsl::parse_and_validate;
     use dot_sec::{Capability, CapabilitySet};
+    use std::future::Future;
+    use std::pin::Pin;
     use std::sync::{Arc, Mutex};
+    use std::task::{Context, Poll};
     use std::{
         io::{Read, Write},
         net::TcpListener,
@@ -608,15 +873,27 @@ mod tests {
     struct NoopHost;
 
     impl Host<u8> for NoopHost {
-        fn syscall(&mut self, _id: SyscallId, _args: &[u8]) -> Result<Vec<u8>, HostError> {
-            Ok(vec![])
+        fn syscall<'a>(
+            &'a mut self,
+            _id: SyscallId,
+            _args: &'a [u8],
+        ) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, HostError>> + 'a>> {
+            Box::pin(async { Ok(vec![]) })
         }
+    }
+
+    fn block_on<F: Future>(future: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime must build")
+            .block_on(future)
     }
 
     #[test]
     fn host_is_object_safe_over_concrete_value_types() {
         let mut host: Box<dyn Host<u8>> = Box::new(NoopHost);
-        host.syscall(SyscallId(0), &[]).unwrap();
+        block_on(host.syscall(SyscallId(0), &[])).unwrap();
     }
 
     #[derive(Clone, Debug, PartialEq)]
@@ -661,15 +938,66 @@ mod tests {
         }
     }
 
+    struct FailingWriteStream {
+        request: Vec<u8>,
+        read_offset: usize,
+    }
+
+    impl FailingWriteStream {
+        fn new(request: &str) -> Self {
+            Self {
+                request: request.as_bytes().to_vec(),
+                read_offset: 0,
+            }
+        }
+    }
+
+    impl tokio::io::AsyncRead for FailingWriteStream {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            if self.read_offset >= self.request.len() {
+                return Poll::Ready(Ok(()));
+            }
+
+            let remaining = &self.request[self.read_offset..];
+            let to_copy = remaining.len().min(buf.remaining());
+            buf.put_slice(&remaining[..to_copy]);
+            self.read_offset += to_copy;
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl tokio::io::AsyncWrite for FailingWriteStream {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "simulated write failure",
+            )))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
     #[test]
     fn log_syscall_requires_capability() {
         let temp = TempDir::new().expect("temp dir must create");
         let db = DotDb::open_in(temp.path()).expect("db open must succeed");
         let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
 
-        let error = host
-            .syscall(SYSCALL_LOG_EMIT, &[TestValue::from("hi")])
-            .unwrap_err();
+        let error = block_on(host.syscall(SYSCALL_LOG_EMIT, &[TestValue::from("hi")])).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -694,7 +1022,7 @@ mod tests {
             .with_stdout(Box::new(shared));
         host.set_record_mode(RecordMode::Record);
 
-        host.syscall(SYSCALL_LOG_EMIT, &[TestValue::from("hello")])
+        block_on(host.syscall(SYSCALL_LOG_EMIT, &[TestValue::from("hello")]))
             .expect("log syscall must succeed");
 
         let stdout =
@@ -716,9 +1044,7 @@ mod tests {
         capabilities.insert(Capability::Log);
 
         let mut host = OpsHost::new(capabilities, db).expect("host create must succeed");
-        let error = host
-            .syscall(SYSCALL_LOG_EMIT, &[TestValue::I64(1)])
-            .unwrap_err();
+        let error = block_on(host.syscall(SYSCALL_LOG_EMIT, &[TestValue::I64(1)])).unwrap_err();
         assert_eq!(error.to_string(), "log.emit expects 1 string argument");
     }
 
@@ -749,9 +1075,8 @@ end
         let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
         host.configure_http(listener, RouteTable::from_document(&document));
 
-        let error = host
-            .syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)])
-            .unwrap_err();
+        let error =
+            block_on(host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)])).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -805,7 +1130,7 @@ end
             buf
         });
 
-        host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)])
+        block_on(host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)]))
             .expect("http serve must succeed");
 
         let response = client.join().expect("client must join");
@@ -859,7 +1184,7 @@ end
             buf
         });
 
-        host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)])
+        block_on(host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)]))
             .expect("http serve must succeed");
 
         let response = client.join().expect("client must join");
@@ -877,5 +1202,208 @@ end
 
         assert!(!logs[1].line.contains("Hello from Dotlanth"));
         assert!(!logs[2].line.contains("Hello from Dotlanth"));
+    }
+
+    #[test]
+    fn invalid_request_does_not_abort_the_server() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let mut capabilities = CapabilitySet::empty();
+        capabilities.insert(Capability::NetHttpListen);
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind must succeed");
+        let addr = listener.local_addr().expect("listener addr");
+
+        let document = parse_and_validate(
+            r#"
+dot 0.1
+app "x"
+allow net.http.listen
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+
+        let mut host = OpsHost::new(capabilities, db).expect("host create must succeed");
+        host.configure_http(listener, RouteTable::from_document(&document));
+
+        let invalid_client = std::thread::spawn(move || {
+            let mut stream =
+                std::net::TcpStream::connect(addr).expect("client connect must succeed");
+            stream
+                .write_all(b"THIS IS NOT HTTP\r\n\r\n")
+                .expect("client write must succeed");
+
+            let mut buf = String::new();
+            stream
+                .read_to_string(&mut buf)
+                .expect("client read must succeed");
+            buf
+        });
+
+        let valid_client = std::thread::spawn(move || {
+            let mut stream =
+                std::net::TcpStream::connect(addr).expect("client connect must succeed");
+            stream
+                .write_all(b"GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .expect("client write must succeed");
+
+            let mut buf = String::new();
+            stream
+                .read_to_string(&mut buf)
+                .expect("client read must succeed");
+            buf
+        });
+
+        block_on(host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(2)]))
+            .expect("http serve must succeed");
+
+        let invalid_response = invalid_client.join().expect("invalid client must join");
+        let valid_response = valid_client.join().expect("valid client must join");
+
+        assert!(invalid_response.starts_with("HTTP/1.1 400 Bad Request\r\n"));
+        assert!(valid_response.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(valid_response.contains("\r\n\r\nHello from Dotlanth"));
+    }
+
+    #[test]
+    fn oversized_request_line_is_rejected_and_server_continues() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let mut capabilities = CapabilitySet::empty();
+        capabilities.insert(Capability::NetHttpListen);
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind must succeed");
+        let addr = listener.local_addr().expect("listener addr");
+
+        let document = parse_and_validate(
+            r#"
+dot 0.1
+app "x"
+allow net.http.listen
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+
+        let mut host = OpsHost::new(capabilities, db).expect("host create must succeed");
+        host.configure_http(listener, RouteTable::from_document(&document));
+
+        let invalid_client = std::thread::spawn(move || {
+            let mut stream =
+                std::net::TcpStream::connect(addr).expect("client connect must succeed");
+            let oversized_path = format!("/{}", "a".repeat(MAX_HTTP_REQUEST_LINE_BYTES));
+            let request = format!("GET {oversized_path} HTTP/1.1\r\nHost: localhost\r\n\r\n");
+            stream
+                .write_all(request.as_bytes())
+                .expect("client write must succeed");
+
+            let mut buf = String::new();
+            stream
+                .read_to_string(&mut buf)
+                .expect("client read must succeed");
+            buf
+        });
+
+        let valid_client = std::thread::spawn(move || {
+            let mut stream =
+                std::net::TcpStream::connect(addr).expect("client connect must succeed");
+            stream
+                .write_all(b"GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .expect("client write must succeed");
+
+            let mut buf = String::new();
+            stream
+                .read_to_string(&mut buf)
+                .expect("client read must succeed");
+            buf
+        });
+
+        block_on(host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(2)]))
+            .expect("http serve must succeed");
+
+        let invalid_response = invalid_client.join().expect("invalid client must join");
+        let valid_response = valid_client.join().expect("valid client must join");
+
+        assert!(invalid_response.starts_with("HTTP/1.1 400 Bad Request\r\n"));
+        assert!(valid_response.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(valid_response.contains("\r\n\r\nHello from Dotlanth"));
+    }
+
+    #[test]
+    fn response_write_failures_become_runtime_log_events() {
+        let document = parse_and_validate(
+            r#"
+dot 0.1
+app "x"
+allow net.http.listen
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+
+        let outcome = block_on(handle_http_connection_async(
+            FailingWriteStream::new("GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n"),
+            Arc::new(RouteTable::from_document(&document)),
+        ))
+        .expect("connection failure should not abort the server");
+
+        assert_eq!(outcome.runtime_events.len(), 2);
+        assert!(matches!(
+            &outcome.runtime_events[0],
+            RuntimeEvent::HttpRequest { method, path, .. }
+                if method == "GET" && path == "/hello"
+        ));
+        assert!(matches!(
+            &outcome.runtime_events[1],
+            RuntimeEvent::Log { message, .. }
+                if message.contains("failed to write http response 200 for GET /hello")
+        ));
+    }
+
+    #[test]
+    fn write_http_response_uses_reasonable_reason_phrases() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind must succeed");
+        let addr = listener.local_addr().expect("listener addr");
+
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept must succeed");
+            write_http_response(&mut stream, 201, "created").expect("response should write");
+        });
+
+        let mut client = std::net::TcpStream::connect(addr).expect("client connect must succeed");
+        let mut response = String::new();
+        client
+            .read_to_string(&mut response)
+            .expect("client read must succeed");
+        handle.join().expect("server thread must join");
+
+        assert!(response.starts_with("HTTP/1.1 201 Created\r\n"));
     }
 }

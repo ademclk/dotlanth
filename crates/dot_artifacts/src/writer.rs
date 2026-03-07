@@ -4,7 +4,7 @@ use crate::schema::{
     DEFAULT_SECTION_UNAVAILABLE_MESSAGE, DEFAULT_UNAVAILABLE_CODE, ENTRY_DOT_FILE,
     INPUT_ENTRY_DOT_KEY, INPUTS_DIR, MANIFEST_FILE, SectionErrorMarker, SectionStatus, TRACE_FILE,
 };
-use crate::util::{build_staging_dir, create_dir_all, sha256_hex, write_bytes};
+use crate::util::{build_staging_dir, create_dir_all, sha256_hex, sha256_hex_file, write_bytes};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -145,6 +145,11 @@ impl BundleWriter {
         write_bytes(&path, "write trace artifact file", &bytes)?;
 
         self.mark_section_written(BundleSection::Trace, &bytes)
+    }
+
+    pub fn commit_existing_trace_jsonl(&mut self) -> Result<(), BundleWriterError> {
+        self.ensure_open()?;
+        self.mark_existing_section_file(BundleSection::Trace)
     }
 
     pub fn write_state_diff_json<T: Serialize>(
@@ -319,6 +324,23 @@ impl BundleWriter {
         Ok(())
     }
 
+    fn mark_existing_section_file(
+        &mut self,
+        section: BundleSection,
+    ) -> Result<(), BundleWriterError> {
+        let path = self.staging_path(section.path());
+        let (sha256, bytes) = sha256_hex_file(&path, "read artifact section for hashing")?;
+        let section_manifest = self
+            .manifest
+            .section_mut(section)
+            .ok_or(BundleWriterError::MissingManifestSection { section })?;
+        section_manifest.status = SectionStatus::Ok;
+        section_manifest.sha256 = Some(sha256);
+        section_manifest.bytes = Some(bytes);
+        section_manifest.error = None;
+        Ok(())
+    }
+
     fn write_json_section<T: Serialize>(
         &mut self,
         section: BundleSection,
@@ -383,4 +405,12 @@ struct SectionFileMarker<'a> {
     status: SectionStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<&'a SectionErrorMarker>,
+}
+
+impl Drop for BundleWriter {
+    fn drop(&mut self) {
+        if !self.finalized {
+            let _ = fs::remove_dir_all(&self.staging_dir);
+        }
+    }
 }

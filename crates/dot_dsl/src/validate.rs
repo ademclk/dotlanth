@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::diagnostics::{Diagnostic, LoadError, Span};
@@ -9,6 +10,7 @@ const KNOWN_CAPABILITIES: &[&str] = &["log", "net.http.listen"];
 
 pub(crate) fn validate(document: &Document, source_path: &Path) -> Result<(), LoadError> {
     let mut diagnostics = Vec::new();
+    let mut seen_routes = BTreeMap::<(&str, &str), (usize, usize)>::new();
 
     match &document.version {
         Some(version) if version.value == SUPPORTED_VERSION => {}
@@ -85,6 +87,20 @@ pub(crate) fn validate(document: &Document, source_path: &Path) -> Result<(), Lo
 
         for (route_index, route) in api.routes.iter().enumerate() {
             validate_route(route, api_index, route_index, &mut diagnostics);
+
+            let route_key = (route.verb.value.as_str(), route.path.value.as_str());
+            if let Some((existing_api_index, existing_route_index)) =
+                seen_routes.insert(route_key, (api_index, route_index))
+            {
+                diagnostics.push(Diagnostic::new(
+                    format!("apis[{api_index}].routes[{route_index}]"),
+                    route.span,
+                    format!(
+                        "duplicate route `{}` `{}`; already declared at `apis[{existing_api_index}].routes[{existing_route_index}]`",
+                        route.verb.value, route.path.value
+                    ),
+                ));
+            }
         }
     }
 

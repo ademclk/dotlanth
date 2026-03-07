@@ -107,7 +107,7 @@ fn parse_top_level(
         ));
     }
 
-    if line == "dot" || line.starts_with("dot ") {
+    if matches_keyword(line, "dot") {
         if document.version.is_some() {
             return Err(single_diag(
                 "version",
@@ -127,7 +127,7 @@ fn parse_top_level(
         return Ok(());
     }
 
-    if line == "app" || line.starts_with("app ") {
+    if matches_keyword(line, "app") {
         if document.metadata.app.is_some() {
             return Err(single_diag(
                 "metadata.app",
@@ -147,7 +147,7 @@ fn parse_top_level(
         return Ok(());
     }
 
-    if line == "project" || line.starts_with("project ") {
+    if matches_keyword(line, "project") {
         if document.metadata.project.is_some() {
             return Err(single_diag(
                 "metadata.project",
@@ -167,7 +167,7 @@ fn parse_top_level(
         return Ok(());
     }
 
-    if line == "allow" || line.starts_with("allow ") {
+    if matches_keyword(line, "allow") {
         let rest = line.strip_prefix("allow").expect("prefix checked");
         let (capability, capability_span) = parse_single_token(
             rest,
@@ -182,7 +182,7 @@ fn parse_top_level(
         return Ok(());
     }
 
-    if line == "server" || line.starts_with("server ") {
+    if matches_keyword(line, "server") {
         if document.server.is_some() {
             return Err(single_diag(
                 "server",
@@ -227,7 +227,7 @@ fn parse_top_level(
         return Ok(());
     }
 
-    if line == "api" || line.starts_with("api ") {
+    if matches_keyword(line, "api") {
         let rest = line.strip_prefix("api").expect("prefix checked");
         let (name, name_span) = parse_quoted(
             rest,
@@ -266,7 +266,7 @@ fn parse_api_line(
         return Ok(());
     }
 
-    if line == "route" || line.starts_with("route ") {
+    if matches_keyword(line, "route") {
         let rest = line.strip_prefix("route").expect("prefix checked");
         let (verb, verb_span) = parse_single_token_prefix(
             rest,
@@ -319,7 +319,7 @@ fn parse_route_line(
         return Ok(());
     }
 
-    if line == "respond" || line.starts_with("respond ") {
+    if matches_keyword(line, "respond") {
         let rest = line.strip_prefix("respond").expect("prefix checked");
         let semantic_base = format!("apis[{api_index}].routes[{route_index}]");
         let (status_raw, status_span) = parse_single_token_prefix(
@@ -539,6 +539,16 @@ fn trim_start_with_offset(input: &str) -> (&str, usize) {
 
 fn first_token(line: &str) -> &str {
     line.split_whitespace().next().unwrap_or(line)
+}
+
+fn matches_keyword(line: &str, keyword: &str) -> bool {
+    if line == keyword {
+        return true;
+    }
+
+    line.strip_prefix(keyword)
+        .and_then(|rest| rest.chars().next())
+        .is_some_and(char::is_whitespace)
 }
 
 fn unescape(value: &str) -> String {

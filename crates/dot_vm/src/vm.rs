@@ -61,24 +61,62 @@ impl Vm {
     }
 
     pub fn step(&mut self) -> Result<StepOutcome, VmError> {
-        self.step_inner(None, None)
+        self.step_inner()
     }
 
-    pub fn step_with_host(&mut self, host: &mut dyn Host<Value>) -> Result<StepOutcome, VmError> {
-        self.step_inner(Some(host), None)
+    pub async fn step_with_host(
+        &mut self,
+        host: &mut dyn Host<Value>,
+    ) -> Result<StepOutcome, VmError> {
+        self.step_inner_async(host, None).await
     }
 
-    pub fn step_with_host_and_events(
+    pub async fn step_with_host_and_events(
         &mut self,
         host: &mut dyn Host<Value>,
         events: &mut dyn EventSink,
     ) -> Result<StepOutcome, VmError> {
-        self.step_inner(Some(host), Some(events))
+        self.step_inner_async(host, Some(events)).await
     }
 
-    fn step_inner(
+    fn step_inner(&mut self) -> Result<StepOutcome, VmError> {
+        if self.halted {
+            return Err(VmError::Halted);
+        }
+
+        let instruction = self
+            .program
+            .get(self.ip)
+            .ok_or(VmError::InstructionPointerOutOfBounds {
+                ip: self.ip,
+                program_len: self.program.len(),
+            })?
+            .clone();
+
+        match instruction {
+            Instruction::Halt => {
+                self.ip += 1;
+                self.halted = true;
+                Ok(StepOutcome::Halted)
+            }
+            Instruction::LoadConst { dst, value } => {
+                self.write(dst, value)?;
+                self.ip += 1;
+                Ok(StepOutcome::Continued)
+            }
+            Instruction::Mov { dst, src } => {
+                let value = self.read(src)?.clone();
+                self.write(dst, value)?;
+                self.ip += 1;
+                Ok(StepOutcome::Continued)
+            }
+            Instruction::Syscall { id, .. } => Err(VmError::SyscallWithoutHost { id }),
+        }
+    }
+
+    async fn step_inner_async(
         &mut self,
-        host: Option<&mut dyn Host<Value>>,
+        host: &mut dyn Host<Value>,
         mut events: Option<&mut dyn EventSink>,
     ) -> Result<StepOutcome, VmError> {
         if self.halted {
@@ -117,8 +155,6 @@ impl Vm {
                 results,
                 source,
             } => {
-                let host = host.ok_or(VmError::SyscallWithoutHost { id })?;
-
                 let mut values = Vec::with_capacity(args.len());
                 for reg in args {
                     values.push(self.read(reg)?.clone());
@@ -133,7 +169,7 @@ impl Vm {
                     }));
                 }
 
-                let syscall_outcome = host.syscall(id, &values);
+                let syscall_outcome = host.syscall(id, &values).await;
                 let runtime_events = host.take_runtime_events();
                 if let Some(events) = events.as_mut() {
                     for runtime_event in runtime_events {
@@ -191,20 +227,20 @@ impl Vm {
         Ok(())
     }
 
-    pub fn run_with_host(&mut self, host: &mut dyn Host<Value>) -> Result<(), VmError> {
+    pub async fn run_with_host(&mut self, host: &mut dyn Host<Value>) -> Result<(), VmError> {
         while !self.halted {
-            self.step_with_host(host)?;
+            self.step_with_host(host).await?;
         }
         Ok(())
     }
 
-    pub fn run_with_host_and_events(
+    pub async fn run_with_host_and_events(
         &mut self,
         host: &mut dyn Host<Value>,
         events: &mut dyn EventSink,
     ) -> Result<(), VmError> {
         while !self.halted {
-            self.step_inner(Some(host), Some(events))?;
+            self.step_inner_async(host, Some(&mut *events)).await?;
         }
         Ok(())
     }

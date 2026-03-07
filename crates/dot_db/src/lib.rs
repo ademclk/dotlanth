@@ -2,6 +2,7 @@
 
 use rusqlite::{Connection, OptionalExtension, params};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -187,11 +188,28 @@ impl DotDb {
 
     /// Returns all log lines for an external run id, in stable append order.
     pub fn run_logs(&mut self, run_id: &str) -> Result<Vec<RunLogEntry>, DotDbError> {
-        let run_row_id = self.lookup_run_row_id(run_id)?;
-        self.run_logs_by_row_id(run_row_id)
+        let mut entries = Vec::new();
+        self.for_each_run_log(run_id, |entry| entries.push(entry))?;
+        Ok(entries)
     }
 
-    fn run_logs_by_row_id(&mut self, run_id: RunId) -> Result<Vec<RunLogEntry>, DotDbError> {
+    /// Visits each log line for an external run id in stable append order.
+    pub fn for_each_run_log<F>(&mut self, run_id: &str, mut visitor: F) -> Result<(), DotDbError>
+    where
+        F: FnMut(RunLogEntry),
+    {
+        let run_row_id = self.lookup_run_row_id(run_id)?;
+        self.for_each_run_log_by_row_id(run_row_id, &mut visitor)
+    }
+
+    fn for_each_run_log_by_row_id<F>(
+        &mut self,
+        run_id: RunId,
+        visitor: &mut F,
+    ) -> Result<(), DotDbError>
+    where
+        F: FnMut(RunLogEntry),
+    {
         let exists: Option<i64> = self
             .conn
             .query_row(
@@ -219,28 +237,34 @@ impl DotDb {
                 source,
             })?;
 
-        let rows = stmt
-            .query_map(params![run_id.0], |row| {
-                Ok(RunLogEntry {
-                    id: row.get(0)?,
-                    created_at_ms: row.get(1)?,
-                    line: row.get(2)?,
-                })
-            })
+        let mut rows = stmt
+            .query(params![run_id.0])
             .map_err(|source| DotDbError::Sql {
                 action: "query run logs",
                 source,
             })?;
 
-        let mut entries = Vec::new();
-        for row in rows {
-            entries.push(row.map_err(|source| DotDbError::Sql {
-                action: "read run log row",
-                source,
-            })?);
+        while let Some(row) = rows.next().map_err(|source| DotDbError::Sql {
+            action: "read run log row",
+            source,
+        })? {
+            visitor(RunLogEntry {
+                id: row.get(0).map_err(|source| DotDbError::Sql {
+                    action: "read run log row",
+                    source,
+                })?,
+                created_at_ms: row.get(1).map_err(|source| DotDbError::Sql {
+                    action: "read run log row",
+                    source,
+                })?,
+                line: row.get(2).map_err(|source| DotDbError::Sql {
+                    action: "read run log row",
+                    source,
+                })?,
+            });
         }
 
-        Ok(entries)
+        Ok(())
     }
 
     /// Sets a state value.
@@ -532,9 +556,15 @@ fn ensure_parent_dir_exists(path: &Path) -> Result<(), DotDbError> {
 }
 
 fn configure_connection(conn: &Connection) -> Result<(), DotDbError> {
+    conn.busy_timeout(Duration::from_secs(5))
+        .map_err(|source| DotDbError::Sql {
+            action: "configure sqlite busy timeout",
+            source,
+        })?;
     conn.execute_batch(
         r#"
 PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
 "#,
     )
     .map_err(|source| DotDbError::Sql {

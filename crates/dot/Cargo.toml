@@ -17,6 +17,7 @@ dot_ops = { path = "../dot_ops" }
 dot_rt = { path = "../dot_rt" }
 dot_vm = { path = "../dot_vm" }
 serde_json = "1.0"
+tokio = { version = "1.48", features = ["rt", "time"] }
 
 [dev-dependencies]
 tempfile = "3.10"
