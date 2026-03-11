@@ -84,8 +84,11 @@ prints a stable external `run_id` and writes an artifact bundle under `.dotlanth
 The bundle captures:
 - `inputs/entry.dot`
 - `trace.jsonl`
+- `state_diff.json`
 - `manifest.json`
 - `capability_report.json`
 
 `trace.jsonl` is ordered by `seq` and includes lifecycle events, syscall boundaries, and source mappings back to the `server`, `route`, and `respond` statements when that mapping is known.
+`state_diff.json` exports a stable `state_kv` diff ordered by `(namespace, key)` and skips unchanged values.
 `capability_report.json` lists declared capabilities with their source spans/semantic paths, plus stable `used` and `denied` accounting. When a capability-gated syscall is denied, the report keeps a representative error message and the matching trace `seq` when available.
+DotDB indexes the finalized bundle by the external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.

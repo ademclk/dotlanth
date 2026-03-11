@@ -18,6 +18,7 @@ dot_rt = { path = "../dot_rt" }
 dot_sec = { path = "../dot_sec" }
 dot_vm = { path = "../dot_vm" }
 serde_json = "1.0"
+sha2 = "0.10"
 tokio = { version = "1.48", features = ["rt", "time"] }
 
 [dev-dependencies]

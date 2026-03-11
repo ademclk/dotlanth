@@ -30,7 +30,11 @@ Expected output:
 Hello from Dotlanth
 ```
 
-After the request completes, the bounded run exits and writes an artifact bundle to `.dotlanth/bundles/<run_id>/`. The bundle includes `manifest.json`, `inputs/entry.dot`, `trace.jsonl`, and `capability_report.json`.
+After the request completes, the bounded run exits and writes an artifact bundle to `.dotlanth/bundles/<run_id>/`. The bundle includes `manifest.json`, `inputs/entry.dot`, `trace.jsonl`, `state_diff.json`, and `capability_report.json`.
+
+DotDB indexes the finalized bundle by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
+
+`state_diff.json` exports a stable `state_kv` diff with deterministic ordering and no unchanged entries.
 
 The capability report includes declared capabilities with source metadata, along with stable `used` and `denied` counts for capability-gated operations.
 
