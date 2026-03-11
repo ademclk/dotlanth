@@ -51,7 +51,12 @@ The bounded run writes an artifact bundle to `.dotlanth/bundles/<run_id>/` with:
 - `manifest.json`
 - `inputs/entry.dot`
 - `trace.jsonl`
+- `state_diff.json`
 - `capability_report.json`
+
+DotDB also indexes that finalized bundle by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
+
+`state_diff.json` exports a stable `state_kv` diff with deterministic ordering and omits unchanged values.
 
 `capability_report.json` records declared capabilities with source spans and semantic paths, plus stable `used` and `denied` accounting for capability-gated syscalls.
 

@@ -26,4 +26,5 @@
 - `trace.jsonl` is JSONL with gap-free `seq` values and includes `run.start`, syscall attempt/result events, host runtime events, and `run.finish`.
 - Trace events include `source.span` and `source.semantic_path` when the runtime knows the mapping: `server`, matched route blocks, and `respond` blocks.
 - `manifest.json` now records the trace artifact's byte count and SHA-256 when `trace.jsonl` is present.
-- Bundle export snapshots the input `.dot` file, writes `trace.jsonl`, and now records declared capabilities plus stable `used`/`denied` accounting in `capability_report.json`. `state_diff.json` remains explicitly unavailable.
+- Bundle export snapshots the input `.dot` file, writes `trace.jsonl`, records a stable `state_kv` diff in `state_diff.json`, and records declared capabilities plus stable `used`/`denied` accounting in `capability_report.json`.
+- DotDB now indexes finalized bundles under `.dotlanth/bundles/<run_id>/` by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.

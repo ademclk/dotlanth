@@ -47,6 +47,16 @@ WHERE run_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_run_id
     ON runs(run_id);
 "#,
+    r#"
+CREATE TABLE IF NOT EXISTS artifact_bundles (
+    run_row_id INTEGER PRIMARY KEY,
+    bundle_ref TEXT NOT NULL,
+    manifest_sha256 TEXT NOT NULL,
+    manifest_bytes INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    FOREIGN KEY(run_row_id) REFERENCES runs(id) ON DELETE CASCADE
+);
+"#,
 ];
 
 /// A local-first SQLite backend for Dotlanth.
@@ -312,6 +322,140 @@ ON CONFLICT(namespace, key) DO UPDATE SET
             })
     }
 
+    /// Returns a stable snapshot of the current `state_kv` rows ordered by `(namespace, key)`.
+    pub fn state_snapshot(&mut self) -> Result<Vec<StateKvEntry>, DotDbError> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                r#"
+SELECT namespace, key, value, updated_at_ms
+FROM state_kv
+ORDER BY namespace ASC, key ASC
+"#,
+            )
+            .map_err(|source| DotDbError::Sql {
+                action: "prepare state snapshot query",
+                source,
+            })?;
+        let mut rows = stmt.query([]).map_err(|source| DotDbError::Sql {
+            action: "query state snapshot",
+            source,
+        })?;
+        let mut entries = Vec::new();
+
+        while let Some(row) = rows.next().map_err(|source| DotDbError::Sql {
+            action: "read state snapshot row",
+            source,
+        })? {
+            entries.push(StateKvEntry {
+                namespace: row.get(0).map_err(|source| DotDbError::Sql {
+                    action: "read state snapshot row",
+                    source,
+                })?,
+                key: row.get(1).map_err(|source| DotDbError::Sql {
+                    action: "read state snapshot row",
+                    source,
+                })?,
+                value: row.get(2).map_err(|source| DotDbError::Sql {
+                    action: "read state snapshot row",
+                    source,
+                })?,
+                updated_at_ms: row.get(3).map_err(|source| DotDbError::Sql {
+                    action: "read state snapshot row",
+                    source,
+                })?,
+            });
+        }
+
+        Ok(entries)
+    }
+
+    /// Stores or updates the artifact bundle reference for an external run id.
+    pub fn set_artifact_bundle(
+        &mut self,
+        run_id: &str,
+        bundle_ref: &str,
+        manifest_sha256: &str,
+        manifest_bytes: u64,
+    ) -> Result<ArtifactBundleRecord, DotDbError> {
+        let run_row_id = self.lookup_run_row_id(run_id)?;
+        let run_id = normalize_lookup_run_id(run_id)?;
+        let bundle_ref = normalize_bundle_ref(bundle_ref)?;
+        let manifest_sha256 = normalize_manifest_sha256(manifest_sha256)?;
+        let manifest_bytes = i64::try_from(manifest_bytes)
+            .map_err(|_| DotDbError::InvalidArtifactManifestBytes { manifest_bytes })?;
+        let updated_at_ms = now_ms();
+
+        self.conn
+            .execute(
+                r#"
+INSERT INTO artifact_bundles(run_row_id, bundle_ref, manifest_sha256, manifest_bytes, updated_at_ms)
+VALUES (?1, ?2, ?3, ?4, ?5)
+ON CONFLICT(run_row_id) DO UPDATE SET
+    bundle_ref = excluded.bundle_ref,
+    manifest_sha256 = excluded.manifest_sha256,
+    manifest_bytes = excluded.manifest_bytes,
+    updated_at_ms = excluded.updated_at_ms
+"#,
+                params![
+                    run_row_id.as_i64(),
+                    bundle_ref,
+                    manifest_sha256,
+                    manifest_bytes,
+                    updated_at_ms
+                ],
+            )
+            .map_err(|source| DotDbError::Sql {
+                action: "store artifact bundle",
+                source,
+            })?;
+
+        Ok(ArtifactBundleRecord {
+            run_id,
+            bundle_ref,
+            manifest_sha256,
+            manifest_bytes: manifest_bytes as u64,
+        })
+    }
+
+    /// Resolves the artifact bundle reference for an external run id.
+    pub fn artifact_bundle(&mut self, run_id: &str) -> Result<ArtifactBundleRecord, DotDbError> {
+        let run_row_id = self.lookup_run_row_id(run_id)?;
+        let run_id = normalize_lookup_run_id(run_id)?;
+        let row: Option<(String, String, i64)> = self
+            .conn
+            .query_row(
+                r#"
+SELECT bundle_ref, manifest_sha256, manifest_bytes
+FROM artifact_bundles
+WHERE run_row_id = ?1
+"#,
+                params![run_row_id.as_i64()],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()
+            .map_err(|source| DotDbError::Sql {
+                action: "query artifact bundle",
+                source,
+            })?;
+
+        let Some((bundle_ref, manifest_sha256, manifest_bytes)) = row else {
+            return Err(DotDbError::ArtifactBundleNotFound { run_id });
+        };
+
+        Ok(ArtifactBundleRecord {
+            run_id,
+            bundle_ref,
+            manifest_sha256,
+            manifest_bytes: u64::try_from(manifest_bytes).map_err(|_| {
+                DotDbError::CorruptArtifactManifestBytes {
+                    run_id: run_row_id,
+                    manifest_bytes,
+                }
+            })?,
+        })
+    }
+
     fn migrate(&mut self) -> Result<(), DotDbError> {
         let current = self.user_version()?;
         let target = u32::try_from(MIGRATIONS.len()).unwrap_or(u32::MAX);
@@ -472,6 +616,32 @@ pub struct RunLogEntry {
     pub line: String,
 }
 
+/// A stable snapshot entry from the `state_kv` table.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StateKvEntry {
+    /// Namespace component of the state key.
+    pub namespace: String,
+    /// Key component within the namespace.
+    pub key: String,
+    /// Opaque value bytes.
+    pub value: Vec<u8>,
+    /// Timestamp (Unix millis) captured on the last write.
+    pub updated_at_ms: i64,
+}
+
+/// Artifact bundle metadata indexed by external run id.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ArtifactBundleRecord {
+    /// External run id used to resolve this bundle.
+    pub run_id: String,
+    /// Local bundle reference, typically a project-relative path.
+    pub bundle_ref: String,
+    /// SHA-256 digest for the bundle manifest file.
+    pub manifest_sha256: String,
+    /// Byte size for the bundle manifest file.
+    pub manifest_bytes: u64,
+}
+
 #[derive(Debug)]
 pub enum DotDbError {
     Io {
@@ -493,8 +663,24 @@ pub enum DotDbError {
     RunRowNotFound {
         row_id: RunId,
     },
+    ArtifactBundleNotFound {
+        run_id: String,
+    },
     InvalidRunId {
         run_id: String,
+    },
+    InvalidBundleRef {
+        bundle_ref: String,
+    },
+    InvalidManifestSha256 {
+        manifest_sha256: String,
+    },
+    InvalidArtifactManifestBytes {
+        manifest_bytes: u64,
+    },
+    CorruptArtifactManifestBytes {
+        run_id: RunId,
+        manifest_bytes: i64,
     },
 }
 
@@ -520,6 +706,25 @@ impl std::fmt::Display for DotDbError {
             Self::RunNotFound { run_id } => write!(f, "run not found: {run_id}"),
             Self::RunRowNotFound { row_id } => write!(f, "run row not found: {row_id}"),
             Self::InvalidRunId { run_id } => write!(f, "invalid run id `{run_id}`"),
+            Self::ArtifactBundleNotFound { run_id } => {
+                write!(f, "artifact bundle not found for run: {run_id}")
+            }
+            Self::InvalidBundleRef { bundle_ref } => {
+                write!(f, "invalid bundle ref `{bundle_ref}`")
+            }
+            Self::InvalidManifestSha256 { manifest_sha256 } => {
+                write!(f, "invalid manifest sha256 `{manifest_sha256}`")
+            }
+            Self::InvalidArtifactManifestBytes { manifest_bytes } => {
+                write!(f, "invalid artifact manifest byte count `{manifest_bytes}`")
+            }
+            Self::CorruptArtifactManifestBytes {
+                run_id,
+                manifest_bytes,
+            } => write!(
+                f,
+                "corrupt artifact manifest byte count `{manifest_bytes}` for run row {run_id}"
+            ),
         }
     }
 }
@@ -532,7 +737,12 @@ impl std::error::Error for DotDbError {
             Self::SchemaVersionTooNew { .. }
             | Self::RunNotFound { .. }
             | Self::RunRowNotFound { .. }
-            | Self::InvalidRunId { .. } => None,
+            | Self::ArtifactBundleNotFound { .. }
+            | Self::InvalidRunId { .. }
+            | Self::InvalidBundleRef { .. }
+            | Self::InvalidManifestSha256 { .. }
+            | Self::InvalidArtifactManifestBytes { .. }
+            | Self::CorruptArtifactManifestBytes { .. } => None,
         }
     }
 }
@@ -598,6 +808,26 @@ fn normalize_run_id(run_id: &str) -> Result<String, DotDbError> {
 
 fn normalize_lookup_run_id(run_id: &str) -> Result<String, DotDbError> {
     normalize_run_id(run_id)
+}
+
+fn normalize_bundle_ref(bundle_ref: &str) -> Result<String, DotDbError> {
+    let trimmed = bundle_ref.trim();
+    if trimmed.is_empty() {
+        return Err(DotDbError::InvalidBundleRef {
+            bundle_ref: bundle_ref.to_owned(),
+        });
+    }
+    Ok(trimmed.to_owned())
+}
+
+fn normalize_manifest_sha256(manifest_sha256: &str) -> Result<String, DotDbError> {
+    let trimmed = manifest_sha256.trim();
+    if trimmed.is_empty() {
+        return Err(DotDbError::InvalidManifestSha256 {
+            manifest_sha256: manifest_sha256.to_owned(),
+        });
+    }
+    Ok(trimmed.to_owned())
 }
 
 #[cfg(test)]
@@ -747,6 +977,132 @@ PRAGMA user_version = 1;
         assert_eq!(
             db.state_get("ns", "k").unwrap().as_deref(),
             Some(&b"v2"[..])
+        );
+    }
+
+    #[test]
+    fn migration_adds_artifact_bundle_index_for_existing_v2_databases() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let path = DotDb::default_path_in(temp.path());
+        std::fs::create_dir_all(path.parent().expect("db path must have parent"))
+            .expect("db parent directory must create");
+        let conn = Connection::open(&path).expect("sqlite connection must open");
+        conn.execute_batch(
+            r#"
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    status TEXT NOT NULL,
+    created_at_ms INTEGER NOT NULL,
+    finalized_at_ms INTEGER,
+    run_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS run_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    created_at_ms INTEGER NOT NULL,
+    line TEXT NOT NULL,
+    FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_logs_run_id_id
+    ON run_logs(run_id, id);
+
+CREATE TABLE IF NOT EXISTS state_kv (
+    namespace TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value BLOB NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    PRIMARY KEY(namespace, key)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_run_id
+    ON runs(run_id);
+
+INSERT INTO runs(status, created_at_ms, run_id) VALUES ('running', 1, 'run_legacy');
+PRAGMA user_version = 2;
+"#,
+        )
+        .expect("legacy schema must initialize");
+        drop(conn);
+
+        let db = DotDb::open(&path).expect("db open must migrate");
+        let artifact_table: String = db
+            .conn
+            .query_row(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'artifact_bundles'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("artifact bundle table must exist");
+        assert_eq!(artifact_table, "artifact_bundles");
+    }
+
+    #[test]
+    fn artifact_bundle_roundtrips_by_external_run_id() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let created_run = db
+            .create_run_with_id("run_bundle_roundtrip")
+            .expect("run must create");
+
+        db.set_artifact_bundle(
+            created_run.run_id(),
+            ".dotlanth/bundles/run_bundle_roundtrip",
+            "abc123",
+            321,
+        )
+        .expect("artifact bundle must store");
+
+        let bundle = db
+            .artifact_bundle(created_run.run_id())
+            .expect("artifact bundle must load");
+        assert_eq!(bundle.run_id, created_run.run_id());
+        assert_eq!(bundle.bundle_ref, ".dotlanth/bundles/run_bundle_roundtrip");
+        assert_eq!(bundle.manifest_sha256, "abc123");
+        assert_eq!(bundle.manifest_bytes, 321);
+    }
+
+    #[test]
+    fn artifact_bundle_errors_when_missing_for_existing_run() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let created_run = db
+            .create_run_with_id("run_without_bundle")
+            .expect("run must create");
+
+        let error = db
+            .artifact_bundle(created_run.run_id())
+            .expect_err("missing artifact bundle must error");
+        assert!(matches!(error, DotDbError::ArtifactBundleNotFound { .. }));
+    }
+
+    #[test]
+    fn state_snapshot_is_stably_sorted_by_namespace_and_key() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        db.state_set("beta", "b", b"second")
+            .expect("state write must succeed");
+        db.state_set("alpha", "z", b"third")
+            .expect("state write must succeed");
+        db.state_set("alpha", "a", b"first")
+            .expect("state write must succeed");
+
+        let snapshot = db.state_snapshot().expect("snapshot must succeed");
+        let keys = snapshot
+            .into_iter()
+            .map(|entry| (entry.namespace, entry.key, entry.value))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            keys,
+            vec![
+                ("alpha".to_owned(), "a".to_owned(), b"first".to_vec()),
+                ("alpha".to_owned(), "z".to_owned(), b"third".to_vec()),
+                ("beta".to_owned(), "b".to_owned(), b"second".to_vec()),
+            ]
         );
     }
 }

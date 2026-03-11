@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use dot_artifacts::{BundleSection, BundleWriter, TRACE_FILE};
-use dot_db::DotDb;
+use dot_db::{DotDb, StateKvEntry};
 use dot_ops::{
     OpsHost, RecordMode, RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef,
     SourceSpan, SyscallId,
@@ -13,8 +13,9 @@ use dot_vm::{
     VmError, VmEvent,
 };
 use serde_json::{Map, Value as JsonValue, json};
+use sha2::{Digest, Sha256};
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -50,6 +51,9 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
     let mut host = OpsHost::new(ctx.capabilities().clone(), db)
         .map_err(|error| format!("failed to initialize runtime host: {error}"))?;
     host.set_record_mode(RecordMode::Record);
+    let before_state = host
+        .state_snapshot()
+        .map_err(|error| format!("failed to capture state snapshot before execution: {error}"));
 
     let run_id = host.run_id().to_owned();
     let bundle_dir = bundle_dir_for_run(&project_root, &run_id);
@@ -100,8 +104,15 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
         )),
     };
 
+    let after_state = host
+        .state_snapshot()
+        .map_err(|error| format!("failed to capture state snapshot after execution: {error}"));
+    let state_diff_result = write_state_diff(&mut bundle, before_state, after_state);
     let capability_report_result = write_capability_report(&mut bundle, &ctx, &trace);
-    let pre_bundle_status = if execution_result.is_ok() && capability_report_result.is_ok() {
+    let pre_bundle_status = if execution_result.is_ok()
+        && state_diff_result.is_ok()
+        && capability_report_result.is_ok()
+    {
         dot_db::RunStatus::Succeeded
     } else {
         dot_db::RunStatus::Failed
@@ -128,6 +139,7 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
     };
     let trace_error = summarize_errors([
         execution_result.as_ref().err().cloned(),
+        state_diff_result.as_ref().err().cloned(),
         capability_report_result.as_ref().err().cloned(),
         finalize_result.as_ref().err().cloned(),
         finalize_recovery_result
@@ -137,7 +149,7 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
     ]);
     trace.record_run_finish(trace_status, trace_error.as_deref());
 
-    let bundle_result = finalize_bundle(&mut bundle, &trace);
+    let bundle_result = finalize_bundle(&mut host, &mut bundle, &trace, &run_id);
     let bundle_recovery_finalize_result = if bundle_result.is_err()
         && pre_bundle_status == dot_db::RunStatus::Succeeded
         && finalize_result.is_ok()
@@ -152,6 +164,9 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
     let mut errors = Vec::new();
 
     if let Err(error) = execution_result {
+        errors.push(error);
+    }
+    if let Err(error) = state_diff_result {
         errors.push(error);
     }
     if let Err(error) = capability_report_result {
@@ -273,14 +288,112 @@ fn write_capability_report(
     }
 }
 
-fn finalize_bundle(bundle: &mut BundleWriter, trace: &TraceRecorder) -> Result<(), String> {
+fn write_state_diff(
+    bundle: &mut BundleWriter,
+    before_state: Result<Vec<StateKvEntry>, String>,
+    after_state: Result<Vec<StateKvEntry>, String>,
+) -> Result<(), String> {
+    let state_diff = match (before_state, after_state) {
+        (Ok(before_state), Ok(after_state)) => build_state_diff(&before_state, &after_state),
+        (Err(error), _) | (_, Err(error)) => {
+            return mark_state_diff_error(bundle, &error);
+        }
+    };
+
+    match bundle.write_state_diff_json(&state_diff) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            mark_state_diff_error(bundle, &format!("failed to write state_diff.json: {error}"))
+        }
+    }
+}
+
+fn mark_state_diff_error(bundle: &mut BundleWriter, message: &str) -> Result<(), String> {
+    match bundle.mark_section_error(BundleSection::StateDiff, "state_capture_failed", message) {
+        Ok(()) => Err(message.to_owned()),
+        Err(marker_error) => Err(combine_errors(
+            message.to_owned(),
+            [Some(format!(
+                "failed to mark state_diff.json as errored: {marker_error}"
+            ))],
+        )),
+    }
+}
+
+fn build_state_diff(before: &[StateKvEntry], after: &[StateKvEntry]) -> JsonValue {
+    let before_map = before
+        .iter()
+        .map(|entry| {
+            (
+                (entry.namespace.clone(), entry.key.clone()),
+                entry.value.clone(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let after_map = after
+        .iter()
+        .map(|entry| {
+            (
+                (entry.namespace.clone(), entry.key.clone()),
+                entry.value.clone(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut keys = BTreeSet::new();
+    keys.extend(before_map.keys().cloned());
+    keys.extend(after_map.keys().cloned());
+
+    let mut changes = Vec::new();
+    for (namespace, key) in keys {
+        match (
+            before_map.get(&(namespace.clone(), key.clone())),
+            after_map.get(&(namespace.clone(), key.clone())),
+        ) {
+            (Some(previous_value), Some(value)) if previous_value == value => {}
+            (Some(previous_value), Some(value)) => changes.push(json!({
+                "namespace": namespace,
+                "key": key,
+                "change": "updated",
+                "previous_value": previous_value,
+                "value": value,
+            })),
+            (Some(previous_value), None) => changes.push(json!({
+                "namespace": namespace,
+                "key": key,
+                "change": "removed",
+                "previous_value": previous_value,
+            })),
+            (None, Some(value)) => changes.push(json!({
+                "namespace": namespace,
+                "key": key,
+                "change": "added",
+                "value": value,
+            })),
+            (None, None) => {}
+        }
+    }
+
+    json!({
+        "schema_version": "1",
+        "scope": "state_kv",
+        "changes": changes,
+    })
+}
+
+fn finalize_bundle(
+    host: &mut OpsHost,
+    bundle: &mut BundleWriter,
+    trace: &TraceRecorder,
+    run_id: &str,
+) -> Result<(), String> {
     trace.flush()?;
     bundle
         .commit_existing_trace_jsonl()
         .map_err(|error| format!("failed to finalize trace.jsonl: {error}"))?;
     bundle
         .finalize()
-        .map_err(|error| format!("failed to finalize artifact bundle: {error}"))
+        .map_err(|error| format!("failed to finalize artifact bundle: {error}"))?;
+    index_artifact_bundle(host, bundle.bundle_dir(), run_id)
 }
 
 fn bundle_dir_for_run(project_root: &Path, run_id: &str) -> PathBuf {
@@ -288,6 +401,30 @@ fn bundle_dir_for_run(project_root: &Path, run_id: &str) -> PathBuf {
         .join(DOTLANTH_DIR)
         .join(BUNDLES_DIR)
         .join(run_id)
+}
+
+fn bundle_ref_for_run(run_id: &str) -> String {
+    format!("{DOTLANTH_DIR}/{BUNDLES_DIR}/{run_id}")
+}
+
+fn index_artifact_bundle(
+    host: &mut OpsHost,
+    bundle_dir: &Path,
+    run_id: &str,
+) -> Result<(), String> {
+    let manifest_path = bundle_dir.join("manifest.json");
+    let manifest_bytes = std::fs::read(&manifest_path).map_err(|error| {
+        format!(
+            "failed to read `{}` for indexing: {error}",
+            manifest_path.display()
+        )
+    })?;
+    host.index_artifact_bundle(
+        &bundle_ref_for_run(run_id),
+        &sha256_hex(&manifest_bytes),
+        manifest_bytes.len() as u64,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn project_root_for_dot_path(path: &Path) -> Result<PathBuf, String> {
@@ -328,6 +465,12 @@ fn summarize_errors(errors: impl IntoIterator<Item = Option<String>>) -> Option<
         primary.clone(),
         extras.iter().cloned().map(Some),
     ))
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
 }
 
 #[derive(Clone, Debug)]
@@ -730,9 +873,10 @@ fn resolve_dot_file(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        RunOptions, TraceRecorder, build_capability_report_json, build_program, resolve_dot_file,
-        run,
+        RunOptions, TraceRecorder, build_capability_report_json, build_program, build_state_diff,
+        resolve_dot_file, run, sha256_hex,
     };
+    use dot_db::{DotDb, StateKvEntry};
     use dot_ops::{
         HostError, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan, SyscallId,
     };
@@ -1147,6 +1291,81 @@ end
     }
 
     #[test]
+    fn build_state_diff_is_stably_sorted_and_omits_unchanged_values() {
+        let before = vec![
+            StateKvEntry {
+                namespace: "beta".to_owned(),
+                key: "gone".to_owned(),
+                value: b"before".to_vec(),
+                updated_at_ms: 1,
+            },
+            StateKvEntry {
+                namespace: "alpha".to_owned(),
+                key: "same".to_owned(),
+                value: b"steady".to_vec(),
+                updated_at_ms: 1,
+            },
+            StateKvEntry {
+                namespace: "alpha".to_owned(),
+                key: "flip".to_owned(),
+                value: b"a".to_vec(),
+                updated_at_ms: 1,
+            },
+        ];
+        let after = vec![
+            StateKvEntry {
+                namespace: "gamma".to_owned(),
+                key: "new".to_owned(),
+                value: b"after".to_vec(),
+                updated_at_ms: 2,
+            },
+            StateKvEntry {
+                namespace: "alpha".to_owned(),
+                key: "flip".to_owned(),
+                value: b"b".to_vec(),
+                updated_at_ms: 2,
+            },
+            StateKvEntry {
+                namespace: "alpha".to_owned(),
+                key: "same".to_owned(),
+                value: b"steady".to_vec(),
+                updated_at_ms: 99,
+            },
+        ];
+
+        let diff = build_state_diff(&before, &after);
+
+        assert_eq!(
+            diff,
+            json!({
+                "schema_version": "1",
+                "scope": "state_kv",
+                "changes": [
+                    {
+                        "namespace": "alpha",
+                        "key": "flip",
+                        "change": "updated",
+                        "previous_value": [97],
+                        "value": [98]
+                    },
+                    {
+                        "namespace": "beta",
+                        "key": "gone",
+                        "change": "removed",
+                        "previous_value": [98, 101, 102, 111, 114, 101]
+                    },
+                    {
+                        "namespace": "gamma",
+                        "key": "new",
+                        "change": "added",
+                        "value": [97, 102, 116, 101, 114]
+                    }
+                ]
+            })
+        );
+    }
+
+    #[test]
     fn run_errors_when_no_dot_file_is_present() {
         let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
         let temp = TempDir::new().expect("temp dir must create");
@@ -1292,7 +1511,21 @@ end
                 .expect("trace bytes must exist") as usize,
             trace_raw.len()
         );
+        assert_eq!(manifest["sections"]["state_diff"]["status"], "ok");
         assert_eq!(manifest["sections"]["capability_report"]["status"], "ok");
+
+        let state_diff: JsonValue = serde_json::from_slice(
+            &std::fs::read(bundle_path.join("state_diff.json")).expect("state diff must read"),
+        )
+        .expect("state diff must parse");
+        assert_eq!(
+            state_diff,
+            json!({
+                "schema_version": "1",
+                "scope": "state_kv",
+                "changes": []
+            })
+        );
 
         let capability_report: JsonValue = serde_json::from_slice(
             &std::fs::read(bundle_path.join("capability_report.json"))
@@ -1326,6 +1559,14 @@ end
             ])
         );
         assert_eq!(capability_report["denied"], serde_json::json!([]));
+
+        let manifest_raw =
+            std::fs::read(bundle_path.join("manifest.json")).expect("manifest must read again");
+        let mut db = DotDb::open_in(temp.path()).expect("db must reopen");
+        let bundle = db.artifact_bundle(run_id).expect("bundle ref must resolve");
+        assert_eq!(bundle.bundle_ref, format!(".dotlanth/bundles/{run_id}"));
+        assert_eq!(bundle.manifest_bytes, manifest_raw.len() as u64);
+        assert_eq!(bundle.manifest_sha256, sha256_hex(&manifest_raw));
     }
 
     #[test]

@@ -209,6 +209,7 @@ dependencies = [
  "dot_sec",
  "dot_vm",
  "serde_json",
+ "sha2",
  "tempfile",
  "tokio",
 ]

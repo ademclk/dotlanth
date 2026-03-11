@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use dot_db::{DotDb, RunId, RunLogEntry, RunStatus};
+use dot_db::{DotDb, RunId, RunLogEntry, RunStatus, StateKvEntry};
 use dot_dsl::Document;
 use dot_sec::{CapabilitySet, Syscall};
 use std::future::Future;
@@ -203,6 +203,24 @@ impl OpsHost {
         self.db
             .run_logs(&self.run_id)
             .map_err(|error| HostError::new(format!("failed to read run logs: {error}")))
+    }
+
+    pub fn state_snapshot(&mut self) -> Result<Vec<StateKvEntry>, HostError> {
+        self.db
+            .state_snapshot()
+            .map_err(|error| HostError::new(format!("failed to snapshot state: {error}")))
+    }
+
+    pub fn index_artifact_bundle(
+        &mut self,
+        bundle_ref: &str,
+        manifest_sha256: &str,
+        manifest_bytes: u64,
+    ) -> Result<(), HostError> {
+        self.db
+            .set_artifact_bundle(&self.run_id, bundle_ref, manifest_sha256, manifest_bytes)
+            .map_err(|error| HostError::new(format!("failed to index artifact bundle: {error}")))?;
+        Ok(())
     }
 
     pub fn configure_http(&mut self, listener: TcpListener, routes: RouteTable) {
