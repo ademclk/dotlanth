@@ -5,9 +5,13 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[lib]
+doctest = false
+
 [lints]
 workspace = true
 
 [dependencies]
 dot_dsl = { path = "../dot_dsl" }
+dot_ops = { path = "../dot_ops" }
 dot_sec = { path = "../dot_sec" }

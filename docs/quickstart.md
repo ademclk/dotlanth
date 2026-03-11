@@ -32,6 +32,8 @@ Hello from Dotlanth
 
 After the request completes, the bounded run exits and writes an artifact bundle to `.dotlanth/bundles/<run_id>/`. The bundle includes `manifest.json`, `inputs/entry.dot`, `trace.jsonl`, and `capability_report.json`.
 
+The capability report includes declared capabilities with source metadata, along with stable `used` and `denied` counts for capability-gated operations.
+
 ## Troubleshooting
 
 ### Port already in use

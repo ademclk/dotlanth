@@ -4,7 +4,8 @@ use crate::{
     EventSink, Instruction, Reg, RegisterFile, SyscallAttemptEvent, SyscallResultEvent, Value,
     VmError, VmEvent,
 };
-use dot_ops::Host;
+use dot_ops::{Host, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SyscallId};
+use dot_sec::{CapabilitySet, Syscall};
 
 pub const DEFAULT_REGISTER_COUNT: usize = 32;
 
@@ -68,7 +69,7 @@ impl Vm {
         &mut self,
         host: &mut dyn Host<Value>,
     ) -> Result<StepOutcome, VmError> {
-        self.step_inner_async(host, None).await
+        self.step_inner_async(None, host, None).await
     }
 
     pub async fn step_with_host_and_events(
@@ -76,7 +77,25 @@ impl Vm {
         host: &mut dyn Host<Value>,
         events: &mut dyn EventSink,
     ) -> Result<StepOutcome, VmError> {
-        self.step_inner_async(host, Some(events)).await
+        self.step_inner_async(None, host, Some(events)).await
+    }
+
+    pub async fn step_with_capabilities_and_host(
+        &mut self,
+        capabilities: &CapabilitySet,
+        host: &mut dyn Host<Value>,
+    ) -> Result<StepOutcome, VmError> {
+        self.step_inner_async(Some(capabilities), host, None).await
+    }
+
+    pub async fn step_with_capabilities_host_and_events(
+        &mut self,
+        capabilities: &CapabilitySet,
+        host: &mut dyn Host<Value>,
+        events: &mut dyn EventSink,
+    ) -> Result<StepOutcome, VmError> {
+        self.step_inner_async(Some(capabilities), host, Some(events))
+            .await
     }
 
     fn step_inner(&mut self) -> Result<StepOutcome, VmError> {
@@ -116,6 +135,7 @@ impl Vm {
 
     async fn step_inner_async(
         &mut self,
+        capabilities: Option<&CapabilitySet>,
         host: &mut dyn Host<Value>,
         mut events: Option<&mut dyn EventSink>,
     ) -> Result<StepOutcome, VmError> {
@@ -167,6 +187,25 @@ impl Vm {
                         args: values.clone(),
                         source: source.clone(),
                     }));
+                }
+
+                if let Some(error) = capabilities
+                    .and_then(|set| capability_gated_syscall(id).map(|syscall| (set, syscall)))
+                    .and_then(|(set, syscall)| {
+                        set.enforce(syscall)
+                            .err()
+                            .map(|error| dot_ops::HostError::new(error.to_string()))
+                    })
+                {
+                    if let Some(events) = events.as_mut() {
+                        (*events).emit(VmEvent::SyscallResult(SyscallResultEvent {
+                            ip: self.ip,
+                            id,
+                            result: Err(error.clone()),
+                            source,
+                        }));
+                    }
+                    return Err(VmError::SyscallFailed { id, error });
                 }
 
                 let syscall_outcome = host.syscall(id, &values).await;
@@ -240,8 +279,42 @@ impl Vm {
         events: &mut dyn EventSink,
     ) -> Result<(), VmError> {
         while !self.halted {
-            self.step_inner_async(host, Some(&mut *events)).await?;
+            self.step_inner_async(None, host, Some(&mut *events))
+                .await?;
         }
         Ok(())
+    }
+
+    pub async fn run_with_capabilities_and_host(
+        &mut self,
+        capabilities: &CapabilitySet,
+        host: &mut dyn Host<Value>,
+    ) -> Result<(), VmError> {
+        while !self.halted {
+            self.step_with_capabilities_and_host(capabilities, host)
+                .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn run_with_capabilities_host_and_events(
+        &mut self,
+        capabilities: &CapabilitySet,
+        host: &mut dyn Host<Value>,
+        events: &mut dyn EventSink,
+    ) -> Result<(), VmError> {
+        while !self.halted {
+            self.step_inner_async(Some(capabilities), host, Some(&mut *events))
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+fn capability_gated_syscall(id: SyscallId) -> Option<Syscall> {
+    match id {
+        SYSCALL_LOG_EMIT => Some(Syscall::LogEmit),
+        SYSCALL_NET_HTTP_SERVE => Some(Syscall::NetHttpServe),
+        _ => None,
     }
 }

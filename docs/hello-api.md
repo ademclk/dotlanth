@@ -88,3 +88,4 @@ The bundle captures:
 - `capability_report.json`
 
 `trace.jsonl` is ordered by `seq` and includes lifecycle events, syscall boundaries, and source mappings back to the `server`, `route`, and `respond` statements when that mapping is known.
+`capability_report.json` lists declared capabilities with their source spans/semantic paths, plus stable `used` and `denied` accounting. When a capability-gated syscall is denied, the report keeps a representative error message and the matching trace `seq` when available.
