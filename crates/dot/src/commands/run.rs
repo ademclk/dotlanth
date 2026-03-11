@@ -733,7 +733,9 @@ mod tests {
         RunOptions, TraceRecorder, build_capability_report_json, build_program, resolve_dot_file,
         run,
     };
-    use dot_ops::{HostError, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan};
+    use dot_ops::{
+        HostError, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan, SyscallId,
+    };
     use dot_rt::RuntimeContext;
     use dot_vm::{
         EventSink, Instruction, Reg, SyscallAttemptEvent, SyscallResultEvent, Value as VmValue,
@@ -930,6 +932,109 @@ end
                 }
             ])
         );
+        assert_eq!(report["denied"], json!([]));
+    }
+
+    #[test]
+    fn capability_report_tracks_mixed_usage_and_preserves_first_denial() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut trace = TraceRecorder::new("run-test", &temp.path().join("trace.jsonl"))
+            .expect("trace should initialize");
+        let document = dot_dsl::parse_and_validate(
+            r#"dot 0.1
+app "x"
+allow log
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+        let ctx = RuntimeContext::from_dot_dsl(&document).expect("context must build");
+        let first_denial = "capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement.";
+
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 0,
+            id: SYSCALL_LOG_EMIT,
+            result: Err(HostError::new(first_denial)),
+            source: None,
+        }));
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 1,
+            id: SYSCALL_LOG_EMIT,
+            result: Ok(vec![]),
+            source: None,
+        }));
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 2,
+            id: SYSCALL_LOG_EMIT,
+            result: Err(HostError::new(
+                "capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement. later",
+            )),
+            source: None,
+        }));
+
+        let report = build_capability_report_json(&ctx, trace.capability_usage());
+
+        assert_eq!(
+            report["used"],
+            json!([
+                {
+                    "capability": "log",
+                    "count": 1
+                }
+            ])
+        );
+        assert_eq!(
+            report["denied"],
+            json!([
+                {
+                    "capability": "log",
+                    "count": 2,
+                    "message": first_denial,
+                    "seq": 0
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn capability_report_ignores_unknown_syscalls_even_if_error_looks_like_denial() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut trace = TraceRecorder::new("run-test", &temp.path().join("trace.jsonl"))
+            .expect("trace should initialize");
+        let document = dot_dsl::parse_and_validate(
+            r#"dot 0.1
+app "x"
+allow log
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+        let ctx = RuntimeContext::from_dot_dsl(&document).expect("context must build");
+
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 0,
+            id: SyscallId(999),
+            result: Err(HostError::new(
+                "capability denied: syscall `made.up` requires capability `made.up`. Hint: add `allow made.up`. Declare it in your `.dot` file with an `allow ...` statement.",
+            )),
+            source: None,
+        }));
+
+        let report = build_capability_report_json(&ctx, trace.capability_usage());
+
+        assert_eq!(report["used"], json!([]));
         assert_eq!(report["denied"], json!([]));
     }
 
