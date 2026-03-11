@@ -10,4 +10,5 @@ workspace = true
 
 [dependencies]
 dot_dsl = { path = "../dot_dsl" }
+dot_ops = { path = "../dot_ops" }
 dot_sec = { path = "../dot_sec" }

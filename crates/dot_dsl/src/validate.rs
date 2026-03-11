@@ -11,6 +11,7 @@ const KNOWN_CAPABILITIES: &[&str] = &["log", "net.http.listen"];
 pub(crate) fn validate(document: &Document, source_path: &Path) -> Result<(), LoadError> {
     let mut diagnostics = Vec::new();
     let mut seen_routes = BTreeMap::<(&str, &str), (usize, usize)>::new();
+    let mut seen_capabilities = BTreeMap::<&str, usize>::new();
 
     match &document.version {
         Some(version) if version.value == SUPPORTED_VERSION => {}
@@ -47,6 +48,17 @@ pub(crate) fn validate(document: &Document, source_path: &Path) -> Result<(), Lo
                 format!("capabilities[{index}]"),
                 capability.span,
                 format!("unknown capability `{}`", capability.value),
+            ));
+            continue;
+        }
+        if let Some(existing_index) = seen_capabilities.insert(capability.value.as_str(), index) {
+            diagnostics.push(Diagnostic::new(
+                format!("capabilities[{index}]"),
+                capability.span,
+                format!(
+                    "duplicate capability `{}`; already declared at `capabilities[{existing_index}]`",
+                    capability.value
+                ),
             ));
         }
     }

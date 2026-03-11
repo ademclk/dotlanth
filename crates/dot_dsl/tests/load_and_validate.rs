@@ -138,6 +138,31 @@ fn duplicate_server_statement_is_rejected() {
 }
 
 #[test]
+fn duplicate_capabilities_are_rejected_before_runtime() {
+    let error = parse_and_validate(
+        r#"
+dot 0.1
+app "x"
+allow log
+allow log
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
+"#,
+        "<test>",
+    )
+    .expect_err("duplicate capabilities must fail validation");
+
+    assert_eq!(
+        snapshot(&error),
+        "5:7:3 capabilities[1] | duplicate capability `log`; already declared at `capabilities[0]`"
+    );
+}
+
+#[test]
 fn duplicate_routes_are_rejected_before_runtime() {
     let error = parse_and_validate(
         r#"

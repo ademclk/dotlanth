@@ -53,6 +53,8 @@ The bounded run writes an artifact bundle to `.dotlanth/bundles/<run_id>/` with:
 - `trace.jsonl`
 - `capability_report.json`
 
+`capability_report.json` records declared capabilities with source spans and semantic paths, plus stable `used` and `denied` accounting for capability-gated syscalls.
+
 ## A 60-Second Flow (Aspirational UX)
 
 This is the intended future CLI UX (not all commands exist yet).

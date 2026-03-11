@@ -20,7 +20,8 @@ mod tests {
         EventSink, Instruction, Reg, StepOutcome, SyscallAttemptEvent, SyscallResultEvent, Value,
         Vm, VmError, VmEvent,
     };
-    use dot_ops::{Host, HostError, RuntimeEvent, SyscallId};
+    use dot_ops::{Host, HostError, RuntimeEvent, SYSCALL_LOG_EMIT, SyscallId};
+    use dot_sec::CapabilitySet;
     use std::future::Future;
     use std::pin::Pin;
 
@@ -158,6 +159,126 @@ mod tests {
                 id: SyscallId(1),
                 error: HostError::new("denied: 1"),
             }
+        );
+    }
+
+    #[test]
+    fn capability_denial_happens_before_host_dispatch() {
+        struct CountingHost {
+            calls: usize,
+        }
+
+        impl Host<Value> for CountingHost {
+            fn syscall<'a>(
+                &'a mut self,
+                _id: SyscallId,
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                self.calls += 1;
+                Box::pin(async { Ok(vec![]) })
+            }
+        }
+
+        let mut vm = Vm::with_register_count(
+            vec![Instruction::Syscall {
+                id: SyscallId(1),
+                args: vec![],
+                results: vec![],
+                source: None,
+            }],
+            1,
+        );
+        let capabilities = CapabilitySet::empty();
+        let mut host = CountingHost { calls: 0 };
+
+        let error = block_on(vm.run_with_capabilities_and_host(&capabilities, &mut host))
+            .expect_err("missing capability must fail before host dispatch");
+
+        assert_eq!(
+            error,
+            VmError::SyscallFailed {
+                id: SyscallId(1),
+                error: HostError::new(
+                    "capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement."
+                ),
+            }
+        );
+        assert_eq!(host.calls, 0);
+    }
+
+    #[test]
+    fn capability_denial_emits_attempt_and_result_events_before_host_dispatch() {
+        struct CountingHost {
+            calls: usize,
+        }
+
+        impl Host<Value> for CountingHost {
+            fn syscall<'a>(
+                &'a mut self,
+                _id: SyscallId,
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                self.calls += 1;
+                Box::pin(async { Ok(vec![]) })
+            }
+        }
+
+        #[derive(Default)]
+        struct CollectSink {
+            events: Vec<VmEvent>,
+        }
+
+        impl EventSink for CollectSink {
+            fn emit(&mut self, event: VmEvent) {
+                self.events.push(event);
+            }
+        }
+
+        let mut vm = Vm::with_register_count(
+            vec![Instruction::Syscall {
+                id: SYSCALL_LOG_EMIT,
+                args: vec![],
+                results: vec![],
+                source: None,
+            }],
+            1,
+        );
+        let capabilities = CapabilitySet::empty();
+        let mut host = CountingHost { calls: 0 };
+        let mut sink = CollectSink::default();
+
+        let error =
+            block_on(vm.run_with_capabilities_host_and_events(&capabilities, &mut host, &mut sink))
+                .expect_err("missing capability must fail before host dispatch");
+
+        assert_eq!(
+            error,
+            VmError::SyscallFailed {
+                id: SYSCALL_LOG_EMIT,
+                error: HostError::new(
+                    "capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement."
+                ),
+            }
+        );
+        assert_eq!(host.calls, 0);
+        assert_eq!(
+            sink.events,
+            vec![
+                VmEvent::SyscallAttempt(SyscallAttemptEvent {
+                    ip: 0,
+                    id: SYSCALL_LOG_EMIT,
+                    args: vec![],
+                    source: None,
+                }),
+                VmEvent::SyscallResult(SyscallResultEvent {
+                    ip: 0,
+                    id: SYSCALL_LOG_EMIT,
+                    result: Err(HostError::new(
+                        "capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement."
+                    )),
+                    source: None,
+                }),
+            ]
         );
     }
 

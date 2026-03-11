@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 dot_ops = { path = "../dot_ops" }
+dot_sec = { path = "../dot_sec" }
 
 [dev-dependencies]
 tokio = { version = "1.48", features = ["rt", "time"] }

@@ -206,6 +206,7 @@ dependencies = [
  "dot_dsl",
  "dot_ops",
  "dot_rt",
+ "dot_sec",
  "dot_vm",
  "serde_json",
  "tempfile",
@@ -251,6 +252,7 @@ name = "dot_rt"
 version = "26.1.0-alpha"
 dependencies = [
  "dot_dsl",
+ "dot_ops",
  "dot_sec",
 ]
 
@@ -263,6 +265,7 @@ name = "dot_vm"
 version = "26.1.0-alpha"
 dependencies = [
  "dot_ops",
+ "dot_sec",
  "tokio",
 ]
 

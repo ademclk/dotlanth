@@ -7,13 +7,14 @@ use dot_ops::{
     SourceSpan, SyscallId,
 };
 use dot_rt::RuntimeContext;
+use dot_sec::Capability;
 use dot_vm::{
     EventSink, Instruction, Reg, SyscallAttemptEvent, SyscallResultEvent, Value as VmValue, Vm,
     VmError, VmEvent,
 };
 use serde_json::{Map, Value as JsonValue, json};
 use std::cell::RefCell;
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -85,6 +86,7 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
         Ok(()) => {
             run_vm_execution(
                 &mut host,
+                &ctx,
                 &document,
                 options.max_requests,
                 &run_id,
@@ -98,7 +100,7 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
         )),
     };
 
-    let capability_report_result = write_capability_report(&mut bundle, &document);
+    let capability_report_result = write_capability_report(&mut bundle, &ctx, &trace);
     let pre_bundle_status = if execution_result.is_ok() && capability_report_result.is_ok() {
         dot_db::RunStatus::Succeeded
     } else {
@@ -179,6 +181,7 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
 
 async fn run_vm_execution(
     host: &mut OpsHost,
+    ctx: &RuntimeContext,
     document: &dot_dsl::Document,
     max_requests: Option<u64>,
     run_id: &str,
@@ -194,7 +197,7 @@ async fn run_vm_execution(
 
     let program = build_program(document, max_requests)?;
     let mut vm = Vm::new(program);
-    vm.run_with_host_and_events(host, trace)
+    vm.run_with_capabilities_host_and_events(ctx.capabilities(), host, trace)
         .await
         .map_err(format_vm_error)
 }
@@ -244,11 +247,12 @@ fn format_vm_error(error: VmError) -> String {
 
 fn write_capability_report(
     bundle: &mut BundleWriter,
-    document: &dot_dsl::Document,
+    ctx: &RuntimeContext,
+    trace: &TraceRecorder,
 ) -> Result<(), String> {
-    match bundle.write_capability_report_json(&json!({
-        "granted": granted_capabilities(document),
-    })) {
+    match bundle
+        .write_capability_report_json(&build_capability_report_json(ctx, trace.capability_usage()))
+    {
         Ok(()) => Ok(()),
         Err(error) => {
             let message = format!("failed to write capability_report.json: {error}");
@@ -277,14 +281,6 @@ fn finalize_bundle(bundle: &mut BundleWriter, trace: &TraceRecorder) -> Result<(
     bundle
         .finalize()
         .map_err(|error| format!("failed to finalize artifact bundle: {error}"))
-}
-
-fn granted_capabilities(document: &dot_dsl::Document) -> Vec<String> {
-    let mut capabilities = BTreeSet::new();
-    for capability in &document.capabilities {
-        capabilities.insert(capability.value.clone());
-    }
-    capabilities.into_iter().collect()
 }
 
 fn bundle_dir_for_run(project_root: &Path, run_id: &str) -> PathBuf {
@@ -345,6 +341,7 @@ struct TraceRecorderState {
     next_seq: u64,
     writer: BufWriter<std::fs::File>,
     error: Option<String>,
+    capability_usage: CapabilityUsageAccumulator,
 }
 
 impl TraceRecorder {
@@ -369,6 +366,7 @@ impl TraceRecorder {
                 next_seq: 0,
                 writer: BufWriter::new(file),
                 error: None,
+                capability_usage: CapabilityUsageAccumulator::default(),
             })),
         })
     }
@@ -380,6 +378,10 @@ impl TraceRecorder {
 
     fn flush(&self) -> Result<(), String> {
         self.inner.borrow_mut().flush()
+    }
+
+    fn capability_usage(&self) -> CapabilityUsageAccumulator {
+        self.inner.borrow().capability_usage.clone()
     }
 
     fn with_state(&mut self, op: impl FnOnce(&mut TraceRecorderState)) {
@@ -420,6 +422,8 @@ impl TraceRecorder {
     }
 
     fn record_syscall_result(&mut self, event: SyscallResultEvent) {
+        let gated_capability = capability_for_syscall(event.id);
+        let result = event.result.clone();
         let mut payload = self.new_payload();
         payload.insert("syscall_id".to_owned(), json!(event.id.0));
         payload.insert("syscall".to_owned(), json!(syscall_name(event.id)));
@@ -436,7 +440,17 @@ impl TraceRecorder {
                 payload.insert("error".to_owned(), json!(error.message()));
             }
         }
-        self.with_state(|state| state.push("syscall.result", payload, event.source.as_ref()));
+        self.with_state(|state| {
+            let seq = state.next_seq;
+            state.push("syscall.result", payload, event.source.as_ref());
+            if state.error.is_none() {
+                if let Some(capability) = gated_capability {
+                    state
+                        .capability_usage
+                        .record_result(capability, &result, seq);
+                }
+            }
+        });
     }
 
     fn record_runtime_event(&mut self, event: RuntimeEvent) {
@@ -545,6 +559,108 @@ fn source_to_json(source: &SourceRef) -> Option<JsonValue> {
     Some(JsonValue::Object(value))
 }
 
+#[derive(Clone, Debug, Default)]
+struct CapabilityUsageAccumulator {
+    entries: BTreeMap<String, CapabilityUsageEntry>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct CapabilityUsageEntry {
+    used: u64,
+    denied: u64,
+    representative_message: Option<String>,
+    representative_seq: Option<u64>,
+}
+
+impl CapabilityUsageAccumulator {
+    fn record_result(
+        &mut self,
+        capability: Capability,
+        result: &Result<Vec<VmValue>, dot_ops::HostError>,
+        seq: u64,
+    ) {
+        let entry = self
+            .entries
+            .entry(capability.as_str().to_owned())
+            .or_default();
+        match result {
+            Ok(_) => entry.used += 1,
+            Err(error) if is_capability_denial(error.message()) => {
+                entry.denied += 1;
+                if entry.representative_message.is_none() {
+                    entry.representative_message = Some(error.message().to_owned());
+                }
+                if entry.representative_seq.is_none() {
+                    entry.representative_seq = Some(seq);
+                }
+            }
+            Err(_) => entry.used += 1,
+        }
+    }
+}
+
+fn build_capability_report_json(
+    ctx: &RuntimeContext,
+    usage: CapabilityUsageAccumulator,
+) -> JsonValue {
+    let mut declared = ctx
+        .declared_capabilities()
+        .iter()
+        .map(|decl| {
+            json!({
+                "capability": decl.capability().as_str(),
+                "source": source_to_json(decl.source()).unwrap_or_else(|| json!({})),
+            })
+        })
+        .collect::<Vec<_>>();
+    declared.sort_by(|left, right| {
+        left["capability"]
+            .as_str()
+            .cmp(&right["capability"].as_str())
+    });
+
+    let mut used = Vec::new();
+    let mut denied = Vec::new();
+    for (capability, entry) in usage.entries {
+        if entry.used > 0 {
+            used.push(json!({
+                "capability": capability,
+                "count": entry.used,
+            }));
+        }
+        if entry.denied > 0 {
+            let mut value = json!({
+                "capability": capability,
+                "count": entry.denied,
+                "message": entry.representative_message,
+            });
+            if let Some(seq) = entry.representative_seq {
+                value["seq"] = json!(seq);
+            }
+            denied.push(value);
+        }
+    }
+
+    json!({
+        "schema_version": "1",
+        "declared": declared,
+        "used": used,
+        "denied": denied,
+    })
+}
+
+fn capability_for_syscall(id: SyscallId) -> Option<Capability> {
+    match id {
+        SYSCALL_LOG_EMIT => Some(Capability::Log),
+        SYSCALL_NET_HTTP_SERVE => Some(Capability::NetHttpListen),
+        _ => None,
+    }
+}
+
+fn is_capability_denial(message: &str) -> bool {
+    message.starts_with("capability denied: syscall `")
+}
+
 fn syscall_name(id: SyscallId) -> &'static str {
     match id {
         SYSCALL_LOG_EMIT => "log.emit",
@@ -613,10 +729,17 @@ fn resolve_dot_file(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{RunOptions, build_program, resolve_dot_file, run};
-    use dot_ops::{SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan};
-    use dot_vm::{Instruction, Reg, Value as VmValue};
-    use serde_json::Value as JsonValue;
+    use super::{
+        RunOptions, TraceRecorder, build_capability_report_json, build_program, resolve_dot_file,
+        run,
+    };
+    use dot_ops::{HostError, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan};
+    use dot_rt::RuntimeContext;
+    use dot_vm::{
+        EventSink, Instruction, Reg, SyscallAttemptEvent, SyscallResultEvent, Value as VmValue,
+        VmEvent,
+    };
+    use serde_json::{Value as JsonValue, json};
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::path::PathBuf;
@@ -717,6 +840,205 @@ end
                 Instruction::Halt
             ]
         );
+    }
+
+    #[test]
+    fn capability_report_records_denied_attempt_with_trace_seq() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut trace = TraceRecorder::new("run-test", &temp.path().join("trace.jsonl"))
+            .expect("trace should initialize");
+        let document = dot_dsl::parse_and_validate(
+            r#"dot 0.1
+app "x"
+allow log
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+        let ctx = RuntimeContext::from_dot_dsl(&document).expect("context must build");
+        let denied_message = "capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement.";
+
+        trace.emit(VmEvent::SyscallAttempt(SyscallAttemptEvent {
+            ip: 0,
+            id: SYSCALL_LOG_EMIT,
+            args: vec![VmValue::from("hello")],
+            source: None,
+        }));
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 0,
+            id: SYSCALL_LOG_EMIT,
+            result: Err(HostError::new(denied_message)),
+            source: None,
+        }));
+
+        let report = build_capability_report_json(&ctx, trace.capability_usage());
+        assert_eq!(
+            report["denied"],
+            json!([
+                {
+                    "capability": "log",
+                    "count": 1,
+                    "message": denied_message,
+                    "seq": 1
+                }
+            ])
+        );
+        assert_eq!(report["used"], json!([]));
+    }
+
+    #[test]
+    fn capability_report_counts_allowed_failures_as_used() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut trace = TraceRecorder::new("run-test", &temp.path().join("trace.jsonl"))
+            .expect("trace should initialize");
+        let document = dot_dsl::parse_and_validate(
+            r#"dot 0.1
+app "x"
+allow log
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+        let ctx = RuntimeContext::from_dot_dsl(&document).expect("context must build");
+
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 0,
+            id: SYSCALL_LOG_EMIT,
+            result: Err(HostError::new("stdout write failed")),
+            source: None,
+        }));
+
+        let report = build_capability_report_json(&ctx, trace.capability_usage());
+        assert_eq!(
+            report["used"],
+            json!([
+                {
+                    "capability": "log",
+                    "count": 1
+                }
+            ])
+        );
+        assert_eq!(report["denied"], json!([]));
+    }
+
+    #[test]
+    fn capability_report_is_stably_sorted_and_matches_trace_denials() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let trace_path = temp.path().join("trace.jsonl");
+        let mut trace =
+            TraceRecorder::new("run-test", &trace_path).expect("trace should initialize");
+        let document = dot_dsl::parse_and_validate(
+            r#"dot 0.1
+app "x"
+allow net.http.listen
+allow log
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+        let ctx = RuntimeContext::from_dot_dsl(&document).expect("context must build");
+        let denied_message = "capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement.";
+
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 0,
+            id: SYSCALL_NET_HTTP_SERVE,
+            result: Ok(vec![]),
+            source: None,
+        }));
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 1,
+            id: SYSCALL_LOG_EMIT,
+            result: Err(HostError::new(denied_message)),
+            source: None,
+        }));
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 2,
+            id: SYSCALL_LOG_EMIT,
+            result: Err(HostError::new("capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement. later repeat")),
+            source: None,
+        }));
+        trace.flush().expect("trace should flush");
+
+        let report = build_capability_report_json(&ctx, trace.capability_usage());
+        assert_eq!(
+            report["declared"],
+            json!([
+                {
+                    "capability": "log",
+                    "source": {
+                        "semantic_path": "capabilities[1]",
+                        "span": {
+                            "line": 4,
+                            "column": 7,
+                            "length": 3
+                        }
+                    }
+                },
+                {
+                    "capability": "net.http.listen",
+                    "source": {
+                        "semantic_path": "capabilities[0]",
+                        "span": {
+                            "line": 3,
+                            "column": 7,
+                            "length": 15
+                        }
+                    }
+                }
+            ])
+        );
+        assert_eq!(
+            report["used"],
+            json!([
+                {
+                    "capability": "net.http.listen",
+                    "count": 1
+                }
+            ])
+        );
+        assert_eq!(
+            report["denied"],
+            json!([
+                {
+                    "capability": "log",
+                    "count": 2,
+                    "message": denied_message,
+                    "seq": 1
+                }
+            ])
+        );
+
+        let trace_entries = std::fs::read_to_string(&trace_path)
+            .expect("trace file must read")
+            .lines()
+            .map(|line| serde_json::from_str::<JsonValue>(line).expect("trace line must parse"))
+            .collect::<Vec<_>>();
+        let denied_seq = report["denied"][0]["seq"]
+            .as_u64()
+            .expect("denied seq must exist") as usize;
+        assert_eq!(trace_entries[denied_seq]["event"], "syscall.result");
+        assert_eq!(trace_entries[denied_seq]["syscall"], "log.emit");
+        assert_eq!(trace_entries[denied_seq]["error"], denied_message);
     }
 
     #[test]
@@ -866,6 +1188,39 @@ end
             trace_raw.len()
         );
         assert_eq!(manifest["sections"]["capability_report"]["status"], "ok");
+
+        let capability_report: JsonValue = serde_json::from_slice(
+            &std::fs::read(bundle_path.join("capability_report.json"))
+                .expect("capability report must read"),
+        )
+        .expect("capability report must parse");
+        assert_eq!(capability_report["schema_version"], "1");
+        assert_eq!(
+            capability_report["declared"],
+            serde_json::json!([
+                {
+                    "capability": "net.http.listen",
+                    "source": {
+                        "semantic_path": "capabilities[0]",
+                        "span": {
+                            "line": 3,
+                            "column": 7,
+                            "length": 15
+                        }
+                    }
+                }
+            ])
+        );
+        assert_eq!(
+            capability_report["used"],
+            serde_json::json!([
+                {
+                    "capability": "net.http.listen",
+                    "count": 1
+                }
+            ])
+        );
+        assert_eq!(capability_report["denied"], serde_json::json!([]));
     }
 
     #[test]
