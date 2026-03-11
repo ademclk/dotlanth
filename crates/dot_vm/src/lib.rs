@@ -463,8 +463,9 @@ mod tests {
         assert_eq!(vm.step().unwrap(), StepOutcome::Continued);
         let mut host = CountingHost { calls: 0 };
 
-        let error = block_on(vm.step_with_capabilities_and_host(&CapabilitySet::empty(), &mut host))
-            .expect_err("denied syscall must fail");
+        let error =
+            block_on(vm.step_with_capabilities_and_host(&CapabilitySet::empty(), &mut host))
+                .expect_err("denied syscall must fail");
 
         assert_eq!(
             error,
@@ -540,12 +541,8 @@ mod tests {
         };
         let mut sink = CollectSink(Vec::new());
 
-        block_on(vm.run_with_capabilities_host_and_events(
-            &capabilities,
-            &mut host,
-            &mut sink,
-        ))
-        .expect("granted capability path must succeed");
+        block_on(vm.run_with_capabilities_host_and_events(&capabilities, &mut host, &mut sink))
+            .expect("granted capability path must succeed");
 
         assert_eq!(
             sink.0,

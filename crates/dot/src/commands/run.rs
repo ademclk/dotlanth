@@ -443,12 +443,12 @@ impl TraceRecorder {
         self.with_state(|state| {
             let seq = state.next_seq;
             state.push("syscall.result", payload, event.source.as_ref());
-            if state.error.is_none() {
-                if let Some(capability) = gated_capability {
-                    state
-                        .capability_usage
-                        .record_result(capability, &result, seq);
-                }
+            if state.error.is_none()
+                && let Some(capability) = gated_capability
+            {
+                state
+                    .capability_usage
+                    .record_result(capability, &result, seq);
             }
         });
     }

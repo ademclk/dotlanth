@@ -200,9 +200,10 @@ end
     #[test]
     fn runtime_context_propagates_unknown_capability_errors_from_raw_documents() {
         let mut document = Document::default();
-        document
-            .capabilities
-            .push(Spanned::new("net.tcp.connect".to_owned(), Span::new(1, 1, 15)));
+        document.capabilities.push(Spanned::new(
+            "net.tcp.connect".to_owned(),
+            Span::new(1, 1, 15),
+        ));
 
         let error =
             RuntimeContext::from_dot_dsl(&document).expect_err("unknown capability must fail");
@@ -213,8 +214,7 @@ end
 
     #[test]
     fn declared_capability_round_trips_capability_and_source() {
-        let source =
-            SourceRef::with_span_and_path(SourceSpan::new(4, 7, 3), "capabilities[0]");
+        let source = SourceRef::with_span_and_path(SourceSpan::new(4, 7, 3), "capabilities[0]");
         let declared = DeclaredCapability::new(Capability::Log, source.clone());
 
         assert_eq!(declared.capability(), Capability::Log);
