@@ -11,7 +11,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "26.1.0-alpha"
+version = "26.2.0-alpha"
 edition = "2024"
 rust-version = "1.93"
 license = "GPL-3.0-or-later OR LicenseRef-Dotlanth-Commercial"
