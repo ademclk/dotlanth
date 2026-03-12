@@ -92,3 +92,22 @@ The bundle captures:
 `state_diff.json` exports a stable `state_kv` diff ordered by `(namespace, key)` and skips unchanged values.
 `capability_report.json` lists declared capabilities with their source spans/semantic paths, plus stable `used` and `denied` accounting. When a capability-gated syscall is denied, the report keeps a representative error message and the matching trace `seq` when available.
 DotDB indexes the finalized bundle by the external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
+
+Use the run id to print a stable bundle summary:
+
+```bash
+cargo run -p dot -- inspect <run_id>
+```
+
+To copy the recorded bundle to another directory:
+
+```bash
+cargo run -p dot -- export-artifacts <run_id> --out /tmp/run-bundle
+```
+
+To replay the saved input snapshot into a fresh run:
+
+```bash
+cargo run -p dot -- replay <run_id>
+cargo run -p dot -- replay --bundle /tmp/run-bundle
+```

@@ -38,6 +38,25 @@ DotDB indexes the finalized bundle by external `run_id`, storing the bundle ref 
 
 The capability report includes declared capabilities with source metadata, along with stable `used` and `denied` counts for capability-gated operations.
 
+You can inspect the recorded bundle summary directly from the run id:
+
+```bash
+cargo run -p dot -- inspect <run_id>
+```
+
+To materialize a copy of the indexed bundle somewhere else:
+
+```bash
+cargo run -p dot -- export-artifacts <run_id> --out /tmp/run-bundle
+```
+
+To replay the saved `inputs/entry.dot` into a fresh run:
+
+```bash
+cargo run -p dot -- replay <run_id>
+cargo run -p dot -- replay --bundle /tmp/run-bundle
+```
+
 ## Troubleshooting
 
 ### Port already in use
