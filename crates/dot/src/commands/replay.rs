@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
 use crate::commands::run;
+use crate::commands::support::open_existing_dotdb_in;
 use dot_artifacts::ENTRY_DOT_FILE;
-use dot_db::DotDb;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn run(run_id: Option<&str>, bundle: Option<&Path>) -> Result<(), String> {
@@ -28,8 +28,7 @@ fn entry_dot_for_run_id(project_root: &Path, run_id: &str) -> Result<PathBuf, St
         return Err("run id must not be empty".to_owned());
     }
 
-    let mut db =
-        DotDb::open_in(project_root).map_err(|error| format!("failed to open DotDB: {error}"))?;
+    let mut db = open_existing_dotdb_in(project_root)?;
     let bundle = db
         .artifact_bundle(trimmed)
         .map_err(|error| format!("failed to resolve bundle for run {trimmed}: {error}"))?;

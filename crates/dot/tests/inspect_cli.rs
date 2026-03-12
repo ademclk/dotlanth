@@ -205,6 +205,116 @@ end
     );
 }
 
+#[test]
+fn inspect_reports_unavailable_artifacts_without_failing() {
+    let temp = TempDir::new().expect("temp dir must create");
+    let run_id = "run_inspect_unavailable";
+    let bundle_dir = temp.path().join(".dotlanth").join("bundles").join(run_id);
+    let entry_dot = br#"dot 0.1
+app "fixture"
+end
+"#;
+    write_fixture_file(&bundle_dir, ENTRY_DOT_FILE, entry_dot);
+
+    let manifest = json!({
+        "schema_version": "1",
+        "run_id": run_id,
+        "created_at_ms": 1,
+        "required_files": [
+            MANIFEST_FILE,
+            ENTRY_DOT_FILE,
+            TRACE_FILE,
+            STATE_DIFF_FILE,
+            CAPABILITY_REPORT_FILE
+        ],
+        "sections": {
+            "capability_report": {
+                "path": CAPABILITY_REPORT_FILE,
+                "status": "unavailable"
+            },
+            "state_diff": {
+                "path": STATE_DIFF_FILE,
+                "status": "unavailable"
+            },
+            "trace": {
+                "path": TRACE_FILE,
+                "status": "unavailable"
+            }
+        },
+        "inputs": {
+            "entry_dot": {
+                "path": ENTRY_DOT_FILE,
+                "status": "ok",
+                "bytes": entry_dot.len()
+            }
+        }
+    });
+    let mut manifest_bytes = serde_json::to_vec_pretty(&manifest).expect("manifest must serialize");
+    manifest_bytes.push(b'\n');
+    write_fixture_file(&bundle_dir, MANIFEST_FILE, &manifest_bytes);
+
+    let mut db = DotDb::open_in(temp.path()).expect("db must open");
+    let created = db.create_run_with_id(run_id).expect("run must create");
+    db.finalize_run(created.row_id(), RunStatus::Failed)
+        .expect("run must finalize");
+    db.set_artifact_bundle(
+        run_id,
+        &format!(".dotlanth/bundles/{run_id}"),
+        "fixture-manifest-sha256",
+        manifest_bytes.len() as u64,
+    )
+    .expect("bundle index must store");
+
+    let manifest_path = workspace_manifest();
+    let manifest_path = manifest_path.display().to_string();
+    let output = Command::new("cargo")
+        .current_dir(temp.path())
+        .args([
+            "run",
+            "--quiet",
+            "--manifest-path",
+            &manifest_path,
+            "-p",
+            "dot",
+            "--",
+            "inspect",
+            run_id,
+        ])
+        .output()
+        .expect("inspect command must run");
+
+    assert!(
+        output.status.success(),
+        "inspect should succeed on unavailable artifacts\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout must be utf-8");
+    assert_eq!(
+        stdout,
+        format!(
+            concat!(
+                "run_id: {}\n",
+                "status: failed\n",
+                "schema_version: 1\n",
+                "artifacts:\n",
+                "  manifest.json: present ({} bytes)\n",
+                "  inputs/entry.dot: present ({} bytes)\n",
+                "  trace.jsonl: unavailable\n",
+                "  state_diff.json: unavailable\n",
+                "  capability_report.json: unavailable\n",
+                "capabilities: unavailable\n",
+                "trace: events=unavailable\n",
+                "state_diff: unavailable\n"
+            ),
+            run_id,
+            manifest_bytes.len(),
+            entry_dot.len(),
+        )
+    );
+}
+
 fn dot_bin() -> &'static str {
     "cargo"
 }
@@ -222,6 +332,14 @@ fn write_file(root: &Path, relative: &str, contents: &[u8]) {
         .join("bundles")
         .join("run_inspect_fixture")
         .join(relative);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("parent dir must create");
+    }
+    fs::write(path, contents).expect("fixture file must write");
+}
+
+fn write_fixture_file(bundle_dir: &Path, relative: &str, contents: &[u8]) {
+    let path = bundle_dir.join(relative);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("parent dir must create");
     }

@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use dot_db::DotDb;
+use crate::commands::support::open_existing_dotdb_in;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,7 +8,7 @@ pub(crate) fn run(run_id: &str, out: &Path) -> Result<(), String> {
     let run_id = parse_run_id(run_id)?;
     let cwd = std::env::current_dir()
         .map_err(|error| format!("failed to read current directory: {error}"))?;
-    let mut db = DotDb::open_in(&cwd).map_err(|error| format!("failed to open DotDB: {error}"))?;
+    let mut db = open_existing_dotdb_in(&cwd)?;
     let bundle = db
         .artifact_bundle(&run_id)
         .map_err(|error| format!("failed to resolve bundle for run {run_id}: {error}"))?;

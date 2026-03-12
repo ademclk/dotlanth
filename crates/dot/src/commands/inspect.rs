@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 
+use crate::commands::support::open_existing_dotdb_in;
 use dot_artifacts::{
     CAPABILITY_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE, STATE_DIFF_FILE, TRACE_FILE,
 };
-use dot_db::DotDb;
 use serde_json::Value as JsonValue;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -18,7 +18,7 @@ fn render_summary(run_id: &str) -> Result<String, String> {
     let run_id = parse_run_id(run_id)?;
     let cwd = std::env::current_dir()
         .map_err(|error| format!("failed to read current directory: {error}"))?;
-    let mut db = DotDb::open_in(&cwd).map_err(|error| format!("failed to open DotDB: {error}"))?;
+    let mut db = open_existing_dotdb_in(&cwd)?;
     let run = db
         .run_record(&run_id)
         .map_err(|error| format!("failed to read run {run_id}: {error}"))?;
@@ -36,37 +36,83 @@ fn render_summary(run_id: &str) -> Result<String, String> {
     let manifest: JsonValue = serde_json::from_slice(&manifest_bytes)
         .map_err(|error| format!("failed to parse `{MANIFEST_FILE}`: {error}"))?;
     let schema_version = json_string_field(&manifest, &["schema_version"])?;
+    let entry_dot = artifact_summary(
+        &bundle_dir,
+        Some(json_lookup(&manifest, &["inputs", "entry_dot"])?),
+        ENTRY_DOT_FILE,
+    );
+    let trace = artifact_summary(
+        &bundle_dir,
+        Some(json_lookup(&manifest, &["sections", "trace"])?),
+        TRACE_FILE,
+    );
+    let state_diff = artifact_summary(
+        &bundle_dir,
+        Some(json_lookup(&manifest, &["sections", "state_diff"])?),
+        STATE_DIFF_FILE,
+    );
+    let capability_report = artifact_summary(
+        &bundle_dir,
+        Some(json_lookup(&manifest, &["sections", "capability_report"])?),
+        CAPABILITY_REPORT_FILE,
+    );
 
-    let entry_dot_bytes = file_len(bundle_dir.join(ENTRY_DOT_FILE))?;
-    let trace_bytes = file_len(bundle_dir.join(TRACE_FILE))?;
-    let state_diff_bytes = file_len(bundle_dir.join(STATE_DIFF_FILE))?;
-    let capability_report_bytes = file_len(bundle_dir.join(CAPABILITY_REPORT_FILE))?;
-
-    let capability_report: JsonValue = serde_json::from_slice(
-        &fs::read(bundle_dir.join(CAPABILITY_REPORT_FILE)).map_err(|error| {
-            format!(
-                "failed to read `{}`: {error}",
-                bundle_dir.join(CAPABILITY_REPORT_FILE).display()
+    let capability_summary = match capability_report.availability {
+        ArtifactAvailability::Present => {
+            let capability_report: JsonValue = serde_json::from_slice(
+                &fs::read(bundle_dir.join(CAPABILITY_REPORT_FILE)).map_err(|error| {
+                    format!(
+                        "failed to read `{}`: {error}",
+                        bundle_dir.join(CAPABILITY_REPORT_FILE).display()
+                    )
+                })?,
             )
-        })?,
-    )
-    .map_err(|error| format!("failed to parse `{CAPABILITY_REPORT_FILE}`: {error}"))?;
-    let declared = json_array_len(&capability_report, &["declared"])?;
-    let used = json_array_len(&capability_report, &["used"])?;
-    let denied = json_array_len(&capability_report, &["denied"])?;
-
-    let trace_events = count_jsonl_events(&bundle_dir.join(TRACE_FILE))?;
-
-    let state_diff: JsonValue = serde_json::from_slice(
-        &fs::read(bundle_dir.join(STATE_DIFF_FILE)).map_err(|error| {
+            .map_err(|error| format!("failed to parse `{CAPABILITY_REPORT_FILE}`: {error}"))?;
             format!(
-                "failed to read `{}`: {error}",
-                bundle_dir.join(STATE_DIFF_FILE).display()
+                "capabilities: declared={} used={} denied={}\n",
+                json_array_len(&capability_report, &["declared"])?,
+                json_array_len(&capability_report, &["used"])?,
+                json_array_len(&capability_report, &["denied"])?,
             )
-        })?,
-    )
-    .map_err(|error| format!("failed to parse `{STATE_DIFF_FILE}`: {error}"))?;
-    let changes = state_diff_changes(&state_diff)?;
+        }
+        ArtifactAvailability::Unavailable | ArtifactAvailability::Absent => {
+            "capabilities: unavailable\n".to_owned()
+        }
+    };
+
+    let trace_summary = match trace.availability {
+        ArtifactAvailability::Present => {
+            format!(
+                "trace: events={}\n",
+                count_jsonl_events(&bundle_dir.join(TRACE_FILE))?
+            )
+        }
+        ArtifactAvailability::Unavailable | ArtifactAvailability::Absent => {
+            "trace: events=unavailable\n".to_owned()
+        }
+    };
+
+    let state_diff_summary = match state_diff.availability {
+        ArtifactAvailability::Present => {
+            let state_diff: JsonValue = serde_json::from_slice(
+                &fs::read(bundle_dir.join(STATE_DIFF_FILE)).map_err(|error| {
+                    format!(
+                        "failed to read `{}`: {error}",
+                        bundle_dir.join(STATE_DIFF_FILE).display()
+                    )
+                })?,
+            )
+            .map_err(|error| format!("failed to parse `{STATE_DIFF_FILE}`: {error}"))?;
+            let changes = state_diff_changes(&state_diff)?;
+            format!(
+                "state_diff: changes={} added={} updated={} removed={}\n",
+                changes.total, changes.added, changes.updated, changes.removed
+            )
+        }
+        ArtifactAvailability::Unavailable | ArtifactAvailability::Absent => {
+            "state_diff: unavailable\n".to_owned()
+        }
+    };
 
     Ok(format!(
         concat!(
@@ -75,30 +121,25 @@ fn render_summary(run_id: &str) -> Result<String, String> {
             "schema_version: {}\n",
             "artifacts:\n",
             "  manifest.json: present ({} bytes)\n",
-            "  inputs/entry.dot: present ({} bytes)\n",
-            "  trace.jsonl: present ({} bytes)\n",
-            "  state_diff.json: present ({} bytes)\n",
-            "  capability_report.json: present ({} bytes)\n",
-            "capabilities: declared={} used={} denied={}\n",
-            "trace: events={}\n",
-            "state_diff: changes={} added={} updated={} removed={}\n"
+            "  inputs/entry.dot: {}\n",
+            "  trace.jsonl: {}\n",
+            "  state_diff.json: {}\n",
+            "  capability_report.json: {}\n",
+            "{}",
+            "{}",
+            "{}"
         ),
         run.run_id,
         run.status,
         schema_version,
         manifest_bytes.len(),
-        entry_dot_bytes,
-        trace_bytes,
-        state_diff_bytes,
-        capability_report_bytes,
-        declared,
-        used,
-        denied,
-        trace_events,
-        changes.total,
-        changes.added,
-        changes.updated,
-        changes.removed,
+        entry_dot.render(),
+        trace.render(),
+        state_diff.render(),
+        capability_report.render(),
+        capability_summary,
+        trace_summary,
+        state_diff_summary,
     ))
 }
 
@@ -124,6 +165,71 @@ fn file_len(path: PathBuf) -> Result<u64, String> {
     fs::metadata(&path)
         .map(|metadata| metadata.len())
         .map_err(|error| format!("failed to read `{}` metadata: {error}", path.display()))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ArtifactAvailability {
+    Present,
+    Unavailable,
+    Absent,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ArtifactSummary {
+    availability: ArtifactAvailability,
+    bytes: Option<u64>,
+}
+
+impl ArtifactSummary {
+    fn render(self) -> String {
+        match (self.availability, self.bytes) {
+            (ArtifactAvailability::Present, Some(bytes)) => format!("present ({bytes} bytes)"),
+            (ArtifactAvailability::Present, None) => "present".to_owned(),
+            (ArtifactAvailability::Unavailable, Some(bytes)) => {
+                format!("unavailable ({bytes} bytes recorded)")
+            }
+            (ArtifactAvailability::Unavailable, None) => "unavailable".to_owned(),
+            (ArtifactAvailability::Absent, _) => "absent".to_owned(),
+        }
+    }
+}
+
+fn artifact_summary(
+    bundle_dir: &Path,
+    manifest_entry: Option<&JsonValue>,
+    relative: &str,
+) -> ArtifactSummary {
+    let path = bundle_dir.join(relative);
+    let exists = path.is_file();
+    let manifest_status = manifest_entry
+        .and_then(|entry| entry.get("status"))
+        .and_then(JsonValue::as_str);
+    let manifest_bytes = manifest_entry
+        .and_then(|entry| entry.get("bytes"))
+        .and_then(JsonValue::as_u64);
+
+    match manifest_status {
+        Some("ok") if exists => ArtifactSummary {
+            availability: ArtifactAvailability::Present,
+            bytes: manifest_bytes.or_else(|| file_len(path).ok()),
+        },
+        Some("ok") => ArtifactSummary {
+            availability: ArtifactAvailability::Absent,
+            bytes: manifest_bytes,
+        },
+        Some("unavailable") | Some("error") => ArtifactSummary {
+            availability: ArtifactAvailability::Unavailable,
+            bytes: manifest_bytes,
+        },
+        _ if exists => ArtifactSummary {
+            availability: ArtifactAvailability::Present,
+            bytes: file_len(path).ok(),
+        },
+        _ => ArtifactSummary {
+            availability: ArtifactAvailability::Absent,
+            bytes: manifest_bytes,
+        },
+    }
 }
 
 fn json_string_field(value: &JsonValue, path: &[&str]) -> Result<String, String> {
@@ -189,8 +295,11 @@ fn state_diff_changes(value: &JsonValue) -> Result<StateDiffCounts, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_run_id, state_diff_changes};
+    use super::{ArtifactAvailability, artifact_summary, parse_run_id, state_diff_changes};
+    use dot_artifacts::TRACE_FILE;
     use serde_json::json;
+    use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn parse_run_id_rejects_blank_values() {
@@ -220,5 +329,47 @@ mod tests {
         assert_eq!(counts.added, 1);
         assert_eq!(counts.updated, 2);
         assert_eq!(counts.removed, 1);
+    }
+
+    #[test]
+    fn artifact_summary_marks_unavailable_manifest_sections_without_failing() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let summary = artifact_summary(
+            temp.path(),
+            Some(&json!({
+                "status": "unavailable"
+            })),
+            TRACE_FILE,
+        );
+
+        assert_eq!(summary.availability, ArtifactAvailability::Unavailable);
+        assert_eq!(summary.render(), "unavailable");
+    }
+
+    #[test]
+    fn artifact_summary_marks_missing_ok_file_as_absent() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let summary = artifact_summary(
+            temp.path(),
+            Some(&json!({
+                "status": "ok",
+                "bytes": 12
+            })),
+            TRACE_FILE,
+        );
+
+        assert_eq!(summary.availability, ArtifactAvailability::Absent);
+        assert_eq!(summary.render(), "absent");
+    }
+
+    #[test]
+    fn artifact_summary_uses_existing_file_length_when_present() {
+        let temp = TempDir::new().expect("temp dir must create");
+        fs::write(temp.path().join(TRACE_FILE), "{}\n").expect("trace file must write");
+
+        let summary = artifact_summary(temp.path(), None, TRACE_FILE);
+
+        assert_eq!(summary.availability, ArtifactAvailability::Present);
+        assert_eq!(summary.render(), "present (3 bytes)");
     }
 }
