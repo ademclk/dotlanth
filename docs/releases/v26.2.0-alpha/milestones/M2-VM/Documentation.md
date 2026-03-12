@@ -22,7 +22,7 @@
 - Trace schema: RFC-26021
 - External run ids are generated as stable string ids with a `run_` prefix and stored separately from DotDB's internal SQLite row ids.
 - `dot logs <run_id>` now resolves the external run id through DotDB's indexed `runs.run_id` column.
-- Successful bounded runs write bundles under `.dotlanth/bundles/<run_id>/`, and the bundle manifest uses the same external `run_id` shown by the CLI.
+- Runs that resolve a `.dot` file write bundles under `.dotlanth/bundles/<run_id>/`, including failed validation/runtime runs; the bundle manifest uses the same external `run_id` shown by the CLI.
 - `trace.jsonl` is JSONL with gap-free `seq` values and includes `run.start`, syscall attempt/result events, host runtime events, and `run.finish`.
 - Trace events include `source.span` and `source.semantic_path` when the runtime knows the mapping: `server`, matched route blocks, and `respond` blocks.
 - `manifest.json` now records the trace artifact's byte count and SHA-256 when `trace.jsonl` is present.

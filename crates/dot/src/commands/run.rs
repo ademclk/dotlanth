@@ -7,7 +7,7 @@ use dot_ops::{
     SourceSpan, SyscallId,
 };
 use dot_rt::RuntimeContext;
-use dot_sec::Capability;
+use dot_sec::{Capability, CapabilitySet};
 use dot_vm::{
     EventSink, Instruction, Reg, SyscallAttemptEvent, SyscallResultEvent, Value as VmValue, Vm,
     VmError, VmEvent,
@@ -69,19 +69,11 @@ async fn run_async(
             (dot_path, project_root)
         }
     };
-    let dot_source = read_dot_source(&dot_path)?;
-    let document =
-        dot_dsl::parse_and_validate(&dot_source, &dot_path).map_err(|error| error.to_string())?;
-    let ctx = RuntimeContext::from_dot_dsl(&document).map_err(|error| error.to_string())?;
-
     let db =
         DotDb::open_in(&project_root).map_err(|error| format!("failed to open DotDB: {error}"))?;
-    let mut host = OpsHost::new(ctx.capabilities().clone(), db)
+    let mut host = OpsHost::new(CapabilitySet::empty(), db)
         .map_err(|error| format!("failed to initialize runtime host: {error}"))?;
     host.set_record_mode(RecordMode::Record);
-    let before_state = host
-        .state_snapshot()
-        .map_err(|error| format!("failed to capture state snapshot before execution: {error}"));
 
     let run_id = host.run_id().to_owned();
     let bundle_dir = bundle_dir_for_run(&project_root, &run_id);
@@ -114,37 +106,78 @@ async fn run_async(
     host.set_runtime_event_forwarder(trace.runtime_event_forwarder());
 
     trace.record_run_start(&dot_path);
-    let execution_result = match bundle.snapshot_entry_dot_bytes(dot_source.as_bytes()) {
-        Ok(()) => {
-            run_vm_execution(
+    let dot_source = match read_dot_source(&dot_path) {
+        Ok(dot_source) => dot_source,
+        Err(error) => {
+            return finish_pre_execution_failure(
                 &mut host,
-                &ctx,
-                &document,
-                max_requests,
-                &run_id,
+                &mut bundle,
                 &mut trace,
-            )
-            .await
+                &run_id,
+                error,
+            );
         }
-        Err(error) => Err(format!(
-            "failed to snapshot `{}` into bundle: {error}",
-            dot_path.display()
-        )),
     };
+    if let Err(error) = bundle.snapshot_entry_dot_bytes(dot_source.as_bytes()) {
+        return finish_pre_execution_failure(
+            &mut host,
+            &mut bundle,
+            &mut trace,
+            &run_id,
+            format!(
+                "failed to snapshot `{}` into bundle: {error}",
+                dot_path.display()
+            ),
+        );
+    }
+    let document = match dot_dsl::parse_and_validate(&dot_source, &dot_path) {
+        Ok(document) => document,
+        Err(error) => {
+            return finish_pre_execution_failure(
+                &mut host,
+                &mut bundle,
+                &mut trace,
+                &run_id,
+                error.to_string(),
+            );
+        }
+    };
+    let ctx = match RuntimeContext::from_dot_dsl(&document) {
+        Ok(ctx) => ctx,
+        Err(error) => {
+            return finish_pre_execution_failure(
+                &mut host,
+                &mut bundle,
+                &mut trace,
+                &run_id,
+                error.to_string(),
+            );
+        }
+    };
+    host.set_capabilities(ctx.capabilities().clone());
+    let before_state = host
+        .state_snapshot()
+        .map_err(|error| format!("failed to capture state snapshot before execution: {error}"));
+    let execution_result = run_vm_execution(
+        &mut host,
+        &ctx,
+        &document,
+        max_requests,
+        &run_id,
+        &mut trace,
+    )
+    .await;
 
     let after_state = host
         .state_snapshot()
         .map_err(|error| format!("failed to capture state snapshot after execution: {error}"));
     let state_diff_result = write_state_diff(&mut bundle, before_state, after_state);
     let capability_report_result = write_capability_report(&mut bundle, &ctx, &trace);
-    let pre_bundle_status = if execution_result.is_ok()
-        && state_diff_result.is_ok()
-        && capability_report_result.is_ok()
-    {
-        dot_db::RunStatus::Succeeded
-    } else {
-        dot_db::RunStatus::Failed
-    };
+    let pre_bundle_status = pre_bundle_status(
+        &execution_result,
+        &state_diff_result,
+        &capability_report_result,
+    );
     let finalize_result = host
         .finalize_run(pre_bundle_status)
         .map_err(|error| error.to_string());
@@ -157,14 +190,13 @@ async fn run_async(
         None
     };
 
-    let trace_status = if execution_result.is_ok()
-        && capability_report_result.is_ok()
-        && finalize_result.is_ok()
-    {
-        dot_db::RunStatus::Succeeded
-    } else {
-        dot_db::RunStatus::Failed
-    };
+    let trace_status = trace_finish_status(
+        &execution_result,
+        &state_diff_result,
+        &capability_report_result,
+        &finalize_result,
+        finalize_recovery_result.as_ref(),
+    );
     let trace_error = summarize_errors([
         execution_result.as_ref().err().cloned(),
         state_diff_result.as_ref().err().cloned(),
@@ -178,17 +210,6 @@ async fn run_async(
     trace.record_run_finish(trace_status, trace_error.as_deref());
 
     let bundle_result = finalize_bundle(&mut host, &mut bundle, &trace, &run_id);
-    let bundle_recovery_finalize_result = if bundle_result.is_err()
-        && pre_bundle_status == dot_db::RunStatus::Succeeded
-        && finalize_result.is_ok()
-    {
-        Some(
-            host.finalize_run(dot_db::RunStatus::Failed)
-                .map_err(|error| error.to_string()),
-        )
-    } else {
-        None
-    };
     let mut errors = Vec::new();
 
     if let Err(error) = execution_result {
@@ -209,9 +230,6 @@ async fn run_async(
     if let Some(Err(error)) = finalize_recovery_result {
         errors.push(error);
     }
-    if let Some(Err(error)) = bundle_recovery_finalize_result {
-        errors.push(error);
-    }
 
     match errors.split_first() {
         None => Ok(()),
@@ -220,6 +238,70 @@ async fn run_async(
             extras.iter().cloned().map(Some),
         )),
     }
+}
+
+fn finish_pre_execution_failure(
+    host: &mut OpsHost,
+    bundle: &mut BundleWriter,
+    trace: &mut TraceRecorder,
+    run_id: &str,
+    execution_error: String,
+) -> Result<(), String> {
+    let execution_result = Err(execution_error.clone());
+    let state_diff_result = bundle
+        .mark_section_unavailable(
+            BundleSection::StateDiff,
+            "execution_not_started",
+            "state diff unavailable because execution did not start",
+        )
+        .map_err(|error| format!("failed to mark state_diff.json as unavailable: {error}"));
+    let capability_report_result = bundle
+        .mark_section_unavailable(
+            BundleSection::CapabilityReport,
+            "execution_not_started",
+            "capability report unavailable because execution did not start",
+        )
+        .map_err(|error| format!("failed to mark capability_report.json as unavailable: {error}"));
+    let finalize_result = host
+        .finalize_run(dot_db::RunStatus::Failed)
+        .map_err(|error| error.to_string());
+    let trace_status = trace_finish_status(
+        &execution_result,
+        &state_diff_result,
+        &capability_report_result,
+        &finalize_result,
+        None,
+    );
+    let trace_error = summarize_errors([
+        Some(execution_error.clone()),
+        state_diff_result.as_ref().err().cloned(),
+        capability_report_result.as_ref().err().cloned(),
+        finalize_result.as_ref().err().cloned(),
+    ]);
+    trace.record_run_finish(trace_status, trace_error.as_deref());
+
+    let bundle_result = finalize_bundle(host, bundle, trace, run_id);
+    let mut errors = vec![execution_error];
+    if let Err(error) = state_diff_result {
+        errors.push(error);
+    }
+    if let Err(error) = capability_report_result {
+        errors.push(error);
+    }
+    if let Err(error) = bundle_result {
+        errors.push(error);
+    }
+    if let Err(error) = finalize_result {
+        errors.push(error);
+    }
+
+    let (primary, extras) = errors
+        .split_first()
+        .expect("pre-execution failure should always include a primary error");
+    Err(combine_errors(
+        primary.clone(),
+        extras.iter().cloned().map(Some),
+    ))
 }
 
 async fn run_vm_execution(
@@ -493,6 +575,40 @@ fn summarize_errors(errors: impl IntoIterator<Item = Option<String>>) -> Option<
         primary.clone(),
         extras.iter().cloned().map(Some),
     ))
+}
+
+fn pre_bundle_status(
+    execution_result: &Result<(), String>,
+    state_diff_result: &Result<(), String>,
+    capability_report_result: &Result<(), String>,
+) -> dot_db::RunStatus {
+    status_from_success(
+        execution_result.is_ok() && state_diff_result.is_ok() && capability_report_result.is_ok(),
+    )
+}
+
+fn trace_finish_status(
+    execution_result: &Result<(), String>,
+    state_diff_result: &Result<(), String>,
+    capability_report_result: &Result<(), String>,
+    finalize_result: &Result<(), String>,
+    finalize_recovery_result: Option<&Result<(), String>>,
+) -> dot_db::RunStatus {
+    status_from_success(
+        execution_result.is_ok()
+            && state_diff_result.is_ok()
+            && capability_report_result.is_ok()
+            && finalize_result.is_ok()
+            && finalize_recovery_result.is_none_or(Result::is_ok),
+    )
+}
+
+fn status_from_success(success: bool) -> dot_db::RunStatus {
+    if success {
+        dot_db::RunStatus::Succeeded
+    } else {
+        dot_db::RunStatus::Failed
+    }
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -902,9 +1018,12 @@ fn resolve_dot_file(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 mod tests {
     use super::{
         RunOptions, TraceRecorder, build_capability_report_json, build_program, build_state_diff,
-        resolve_dot_file, run, sha256_hex,
+        pre_bundle_status, resolve_dot_file, run, sha256_hex, trace_finish_status,
     };
-    use dot_db::{DotDb, StateKvEntry};
+    use dot_artifacts::{
+        CAPABILITY_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE, STATE_DIFF_FILE, TRACE_FILE,
+    };
+    use dot_db::{DotDb, RunStatus, StateKvEntry};
     use dot_ops::{
         HostError, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan, SyscallId,
     };
@@ -916,7 +1035,7 @@ mod tests {
     use serde_json::{Value as JsonValue, json};
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::Mutex;
     use std::time::Duration;
     use tempfile::TempDir;
@@ -966,6 +1085,29 @@ end
     fn reserve_port() -> u16 {
         let listener = TcpListener::bind("127.0.0.1:0").expect("port reservation must bind");
         listener.local_addr().expect("port must read").port()
+    }
+
+    fn single_bundle_dir(root: &Path) -> PathBuf {
+        let bundles_dir = root.join(".dotlanth").join("bundles");
+        let entries = std::fs::read_dir(&bundles_dir)
+            .expect("bundles dir must exist")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("bundles dir entries must read");
+        assert_eq!(entries.len(), 1, "expected exactly one bundle");
+        entries[0].path()
+    }
+
+    fn read_json(path: &Path) -> JsonValue {
+        serde_json::from_slice(&std::fs::read(path).expect("json file must read"))
+            .expect("json file must parse")
+    }
+
+    fn read_trace(bundle_dir: &Path) -> Vec<JsonValue> {
+        std::fs::read_to_string(bundle_dir.join(TRACE_FILE))
+            .expect("trace file must read")
+            .lines()
+            .map(|line| serde_json::from_str::<JsonValue>(line).expect("trace line must parse"))
+            .collect()
     }
 
     #[test]
@@ -1394,6 +1536,18 @@ end
     }
 
     #[test]
+    fn trace_finish_status_matches_failed_state_diff_runs() {
+        let ok = Ok(());
+        let err = Err("state diff failed".to_owned());
+
+        assert_eq!(pre_bundle_status(&ok, &err, &ok), RunStatus::Failed);
+        assert_eq!(
+            trace_finish_status(&ok, &err, &ok, &ok, None),
+            RunStatus::Failed
+        );
+    }
+
+    #[test]
     fn run_errors_when_no_dot_file_is_present() {
         let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
         let temp = TempDir::new().expect("temp dir must create");
@@ -1401,6 +1555,181 @@ end
 
         let err = run(RunOptions::default()).expect_err("run must fail");
         assert!(err.contains("no `.dot` file found"));
+    }
+
+    #[test]
+    fn run_validation_failure_still_emits_bundle_and_failed_run_record() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
+        let temp = TempDir::new().expect("temp dir must create");
+        let source = r#"dot 0.1
+app "x"
+
+server listen 18080
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#;
+        std::fs::write(temp.path().join("app.dot"), source).expect("dot file write");
+        let _cwd = CwdGuard::set(temp.path());
+
+        let err = run(RunOptions::default()).expect_err("run must fail validation");
+        assert!(err.contains("missing required capability `net.http.listen`"));
+
+        let bundle_dir = single_bundle_dir(temp.path());
+        for relative in [
+            MANIFEST_FILE,
+            ENTRY_DOT_FILE,
+            TRACE_FILE,
+            STATE_DIFF_FILE,
+            CAPABILITY_REPORT_FILE,
+        ] {
+            assert!(
+                bundle_dir.join(relative).is_file(),
+                "required bundle file should exist: {relative}"
+            );
+        }
+
+        let manifest = read_json(&bundle_dir.join(MANIFEST_FILE));
+        let run_id = manifest["run_id"]
+            .as_str()
+            .expect("run id must be present in manifest");
+        assert_eq!(
+            bundle_dir.file_name().and_then(|name| name.to_str()),
+            Some(run_id)
+        );
+        assert_eq!(
+            std::fs::read_to_string(bundle_dir.join(ENTRY_DOT_FILE))
+                .expect("entry snapshot must read"),
+            source
+        );
+        assert_eq!(manifest["inputs"]["entry_dot"]["status"], "ok");
+        assert_eq!(manifest["sections"]["trace"]["status"], "ok");
+        assert_eq!(manifest["sections"]["state_diff"]["status"], "unavailable");
+        assert_eq!(
+            manifest["sections"]["capability_report"]["status"],
+            "unavailable"
+        );
+
+        let trace = read_trace(&bundle_dir);
+        assert_eq!(trace.len(), 2);
+        assert_eq!(trace[0]["event"], "run.start");
+        assert_eq!(trace[1]["event"], "run.finish");
+        assert_eq!(trace[1]["status"], "failed");
+        assert!(
+            trace[1]["error"]
+                .as_str()
+                .expect("run finish error must exist")
+                .contains("missing required capability `net.http.listen`")
+        );
+
+        let mut db = DotDb::open_in(temp.path()).expect("db must reopen");
+        let run = db.run_record(run_id).expect("run record must exist");
+        assert_eq!(run.status, RunStatus::Failed);
+        let bundle = db.artifact_bundle(run_id).expect("bundle ref must resolve");
+        assert_eq!(bundle.bundle_ref, format!(".dotlanth/bundles/{run_id}"));
+    }
+
+    #[test]
+    fn run_parse_failure_still_emits_bundle_and_failed_run_record() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
+        let temp = TempDir::new().expect("temp dir must create");
+        let source = r#"dot 0.1
+app "x"
+allow net.http.listen
+
+server listen nope
+"#;
+        std::fs::write(temp.path().join("app.dot"), source).expect("dot file write");
+        let _cwd = CwdGuard::set(temp.path());
+
+        let err = run(RunOptions::default()).expect_err("run must fail parse validation");
+        assert!(err.contains("invalid server port"));
+
+        let bundle_dir = single_bundle_dir(temp.path());
+        let manifest = read_json(&bundle_dir.join(MANIFEST_FILE));
+        let run_id = manifest["run_id"]
+            .as_str()
+            .expect("run id must be present in manifest");
+        assert_eq!(manifest["inputs"]["entry_dot"]["status"], "ok");
+        assert_eq!(manifest["sections"]["trace"]["status"], "ok");
+        assert_eq!(manifest["sections"]["state_diff"]["status"], "unavailable");
+        assert_eq!(
+            manifest["sections"]["capability_report"]["status"],
+            "unavailable"
+        );
+
+        let trace = read_trace(&bundle_dir);
+        assert_eq!(trace.len(), 2);
+        assert_eq!(trace[0]["event"], "run.start");
+        assert_eq!(trace[1]["event"], "run.finish");
+        assert_eq!(trace[1]["status"], "failed");
+
+        let db = DotDb::open_in(temp.path()).expect("db must reopen");
+        let run = db.run_record(run_id).expect("run record must exist");
+        assert_eq!(run.status, RunStatus::Failed);
+    }
+
+    #[test]
+    fn run_runtime_failure_still_emits_bundle_and_failed_run_record() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
+        let temp = TempDir::new().expect("temp dir must create");
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener must bind");
+        let port = listener
+            .local_addr()
+            .expect("listener addr must read")
+            .port();
+        std::fs::write(
+            temp.path().join("app.dot"),
+            format!(
+                r#"dot 0.1
+app "x"
+allow net.http.listen
+
+server listen {port}
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#
+            ),
+        )
+        .expect("dot file write");
+        let _cwd = CwdGuard::set(temp.path());
+
+        let err = run(RunOptions::default()).expect_err("run must fail at runtime");
+        assert!(err.contains("failed to bind http listener"));
+
+        let bundle_dir = single_bundle_dir(temp.path());
+        let manifest = read_json(&bundle_dir.join(MANIFEST_FILE));
+        let run_id = manifest["run_id"]
+            .as_str()
+            .expect("run id must be present in manifest");
+        assert_eq!(manifest["sections"]["trace"]["status"], "ok");
+        assert_eq!(manifest["sections"]["state_diff"]["status"], "ok");
+        assert_eq!(manifest["sections"]["capability_report"]["status"], "ok");
+
+        let trace = read_trace(&bundle_dir);
+        assert_eq!(trace.len(), 2);
+        assert_eq!(trace[0]["event"], "run.start");
+        assert_eq!(trace[1]["event"], "run.finish");
+        assert_eq!(trace[1]["status"], "failed");
+        assert!(
+            trace[1]["error"]
+                .as_str()
+                .expect("run finish error must exist")
+                .contains("failed to bind http listener")
+        );
+
+        let mut db = DotDb::open_in(temp.path()).expect("db must reopen");
+        let run = db.run_record(run_id).expect("run record must exist");
+        assert_eq!(run.status, RunStatus::Failed);
+        let bundle = db.artifact_bundle(run_id).expect("bundle ref must resolve");
+        assert_eq!(bundle.bundle_ref, format!(".dotlanth/bundles/{run_id}"));
     }
 
     #[test]
