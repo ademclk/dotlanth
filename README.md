@@ -33,6 +33,26 @@ Dotlanth removes setup drag so teams can move from idea to endpoint fast.
 
 See `docs/quickstart.md` for a copy/paste walkthrough.
 
+Launch the capability lab:
+
+```bash
+cargo run -p dot --
+```
+
+Or launch it explicitly:
+
+```bash
+cargo run -p dot -- tui
+```
+
+The default `dot` experience is now a ratatui capability lab with:
+- `Demo` and `Dev` modes over the same real Dotlanth behaviors
+- a capability-first rail for parse/validate, run/serve, replay, security, state, and artifacts
+- real demo fixtures generated under `.dotlanth/demo/fixtures/`
+- built-in inspection, export, replay, and log views backed by canonical DotDB state
+
+The scriptable subcommands still work for automation and docs:
+
 ```bash
 cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 ```
@@ -60,25 +80,30 @@ DotDB also indexes that finalized bundle by external `run_id`, storing the bundl
 
 `capability_report.json` records declared capabilities with source spans and semantic paths, plus stable `used` and `denied` accounting for capability-gated syscalls.
 
-## A 60-Second Flow (Aspirational UX)
+The TUI also tracks demo-owned fixture and export metadata in `.dotlanth/demo/metadata/scenarios.json` so the same scenarios can be refreshed and replayed across sessions without mocking any subsystem behavior.
 
-This is the intended future CLI UX (not all commands exist yet).
+## A 60-Second Flow
 
 Create and run:
 
 ```bash
 dot init hello-api
 cd hello-api
+dot
+```
+
+Inside the TUI:
+- `Demo` -> `Parse & Validate` to generate and validate fixtures
+- `Demo` -> `Run & Serve` to launch the real hello-api demo and probe `/hello`
+- `Security & Capabilities`, `State & DB`, and `Artifacts & Inspection` to inspect the recorded capability report, logs, exports, and replay flow
+
+Or stay fully scriptable:
+
+```bash
 dot run --max-requests 1
 ```
 
-Call it:
-
-```bash
-curl http://localhost:8080/hello
-```
-
-Inspect runs:
+Then inspect runs:
 
 ```bash
 dot logs <run_id> # from `dot run` output

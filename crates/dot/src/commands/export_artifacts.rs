@@ -5,14 +5,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn run(run_id: &str, out: &Path) -> Result<(), String> {
-    let run_id = parse_run_id(run_id)?;
     let cwd = std::env::current_dir()
         .map_err(|error| format!("failed to read current directory: {error}"))?;
-    let mut db = open_existing_dotdb_in(&cwd)?;
+    let message = export_in(&cwd, run_id, out)?;
+    println!("{message}");
+    Ok(())
+}
+
+pub(crate) fn export_in(project_root: &Path, run_id: &str, out: &Path) -> Result<String, String> {
+    let run_id = parse_run_id(run_id)?;
+    let mut db = open_existing_dotdb_in(project_root)?;
     let bundle = db
         .artifact_bundle(&run_id)
         .map_err(|error| format!("failed to resolve bundle for run {run_id}: {error}"))?;
-    let bundle_dir = resolve_bundle_dir(&cwd, &bundle.bundle_ref);
+    let bundle_dir = resolve_bundle_dir(project_root, &bundle.bundle_ref);
 
     if !bundle_dir.is_dir() {
         return Err(format!(
@@ -23,8 +29,7 @@ pub(crate) fn run(run_id: &str, out: &Path) -> Result<(), String> {
 
     prepare_output_dir(out)?;
     copy_dir_recursive(&bundle_dir, out)?;
-    println!("exported {run_id} to {}", out.display());
-    Ok(())
+    Ok(format!("exported {run_id} to {}", out.display()))
 }
 
 fn parse_run_id(raw: &str) -> Result<String, String> {

@@ -24,10 +24,18 @@ use std::rc::Rc;
 const DOTLANTH_DIR: &str = ".dotlanth";
 const BUNDLES_DIR: &str = "bundles";
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum RunAnnouncement {
+    #[default]
+    Print,
+    Silent,
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct RunOptions {
     pub(crate) file: Option<PathBuf>,
     pub(crate) max_requests: Option<u64>,
+    pub(crate) announcement: RunAnnouncement,
 }
 
 pub(crate) fn run(options: RunOptions) -> Result<(), String> {
@@ -35,31 +43,34 @@ pub(crate) fn run(options: RunOptions) -> Result<(), String> {
         Some(file) => Some((file.clone(), project_root_for_dot_path(&file)?)),
         None => None,
     };
-    run_resolved_options(resolved, options.max_requests)
+    run_resolved_options(resolved, options.max_requests, options.announcement)
 }
 
-pub(crate) fn run_resolved(
+pub(crate) fn run_resolved_with_announcement(
     dot_path: PathBuf,
     project_root: PathBuf,
     max_requests: Option<u64>,
+    announcement: RunAnnouncement,
 ) -> Result<(), String> {
-    run_resolved_options(Some((dot_path, project_root)), max_requests)
+    run_resolved_options(Some((dot_path, project_root)), max_requests, announcement)
 }
 
 fn run_resolved_options(
     resolved: Option<(PathBuf, PathBuf)>,
     max_requests: Option<u64>,
+    announcement: RunAnnouncement,
 ) -> Result<(), String> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|error| format!("failed to initialize tokio runtime: {error}"))?;
-    runtime.block_on(run_async(resolved, max_requests))
+    runtime.block_on(run_async(resolved, max_requests, announcement))
 }
 
 async fn run_async(
     resolved: Option<(PathBuf, PathBuf)>,
     max_requests: Option<u64>,
+    announcement: RunAnnouncement,
 ) -> Result<(), String> {
     let (dot_path, project_root) = match resolved {
         Some((dot_path, project_root)) => (dot_path, project_root),
@@ -165,6 +176,7 @@ async fn run_async(
         max_requests,
         &run_id,
         &mut trace,
+        announcement,
     )
     .await;
 
@@ -311,6 +323,7 @@ async fn run_vm_execution(
     max_requests: Option<u64>,
     run_id: &str,
     trace: &mut TraceRecorder,
+    announcement: RunAnnouncement,
 ) -> Result<(), String> {
     host.configure_http_from_document(document)
         .map_err(|error| error.to_string())?;
@@ -318,7 +331,9 @@ async fn run_vm_execution(
     let addr = host
         .http_addr()
         .ok_or_else(|| "http listener did not report a local address".to_owned())?;
-    println!("run {run_id} listening on http://{addr}");
+    if matches!(announcement, RunAnnouncement::Print) {
+        println!("run {run_id} listening on http://{addr}");
+    }
 
     let program = build_program(document, max_requests)?;
     let mut vm = Vm::new(program);
@@ -1017,8 +1032,9 @@ fn resolve_dot_file(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        RunOptions, TraceRecorder, build_capability_report_json, build_program, build_state_diff,
-        pre_bundle_status, resolve_dot_file, run, sha256_hex, trace_finish_status,
+        RunAnnouncement, RunOptions, TraceRecorder, build_capability_report_json, build_program,
+        build_state_diff, pre_bundle_status, resolve_dot_file, run, sha256_hex,
+        trace_finish_status,
     };
     use dot_artifacts::{
         CAPABILITY_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE, STATE_DIFF_FILE, TRACE_FILE,
@@ -1794,6 +1810,7 @@ end
         run(RunOptions {
             file: None,
             max_requests: Some(1),
+            announcement: RunAnnouncement::Print,
         })
         .expect("run should succeed");
 
@@ -1979,6 +1996,7 @@ end
         run(RunOptions {
             file: Some(dot_path),
             max_requests: Some(1),
+            announcement: RunAnnouncement::Print,
         })
         .expect("run should succeed");
 

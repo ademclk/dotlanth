@@ -7,6 +7,12 @@ use std::path::Path;
 const DOT_FILE_NAME: &str = "app.dot";
 
 pub(crate) fn run(dir: &Path) -> Result<(), String> {
+    let message = initialize(dir)?;
+    println!("{message}");
+    Ok(())
+}
+
+pub(crate) fn initialize(dir: &Path) -> Result<String, String> {
     ensure_empty_dir(dir)?;
 
     let app_name = dir
@@ -22,8 +28,7 @@ pub(crate) fn run(dir: &Path) -> Result<(), String> {
     )?;
     write_new_file(&dir.join(".gitignore"), ".dotlanth/\n", "gitignore file")?;
 
-    println!("initialized {}", dir.display());
-    Ok(())
+    Ok(format!("initialized {}", dir.display()))
 }
 
 fn ensure_empty_dir(path: &Path) -> Result<(), String> {

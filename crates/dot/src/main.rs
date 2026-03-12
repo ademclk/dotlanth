@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod commands;
+mod tui;
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -10,11 +11,13 @@ use std::process::ExitCode;
 #[command(name = "dot", version, about = "Dotlanth CLI")]
 struct Cli {
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Subcommand)]
 enum Command {
+    /// Launch the interactive Dotlanth testbench.
+    Tui,
     /// Scaffold a runnable hello-api project.
     Init {
         /// Target directory to create.
@@ -64,16 +67,24 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Command::Init { dir } => commands::init::run(&dir),
-        Command::Run { file, max_requests } => {
-            commands::run::run(commands::run::RunOptions { file, max_requests })
+        Some(Command::Tui) => tui::launch("dot tui"),
+        Some(Command::Init { dir }) => commands::init::run(&dir),
+        Some(Command::Run { file, max_requests }) => {
+            commands::run::run(commands::run::RunOptions {
+                file,
+                max_requests,
+                announcement: commands::run::RunAnnouncement::Print,
+            })
         }
-        Command::Logs { run_id } => commands::logs::run(&run_id),
-        Command::Inspect { run_id } => commands::inspect::run(&run_id),
-        Command::ExportArtifacts { run_id, out } => commands::export_artifacts::run(&run_id, &out),
-        Command::Replay { run_id, bundle } => {
+        Some(Command::Logs { run_id }) => commands::logs::run(&run_id),
+        Some(Command::Inspect { run_id }) => commands::inspect::run(&run_id),
+        Some(Command::ExportArtifacts { run_id, out }) => {
+            commands::export_artifacts::run(&run_id, &out)
+        }
+        Some(Command::Replay { run_id, bundle }) => {
             commands::replay::run(run_id.as_deref(), bundle.as_deref())
         }
+        None => tui::launch("dot"),
     };
 
     match result {
@@ -82,5 +93,23 @@ fn main() -> ExitCode {
             eprintln!("{message}");
             ExitCode::from(1)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, Command};
+    use clap::Parser;
+
+    #[test]
+    fn cli_accepts_no_subcommand_for_tui_mode() {
+        let cli = Cli::try_parse_from(["dot"]).expect("cli should parse without subcommand");
+        assert!(cli.command.is_none());
+    }
+
+    #[test]
+    fn cli_accepts_explicit_tui_subcommand() {
+        let cli = Cli::try_parse_from(["dot", "tui"]).expect("cli should parse tui subcommand");
+        assert!(matches!(cli.command, Some(Command::Tui)));
     }
 }

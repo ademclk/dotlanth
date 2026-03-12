@@ -456,6 +456,56 @@ WHERE run_row_id = ?1
         })
     }
 
+    /// Returns the most recent persisted runs, newest first.
+    pub fn recent_runs(&self, limit: usize) -> Result<Vec<StoredRun>, DotDbError> {
+        let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+        let mut stmt = self
+            .conn
+            .prepare(
+                r#"
+SELECT run_id, status, created_at_ms, finalized_at_ms
+FROM runs
+ORDER BY created_at_ms DESC, id DESC
+LIMIT ?1
+"#,
+            )
+            .map_err(|source| DotDbError::Sql {
+                action: "prepare recent runs query",
+                source,
+            })?;
+
+        let rows = stmt
+            .query_map(params![limit], |row| {
+                let run_id: String = row.get(0)?;
+                let status: String = row.get(1)?;
+                let created_at_ms: i64 = row.get(2)?;
+                let finalized_at_ms: Option<i64> = row.get(3)?;
+                Ok((run_id, status, created_at_ms, finalized_at_ms))
+            })
+            .map_err(|source| DotDbError::Sql {
+                action: "query recent runs",
+                source,
+            })?;
+
+        let mut runs = Vec::new();
+        for row in rows {
+            let (run_id, status, created_at_ms, finalized_at_ms) =
+                row.map_err(|source| DotDbError::Sql {
+                    action: "read recent run row",
+                    source,
+                })?;
+            runs.push(StoredRun {
+                run_id: run_id.clone(),
+                status: RunStatus::from_db_str(&status)
+                    .ok_or(DotDbError::CorruptRunStatus { run_id, status })?,
+                created_at_ms,
+                finalized_at_ms,
+            });
+        }
+
+        Ok(runs)
+    }
+
     /// Loads a persisted run by its external run id.
     pub fn run_record(&self, run_id: &str) -> Result<StoredRun, DotDbError> {
         let run_id = normalize_lookup_run_id(run_id)?;
@@ -1144,6 +1194,35 @@ PRAGMA user_version = 2;
         assert_eq!(run.run_id, created_run.run_id());
         assert_eq!(run.status, RunStatus::Succeeded);
         assert!(run.finalized_at_ms.is_some());
+    }
+
+    #[test]
+    fn recent_runs_returns_newest_first_with_statuses() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let first = db
+            .create_run_with_id("run_first")
+            .expect("first run must create");
+        let second = db
+            .create_run_with_id("run_second")
+            .expect("second run must create");
+        let _third = db
+            .create_run_with_id("run_third")
+            .expect("third run must create");
+
+        db.finalize_run(first.row_id(), RunStatus::Succeeded)
+            .expect("first run must finalize");
+        db.finalize_run(second.row_id(), RunStatus::Failed)
+            .expect("second run must finalize");
+
+        let recent = db.recent_runs(2).expect("recent runs must load");
+
+        assert_eq!(recent.len(), 2);
+        assert_eq!(recent[0].run_id, "run_third");
+        assert_eq!(recent[0].status, RunStatus::Running);
+        assert_eq!(recent[1].run_id, "run_second");
+        assert_eq!(recent[1].status, RunStatus::Failed);
     }
 
     #[test]
