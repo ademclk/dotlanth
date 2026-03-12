@@ -69,18 +69,14 @@ fn main() -> ExitCode {
     let result = match cli.command {
         Command::Tui => tui::launch("dot tui"),
         Command::Init { dir } => commands::init::run(&dir),
-        Command::Run { file, max_requests } => {
-            commands::run::run(commands::run::RunOptions {
-                file,
-                max_requests,
-                announcement: commands::run::RunAnnouncement::Print,
-            })
-        }
+        Command::Run { file, max_requests } => commands::run::run(commands::run::RunOptions {
+            file,
+            max_requests,
+            announcement: commands::run::RunAnnouncement::Print,
+        }),
         Command::Logs { run_id } => commands::logs::run(&run_id),
         Command::Inspect { run_id } => commands::inspect::run(&run_id),
-        Command::ExportArtifacts { run_id, out } => {
-            commands::export_artifacts::run(&run_id, &out)
-        }
+        Command::ExportArtifacts { run_id, out } => commands::export_artifacts::run(&run_id, &out),
         Command::Replay { run_id, bundle } => {
             commands::replay::run(run_id.as_deref(), bundle.as_deref())
         }
