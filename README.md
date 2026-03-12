@@ -36,16 +36,10 @@ See `docs/quickstart.md` for a copy/paste walkthrough.
 Launch the capability lab:
 
 ```bash
-cargo run -p dot --
-```
-
-Or launch it explicitly:
-
-```bash
 cargo run -p dot -- tui
 ```
 
-The default `dot` experience is now a ratatui capability lab with:
+The `dot tui` experience is now a ratatui capability lab with:
 - `Demo` and `Dev` modes over the same real Dotlanth behaviors
 - a capability-first rail for parse/validate, run/serve, replay, security, state, and artifacts
 - real demo fixtures generated under `.dotlanth/demo/fixtures/`
@@ -89,7 +83,7 @@ Create and run:
 ```bash
 dot init hello-api
 cd hello-api
-dot
+dot tui
 ```
 
 Inside the TUI:
