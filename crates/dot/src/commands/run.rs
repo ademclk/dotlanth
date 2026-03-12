@@ -31,16 +31,44 @@ pub(crate) struct RunOptions {
 }
 
 pub(crate) fn run(options: RunOptions) -> Result<(), String> {
+    let resolved = match options.file {
+        Some(file) => Some((file.clone(), project_root_for_dot_path(&file)?)),
+        None => None,
+    };
+    run_resolved_options(resolved, options.max_requests)
+}
+
+pub(crate) fn run_resolved(
+    dot_path: PathBuf,
+    project_root: PathBuf,
+    max_requests: Option<u64>,
+) -> Result<(), String> {
+    run_resolved_options(Some((dot_path, project_root)), max_requests)
+}
+
+fn run_resolved_options(
+    resolved: Option<(PathBuf, PathBuf)>,
+    max_requests: Option<u64>,
+) -> Result<(), String> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|error| format!("failed to initialize tokio runtime: {error}"))?;
-    runtime.block_on(run_async(options))
+    runtime.block_on(run_async(resolved, max_requests))
 }
 
-async fn run_async(options: RunOptions) -> Result<(), String> {
-    let dot_path = resolve_dot_file(options.file)?;
-    let project_root = project_root_for_dot_path(&dot_path)?;
+async fn run_async(
+    resolved: Option<(PathBuf, PathBuf)>,
+    max_requests: Option<u64>,
+) -> Result<(), String> {
+    let (dot_path, project_root) = match resolved {
+        Some((dot_path, project_root)) => (dot_path, project_root),
+        None => {
+            let dot_path = resolve_dot_file(None)?;
+            let project_root = project_root_for_dot_path(&dot_path)?;
+            (dot_path, project_root)
+        }
+    };
     let dot_source = read_dot_source(&dot_path)?;
     let document =
         dot_dsl::parse_and_validate(&dot_source, &dot_path).map_err(|error| error.to_string())?;
@@ -92,7 +120,7 @@ async fn run_async(options: RunOptions) -> Result<(), String> {
                 &mut host,
                 &ctx,
                 &document,
-                options.max_requests,
+                max_requests,
                 &run_id,
                 &mut trace,
             )

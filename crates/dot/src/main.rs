@@ -35,6 +35,29 @@ enum Command {
         /// Run id printed by `dot run`.
         run_id: String,
     },
+    /// Print a stable summary for a recorded run bundle.
+    Inspect {
+        /// Run id printed by `dot run`.
+        run_id: String,
+    },
+    /// Export a recorded run bundle to a directory.
+    ExportArtifacts {
+        /// Run id printed by `dot run`.
+        run_id: String,
+
+        /// Output directory for the exported bundle.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Replay a recorded run's input snapshot into a new run.
+    Replay {
+        /// Run id printed by `dot run`.
+        run_id: Option<String>,
+
+        /// Path to an exported bundle directory.
+        #[arg(long, conflicts_with = "run_id")]
+        bundle: Option<PathBuf>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -46,6 +69,11 @@ fn main() -> ExitCode {
             commands::run::run(commands::run::RunOptions { file, max_requests })
         }
         Command::Logs { run_id } => commands::logs::run(&run_id),
+        Command::Inspect { run_id } => commands::inspect::run(&run_id),
+        Command::ExportArtifacts { run_id, out } => commands::export_artifacts::run(&run_id, &out),
+        Command::Replay { run_id, bundle } => {
+            commands::replay::run(run_id.as_deref(), bundle.as_deref())
+        }
     };
 
     match result {

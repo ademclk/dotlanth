@@ -456,6 +456,39 @@ WHERE run_row_id = ?1
         })
     }
 
+    /// Loads a persisted run by its external run id.
+    pub fn run_record(&self, run_id: &str) -> Result<StoredRun, DotDbError> {
+        let run_id = normalize_lookup_run_id(run_id)?;
+        let row: Option<(String, String, i64, Option<i64>)> = self
+            .conn
+            .query_row(
+                r#"
+SELECT run_id, status, created_at_ms, finalized_at_ms
+FROM runs
+WHERE run_id = ?1
+"#,
+                params![run_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()
+            .map_err(|source| DotDbError::Sql {
+                action: "query run record",
+                source,
+            })?;
+
+        let Some((run_id, status, created_at_ms, finalized_at_ms)) = row else {
+            return Err(DotDbError::RunNotFound { run_id });
+        };
+
+        Ok(StoredRun {
+            run_id: run_id.clone(),
+            status: RunStatus::from_db_str(&status)
+                .ok_or(DotDbError::CorruptRunStatus { run_id, status })?,
+            created_at_ms,
+            finalized_at_ms,
+        })
+    }
+
     fn migrate(&mut self) -> Result<(), DotDbError> {
         let current = self.user_version()?;
         let target = u32::try_from(MIGRATIONS.len()).unwrap_or(u32::MAX);
@@ -597,6 +630,15 @@ impl RunStatus {
             Self::Failed => "failed",
         }
     }
+
+    fn from_db_str(value: &str) -> Option<Self> {
+        match value {
+            "running" => Some(Self::Running),
+            "succeeded" => Some(Self::Succeeded),
+            "failed" => Some(Self::Failed),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for RunStatus {
@@ -642,6 +684,19 @@ pub struct ArtifactBundleRecord {
     pub manifest_bytes: u64,
 }
 
+/// A persisted run resolved by external run id.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StoredRun {
+    /// Stable external run id exposed through the CLI and artifacts.
+    pub run_id: String,
+    /// Current persisted status for the run.
+    pub status: RunStatus,
+    /// Creation timestamp captured in DotDB.
+    pub created_at_ms: i64,
+    /// Finalization timestamp when available.
+    pub finalized_at_ms: Option<i64>,
+}
+
 #[derive(Debug)]
 pub enum DotDbError {
     Io {
@@ -681,6 +736,10 @@ pub enum DotDbError {
     CorruptArtifactManifestBytes {
         run_id: RunId,
         manifest_bytes: i64,
+    },
+    CorruptRunStatus {
+        run_id: String,
+        status: String,
     },
 }
 
@@ -725,6 +784,9 @@ impl std::fmt::Display for DotDbError {
                 f,
                 "corrupt artifact manifest byte count `{manifest_bytes}` for run row {run_id}"
             ),
+            Self::CorruptRunStatus { run_id, status } => {
+                write!(f, "corrupt run status `{status}` for run `{run_id}`")
+            }
         }
     }
 }
@@ -742,7 +804,8 @@ impl std::error::Error for DotDbError {
             | Self::InvalidBundleRef { .. }
             | Self::InvalidManifestSha256 { .. }
             | Self::InvalidArtifactManifestBytes { .. }
-            | Self::CorruptArtifactManifestBytes { .. } => None,
+            | Self::CorruptArtifactManifestBytes { .. }
+            | Self::CorruptRunStatus { .. } => None,
         }
     }
 }
@@ -1062,6 +1125,25 @@ PRAGMA user_version = 2;
         assert_eq!(bundle.bundle_ref, ".dotlanth/bundles/run_bundle_roundtrip");
         assert_eq!(bundle.manifest_sha256, "abc123");
         assert_eq!(bundle.manifest_bytes, 321);
+    }
+
+    #[test]
+    fn run_record_roundtrips_status_by_external_run_id() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let created_run = db
+            .create_run_with_id("run_status_roundtrip")
+            .expect("run must create");
+        db.finalize_run(created_run.row_id(), RunStatus::Succeeded)
+            .expect("run must finalize");
+
+        let run = db
+            .run_record(created_run.run_id())
+            .expect("run record must load");
+        assert_eq!(run.run_id, created_run.run_id());
+        assert_eq!(run.status, RunStatus::Succeeded);
+        assert!(run.finalized_at_ms.is_some());
     }
 
     #[test]

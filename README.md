@@ -82,6 +82,10 @@ Inspect runs:
 
 ```bash
 dot logs <run_id> # from `dot run` output
+dot inspect <run_id>
+dot export-artifacts <run_id> --out /tmp/run-bundle
+dot replay <run_id>
+dot replay --bundle /tmp/run-bundle
 ```
 
 Illustrative `dot` file:
