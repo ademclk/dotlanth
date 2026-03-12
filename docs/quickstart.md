@@ -32,6 +32,8 @@ Hello from Dotlanth
 
 After the request completes, the bounded run exits and writes an artifact bundle to `.dotlanth/bundles/<run_id>/`. The bundle includes `manifest.json`, `inputs/entry.dot`, `trace.jsonl`, `state_diff.json`, and `capability_report.json`.
 
+If `dot run` resolves a `.dot` file and then fails during validation or runtime, Dotlanth still finalizes a bundle for that run id. Sections that could not be recorded stay present with explicit `unavailable` markers. On early failures, the CLI may return before printing the run id, so inspect `.dotlanth/bundles/` or the bundle `manifest.json` to recover it.
+
 DotDB indexes the finalized bundle by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
 
 `state_diff.json` exports a stable `state_kv` diff with deterministic ordering and no unchanged entries.
@@ -56,6 +58,12 @@ To replay the saved `inputs/entry.dot` into a fresh run:
 cargo run -p dot -- replay <run_id>
 cargo run -p dot -- replay --bundle /tmp/run-bundle
 ```
+
+Replay reuses the saved input snapshot; it is helpful for reproducing the input document, but it is not a claim of full deterministic re-execution across environments.
+
+## Safe sharing
+
+Treat `.dotlanth/bundles/` and `.dotlanth/dotdb.sqlite` as sensitive data. They can contain source inputs, runtime traces, logs, and state snapshots or diffs. Scrub secrets and user data before exporting or sharing bundles outside your machine or team.
 
 ## Troubleshooting
 

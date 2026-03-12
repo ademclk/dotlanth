@@ -182,6 +182,10 @@ impl OpsHost {
         self.record_mode = record_mode;
     }
 
+    pub fn set_capabilities(&mut self, capabilities: CapabilitySet) {
+        self.capabilities = capabilities;
+    }
+
     pub fn set_runtime_event_forwarder<F>(&mut self, forwarder: F)
     where
         F: FnMut(RuntimeEvent) + 'static,

@@ -71,6 +71,8 @@ Expected output:
 examples/hello-api/hello-api-deny.dot:8:1:19 capabilities | missing required capability `net.http.listen` for `server listen`
 ```
 
+This validation failure still records a failed run bundle under `.dotlanth/bundles/<run_id>/`. The input snapshot and trace are preserved, and sections that never executed are left in place with explicit `unavailable` markers. On early failures, the CLI may not print the run id before exiting, so inspect `.dotlanth/bundles/` or the bundle `manifest.json` to recover it.
+
 ## Runtime artifacts
 
 A successful bounded run such as:
@@ -111,3 +113,9 @@ To replay the saved input snapshot into a fresh run:
 cargo run -p dot -- replay <run_id>
 cargo run -p dot -- replay --bundle /tmp/run-bundle
 ```
+
+Replay uses the recorded `inputs/entry.dot` snapshot as a fresh input. It is useful for reproducing the source document, but it is not a strict determinism guarantee for every side effect or environment detail.
+
+## Safe sharing
+
+Bundles and `.dotlanth/dotdb.sqlite` should be treated as sensitive artifacts. They can include source snapshots, runtime traces, logs, and state data. Review and scrub those files before sending them to anyone outside the intended audience.
