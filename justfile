@@ -13,5 +13,8 @@ test:
 
 check: fmt clippy test
 
+tui:
+    cargo run -p dot -- tui
+
 dist:
     bash scripts/dist.sh
