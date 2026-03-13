@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 clap = { version = "4.5.28", features = ["derive"] }
+crossterm = "0.28"
 dot_artifacts = { path = "../dot_artifacts" }
 dot_db = { path = "../dot_db" }
 dot_dsl = { path = "../dot_dsl" }
@@ -17,6 +18,8 @@ dot_ops = { path = "../dot_ops" }
 dot_rt = { path = "../dot_rt" }
 dot_sec = { path = "../dot_sec" }
 dot_vm = { path = "../dot_vm" }
+ratatui = "0.29"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
 tokio = { version = "1.48", features = ["rt", "time"] }

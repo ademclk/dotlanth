@@ -8,8 +8,17 @@ use std::path::{Path, PathBuf};
 pub(crate) fn run(run_id: Option<&str>, bundle: Option<&Path>) -> Result<(), String> {
     let project_root = std::env::current_dir()
         .map_err(|error| format!("failed to read current directory: {error}"))?;
+    run_in(&project_root, run_id, bundle, run::RunAnnouncement::Print)
+}
+
+pub(crate) fn run_in(
+    project_root: &Path,
+    run_id: Option<&str>,
+    bundle: Option<&Path>,
+    announcement: run::RunAnnouncement,
+) -> Result<(), String> {
     let entry_dot = match (run_id, bundle) {
-        (Some(run_id), None) => entry_dot_for_run_id(&project_root, run_id)?,
+        (Some(run_id), None) => entry_dot_for_run_id(project_root, run_id)?,
         (None, Some(bundle)) => bundle.join(ENTRY_DOT_FILE),
         (Some(_), Some(_)) => {
             return Err("replay accepts either a run id or `--bundle <path>`, not both".to_owned());
@@ -19,7 +28,12 @@ pub(crate) fn run(run_id: Option<&str>, bundle: Option<&Path>) -> Result<(), Str
         }
     };
 
-    run::run_resolved(entry_dot, project_root, Some(0))
+    run::run_resolved_with_announcement(
+        entry_dot,
+        project_root.to_path_buf(),
+        Some(0),
+        announcement,
+    )
 }
 
 fn entry_dot_for_run_id(project_root: &Path, run_id: &str) -> Result<PathBuf, String> {

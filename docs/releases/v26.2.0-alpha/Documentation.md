@@ -1,23 +1,22 @@
 # Dotlanth v26.2.0-alpha — Release Documentation
 
 ## Status
-- Date: 2026-03-12
-- Milestone: M6 (DOC)
+- Date: 2026-03-13
+- Milestone: Capability Lab TUI
 - Overall: Complete
 
 ## What’s in this alpha
-- Artifact Bundle schema v1 with required-file placeholders and deterministic manifest metadata (`crates/dot_artifacts`)
-- Record-first `dot run` execution with DotDB-indexed bundles (`crates/dot`, `crates/dot_db`, `crates/dot_ops`)
-- dotDSL capability validation plus runtime capability usage reporting (`crates/dot_dsl`, `crates/dot_sec`)
-- Stable `trace.jsonl`, `state_diff.json`, and `capability_report.json` bundle sections with inspect/export/replay CLI support
-- Always-on bundle finalization for runs that resolve a `.dot` file, including validation failures and runtime failures
+- Explicit `dot tui` ratatui workbench for exercising the Dotlanth ecosystem from one CLI entrypoint (`crates/dot/src/tui`)
+- Capability-first `Demo` and `Dev` navigation across parse/validate, run/serve, replay, security, state, and artifact workflows
+- Deterministic demo fixtures and scenario metadata under `.dotlanth/demo/` with real subsystem execution, not mocks
+- Integrated validation, run, inspect, export, log, replay, and capability-evidence actions backed by DotDB and artifact bundles
+- Hardened TUI behavior for recoverable action failures, repeat exports, bind conflicts, and corrupt local metadata / DotDB state
 
-## Milestone checklist (M6)
-- [x] E-26020-AF-S3-T1: Wire always-on bundle generation into the `dot run` success path
-- [x] E-26020-AF-S3-T2: Wire always-on bundle generation into failure paths (validation errors, runtime errors)
-- [x] E-26020-DS-S3-T1: Lock capability diagnostics contract with stable fixture tests
-- [x] E-26020-SEC-S3-T2: Lock denial/report behavior and run/trace status consistency with tests
-- [x] E-26020-DOC-S3-T1: Add invariant coverage and align docs/demo flow/known issues
+## Release Notes
+- Introduces the first unified Dotlanth capability lab in `dot tui`, with section labels that keep the underlying create-name capabilities visible while you test them.
+- Preserves the existing scripted CLI surface while aligning the developer entrypoint around `just tui` for the interactive workbench.
+- Ships deterministic demo fixtures so capability coverage can be exercised locally without mocking the real subsystem paths.
+- Packages this alpha as an internal validation drop for capability testing, release workflow verification, and follow-on TUI expansion.
 
 ## Validation
 
@@ -27,9 +26,36 @@ Local verification gate:
 just check
 ```
 
-## Demo steps (hello-api)
+Focused CLI/TUI checks:
 
-Run the bounded demo:
+```bash
+cargo test -p dot
+```
+
+## Demo steps (capability lab)
+
+Launch the TUI:
+
+```bash
+just tui
+```
+
+Or directly:
+
+```bash
+cargo run -p dot -- tui
+```
+
+Inside the TUI:
+- `Demo` -> `Parse & Validate` to generate and validate the `hello-api` and `invalid-parse` fixtures
+- `Demo` -> `Run & Serve` to launch the demo API, probe `/hello`, and persist a real run
+- `Security & Capabilities` to inspect the recorded capability report
+- `Artifacts & Inspection` to inspect or export the selected bundle
+- `Replay & Recovery` to replay the selected recorded run into a fresh run id
+
+## Scripted commands still available
+
+Run the bounded hello-api demo without the TUI:
 
 ```bash
 cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
@@ -74,14 +100,14 @@ cargo run -p dot -- run --file examples/hello-api/hello-api-deny.dot
 
 That command fails validation, but it still records a failed run id and finalizes the required bundle files with explicit `unavailable` markers for sections that never executed.
 
-If the CLI exits before printing the run id, inspect `.dotlanth/bundles/` or open the bundle `manifest.json` to recover it.
-
 ## Safe sharing
 
 Treat `.dotlanth/bundles/`, exported bundles, and `.dotlanth/dotdb.sqlite` as sensitive artifacts. They can contain source inputs, runtime traces, logs, and state data. Review and scrub secrets or user data before sharing them outside the intended audience.
 
 ## Known issues / limitations
 
+- The TUI currently launches only through `dot tui` or `just tui`; bare `dot` requires an explicit subcommand.
+- Demo fixture ports are reserved and retried opportunistically for local runs, but they are still local-process demos rather than a general service manager.
 - `dot replay` is input replay, not a full determinism guarantee across environments or side effects.
 - Bundle creation starts only after Dotlanth resolves a concrete `.dot` file path. Commands that fail before that point, such as running in an empty directory without `--file`, do not emit a bundle.
 - HTTP serving is intentionally minimal: plain-text responses, exact method/path matching, no TLS, and loopback binding only.

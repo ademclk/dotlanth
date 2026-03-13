@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod commands;
+mod tui;
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -15,6 +16,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Launch the interactive Dotlanth testbench.
+    Tui,
     /// Scaffold a runnable hello-api project.
     Init {
         /// Target directory to create.
@@ -64,10 +67,13 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     let result = match cli.command {
+        Command::Tui => tui::launch("dot tui"),
         Command::Init { dir } => commands::init::run(&dir),
-        Command::Run { file, max_requests } => {
-            commands::run::run(commands::run::RunOptions { file, max_requests })
-        }
+        Command::Run { file, max_requests } => commands::run::run(commands::run::RunOptions {
+            file,
+            max_requests,
+            announcement: commands::run::RunAnnouncement::Print,
+        }),
         Command::Logs { run_id } => commands::logs::run(&run_id),
         Command::Inspect { run_id } => commands::inspect::run(&run_id),
         Command::ExportArtifacts { run_id, out } => commands::export_artifacts::run(&run_id, &out),
@@ -82,5 +88,22 @@ fn main() -> ExitCode {
             eprintln!("{message}");
             ExitCode::from(1)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, Command};
+    use clap::Parser;
+
+    #[test]
+    fn cli_requires_explicit_subcommand() {
+        assert!(Cli::try_parse_from(["dot"]).is_err());
+    }
+
+    #[test]
+    fn cli_accepts_explicit_tui_subcommand() {
+        let cli = Cli::try_parse_from(["dot", "tui"]).expect("cli should parse tui subcommand");
+        assert!(matches!(cli.command, Command::Tui));
     }
 }

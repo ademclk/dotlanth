@@ -9,23 +9,23 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn run(run_id: &str) -> Result<(), String> {
-    let summary = render_summary(run_id)?;
+    let cwd = std::env::current_dir()
+        .map_err(|error| format!("failed to read current directory: {error}"))?;
+    let summary = render_summary_in(&cwd, run_id)?;
     print!("{summary}");
     Ok(())
 }
 
-fn render_summary(run_id: &str) -> Result<String, String> {
+pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<String, String> {
     let run_id = parse_run_id(run_id)?;
-    let cwd = std::env::current_dir()
-        .map_err(|error| format!("failed to read current directory: {error}"))?;
-    let mut db = open_existing_dotdb_in(&cwd)?;
+    let mut db = open_existing_dotdb_in(project_root)?;
     let run = db
         .run_record(&run_id)
         .map_err(|error| format!("failed to read run {run_id}: {error}"))?;
     let bundle = db
         .artifact_bundle(&run_id)
         .map_err(|error| format!("failed to resolve bundle for run {run_id}: {error}"))?;
-    let bundle_dir = resolve_bundle_dir(&cwd, &bundle.bundle_ref);
+    let bundle_dir = resolve_bundle_dir(project_root, &bundle.bundle_ref);
 
     let manifest_bytes = fs::read(bundle_dir.join(MANIFEST_FILE)).map_err(|error| {
         format!(

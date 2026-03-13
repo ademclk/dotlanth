@@ -9,6 +9,7 @@
 .idea/
 .vscode/
 .codex
+.superpowers/
 
 # Release artifacts
 /dist/
