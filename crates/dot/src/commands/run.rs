@@ -22,6 +22,8 @@ use std::rc::Rc;
 
 const DOTLANTH_DIR: &str = ".dotlanth";
 const BUNDLES_DIR: &str = "bundles";
+const DETERMINISM_BUDGET_STATE_NAMESPACE: &str = "runtime";
+const DETERMINISM_BUDGET_STATE_KEY: &str = "determinism_budget.v26_3";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum RunAnnouncement {
@@ -205,14 +207,23 @@ async fn run_async(
     )
     .await;
 
+    let budget_state_result = persist_determinism_budget_state(&mut host, &trace);
     let after_state = host
         .state_snapshot()
-        .map_err(|error| format!("failed to capture state snapshot after execution: {error}"));
+        .map_err(|error| format!("failed to capture state snapshot after execution: {error}"))
+        .and_then(|snapshot| {
+            budget_state_result
+                .as_ref()
+                .map(|_| snapshot)
+                .map_err(Clone::clone)
+        });
     let state_diff_result = write_state_diff(&mut bundle, before_state, after_state);
+    let determinism_report_result = write_determinism_report(&mut bundle, &trace);
     let capability_report_result = write_capability_report(&mut bundle, &ctx, &trace);
     let pre_bundle_status = pre_bundle_status(
         &execution_result,
         &state_diff_result,
+        &determinism_report_result,
         &capability_report_result,
     );
     let finalize_result = host
@@ -230,6 +241,7 @@ async fn run_async(
     let trace_status = trace_finish_status(
         &execution_result,
         &state_diff_result,
+        &determinism_report_result,
         &capability_report_result,
         &finalize_result,
         finalize_recovery_result.as_ref(),
@@ -237,6 +249,7 @@ async fn run_async(
     let trace_error = summarize_errors([
         execution_result.as_ref().err().cloned(),
         state_diff_result.as_ref().err().cloned(),
+        determinism_report_result.as_ref().err().cloned(),
         capability_report_result.as_ref().err().cloned(),
         finalize_result.as_ref().err().cloned(),
         finalize_recovery_result
@@ -253,6 +266,9 @@ async fn run_async(
         errors.push(error);
     }
     if let Err(error) = state_diff_result {
+        errors.push(error);
+    }
+    if let Err(error) = determinism_report_result {
         errors.push(error);
     }
     if let Err(error) = capability_report_result {
@@ -299,6 +315,13 @@ fn finish_pre_execution_failure(
             "state diff unavailable because execution did not start",
         )
         .map_err(|error| format!("failed to mark state_diff.json as unavailable: {error}"));
+    let determinism_report_result = bundle
+        .mark_section_unavailable(
+            BundleSection::DeterminismReport,
+            "execution_not_started",
+            "determinism_report.json unavailable because execution did not start",
+        )
+        .map_err(|error| format!("failed to mark determinism_report.json as unavailable: {error}"));
     let capability_report_result = bundle
         .mark_section_unavailable(
             BundleSection::CapabilityReport,
@@ -312,6 +335,7 @@ fn finish_pre_execution_failure(
     let trace_status = trace_finish_status(
         &execution_result,
         &state_diff_result,
+        &determinism_report_result,
         &capability_report_result,
         &finalize_result,
         None,
@@ -319,6 +343,7 @@ fn finish_pre_execution_failure(
     let trace_error = summarize_errors([
         Some(execution_error.clone()),
         state_diff_result.as_ref().err().cloned(),
+        determinism_report_result.as_ref().err().cloned(),
         capability_report_result.as_ref().err().cloned(),
         finalize_result.as_ref().err().cloned(),
     ]);
@@ -327,6 +352,9 @@ fn finish_pre_execution_failure(
     let bundle_result = finalize_bundle(host, bundle, trace, run_id);
     let mut errors = vec![execution_error];
     if let Err(error) = state_diff_result {
+        errors.push(error);
+    }
+    if let Err(error) = determinism_report_result {
         errors.push(error);
     }
     if let Err(error) = capability_report_result {
@@ -358,7 +386,7 @@ async fn run_vm_execution(
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
     let program = build_program(document, max_requests)?;
-    validate_program_determinism(ctx, &program)?;
+    validate_program_determinism(ctx, &program, trace)?;
 
     host.configure_http_from_document(document)
         .map_err(|error| error.to_string())?;
@@ -371,9 +399,14 @@ async fn run_vm_execution(
     }
 
     let mut vm = Vm::new(program);
-    vm.run_with_capabilities_host_and_events(ctx.capabilities(), host, trace)
-        .await
-        .map_err(format_vm_error)
+    vm.run_with_policy_host_and_events(
+        ctx.capabilities(),
+        ctx.determinism_mode() == DeterminismMode::Strict,
+        host,
+        trace,
+    )
+    .await
+    .map_err(format_vm_error)
 }
 
 fn build_program(
@@ -422,12 +455,47 @@ fn format_vm_error(error: VmError) -> String {
 fn validate_program_determinism(
     ctx: &RuntimeContext,
     program: &[Instruction],
+    trace: &mut TraceRecorder,
 ) -> Result<(), String> {
     if ctx.determinism_mode() != DeterminismMode::Strict {
         return Ok(());
     }
 
-    validate_strict_determinism(program).map_err(|error| error.to_string())
+    match validate_strict_determinism(program) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            trace.record_strict_validation_denial(program, &error);
+            Err(error.to_string())
+        }
+    }
+}
+
+fn write_determinism_report(
+    bundle: &mut BundleWriter,
+    trace: &TraceRecorder,
+) -> Result<(), String> {
+    match bundle.write_determinism_report_json(&build_determinism_report_json(
+        trace.determinism_budget(),
+        &trace.determinism_violations(),
+    )) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            let message = format!("failed to write determinism_report.json: {error}");
+            match bundle.mark_section_error(
+                BundleSection::DeterminismReport,
+                "artifact_write_failed",
+                &message,
+            ) {
+                Ok(()) => Err(message),
+                Err(marker_error) => Err(combine_errors(
+                    message,
+                    [Some(format!(
+                        "failed to mark determinism_report.json as errored: {marker_error}"
+                    ))],
+                )),
+            }
+        }
+    }
 }
 
 fn write_capability_report(
@@ -640,16 +708,21 @@ fn summarize_errors(errors: impl IntoIterator<Item = Option<String>>) -> Option<
 fn pre_bundle_status(
     execution_result: &Result<(), String>,
     state_diff_result: &Result<(), String>,
+    determinism_report_result: &Result<(), String>,
     capability_report_result: &Result<(), String>,
 ) -> dot_db::RunStatus {
     status_from_success(
-        execution_result.is_ok() && state_diff_result.is_ok() && capability_report_result.is_ok(),
+        execution_result.is_ok()
+            && state_diff_result.is_ok()
+            && determinism_report_result.is_ok()
+            && capability_report_result.is_ok(),
     )
 }
 
 fn trace_finish_status(
     execution_result: &Result<(), String>,
     state_diff_result: &Result<(), String>,
+    determinism_report_result: &Result<(), String>,
     capability_report_result: &Result<(), String>,
     finalize_result: &Result<(), String>,
     finalize_recovery_result: Option<&Result<(), String>>,
@@ -657,6 +730,7 @@ fn trace_finish_status(
     status_from_success(
         execution_result.is_ok()
             && state_diff_result.is_ok()
+            && determinism_report_result.is_ok()
             && capability_report_result.is_ok()
             && finalize_result.is_ok()
             && finalize_recovery_result.is_none_or(Result::is_ok),
@@ -688,6 +762,8 @@ struct TraceRecorderState {
     next_seq: u64,
     writer: BufWriter<std::fs::File>,
     error: Option<String>,
+    determinism_budget: DeterminismBudgetCounters,
+    determinism_violations: DeterminismViolationAccumulator,
     capability_usage: CapabilityUsageAccumulator,
 }
 
@@ -713,6 +789,8 @@ impl TraceRecorder {
                 next_seq: 0,
                 writer: BufWriter::new(file),
                 error: None,
+                determinism_budget: DeterminismBudgetCounters::default(),
+                determinism_violations: DeterminismViolationAccumulator::default(),
                 capability_usage: CapabilityUsageAccumulator::default(),
             })),
         })
@@ -729,6 +807,14 @@ impl TraceRecorder {
 
     fn capability_usage(&self) -> CapabilityUsageAccumulator {
         self.inner.borrow().capability_usage.clone()
+    }
+
+    fn determinism_budget(&self) -> DeterminismBudgetCounters {
+        self.inner.borrow().determinism_budget
+    }
+
+    fn determinism_violations(&self) -> DeterminismViolationAccumulator {
+        self.inner.borrow().determinism_violations.clone()
     }
 
     fn with_state(&mut self, op: impl FnOnce(&mut TraceRecorderState)) {
@@ -761,6 +847,7 @@ impl TraceRecorder {
         let mut payload = self.new_payload();
         payload.insert("syscall_id".to_owned(), json!(event.id.0));
         payload.insert("syscall".to_owned(), json!(syscall_name(event.id)));
+        insert_syscall_trace_facts(&mut payload, event.id);
         payload.insert(
             "args".to_owned(),
             JsonValue::Array(event.args.iter().map(vm_value_to_json).collect()),
@@ -774,6 +861,7 @@ impl TraceRecorder {
         let mut payload = self.new_payload();
         payload.insert("syscall_id".to_owned(), json!(event.id.0));
         payload.insert("syscall".to_owned(), json!(syscall_name(event.id)));
+        insert_syscall_trace_facts(&mut payload, event.id);
         match event.result {
             Ok(values) => {
                 payload.insert("status".to_owned(), json!("ok"));
@@ -790,12 +878,60 @@ impl TraceRecorder {
         self.with_state(|state| {
             let seq = state.next_seq;
             state.push("syscall.result", payload, event.source.as_ref());
+            state
+                .determinism_budget
+                .record_syscall_result(event.id, &result);
             if state.error.is_none()
                 && let Some(capability) = gated_capability
             {
                 state
                     .capability_usage
                     .record_result(capability, &result, seq);
+            }
+            if let Some(spec) = dot_ops::syscall_spec(event.id) {
+                match &result {
+                    Err(error) if is_determinism_denial(error.message()) => {
+                        let mut payload = Map::new();
+                        payload.insert("phase".to_owned(), json!("boundary"));
+                        payload.insert("message".to_owned(), json!(error.message()));
+                        payload.insert("syscall_id".to_owned(), json!(event.id.0));
+                        payload.insert("syscall".to_owned(), json!(spec.name()));
+                        insert_syscall_trace_facts(&mut payload, event.id);
+                        let audit_seq = state.next_seq;
+                        state.push("audit.determinism_denial", payload, event.source.as_ref());
+                        state.determinism_violations.record(
+                            spec.name(),
+                            spec.classification().as_str(),
+                            spec.required_capability()
+                                .map(|capability| capability.as_str()),
+                            error.message(),
+                            audit_seq,
+                        );
+                    }
+                    Err(error) if is_capability_denial(error.message()) => {}
+                    Ok(_) | Err(_)
+                        if spec.classification()
+                            == dot_ops::DeterminismClass::ControlledSideEffect =>
+                    {
+                        let mut payload = Map::new();
+                        payload.insert(
+                            "result_status".to_owned(),
+                            json!(match &result {
+                                Ok(_) => "ok",
+                                Err(_) => "error",
+                            }),
+                        );
+                        payload.insert("syscall_id".to_owned(), json!(event.id.0));
+                        payload.insert("syscall".to_owned(), json!(spec.name()));
+                        insert_syscall_trace_facts(&mut payload, event.id);
+                        state.push(
+                            "audit.controlled_side_effect",
+                            payload,
+                            event.source.as_ref(),
+                        );
+                    }
+                    _ => {}
+                }
             }
         });
     }
@@ -828,6 +964,41 @@ impl TraceRecorder {
                 self.with_state(|state| state.push("http.response", payload, source.as_ref()));
             }
         }
+    }
+
+    fn record_strict_validation_denial(
+        &mut self,
+        program: &[Instruction],
+        error: &dot_vm::StrictDeterminismError,
+    ) {
+        let source = strict_determinism_source(program, error);
+        let syscall_id = strict_determinism_syscall_id(error);
+        self.with_state(|state| {
+            state.determinism_budget.record_validation_denial(error);
+            let mut payload = Map::new();
+            payload.insert("phase".to_owned(), json!("validation"));
+            payload.insert("message".to_owned(), json!(error.to_string()));
+            if let Some(id) = syscall_id {
+                payload.insert("syscall_id".to_owned(), json!(id.0));
+                payload.insert("syscall".to_owned(), json!(syscall_name(id)));
+                insert_syscall_trace_facts(&mut payload, id);
+                let seq = state.next_seq;
+                state.push("audit.determinism_denial", payload, source.as_ref());
+                if let Some(spec) = dot_ops::syscall_spec(id) {
+                    state.determinism_violations.record(
+                        spec.name(),
+                        spec.classification().as_str(),
+                        spec.required_capability()
+                            .map(|capability| capability.as_str()),
+                        &error.to_string(),
+                        seq,
+                    );
+                }
+            } else {
+                payload.insert("opcode".to_owned(), json!(strict_determinism_opcode(error)));
+                state.push("audit.determinism_denial", payload, source.as_ref());
+            }
+        });
     }
 }
 
@@ -881,6 +1052,187 @@ impl EventSink for TraceRecorder {
             VmEvent::SyscallResult(event) => self.record_syscall_result(event),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct DeterminismBudgetCounters {
+    gated_total: u64,
+    allowed_total: u64,
+    denied_total: u64,
+    controlled_side_effect_total: u64,
+    non_deterministic_total: u64,
+}
+
+impl DeterminismBudgetCounters {
+    fn record_syscall_result(
+        &mut self,
+        id: SyscallId,
+        result: &Result<Vec<VmValue>, dot_ops::HostError>,
+    ) {
+        let Some(spec) = dot_ops::syscall_spec(id) else {
+            return;
+        };
+
+        self.gated_total += 1;
+        match spec.classification() {
+            dot_ops::DeterminismClass::ControlledSideEffect => {
+                self.controlled_side_effect_total += 1;
+            }
+            dot_ops::DeterminismClass::NonDeterministic => {
+                self.non_deterministic_total += 1;
+            }
+            dot_ops::DeterminismClass::Pure => {}
+        }
+
+        match result {
+            Err(error) if is_determinism_denial(error.message()) => self.denied_total += 1,
+            _ => self.allowed_total += 1,
+        }
+    }
+
+    fn record_validation_denial(&mut self, error: &dot_vm::StrictDeterminismError) {
+        self.gated_total += 1;
+        self.denied_total += 1;
+        match error {
+            dot_vm::StrictDeterminismError::UnsupportedInStrictMode {
+                classification: dot_ops::DeterminismClass::ControlledSideEffect,
+                ..
+            } => {
+                self.controlled_side_effect_total += 1;
+            }
+            dot_vm::StrictDeterminismError::UnsupportedInStrictMode {
+                classification: dot_ops::DeterminismClass::NonDeterministic,
+                ..
+            } => {
+                self.non_deterministic_total += 1;
+            }
+            _ => {}
+        }
+    }
+}
+
+fn build_determinism_report_json(
+    counters: DeterminismBudgetCounters,
+    violations: &DeterminismViolationAccumulator,
+) -> JsonValue {
+    json!({
+        "schema_version": "1",
+        "informational": true,
+        "counters": {
+            "gated_total": counters.gated_total,
+            "allowed_total": counters.allowed_total,
+            "denied_total": counters.denied_total,
+            "controlled_side_effect_total": counters.controlled_side_effect_total,
+            "non_deterministic_total": counters.non_deterministic_total,
+        },
+        "violations": violations.as_json()
+    })
+}
+
+fn persist_determinism_budget_state(
+    host: &mut OpsHost,
+    trace: &TraceRecorder,
+) -> Result<(), String> {
+    let bytes = serde_json::to_vec(&build_determinism_report_json(
+        trace.determinism_budget(),
+        &trace.determinism_violations(),
+    ))
+    .map_err(|error| format!("failed to serialize determinism budget state: {error}"))?;
+    host.state_set(
+        DETERMINISM_BUDGET_STATE_NAMESPACE,
+        DETERMINISM_BUDGET_STATE_KEY,
+        &bytes,
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[derive(Clone, Debug, Default)]
+struct DeterminismViolationAccumulator {
+    entries: BTreeMap<String, DeterminismViolationEntry>,
+}
+
+#[derive(Clone, Debug)]
+struct DeterminismViolationEntry {
+    classification: String,
+    required_capability: Option<String>,
+    count: u64,
+    first_seq: u64,
+    message: String,
+}
+
+impl DeterminismViolationAccumulator {
+    fn record(
+        &mut self,
+        syscall: &str,
+        classification: &str,
+        required_capability: Option<&str>,
+        message: &str,
+        seq: u64,
+    ) {
+        let entry =
+            self.entries
+                .entry(syscall.to_owned())
+                .or_insert_with(|| DeterminismViolationEntry {
+                    classification: classification.to_owned(),
+                    required_capability: required_capability.map(str::to_owned),
+                    count: 0,
+                    first_seq: seq,
+                    message: message.to_owned(),
+                });
+        entry.count += 1;
+    }
+
+    fn as_json(&self) -> Vec<JsonValue> {
+        self.entries
+            .iter()
+            .map(|(syscall, entry)| {
+                let mut value = json!({
+                    "syscall": syscall,
+                    "classification": entry.classification,
+                    "count": entry.count,
+                    "first_seq": entry.first_seq,
+                    "message": entry.message,
+                });
+                if let Some(required_capability) = entry.required_capability.as_deref() {
+                    value["required_capability"] = json!(required_capability);
+                }
+                value
+            })
+            .collect()
+    }
+}
+
+fn strict_determinism_syscall_id(error: &dot_vm::StrictDeterminismError) -> Option<SyscallId> {
+    match error {
+        dot_vm::StrictDeterminismError::MissingClassification {
+            opcode: dot_vm::Opcode::Syscall(id),
+        }
+        | dot_vm::StrictDeterminismError::UnsupportedInStrictMode {
+            opcode: dot_vm::Opcode::Syscall(id),
+            ..
+        } => Some(*id),
+        _ => None,
+    }
+}
+
+fn strict_determinism_opcode(error: &dot_vm::StrictDeterminismError) -> String {
+    match error {
+        dot_vm::StrictDeterminismError::MissingClassification { opcode }
+        | dot_vm::StrictDeterminismError::UnsupportedInStrictMode { opcode, .. } => {
+            opcode.to_string()
+        }
+    }
+}
+
+fn strict_determinism_source(
+    program: &[Instruction],
+    error: &dot_vm::StrictDeterminismError,
+) -> Option<SourceRef> {
+    let syscall_id = strict_determinism_syscall_id(error)?;
+    program.iter().find_map(|instruction| match instruction {
+        Instruction::Syscall { id, source, .. } if *id == syscall_id => source.clone(),
+        _ => None,
+    })
 }
 
 fn source_to_json(source: &SourceRef) -> Option<JsonValue> {
@@ -1004,6 +1356,10 @@ fn is_capability_denial(message: &str) -> bool {
     message.starts_with("capability denied: syscall `")
 }
 
+fn is_determinism_denial(message: &str) -> bool {
+    message.starts_with("determinism violation: ")
+}
+
 fn syscall_name(id: SyscallId) -> &'static str {
     dot_ops::syscall_name(id)
 }
@@ -1015,6 +1371,20 @@ fn vm_value_to_json(value: &VmValue) -> JsonValue {
         VmValue::I64(value) => json!(value),
         VmValue::Str(value) => json!(value),
         VmValue::Bytes(value) => json!({ "bytes": value }),
+    }
+}
+
+fn insert_syscall_trace_facts(payload: &mut Map<String, JsonValue>, id: SyscallId) {
+    let Some(spec) = dot_ops::syscall_spec(id) else {
+        return;
+    };
+
+    payload.insert(
+        "classification".to_owned(),
+        json!(spec.classification().as_str()),
+    );
+    if let Some(capability) = spec.required_capability() {
+        payload.insert("required_capability".to_owned(), json!(capability.as_str()));
     }
 }
 
@@ -1074,7 +1444,8 @@ mod tests {
         sha256_hex, trace_finish_status,
     };
     use dot_artifacts::{
-        CAPABILITY_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE, STATE_DIFF_FILE, TRACE_FILE,
+        CAPABILITY_REPORT_FILE, DETERMINISM_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE,
+        STATE_DIFF_FILE, TRACE_FILE,
     };
     use dot_db::{DotDb, RunStatus, StateKvEntry};
     use dot_ops::{
@@ -1602,9 +1973,9 @@ end
         let ok = Ok(());
         let err = Err("state diff failed".to_owned());
 
-        assert_eq!(pre_bundle_status(&ok, &err, &ok), RunStatus::Failed);
+        assert_eq!(pre_bundle_status(&ok, &err, &ok, &ok), RunStatus::Failed);
         assert_eq!(
-            trace_finish_status(&ok, &err, &ok, &ok, None),
+            trace_finish_status(&ok, &err, &ok, &ok, &ok, None),
             RunStatus::Failed
         );
     }
@@ -1870,6 +2241,52 @@ end
             "determinism violation: strict mode does not support syscall `net.http.serve`"
         );
 
+        let bundle_dir = single_bundle_dir(temp.path());
+        let manifest = read_json(&bundle_dir.join(MANIFEST_FILE));
+        assert_eq!(manifest["sections"]["determinism_report"]["status"], "ok");
+
+        let determinism_report: JsonValue = serde_json::from_slice(
+            &std::fs::read(bundle_dir.join(DETERMINISM_REPORT_FILE))
+                .expect("determinism report must read"),
+        )
+        .expect("determinism report must parse");
+        let trace = read_trace(&bundle_dir);
+        assert_eq!(
+            trace
+                .iter()
+                .map(|entry| entry["event"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            vec!["run.start", "audit.determinism_denial", "run.finish"]
+        );
+        assert_eq!(trace[1]["syscall"], "net.http.serve");
+        assert_eq!(trace[1]["classification"], "non_deterministic");
+        assert_eq!(trace[1]["required_capability"], "net.http.listen");
+        assert_eq!(trace[1]["phase"], "validation");
+        assert_eq!(
+            determinism_report,
+            json!({
+                "schema_version": "1",
+                "informational": true,
+                "counters": {
+                    "gated_total": 1,
+                    "allowed_total": 0,
+                    "denied_total": 1,
+                    "controlled_side_effect_total": 0,
+                    "non_deterministic_total": 1
+                },
+                "violations": [
+                    {
+                        "syscall": "net.http.serve",
+                        "classification": "non_deterministic",
+                        "required_capability": "net.http.listen",
+                        "count": 1,
+                        "first_seq": 1,
+                        "message": "determinism violation: strict mode does not support syscall `net.http.serve`"
+                    }
+                ]
+            })
+        );
+
         let rebound =
             TcpListener::bind(("127.0.0.1", port)).expect("strict failure should not bind port");
         drop(rebound);
@@ -1997,6 +2414,8 @@ end
             .collect::<Vec<_>>();
         assert_eq!(seqs, (0..trace.len() as u64).collect::<Vec<_>>());
         assert_eq!(trace[1]["source"]["semantic_path"], "server");
+        assert_eq!(trace[1]["classification"], "non_deterministic");
+        assert_eq!(trace[1]["required_capability"], "net.http.listen");
         assert_eq!(trace[2]["source"]["semantic_path"], "server");
         assert_eq!(trace[3]["source"]["semantic_path"], "apis[0].routes[0]");
         assert_eq!(
@@ -2004,6 +2423,8 @@ end
             "apis[0].routes[0].response"
         );
         assert_eq!(trace[5]["status"], "ok");
+        assert_eq!(trace[5]["classification"], "non_deterministic");
+        assert_eq!(trace[5]["required_capability"], "net.http.listen");
         assert_eq!(trace[6]["status"], "succeeded");
 
         assert_eq!(manifest["sections"]["trace"]["status"], "ok");
@@ -2014,18 +2435,41 @@ end
             trace_raw.len()
         );
         assert_eq!(manifest["sections"]["state_diff"]["status"], "ok");
+        assert_eq!(manifest["sections"]["determinism_report"]["status"], "ok");
         assert_eq!(manifest["sections"]["capability_report"]["status"], "ok");
 
         let state_diff: JsonValue = serde_json::from_slice(
             &std::fs::read(bundle_path.join("state_diff.json")).expect("state diff must read"),
         )
         .expect("state diff must parse");
+        assert_eq!(state_diff["schema_version"], "1");
+        assert_eq!(state_diff["scope"], "state_kv");
+        let changes = state_diff["changes"]
+            .as_array()
+            .expect("state diff changes must be an array");
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0]["namespace"], "runtime");
+        assert_eq!(changes[0]["key"], "determinism_budget.v26_3");
+        assert_eq!(changes[0]["change"], "added");
+
+        let determinism_report: JsonValue = serde_json::from_slice(
+            &std::fs::read(bundle_path.join(DETERMINISM_REPORT_FILE))
+                .expect("determinism report must read"),
+        )
+        .expect("determinism report must parse");
         assert_eq!(
-            state_diff,
+            determinism_report,
             json!({
                 "schema_version": "1",
-                "scope": "state_kv",
-                "changes": []
+                "informational": true,
+                "counters": {
+                    "gated_total": 1,
+                    "allowed_total": 1,
+                    "denied_total": 0,
+                    "controlled_side_effect_total": 0,
+                    "non_deterministic_total": 1
+                },
+                "violations": []
             })
         );
 
@@ -2134,5 +2578,47 @@ end
         assert!(project_dir.join(".dotlanth").join("dotdb.sqlite").is_file());
         assert!(project_dir.join(".dotlanth").join("bundles").is_dir());
         assert!(!caller_dir.join(".dotlanth").exists());
+    }
+
+    #[test]
+    fn controlled_side_effect_syscalls_emit_audit_events() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let trace_path = temp.path().join("trace.jsonl");
+        let mut trace = TraceRecorder::new("run-audit", &trace_path).expect("trace should init");
+
+        trace.emit(VmEvent::SyscallAttempt(SyscallAttemptEvent {
+            ip: 0,
+            id: SYSCALL_LOG_EMIT,
+            args: vec![],
+            source: None,
+        }));
+        trace.emit(VmEvent::SyscallResult(SyscallResultEvent {
+            ip: 0,
+            id: SYSCALL_LOG_EMIT,
+            result: Ok(vec![]),
+            source: None,
+        }));
+        trace.flush().expect("trace should flush");
+
+        let trace_entries = std::fs::read_to_string(&trace_path)
+            .expect("trace file must read")
+            .lines()
+            .map(|line| serde_json::from_str::<JsonValue>(line).expect("trace line must parse"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            trace_entries
+                .iter()
+                .map(|entry| entry["event"].as_str().expect("event must exist"))
+                .collect::<Vec<_>>(),
+            vec![
+                "syscall.attempt",
+                "syscall.result",
+                "audit.controlled_side_effect"
+            ]
+        );
+        assert_eq!(trace_entries[2]["syscall"], "log.emit");
+        assert_eq!(trace_entries[2]["classification"], "controlled_side_effect");
+        assert_eq!(trace_entries[2]["required_capability"], "log");
+        assert_eq!(trace_entries[2]["result_status"], "ok");
     }
 }

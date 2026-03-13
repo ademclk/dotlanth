@@ -55,4 +55,12 @@ impl OpValue for Value {
             _ => None,
         }
     }
+
+    fn from_i64(value: i64) -> Self {
+        Self::I64(value)
+    }
+
+    fn from_bytes(value: Vec<u8>) -> Self {
+        Self::Bytes(value)
+    }
 }

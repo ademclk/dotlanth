@@ -7,12 +7,14 @@ pub const INPUTS_DIR: &str = "inputs";
 pub const ENTRY_DOT_FILE: &str = "inputs/entry.dot";
 pub const TRACE_FILE: &str = "trace.jsonl";
 pub const STATE_DIFF_FILE: &str = "state_diff.json";
+pub const DETERMINISM_REPORT_FILE: &str = "determinism_report.json";
 pub const CAPABILITY_REPORT_FILE: &str = "capability_report.json";
-pub const REQUIRED_FILE_PATHS: [&str; 5] = [
+pub const REQUIRED_FILE_PATHS: [&str; 6] = [
     MANIFEST_FILE,
     ENTRY_DOT_FILE,
     TRACE_FILE,
     STATE_DIFF_FILE,
+    DETERMINISM_REPORT_FILE,
     CAPABILITY_REPORT_FILE,
 ];
 
@@ -25,16 +27,23 @@ pub(crate) const DEFAULT_INPUT_UNAVAILABLE_MESSAGE: &str = "entry.dot snapshot n
 pub enum BundleSection {
     Trace,
     StateDiff,
+    DeterminismReport,
     CapabilityReport,
 }
 
 impl BundleSection {
-    pub const ALL: [Self; 3] = [Self::Trace, Self::StateDiff, Self::CapabilityReport];
+    pub const ALL: [Self; 4] = [
+        Self::Trace,
+        Self::StateDiff,
+        Self::DeterminismReport,
+        Self::CapabilityReport,
+    ];
 
     pub const fn key(self) -> &'static str {
         match self {
             Self::Trace => "trace",
             Self::StateDiff => "state_diff",
+            Self::DeterminismReport => "determinism_report",
             Self::CapabilityReport => "capability_report",
         }
     }
@@ -43,6 +52,7 @@ impl BundleSection {
         match self {
             Self::Trace => TRACE_FILE,
             Self::StateDiff => STATE_DIFF_FILE,
+            Self::DeterminismReport => DETERMINISM_REPORT_FILE,
             Self::CapabilityReport => CAPABILITY_REPORT_FILE,
         }
     }

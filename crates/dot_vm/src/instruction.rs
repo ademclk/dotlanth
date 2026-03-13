@@ -68,7 +68,7 @@ impl OpcodeMetadata {
 
 impl From<dot_ops::SyscallSpec> for OpcodeMetadata {
     fn from(value: dot_ops::SyscallSpec) -> Self {
-        Self::new(value.classification(), Some(value.required_capability()))
+        Self::new(value.classification(), value.required_capability())
     }
 }
 

@@ -32,17 +32,19 @@ Expected output:
 Hello from Dotlanth
 ```
 
-After the request completes, the bounded run exits and writes an artifact bundle to `.dotlanth/bundles/<run_id>/`. The bundle includes `manifest.json`, `inputs/entry.dot`, `trace.jsonl`, `state_diff.json`, and `capability_report.json`.
+After the request completes, the bounded run exits and writes an artifact bundle to `.dotlanth/bundles/<run_id>/`. The bundle includes `manifest.json`, `inputs/entry.dot`, `trace.jsonl`, `state_diff.json`, `determinism_report.json`, and `capability_report.json`.
 
 If `dot run` resolves a `.dot` file and then fails during validation or runtime, Dotlanth still finalizes a bundle for that run id. Sections that could not be recorded stay present with explicit `unavailable` markers. On early failures, the CLI may return before printing the run id, so inspect `.dotlanth/bundles/` or the bundle `manifest.json` to recover it.
 
 DotDB indexes the finalized bundle by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
 
-Strict mode is fail-closed for opcode classification coverage. `log.emit` is classified as a `controlled_side_effect`, so strict mode does not reject it on determinism grounds, but the call still needs the `log` capability to succeed. `net.http.serve` is classified as `non_deterministic` and fails before the side effect executes. Unclassified syscall ids are also rejected before execution.
+Strict mode is fail-closed for opcode classification coverage. `log.emit` is classified as a `controlled_side_effect`, so strict mode does not reject it on determinism grounds, but the call still needs the `log` capability to succeed. `net.http.serve`, `time.now`, and `random.bytes` are classified as `non_deterministic` and fail before their host hooks execute. Unclassified syscall ids are also rejected before execution.
 
-`state_diff.json` exports a stable `state_kv` diff with deterministic ordering and no unchanged entries.
+`state_diff.json` exports a stable `state_kv` diff with deterministic ordering and no unchanged entries. In v26.3 it can include the persisted determinism budget snapshot under `runtime/determinism_budget.v26_3`.
 
-The capability report includes declared capabilities with source metadata, along with stable `used` and `denied` counts for capability-gated operations.
+`determinism_report.json` records informational v26.3 counters and any strict-mode violation summaries for the run.
+
+The capability report includes declared capabilities with source metadata, along with stable `used` and `denied` counts for capability-gated operations. `trace.jsonl` also records syscall `classification` facts, `required_capability` when a registered syscall is capability-gated, `audit.determinism_denial` events for strict failures, and `audit.controlled_side_effect` events when controlled operations pass determinism policy.
 
 You can inspect the recorded bundle summary directly from the run id:
 

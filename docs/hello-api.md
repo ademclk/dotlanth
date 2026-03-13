@@ -89,11 +89,13 @@ The bundle captures:
 - `inputs/entry.dot`
 - `trace.jsonl`
 - `state_diff.json`
+- `determinism_report.json`
 - `manifest.json`
 - `capability_report.json`
 
-`trace.jsonl` is ordered by `seq` and includes lifecycle events, syscall boundaries, and source mappings back to the `server`, `route`, and `respond` statements when that mapping is known.
-`state_diff.json` exports a stable `state_kv` diff ordered by `(namespace, key)` and skips unchanged values.
+`trace.jsonl` is ordered by `seq` and includes lifecycle events, syscall boundaries, determinism classification facts, required capability facts when they exist, audit events for strict denials and controlled side-effect use, and source mappings back to the `server`, `route`, and `respond` statements when that mapping is known.
+`state_diff.json` exports a stable `state_kv` diff ordered by `(namespace, key)` and skips unchanged values. In v26.3 it can include the persisted determinism budget snapshot under `runtime/determinism_budget.v26_3`.
+`determinism_report.json` records informational counters and strict-mode violation summaries for the run.
 `capability_report.json` lists declared capabilities with their source spans/semantic paths, plus stable `used` and `denied` accounting. When a capability-gated syscall is denied, the report keeps a representative error message and the matching trace `seq` when available.
 DotDB indexes the finalized bundle by the external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
 
@@ -101,6 +103,7 @@ Strict mode is fail-closed for opcode classification coverage. In the current mi
 - pure VM opcodes such as `halt`, `load_const`, and `mov` remain allowed
 - `log.emit` is classified as a `controlled_side_effect`, so strict mode does not reject it on determinism grounds; the call still needs the `log` capability to succeed
 - `net.http.serve` is classified as `non_deterministic`, so strict mode rejects it as a determinism violation before the side effect executes
+- `time.now` and `random.bytes` are also classified as `non_deterministic`, so strict mode rejects those host hooks before they execute
 - unclassified syscall ids are rejected before execution instead of silently falling through policy
 
 Use the run id to print a stable bundle summary:

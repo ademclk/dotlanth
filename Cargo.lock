@@ -341,6 +341,7 @@ dependencies = [
  "dot_db",
  "dot_dsl",
  "dot_sec",
+ "getrandom",
  "tempfile",
  "tokio",
 ]
