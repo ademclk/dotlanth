@@ -97,7 +97,11 @@ The bundle captures:
 `capability_report.json` lists declared capabilities with their source spans/semantic paths, plus stable `used` and `denied` accounting. When a capability-gated syscall is denied, the report keeps a representative error message and the matching trace `seq` when available.
 DotDB indexes the finalized bundle by the external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
 
-Strict mode is fail-closed for unsupported runtime behavior. In the current milestone, unsupported syscalls such as `net.http.serve` are rejected as determinism violations before the side effect executes.
+Strict mode is fail-closed for opcode classification coverage. In the current milestone:
+- pure VM opcodes such as `halt`, `load_const`, and `mov` remain allowed
+- `log.emit` is classified as a `controlled_side_effect`, so strict mode does not reject it on determinism grounds; the call still needs the `log` capability to succeed
+- `net.http.serve` is classified as `non_deterministic`, so strict mode rejects it as a determinism violation before the side effect executes
+- unclassified syscall ids are rejected before execution instead of silently falling through policy
 
 Use the run id to print a stable bundle summary:
 
