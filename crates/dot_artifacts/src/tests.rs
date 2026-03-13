@@ -24,6 +24,18 @@ fn manifest_serialization_is_deterministic() {
 }
 
 #[test]
+fn manifest_serialization_records_determinism_mode() {
+    let manifest = BundleManifestV1::new_with_created_at("run-123", 42);
+    let json = read_json_bytes(
+        &manifest
+            .serialize_pretty_json()
+            .expect("manifest should serialize"),
+    );
+
+    assert_eq!(json["determinism"]["mode"], "default");
+}
+
+#[test]
 fn finalize_creates_required_files_with_explicit_markers() {
     let tmp = TempDir::new().expect("tempdir");
     let bundle = tmp.path().join("bundle-run-1");
@@ -187,4 +199,8 @@ fn finalize_downgrades_manifest_when_section_file_missing() {
 fn read_json(path: &std::path::Path) -> Value {
     let raw = fs::read(path).expect("json file should read");
     serde_json::from_slice(&raw).expect("json file should parse")
+}
+
+fn read_json_bytes(raw: &[u8]) -> Value {
+    serde_json::from_slice(raw).expect("json bytes should parse")
 }

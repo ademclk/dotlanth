@@ -4,6 +4,7 @@ mod commands;
 mod tui;
 
 use clap::{Parser, Subcommand};
+use dot_rt::DeterminismMode;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -32,6 +33,10 @@ enum Command {
         /// Stop after serving N HTTP requests (useful for tests).
         #[arg(long)]
         max_requests: Option<u64>,
+
+        /// Determinism contract for this run.
+        #[arg(long = "deterministic", default_value_t = DeterminismMode::Default)]
+        determinism_mode: DeterminismMode,
     },
     /// Print persisted logs for a run id.
     Logs {
@@ -69,9 +74,14 @@ fn main() -> ExitCode {
     let result = match cli.command {
         Command::Tui => tui::launch("dot tui"),
         Command::Init { dir } => commands::init::run(&dir),
-        Command::Run { file, max_requests } => commands::run::run(commands::run::RunOptions {
+        Command::Run {
             file,
             max_requests,
+            determinism_mode,
+        } => commands::run::run(commands::run::RunOptions {
+            file,
+            max_requests,
+            determinism_mode,
             announcement: commands::run::RunAnnouncement::Print,
         }),
         Command::Logs { run_id } => commands::logs::run(&run_id),
@@ -95,6 +105,7 @@ fn main() -> ExitCode {
 mod tests {
     use super::{Cli, Command};
     use clap::Parser;
+    use dot_rt::DeterminismMode;
 
     #[test]
     fn cli_requires_explicit_subcommand() {
@@ -105,5 +116,48 @@ mod tests {
     fn cli_accepts_explicit_tui_subcommand() {
         let cli = Cli::try_parse_from(["dot", "tui"]).expect("cli should parse tui subcommand");
         assert!(matches!(cli.command, Command::Tui));
+    }
+
+    #[test]
+    fn cli_run_accepts_equals_style_strict_determinism_mode() {
+        let cli = Cli::try_parse_from(["dot", "run", "--deterministic=strict"])
+            .expect("cli should parse strict determinism mode");
+        assert!(matches!(
+            cli.command,
+            Command::Run {
+                determinism_mode: DeterminismMode::Strict,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn cli_run_accepts_space_separated_strict_determinism_mode() {
+        let cli = Cli::try_parse_from(["dot", "run", "--deterministic", "strict"])
+            .expect("cli should parse strict determinism mode");
+        assert!(matches!(
+            cli.command,
+            Command::Run {
+                determinism_mode: DeterminismMode::Strict,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn cli_run_defaults_to_default_determinism_mode() {
+        let cli = Cli::try_parse_from(["dot", "run"]).expect("cli should parse default run");
+        assert!(matches!(
+            cli.command,
+            Command::Run {
+                determinism_mode: DeterminismMode::Default,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn cli_run_rejects_unknown_determinism_mode() {
+        assert!(Cli::try_parse_from(["dot", "run", "--deterministic=chaos"]).is_err());
     }
 }

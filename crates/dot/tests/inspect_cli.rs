@@ -104,6 +104,9 @@ end
         "schema_version": "1",
         "run_id": run_id,
         "created_at_ms": 1,
+        "determinism": {
+            "mode": "strict"
+        },
         "required_files": [
             MANIFEST_FILE,
             ENTRY_DOT_FILE,
@@ -185,6 +188,7 @@ end
                 "run_id: {}\n",
                 "status: succeeded\n",
                 "schema_version: 1\n",
+                "determinism_mode: strict\n",
                 "artifacts:\n",
                 "  manifest.json: present ({} bytes)\n",
                 "  inputs/entry.dot: present ({} bytes)\n",

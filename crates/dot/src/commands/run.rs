@@ -6,7 +6,7 @@ use dot_ops::{
     OpsHost, RecordMode, RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef,
     SourceSpan, SyscallId,
 };
-use dot_rt::RuntimeContext;
+use dot_rt::{DeterminismMode, RuntimeContext};
 use dot_sec::{Capability, CapabilitySet};
 use dot_vm::{
     EventSink, Instruction, Reg, SyscallAttemptEvent, SyscallResultEvent, Value as VmValue, Vm,
@@ -35,6 +35,7 @@ pub(crate) enum RunAnnouncement {
 pub(crate) struct RunOptions {
     pub(crate) file: Option<PathBuf>,
     pub(crate) max_requests: Option<u64>,
+    pub(crate) determinism_mode: DeterminismMode,
     pub(crate) announcement: RunAnnouncement,
 }
 
@@ -43,7 +44,12 @@ pub(crate) fn run(options: RunOptions) -> Result<(), String> {
         Some(file) => Some((file.clone(), project_root_for_dot_path(&file)?)),
         None => None,
     };
-    run_resolved_options(resolved, options.max_requests, options.announcement)
+    run_resolved_options(
+        resolved,
+        options.max_requests,
+        options.determinism_mode,
+        options.announcement,
+    )
 }
 
 pub(crate) fn run_resolved_with_announcement(
@@ -52,24 +58,36 @@ pub(crate) fn run_resolved_with_announcement(
     max_requests: Option<u64>,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
-    run_resolved_options(Some((dot_path, project_root)), max_requests, announcement)
+    run_resolved_options(
+        Some((dot_path, project_root)),
+        max_requests,
+        DeterminismMode::Default,
+        announcement,
+    )
 }
 
 fn run_resolved_options(
     resolved: Option<(PathBuf, PathBuf)>,
     max_requests: Option<u64>,
+    determinism_mode: DeterminismMode,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|error| format!("failed to initialize tokio runtime: {error}"))?;
-    runtime.block_on(run_async(resolved, max_requests, announcement))
+    runtime.block_on(run_async(
+        resolved,
+        max_requests,
+        determinism_mode,
+        announcement,
+    ))
 }
 
 async fn run_async(
     resolved: Option<(PathBuf, PathBuf)>,
     max_requests: Option<u64>,
+    determinism_mode: DeterminismMode,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
     let (dot_path, project_root) = match resolved {
@@ -102,6 +120,9 @@ async fn run_async(
             return Err(combine_errors(primary, [finalize_error]));
         }
     };
+    bundle
+        .set_determinism_mode(determinism_mode.as_str())
+        .map_err(|error| format!("failed to record determinism mode in bundle: {error}"))?;
 
     let trace_path = bundle.staging_dir().join(TRACE_FILE);
     let mut trace = match TraceRecorder::new(&run_id, &trace_path) {
@@ -1043,7 +1064,7 @@ mod tests {
     use dot_ops::{
         HostError, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan, SyscallId,
     };
-    use dot_rt::RuntimeContext;
+    use dot_rt::{DeterminismMode, RuntimeContext};
     use dot_vm::{
         EventSink, Instruction, Reg, SyscallAttemptEvent, SyscallResultEvent, Value as VmValue,
         VmEvent,
@@ -1810,6 +1831,7 @@ end
         run(RunOptions {
             file: None,
             max_requests: Some(1),
+            determinism_mode: DeterminismMode::Default,
             announcement: RunAnnouncement::Print,
         })
         .expect("run should succeed");
@@ -1879,6 +1901,7 @@ end
         assert_eq!(trace[6]["status"], "succeeded");
 
         assert_eq!(manifest["sections"]["trace"]["status"], "ok");
+        assert_eq!(manifest["determinism"]["mode"], "default");
         assert_eq!(
             manifest["sections"]["trace"]["bytes"]
                 .as_u64()
@@ -1996,6 +2019,7 @@ end
         run(RunOptions {
             file: Some(dot_path),
             max_requests: Some(1),
+            determinism_mode: DeterminismMode::Default,
             announcement: RunAnnouncement::Print,
         })
         .expect("run should succeed");

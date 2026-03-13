@@ -3,6 +3,42 @@
 use dot_dsl::Document;
 use dot_ops::{SourceRef, SourceSpan};
 use dot_sec::{Capability, CapabilitySet, UnknownCapabilityError};
+use std::str::FromStr;
+
+/// Selected determinism contract for a run.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DeterminismMode {
+    #[default]
+    Default,
+    Strict,
+}
+
+impl DeterminismMode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::Strict => "strict",
+        }
+    }
+}
+
+impl std::fmt::Display for DeterminismMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for DeterminismMode {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "default" => Ok(Self::Default),
+            "strict" => Ok(Self::Strict),
+            _ => Err(format!("unknown determinism mode `{value}`")),
+        }
+    }
+}
 
 /// A capability declaration captured from dotDSL with stable source metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -85,7 +121,7 @@ impl RuntimeContext {
 
 #[cfg(test)]
 mod tests {
-    use super::{DeclaredCapability, RuntimeContext};
+    use super::{DeclaredCapability, DeterminismMode, RuntimeContext};
     use dot_dsl::{Document, Span, Spanned, parse_and_validate};
     use dot_ops::{SourceRef, SourceSpan};
     use dot_sec::{Capability, CapabilitySet};
@@ -219,5 +255,31 @@ end
 
         assert_eq!(declared.capability(), Capability::Log);
         assert_eq!(declared.source(), &source);
+    }
+
+    #[test]
+    fn determinism_mode_parses_supported_values() {
+        assert_eq!(
+            "default"
+                .parse::<DeterminismMode>()
+                .expect("default must parse"),
+            DeterminismMode::Default
+        );
+        assert_eq!(
+            "strict"
+                .parse::<DeterminismMode>()
+                .expect("strict must parse"),
+            DeterminismMode::Strict
+        );
+    }
+
+    #[test]
+    fn determinism_mode_rejects_unknown_values() {
+        assert_eq!(
+            "chaos"
+                .parse::<DeterminismMode>()
+                .expect_err("unknown modes must fail"),
+            "unknown determinism mode `chaos`"
+        );
     }
 }

@@ -126,10 +126,23 @@ impl InputSnapshotManifest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeterminismManifest {
+    pub mode: String,
+}
+
+impl DeterminismManifest {
+    pub fn new(mode: impl Into<String>) -> Self {
+        Self { mode: mode.into() }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BundleManifestV1 {
     pub schema_version: String,
     pub run_id: String,
     pub created_at_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub determinism: Option<DeterminismManifest>,
     pub required_files: Vec<String>,
     pub sections: BTreeMap<String, SectionManifest>,
     pub inputs: BTreeMap<String, InputSnapshotManifest>,
@@ -159,6 +172,7 @@ impl BundleManifestV1 {
             schema_version: BUNDLE_SCHEMA_VERSION_V1.to_owned(),
             run_id: run_id.into(),
             created_at_ms,
+            determinism: Some(DeterminismManifest::new("default")),
             required_files: REQUIRED_FILE_PATHS
                 .iter()
                 .map(|value| (*value).to_owned())
@@ -180,5 +194,9 @@ impl BundleManifestV1 {
 
     pub(crate) fn input_entry_dot_mut(&mut self) -> Option<&mut InputSnapshotManifest> {
         self.inputs.get_mut(INPUT_ENTRY_DOT_KEY)
+    }
+
+    pub fn set_determinism_mode(&mut self, mode: impl Into<String>) {
+        self.determinism = Some(DeterminismManifest::new(mode));
     }
 }

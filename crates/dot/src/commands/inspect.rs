@@ -36,6 +36,11 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
     let manifest: JsonValue = serde_json::from_slice(&manifest_bytes)
         .map_err(|error| format!("failed to parse `{MANIFEST_FILE}`: {error}"))?;
     let schema_version = json_string_field(&manifest, &["schema_version"])?;
+    let determinism_mode = manifest
+        .get("determinism")
+        .and_then(|value| value.get("mode"))
+        .and_then(JsonValue::as_str)
+        .map(str::to_owned);
     let entry_dot = artifact_summary(
         &bundle_dir,
         Some(json_lookup(&manifest, &["inputs", "entry_dot"])?),
@@ -119,6 +124,7 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
             "run_id: {}\n",
             "status: {}\n",
             "schema_version: {}\n",
+            "{}",
             "artifacts:\n",
             "  manifest.json: present ({} bytes)\n",
             "  inputs/entry.dot: {}\n",
@@ -132,6 +138,9 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
         run.run_id,
         run.status,
         schema_version,
+        determinism_mode
+            .map(|mode| format!("determinism_mode: {mode}\n"))
+            .unwrap_or_default(),
         manifest_bytes.len(),
         entry_dot.render(),
         trace.render(),
