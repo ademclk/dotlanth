@@ -12,6 +12,8 @@ From the repo root:
 cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 ```
 
+`dot run` also accepts `--determinism <default|strict>`. The chosen mode is persisted in DotDB, recorded in the bundle `manifest.json`, and echoed by `dot inspect <run_id>`.
+
 Expected output:
 
 ```text
@@ -35,6 +37,8 @@ After the request completes, the bounded run exits and writes an artifact bundle
 If `dot run` resolves a `.dot` file and then fails during validation or runtime, Dotlanth still finalizes a bundle for that run id. Sections that could not be recorded stay present with explicit `unavailable` markers. On early failures, the CLI may return before printing the run id, so inspect `.dotlanth/bundles/` or the bundle `manifest.json` to recover it.
 
 DotDB indexes the finalized bundle by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
+
+Strict mode is fail-closed right now. If the selected program needs an unsupported syscall such as `net.http.serve`, Dotlanth returns a determinism-violation error before executing that side effect.
 
 `state_diff.json` exports a stable `state_kv` diff with deterministic ordering and no unchanged entries.
 

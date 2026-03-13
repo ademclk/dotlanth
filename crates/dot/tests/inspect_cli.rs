@@ -184,6 +184,7 @@ end
             concat!(
                 "run_id: {}\n",
                 "status: succeeded\n",
+                "determinism: default\n",
                 "schema_version: 1\n",
                 "artifacts:\n",
                 "  manifest.json: present ({} bytes)\n",
@@ -297,6 +298,7 @@ end
             concat!(
                 "run_id: {}\n",
                 "status: failed\n",
+                "determinism: default\n",
                 "schema_version: 1\n",
                 "artifacts:\n",
                 "  manifest.json: present ({} bytes)\n",

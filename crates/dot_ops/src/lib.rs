@@ -93,6 +93,30 @@ impl std::fmt::Display for HostError {
 impl std::error::Error for HostError {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DeterminismViolation {
+    UnsupportedSyscall { syscall: &'static str },
+}
+
+impl DeterminismViolation {
+    pub fn unsupported_syscall(syscall: &'static str) -> Self {
+        Self::UnsupportedSyscall { syscall }
+    }
+}
+
+impl std::fmt::Display for DeterminismViolation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnsupportedSyscall { syscall } => write!(
+                f,
+                "determinism violation: strict mode does not support syscall `{syscall}`"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for DeterminismViolation {}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RuntimeEvent {
     Log {
         message: String,
@@ -150,6 +174,7 @@ pub struct OpsHost {
     pending_runtime_events: Vec<RuntimeEvent>,
     runtime_event_forwarder: Option<Box<dyn FnMut(RuntimeEvent)>>,
     record_mode: RecordMode,
+    strict_determinism: bool,
     stdout: Box<dyn Write + Send>,
     http: Option<HttpConfig>,
 }
@@ -168,6 +193,7 @@ impl OpsHost {
             pending_runtime_events: Vec::new(),
             runtime_event_forwarder: None,
             record_mode: RecordMode::default(),
+            strict_determinism: false,
             stdout: Box::new(std::io::stdout()),
             http: None,
         })
@@ -195,6 +221,15 @@ impl OpsHost {
 
     pub fn run_id(&self) -> &str {
         &self.run_id
+    }
+
+    pub fn set_determinism_mode(&mut self, determinism_mode: &str) -> Result<(), HostError> {
+        self.strict_determinism = determinism_mode.trim() == "strict";
+        self.db
+            .set_run_determinism_mode(self.run_row_id, determinism_mode)
+            .map_err(|error| {
+                HostError::new(format!("failed to persist run determinism mode: {error}"))
+            })
     }
 
     pub fn finalize_run(&mut self, status: RunStatus) -> Result<(), HostError> {
@@ -305,6 +340,7 @@ impl OpsHost {
     }
 
     fn syscall_log_emit<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
+        self.enforce_supported_in_current_mode(SYSCALL_LOG_EMIT)?;
         self.capabilities
             .enforce(Syscall::LogEmit)
             .map_err(|error| HostError::new(error.to_string()))?;
@@ -325,6 +361,7 @@ impl OpsHost {
     }
 
     async fn syscall_http_serve<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
+        self.enforce_supported_in_current_mode(SYSCALL_NET_HTTP_SERVE)?;
         self.capabilities
             .enforce(Syscall::NetHttpServe)
             .map_err(|error| HostError::new(error.to_string()))?;
@@ -435,6 +472,15 @@ impl OpsHost {
         result?;
         Ok(vec![])
     }
+
+    fn enforce_supported_in_current_mode(&self, id: SyscallId) -> Result<(), HostError> {
+        if self.strict_determinism && !strict_mode_supports_syscall(id) {
+            return Err(HostError::new(
+                DeterminismViolation::unsupported_syscall(syscall_name(id)).to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl<V: OpValue> Host<V> for OpsHost {
@@ -492,6 +538,18 @@ impl RuntimeEvent {
                 out
             }
         }
+    }
+}
+
+pub fn strict_mode_supports_syscall(id: SyscallId) -> bool {
+    matches!(id, SYSCALL_LOG_EMIT)
+}
+
+pub fn syscall_name(id: SyscallId) -> &'static str {
+    match id {
+        SYSCALL_LOG_EMIT => "log.emit",
+        SYSCALL_NET_HTTP_SERVE => "net.http.serve",
+        _ => "unknown",
     }
 }
 
@@ -1058,6 +1116,31 @@ mod tests {
     }
 
     #[test]
+    fn strict_mode_allows_supported_log_syscall() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let mut capabilities = CapabilitySet::empty();
+        capabilities.insert(Capability::Log);
+
+        let shared = SharedWrite::default();
+        let buffer = shared.0.clone();
+
+        let mut host = OpsHost::new(capabilities, db)
+            .expect("host create must succeed")
+            .with_stdout(Box::new(shared));
+        host.set_determinism_mode("strict")
+            .expect("strict mode should persist");
+
+        block_on(host.syscall(SYSCALL_LOG_EMIT, &[TestValue::from("hello")]))
+            .expect("log syscall must remain allowed in strict mode");
+
+        let stdout =
+            String::from_utf8(buffer.lock().expect("lock").clone()).expect("stdout must be utf8");
+        assert_eq!(stdout, "hello\n");
+    }
+
+    #[test]
     fn log_syscall_rejects_non_string_argument() {
         let temp = TempDir::new().expect("temp dir must create");
         let db = DotDb::open_in(temp.path()).expect("db open must succeed");
@@ -1104,6 +1187,101 @@ end
                 .to_string()
                 .contains("capability denied: syscall `net.http.serve`")
         );
+    }
+
+    #[test]
+    fn strict_mode_denies_unsupported_http_serve_syscall() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let mut capabilities = CapabilitySet::empty();
+        capabilities.insert(Capability::NetHttpListen);
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind must succeed");
+        let document = parse_and_validate(
+            r#"
+dot 0.1
+app "x"
+allow net.http.listen
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+
+        let mut host = OpsHost::new(capabilities, db).expect("host create must succeed");
+        host.set_determinism_mode("strict")
+            .expect("strict mode should persist");
+        host.configure_http(listener, RouteTable::from_document(&document));
+
+        let error =
+            block_on(host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)])).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "determinism violation: strict mode does not support syscall `net.http.serve`"
+        );
+    }
+
+    #[test]
+    fn default_mode_explicitly_keeps_http_serve_compatible() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let mut capabilities = CapabilitySet::empty();
+        capabilities.insert(Capability::NetHttpListen);
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind must succeed");
+        let addr = listener.local_addr().expect("listener addr");
+
+        let document = parse_and_validate(
+            r#"
+dot 0.1
+app "x"
+allow net.http.listen
+
+server listen 8080
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+
+        let mut host = OpsHost::new(capabilities, db).expect("host create must succeed");
+        host.set_determinism_mode("default")
+            .expect("default mode should persist");
+        host.configure_http(listener, RouteTable::from_document(&document));
+
+        let client = std::thread::spawn(move || {
+            let mut stream =
+                std::net::TcpStream::connect(addr).expect("client connect must succeed");
+            stream
+                .write_all(b"GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .expect("client write must succeed");
+
+            let mut buf = String::new();
+            stream
+                .read_to_string(&mut buf)
+                .expect("client read must succeed");
+            buf
+        });
+
+        block_on(host.syscall(SYSCALL_NET_HTTP_SERVE, &[TestValue::I64(1)]))
+            .expect("http serve must remain available in default mode");
+
+        let response = client.join().expect("client must join");
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
     }
 
     #[test]

@@ -83,6 +83,8 @@ cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 
 prints a stable external `run_id` and writes an artifact bundle under `.dotlanth/bundles/<run_id>/`.
 
+You can also pass `--determinism <default|strict>`. The selected mode is persisted into DotDB, stored in the bundle `manifest.json` as `determinism_mode`, and printed back by `dot inspect <run_id>`.
+
 The bundle captures:
 - `inputs/entry.dot`
 - `trace.jsonl`
@@ -94,6 +96,8 @@ The bundle captures:
 `state_diff.json` exports a stable `state_kv` diff ordered by `(namespace, key)` and skips unchanged values.
 `capability_report.json` lists declared capabilities with their source spans/semantic paths, plus stable `used` and `denied` accounting. When a capability-gated syscall is denied, the report keeps a representative error message and the matching trace `seq` when available.
 DotDB indexes the finalized bundle by the external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
+
+Strict mode is fail-closed for unsupported runtime behavior. In the current milestone, unsupported syscalls such as `net.http.serve` are rejected as determinism violations before the side effect executes.
 
 Use the run id to print a stable bundle summary:
 

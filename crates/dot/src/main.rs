@@ -3,9 +3,26 @@
 mod commands;
 mod tui;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+use dot_rt::DeterminismMode;
 use std::path::PathBuf;
 use std::process::ExitCode;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+enum CliDeterminismMode {
+    #[default]
+    Default,
+    Strict,
+}
+
+impl From<CliDeterminismMode> for DeterminismMode {
+    fn from(value: CliDeterminismMode) -> Self {
+        match value {
+            CliDeterminismMode::Default => DeterminismMode::Default,
+            CliDeterminismMode::Strict => DeterminismMode::Strict,
+        }
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "dot", version, about = "Dotlanth CLI")]
@@ -28,6 +45,10 @@ enum Command {
         /// Path to the `.dot` file (defaults to `./app.dot` when present).
         #[arg(long, short = 'f')]
         file: Option<PathBuf>,
+
+        /// Deterministic execution contract to use for this run.
+        #[arg(long, value_enum, default_value_t = CliDeterminismMode::Default)]
+        determinism: CliDeterminismMode,
 
         /// Stop after serving N HTTP requests (useful for tests).
         #[arg(long)]
@@ -69,8 +90,13 @@ fn main() -> ExitCode {
     let result = match cli.command {
         Command::Tui => tui::launch("dot tui"),
         Command::Init { dir } => commands::init::run(&dir),
-        Command::Run { file, max_requests } => commands::run::run(commands::run::RunOptions {
+        Command::Run {
             file,
+            determinism,
+            max_requests,
+        } => commands::run::run(commands::run::RunOptions {
+            file,
+            determinism: determinism.into(),
             max_requests,
             announcement: commands::run::RunAnnouncement::Print,
         }),
@@ -105,5 +131,12 @@ mod tests {
     fn cli_accepts_explicit_tui_subcommand() {
         let cli = Cli::try_parse_from(["dot", "tui"]).expect("cli should parse tui subcommand");
         assert!(matches!(cli.command, Command::Tui));
+    }
+
+    #[test]
+    fn cli_accepts_strict_determinism_mode_for_run() {
+        let cli = Cli::try_parse_from(["dot", "run", "--determinism", "strict"])
+            .expect("cli should parse determinism mode");
+        assert!(matches!(cli.command, Command::Run { .. }));
     }
 }

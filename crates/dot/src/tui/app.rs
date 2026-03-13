@@ -8,7 +8,7 @@ use crate::tui::registry;
 use crate::tui::state::{Capability, Focus, Mode};
 use dot_artifacts::CAPABILITY_REPORT_FILE;
 use dot_db::{DotDb, RunStatus, StoredRun};
-use dot_rt::RuntimeContext;
+use dot_rt::{DeterminismMode, RuntimeContext};
 use serde_json::Value as JsonValue;
 use std::fs;
 use std::io::{Read, Write};
@@ -334,6 +334,7 @@ impl App {
                 run::run_resolved_with_announcement(
                     dot_path,
                     self.project_root.clone(),
+                    DeterminismMode::Default,
                     Some(0),
                     run::RunAnnouncement::Silent,
                 )?;
@@ -660,12 +661,14 @@ impl App {
                     status: RunStatus::Succeeded,
                     created_at_ms: 30,
                     finalized_at_ms: Some(40),
+                    determinism_mode: "default".to_owned(),
                 },
                 StoredRun {
                     run_id: "run_failed".to_owned(),
                     status: RunStatus::Failed,
                     created_at_ms: 20,
                     finalized_at_ms: Some(25),
+                    determinism_mode: "default".to_owned(),
                 },
             ],
             run_index: 0,
@@ -743,6 +746,7 @@ impl App {
             let run_result = run::run_resolved_with_announcement(
                 dot_path,
                 self.project_root.clone(),
+                DeterminismMode::Default,
                 Some(1),
                 run::RunAnnouncement::Silent,
             );

@@ -4,6 +4,23 @@ use dot_dsl::Document;
 use dot_ops::{SourceRef, SourceSpan};
 use dot_sec::{Capability, CapabilitySet, UnknownCapabilityError};
 
+/// The execution contract requested for a runtime.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DeterminismMode {
+    #[default]
+    Default,
+    Strict,
+}
+
+impl DeterminismMode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::Strict => "strict",
+        }
+    }
+}
+
 /// A capability declaration captured from dotDSL with stable source metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeclaredCapability {
@@ -30,14 +47,21 @@ impl DeclaredCapability {
 pub struct RuntimeContext {
     capabilities: CapabilitySet,
     declared_capabilities: Vec<DeclaredCapability>,
+    determinism_mode: DeterminismMode,
 }
 
 impl RuntimeContext {
     /// Constructs a new runtime context from an explicit capability set.
     pub fn new(capabilities: CapabilitySet) -> Self {
+        Self::new_with_mode(capabilities, DeterminismMode::Default)
+    }
+
+    /// Constructs a new runtime context from an explicit capability set and determinism mode.
+    pub fn new_with_mode(capabilities: CapabilitySet, determinism_mode: DeterminismMode) -> Self {
         Self {
             capabilities,
             declared_capabilities: Vec::new(),
+            determinism_mode,
         }
     }
 
@@ -45,6 +69,14 @@ impl RuntimeContext {
     ///
     /// This is the only source of capability grants: no defaults are implied.
     pub fn from_dot_dsl(document: &Document) -> Result<Self, UnknownCapabilityError> {
+        Self::from_dot_dsl_with_mode(document, DeterminismMode::Default)
+    }
+
+    /// Builds a runtime context from a validated dotDSL `Document` and explicit mode.
+    pub fn from_dot_dsl_with_mode(
+        document: &Document,
+        determinism_mode: DeterminismMode,
+    ) -> Result<Self, UnknownCapabilityError> {
         let mut capabilities = CapabilitySet::empty();
         let mut declared_capabilities = Vec::with_capacity(document.capabilities.len());
         for (index, capability) in document.capabilities.iter().enumerate() {
@@ -61,6 +93,7 @@ impl RuntimeContext {
         Ok(Self {
             capabilities,
             declared_capabilities,
+            determinism_mode,
         })
     }
 
@@ -80,6 +113,11 @@ impl RuntimeContext {
             .iter()
             .find(|decl| decl.capability() == capability)
             .map(DeclaredCapability::source)
+    }
+
+    /// Returns the selected determinism mode for this runtime.
+    pub fn determinism_mode(&self) -> DeterminismMode {
+        self.determinism_mode
     }
 }
 
@@ -195,6 +233,29 @@ end
             ctx.declared_capability_source(Capability::NetHttpListen),
             None
         );
+    }
+
+    #[test]
+    fn runtime_context_can_store_selected_determinism_mode() {
+        let document = parse_and_validate(
+            r#"
+dot 0.1
+app "x"
+
+api "public"
+  route GET "/hello"
+    respond 200 "ok"
+  end
+end
+"#,
+            "inline.dot",
+        )
+        .expect("document must validate");
+
+        let ctx = RuntimeContext::from_dot_dsl_with_mode(&document, super::DeterminismMode::Strict)
+            .expect("context must build");
+
+        assert_eq!(ctx.determinism_mode(), super::DeterminismMode::Strict);
     }
 
     #[test]
