@@ -38,7 +38,7 @@ If `dot run` resolves a `.dot` file and then fails during validation or runtime,
 
 DotDB indexes the finalized bundle by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
 
-Strict mode is fail-closed right now. If the selected program needs an unsupported syscall such as `net.http.serve`, Dotlanth returns a determinism-violation error before executing that side effect.
+Strict mode is fail-closed for opcode classification coverage. `log.emit` is classified as a `controlled_side_effect`, so strict mode does not reject it on determinism grounds, but the call still needs the `log` capability to succeed. `net.http.serve` is classified as `non_deterministic` and fails before the side effect executes. Unclassified syscall ids are also rejected before execution.
 
 `state_diff.json` exports a stable `state_kv` diff with deterministic ordering and no unchanged entries.
 

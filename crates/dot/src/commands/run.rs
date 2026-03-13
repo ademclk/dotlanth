@@ -3,14 +3,13 @@
 use dot_artifacts::{BundleSection, BundleWriter, TRACE_FILE};
 use dot_db::{DotDb, StateKvEntry};
 use dot_ops::{
-    DeterminismViolation, OpsHost, RecordMode, RuntimeEvent, SYSCALL_LOG_EMIT,
-    SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan, SyscallId,
+    OpsHost, RecordMode, RuntimeEvent, SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan, SyscallId,
 };
 use dot_rt::{DeterminismMode, RuntimeContext};
 use dot_sec::{Capability, CapabilitySet};
 use dot_vm::{
     EventSink, Instruction, Reg, SyscallAttemptEvent, SyscallResultEvent, Value as VmValue, Vm,
-    VmError, VmEvent,
+    VmError, VmEvent, validate_strict_determinism,
 };
 use serde_json::{Map, Value as JsonValue, json};
 use sha2::{Digest, Sha256};
@@ -428,15 +427,7 @@ fn validate_program_determinism(
         return Ok(());
     }
 
-    for instruction in program {
-        if let Instruction::Syscall { id, .. } = instruction
-            && !dot_ops::strict_mode_supports_syscall(*id)
-        {
-            return Err(DeterminismViolation::unsupported_syscall(syscall_name(*id)).to_string());
-        }
-    }
-
-    Ok(())
+    validate_strict_determinism(program).map_err(|error| error.to_string())
 }
 
 fn write_capability_report(
@@ -1006,11 +997,7 @@ fn build_capability_report_json(
 }
 
 fn capability_for_syscall(id: SyscallId) -> Option<Capability> {
-    match id {
-        SYSCALL_LOG_EMIT => Some(Capability::Log),
-        SYSCALL_NET_HTTP_SERVE => Some(Capability::NetHttpListen),
-        _ => None,
-    }
+    dot_ops::required_capability_for_syscall(id)
 }
 
 fn is_capability_denial(message: &str) -> bool {
@@ -1018,11 +1005,7 @@ fn is_capability_denial(message: &str) -> bool {
 }
 
 fn syscall_name(id: SyscallId) -> &'static str {
-    match id {
-        SYSCALL_LOG_EMIT => "log.emit",
-        SYSCALL_NET_HTTP_SERVE => "net.http.serve",
-        _ => "unknown",
-    }
+    dot_ops::syscall_name(id)
 }
 
 fn vm_value_to_json(value: &VmValue) -> JsonValue {

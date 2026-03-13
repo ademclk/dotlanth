@@ -2,7 +2,7 @@
 
 use dot_db::{DotDb, RunId, RunLogEntry, RunStatus, StateKvEntry};
 use dot_dsl::Document;
-use dot_sec::{CapabilitySet, Syscall};
+use dot_sec::{Capability, CapabilitySet, Syscall};
 use std::future::Future;
 use std::io::Write;
 use std::mem;
@@ -19,6 +19,92 @@ pub struct SyscallId(pub u32);
 
 pub const SYSCALL_LOG_EMIT: SyscallId = SyscallId(1);
 pub const SYSCALL_NET_HTTP_SERVE: SyscallId = SyscallId(2);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DeterminismClass {
+    Pure,
+    ControlledSideEffect,
+    NonDeterministic,
+}
+
+impl DeterminismClass {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pure => "pure",
+            Self::ControlledSideEffect => "controlled_side_effect",
+            Self::NonDeterministic => "non_deterministic",
+        }
+    }
+
+    pub const fn supports_strict_mode(self) -> bool {
+        !matches!(self, Self::NonDeterministic)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SyscallSpec {
+    id: SyscallId,
+    syscall: Syscall,
+    classification: DeterminismClass,
+}
+
+impl SyscallSpec {
+    pub const fn new(id: SyscallId, syscall: Syscall, classification: DeterminismClass) -> Self {
+        Self {
+            id,
+            syscall,
+            classification,
+        }
+    }
+
+    pub const fn id(self) -> SyscallId {
+        self.id
+    }
+
+    pub const fn syscall(self) -> Syscall {
+        self.syscall
+    }
+
+    pub const fn name(self) -> &'static str {
+        self.syscall.name()
+    }
+
+    pub const fn required_capability(self) -> Capability {
+        self.syscall.required_capability()
+    }
+
+    pub const fn classification(self) -> DeterminismClass {
+        self.classification
+    }
+}
+
+const REGISTERED_SYSCALLS: &[SyscallSpec] = &[
+    SyscallSpec::new(
+        SYSCALL_LOG_EMIT,
+        Syscall::LogEmit,
+        DeterminismClass::ControlledSideEffect,
+    ),
+    SyscallSpec::new(
+        SYSCALL_NET_HTTP_SERVE,
+        Syscall::NetHttpServe,
+        DeterminismClass::NonDeterministic,
+    ),
+];
+
+pub fn registered_syscalls() -> &'static [SyscallSpec] {
+    REGISTERED_SYSCALLS
+}
+
+pub fn syscall_spec(id: SyscallId) -> Option<SyscallSpec> {
+    REGISTERED_SYSCALLS
+        .iter()
+        .copied()
+        .find(|spec| spec.id == id)
+}
+
+pub fn required_capability_for_syscall(id: SyscallId) -> Option<Capability> {
+    syscall_spec(id).map(|spec| spec.required_capability())
+}
 
 const MAX_HTTP_REQUEST_LINE_BYTES: usize = 8 * 1024;
 const HTTP_READ_TIMEOUT: Duration = Duration::from_secs(5);
@@ -95,11 +181,16 @@ impl std::error::Error for HostError {}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DeterminismViolation {
     UnsupportedSyscall { syscall: &'static str },
+    UnclassifiedSyscall { id: SyscallId },
 }
 
 impl DeterminismViolation {
     pub fn unsupported_syscall(syscall: &'static str) -> Self {
         Self::UnsupportedSyscall { syscall }
+    }
+
+    pub fn unclassified_syscall(id: SyscallId) -> Self {
+        Self::UnclassifiedSyscall { id }
     }
 }
 
@@ -109,6 +200,11 @@ impl std::fmt::Display for DeterminismViolation {
             Self::UnsupportedSyscall { syscall } => write!(
                 f,
                 "determinism violation: strict mode does not support syscall `{syscall}`"
+            ),
+            Self::UnclassifiedSyscall { id } => write!(
+                f,
+                "determinism violation: strict mode requires classification for syscall id `{}`",
+                id.0
             ),
         }
     }
@@ -474,10 +570,17 @@ impl OpsHost {
     }
 
     fn enforce_supported_in_current_mode(&self, id: SyscallId) -> Result<(), HostError> {
-        if self.strict_determinism && !strict_mode_supports_syscall(id) {
-            return Err(HostError::new(
-                DeterminismViolation::unsupported_syscall(syscall_name(id)).to_string(),
-            ));
+        if self.strict_determinism {
+            let Some(spec) = syscall_spec(id) else {
+                return Err(HostError::new(
+                    DeterminismViolation::unclassified_syscall(id).to_string(),
+                ));
+            };
+            if !spec.classification().supports_strict_mode() {
+                return Err(HostError::new(
+                    DeterminismViolation::unsupported_syscall(spec.name()).to_string(),
+                ));
+            }
         }
         Ok(())
     }
@@ -490,6 +593,7 @@ impl<V: OpValue> Host<V> for OpsHost {
         args: &'a [V],
     ) -> Pin<Box<dyn Future<Output = Result<Vec<V>, HostError>> + 'a>> {
         Box::pin(async move {
+            self.enforce_supported_in_current_mode(id)?;
             match id {
                 SYSCALL_LOG_EMIT => self.syscall_log_emit(args),
                 SYSCALL_NET_HTTP_SERVE => self.syscall_http_serve(args).await,
@@ -542,15 +646,13 @@ impl RuntimeEvent {
 }
 
 pub fn strict_mode_supports_syscall(id: SyscallId) -> bool {
-    matches!(id, SYSCALL_LOG_EMIT)
+    syscall_spec(id)
+        .map(|spec| spec.classification().supports_strict_mode())
+        .unwrap_or(false)
 }
 
 pub fn syscall_name(id: SyscallId) -> &'static str {
-    match id {
-        SYSCALL_LOG_EMIT => "log.emit",
-        SYSCALL_NET_HTTP_SERVE => "net.http.serve",
-        _ => "unknown",
-    }
+    syscall_spec(id).map(SyscallSpec::name).unwrap_or("unknown")
 }
 
 struct ConnectionOutcome {
@@ -935,7 +1037,7 @@ mod tests {
     use super::{
         Host, HostError, MAX_HTTP_REQUEST_LINE_BYTES, OpValue, OpsHost, RecordMode, RouteTable,
         RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SyscallId,
-        handle_http_connection_async, write_http_response,
+        handle_http_connection_async, registered_syscalls, write_http_response,
     };
     use dot_db::DotDb;
     use dot_dsl::parse_and_validate;
@@ -1227,6 +1329,39 @@ end
             error.to_string(),
             "determinism violation: strict mode does not support syscall `net.http.serve`"
         );
+    }
+
+    #[test]
+    fn strict_mode_denies_unclassified_syscalls_fail_closed() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
+        host.set_determinism_mode("strict")
+            .expect("strict mode should persist");
+
+        let error = block_on(host.syscall(SyscallId(999), &[] as &[TestValue])).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "determinism violation: strict mode requires classification for syscall id `999`"
+        );
+    }
+
+    #[test]
+    fn registered_syscalls_are_dispatched_by_host() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+        let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
+
+        for spec in registered_syscalls() {
+            let error = block_on(host.syscall(spec.id(), &[] as &[TestValue]))
+                .expect_err("test intentionally uses invalid setup");
+            assert!(
+                !error.to_string().starts_with("unknown syscall id:"),
+                "registered syscall {} must not fall through host dispatch",
+                spec.name()
+            );
+        }
     }
 
     #[test]

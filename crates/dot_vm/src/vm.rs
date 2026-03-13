@@ -4,7 +4,7 @@ use crate::{
     EventSink, Instruction, Reg, RegisterFile, SyscallAttemptEvent, SyscallResultEvent, Value,
     VmError, VmEvent,
 };
-use dot_ops::{Host, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SyscallId};
+use dot_ops::{Host, SyscallId, syscall_spec};
 use dot_sec::{CapabilitySet, Syscall};
 
 pub const DEFAULT_REGISTER_COUNT: usize = 32;
@@ -312,9 +312,17 @@ impl Vm {
 }
 
 fn capability_gated_syscall(id: SyscallId) -> Option<Syscall> {
-    match id {
-        SYSCALL_LOG_EMIT => Some(Syscall::LogEmit),
-        SYSCALL_NET_HTTP_SERVE => Some(Syscall::NetHttpServe),
-        _ => None,
+    syscall_spec(id).map(|spec| spec.syscall())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::capability_gated_syscall;
+
+    #[test]
+    fn capability_gate_tracks_registered_syscalls() {
+        for spec in dot_ops::registered_syscalls() {
+            assert_eq!(capability_gated_syscall(spec.id()), Some(spec.syscall()));
+        }
     }
 }

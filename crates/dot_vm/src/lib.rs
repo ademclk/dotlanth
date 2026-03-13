@@ -7,9 +7,12 @@ mod registers;
 mod value;
 mod vm;
 
+pub use dot_ops::DeterminismClass;
 pub use error::VmError;
 pub use event::{EventSink, SyscallAttemptEvent, SyscallResultEvent, VmEvent};
-pub use instruction::Instruction;
+pub use instruction::{
+    Instruction, Opcode, StrictDeterminismError, in_scope_opcodes, validate_strict_determinism,
+};
 pub use registers::{Reg, RegisterFile};
 pub use value::Value;
 pub use vm::{DEFAULT_REGISTER_COUNT, StepOutcome, Vm};
@@ -17,8 +20,9 @@ pub use vm::{DEFAULT_REGISTER_COUNT, StepOutcome, Vm};
 #[cfg(test)]
 mod tests {
     use super::{
-        EventSink, Instruction, Reg, StepOutcome, SyscallAttemptEvent, SyscallResultEvent, Value,
-        Vm, VmError, VmEvent,
+        DeterminismClass, EventSink, Instruction, Opcode, Reg, StepOutcome, StrictDeterminismError,
+        SyscallAttemptEvent, SyscallResultEvent, Value, Vm, VmError, VmEvent, in_scope_opcodes,
+        validate_strict_determinism,
     };
     use dot_ops::{
         Host, HostError, RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef,
@@ -840,6 +844,134 @@ mod tests {
                     source: None,
                 }),
             ]
+        );
+    }
+
+    #[test]
+    fn pure_opcodes_expose_determinism_metadata() {
+        let halt = Instruction::Halt
+            .determinism_metadata()
+            .expect("halt metadata must exist");
+        assert_eq!(halt.classification(), DeterminismClass::Pure);
+        assert_eq!(halt.required_capability(), None);
+
+        let load_const = Instruction::LoadConst {
+            dst: Reg(0),
+            value: Value::from(1_i64),
+        }
+        .determinism_metadata()
+        .expect("loadconst metadata must exist");
+        assert_eq!(load_const.classification(), DeterminismClass::Pure);
+        assert_eq!(load_const.required_capability(), None);
+
+        let mov = Instruction::Mov {
+            dst: Reg(0),
+            src: Reg(1),
+        }
+        .determinism_metadata()
+        .expect("mov metadata must exist");
+        assert_eq!(mov.classification(), DeterminismClass::Pure);
+        assert_eq!(mov.required_capability(), None);
+    }
+
+    #[test]
+    fn syscall_metadata_exposes_category_and_capability_context() {
+        let log_emit = Instruction::Syscall {
+            id: SYSCALL_LOG_EMIT,
+            args: vec![],
+            results: vec![],
+            source: None,
+        }
+        .determinism_metadata()
+        .expect("log.emit metadata must exist");
+        assert_eq!(
+            log_emit.classification(),
+            DeterminismClass::ControlledSideEffect
+        );
+        assert_eq!(log_emit.required_capability(), Some(Capability::Log));
+
+        let http_serve = Instruction::Syscall {
+            id: SYSCALL_NET_HTTP_SERVE,
+            args: vec![],
+            results: vec![],
+            source: None,
+        }
+        .determinism_metadata()
+        .expect("net.http.serve metadata must exist");
+        assert_eq!(
+            http_serve.classification(),
+            DeterminismClass::NonDeterministic
+        );
+        assert_eq!(
+            http_serve.required_capability(),
+            Some(Capability::NetHttpListen)
+        );
+    }
+
+    #[test]
+    fn in_scope_opcode_registry_has_classification_coverage() {
+        let missing = in_scope_opcodes()
+            .into_iter()
+            .filter(|opcode| opcode.metadata().is_none())
+            .collect::<Vec<_>>();
+
+        assert!(
+            missing.is_empty(),
+            "missing determinism metadata for in-scope opcodes: {missing:?}"
+        );
+    }
+
+    #[test]
+    fn strict_determinism_allows_pure_and_controlled_side_effect_opcodes() {
+        let program = vec![
+            Instruction::LoadConst {
+                dst: Reg(0),
+                value: Value::from("hello"),
+            },
+            Instruction::Syscall {
+                id: SYSCALL_LOG_EMIT,
+                args: vec![Reg(0)],
+                results: vec![],
+                source: None,
+            },
+            Instruction::Halt,
+        ];
+
+        validate_strict_determinism(&program).expect("strict mode should accept covered opcodes");
+    }
+
+    #[test]
+    fn strict_determinism_rejects_non_deterministic_syscalls() {
+        let program = vec![Instruction::Syscall {
+            id: SYSCALL_NET_HTTP_SERVE,
+            args: vec![],
+            results: vec![],
+            source: None,
+        }];
+
+        assert_eq!(
+            validate_strict_determinism(&program),
+            Err(StrictDeterminismError::UnsupportedInStrictMode {
+                opcode: Opcode::Syscall(SYSCALL_NET_HTTP_SERVE),
+                classification: DeterminismClass::NonDeterministic,
+            })
+        );
+    }
+
+    #[test]
+    fn strict_determinism_fails_closed_for_unclassified_syscalls() {
+        let program = vec![Instruction::Syscall {
+            id: SyscallId(999),
+            args: vec![],
+            results: vec![],
+            source: None,
+        }];
+
+        assert_eq!(
+            validate_strict_determinism(&program),
+            Err(StrictDeterminismError::MissingClassification {
+                opcode: Opcode::Syscall(SyscallId(999)),
+            })
         );
     }
 }
