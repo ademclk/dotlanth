@@ -12,6 +12,12 @@
 - Integrated validation, run, inspect, export, log, replay, and capability-evidence actions backed by DotDB and artifact bundles
 - Hardened TUI behavior for recoverable action failures, repeat exports, bind conflicts, and corrupt local metadata / DotDB state
 
+## Release Notes
+- Introduces the first unified Dotlanth capability lab in `dot tui`, with section labels that keep the underlying create-name capabilities visible while you test them.
+- Preserves the existing scripted CLI surface while aligning the developer entrypoint around `just tui` for the interactive workbench.
+- Ships deterministic demo fixtures so capability coverage can be exercised locally without mocking the real subsystem paths.
+- Packages this alpha as an internal validation drop for capability testing, release workflow verification, and follow-on TUI expansion.
+
 ## Validation
 
 Local verification gate:
