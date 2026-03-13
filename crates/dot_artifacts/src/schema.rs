@@ -129,6 +129,7 @@ impl InputSnapshotManifest {
 pub struct BundleManifestV1 {
     pub schema_version: String,
     pub run_id: String,
+    pub determinism_mode: String,
     pub created_at_ms: u64,
     pub required_files: Vec<String>,
     pub sections: BTreeMap<String, SectionManifest>,
@@ -158,6 +159,7 @@ impl BundleManifestV1 {
         Self {
             schema_version: BUNDLE_SCHEMA_VERSION_V1.to_owned(),
             run_id: run_id.into(),
+            determinism_mode: "default".to_owned(),
             created_at_ms,
             required_files: REQUIRED_FILE_PATHS
                 .iter()
@@ -180,5 +182,9 @@ impl BundleManifestV1 {
 
     pub(crate) fn input_entry_dot_mut(&mut self) -> Option<&mut InputSnapshotManifest> {
         self.inputs.get_mut(INPUT_ENTRY_DOT_KEY)
+    }
+
+    pub fn set_determinism_mode(&mut self, determinism_mode: impl Into<String>) {
+        self.determinism_mode = determinism_mode.into();
     }
 }

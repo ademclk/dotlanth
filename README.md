@@ -51,6 +51,8 @@ The scriptable subcommands still work for automation and docs:
 cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 ```
 
+`dot run` also accepts `--determinism <default|strict>`. The selected mode is persisted in DotDB and in each bundle `manifest.json`, and `dot inspect <run_id>` prints it back. Strict mode is fail-closed today: unsupported syscalls such as `net.http.serve` are denied before side effects execute.
+
 ```bash
 curl http://127.0.0.1:18080/hello
 ```
@@ -69,6 +71,8 @@ The bounded run writes an artifact bundle to `.dotlanth/bundles/<run_id>/` with:
 - `capability_report.json`
 
 DotDB also indexes that finalized bundle by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
+
+`manifest.json` now also records `determinism_mode` alongside the stable run metadata.
 
 `state_diff.json` exports a stable `state_kv` diff with deterministic ordering and omits unchanged values.
 

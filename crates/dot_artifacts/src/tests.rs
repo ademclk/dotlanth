@@ -120,6 +120,20 @@ fn snapshot_capture_hashes_entry_dot_and_updates_manifest() {
 }
 
 #[test]
+fn manifest_records_selected_determinism_mode() {
+    let tmp = TempDir::new().expect("tempdir");
+    let bundle = tmp.path().join("bundle-run-strict");
+    let mut writer = BundleWriter::new(&bundle, "run-strict").expect("writer should initialize");
+    writer
+        .set_determinism_mode("strict")
+        .expect("determinism mode should update");
+    writer.finalize().expect("finalize should succeed");
+
+    let manifest = read_json(&bundle.join(MANIFEST_FILE));
+    assert_eq!(manifest["determinism_mode"], "strict");
+}
+
+#[test]
 fn section_error_markers_are_written_to_file_and_manifest() {
     let tmp = TempDir::new().expect("tempdir");
     let bundle = tmp.path().join("bundle-run-3");

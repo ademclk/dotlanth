@@ -88,6 +88,15 @@ impl BundleWriter {
         &self.manifest
     }
 
+    pub fn set_determinism_mode(
+        &mut self,
+        determinism_mode: impl Into<String>,
+    ) -> Result<(), BundleWriterError> {
+        self.ensure_open()?;
+        self.manifest.set_determinism_mode(determinism_mode);
+        Ok(())
+    }
+
     pub fn is_finalized(&self) -> bool {
         self.finalized
     }

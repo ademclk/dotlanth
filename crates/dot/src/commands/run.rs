@@ -3,10 +3,10 @@
 use dot_artifacts::{BundleSection, BundleWriter, TRACE_FILE};
 use dot_db::{DotDb, StateKvEntry};
 use dot_ops::{
-    OpsHost, RecordMode, RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef,
-    SourceSpan, SyscallId,
+    DeterminismViolation, OpsHost, RecordMode, RuntimeEvent, SYSCALL_LOG_EMIT,
+    SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan, SyscallId,
 };
-use dot_rt::RuntimeContext;
+use dot_rt::{DeterminismMode, RuntimeContext};
 use dot_sec::{Capability, CapabilitySet};
 use dot_vm::{
     EventSink, Instruction, Reg, SyscallAttemptEvent, SyscallResultEvent, Value as VmValue, Vm,
@@ -34,6 +34,7 @@ pub(crate) enum RunAnnouncement {
 #[derive(Debug, Default)]
 pub(crate) struct RunOptions {
     pub(crate) file: Option<PathBuf>,
+    pub(crate) determinism: DeterminismMode,
     pub(crate) max_requests: Option<u64>,
     pub(crate) announcement: RunAnnouncement,
 }
@@ -43,20 +44,32 @@ pub(crate) fn run(options: RunOptions) -> Result<(), String> {
         Some(file) => Some((file.clone(), project_root_for_dot_path(&file)?)),
         None => None,
     };
-    run_resolved_options(resolved, options.max_requests, options.announcement)
+    run_resolved_options(
+        resolved,
+        options.determinism,
+        options.max_requests,
+        options.announcement,
+    )
 }
 
 pub(crate) fn run_resolved_with_announcement(
     dot_path: PathBuf,
     project_root: PathBuf,
+    determinism: DeterminismMode,
     max_requests: Option<u64>,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
-    run_resolved_options(Some((dot_path, project_root)), max_requests, announcement)
+    run_resolved_options(
+        Some((dot_path, project_root)),
+        determinism,
+        max_requests,
+        announcement,
+    )
 }
 
 fn run_resolved_options(
     resolved: Option<(PathBuf, PathBuf)>,
+    determinism: DeterminismMode,
     max_requests: Option<u64>,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
@@ -64,11 +77,12 @@ fn run_resolved_options(
         .enable_all()
         .build()
         .map_err(|error| format!("failed to initialize tokio runtime: {error}"))?;
-    runtime.block_on(run_async(resolved, max_requests, announcement))
+    runtime.block_on(run_async(resolved, determinism, max_requests, announcement))
 }
 
 async fn run_async(
     resolved: Option<(PathBuf, PathBuf)>,
+    determinism: DeterminismMode,
     max_requests: Option<u64>,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
@@ -84,6 +98,8 @@ async fn run_async(
         DotDb::open_in(&project_root).map_err(|error| format!("failed to open DotDB: {error}"))?;
     let mut host = OpsHost::new(CapabilitySet::empty(), db)
         .map_err(|error| format!("failed to initialize runtime host: {error}"))?;
+    host.set_determinism_mode(determinism.as_str())
+        .map_err(|error| error.to_string())?;
     host.set_record_mode(RecordMode::Record);
 
     let run_id = host.run_id().to_owned();
@@ -102,6 +118,16 @@ async fn run_async(
             return Err(combine_errors(primary, [finalize_error]));
         }
     };
+    if let Err(error) = bundle.set_determinism_mode(determinism.as_str()) {
+        let finalize_error = host
+            .finalize_run(dot_db::RunStatus::Failed)
+            .err()
+            .map(|host_error| host_error.to_string());
+        return Err(combine_errors(
+            format!("failed to record determinism mode in artifact bundle: {error}"),
+            [finalize_error],
+        ));
+    }
 
     let trace_path = bundle.staging_dir().join(TRACE_FILE);
     let mut trace = match TraceRecorder::new(&run_id, &trace_path) {
@@ -153,7 +179,7 @@ async fn run_async(
             );
         }
     };
-    let ctx = match RuntimeContext::from_dot_dsl(&document) {
+    let ctx = match build_runtime_context(&document, determinism) {
         Ok(ctx) => ctx,
         Err(error) => {
             return finish_pre_execution_failure(
@@ -252,6 +278,13 @@ async fn run_async(
     }
 }
 
+fn build_runtime_context(
+    document: &dot_dsl::Document,
+    determinism: DeterminismMode,
+) -> Result<RuntimeContext, dot_sec::UnknownCapabilityError> {
+    RuntimeContext::from_dot_dsl_with_mode(document, determinism)
+}
+
 fn finish_pre_execution_failure(
     host: &mut OpsHost,
     bundle: &mut BundleWriter,
@@ -325,6 +358,9 @@ async fn run_vm_execution(
     trace: &mut TraceRecorder,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
+    let program = build_program(document, max_requests)?;
+    validate_program_determinism(ctx, &program)?;
+
     host.configure_http_from_document(document)
         .map_err(|error| error.to_string())?;
 
@@ -335,7 +371,6 @@ async fn run_vm_execution(
         println!("run {run_id} listening on http://{addr}");
     }
 
-    let program = build_program(document, max_requests)?;
     let mut vm = Vm::new(program);
     vm.run_with_capabilities_host_and_events(ctx.capabilities(), host, trace)
         .await
@@ -383,6 +418,25 @@ fn format_vm_error(error: VmError) -> String {
         }
         other => format!("runtime error: {other:?}"),
     }
+}
+
+fn validate_program_determinism(
+    ctx: &RuntimeContext,
+    program: &[Instruction],
+) -> Result<(), String> {
+    if ctx.determinism_mode() != DeterminismMode::Strict {
+        return Ok(());
+    }
+
+    for instruction in program {
+        if let Instruction::Syscall { id, .. } = instruction
+            && !dot_ops::strict_mode_supports_syscall(*id)
+        {
+            return Err(DeterminismViolation::unsupported_syscall(syscall_name(*id)).to_string());
+        }
+    }
+
+    Ok(())
 }
 
 fn write_capability_report(
@@ -1033,8 +1087,8 @@ fn resolve_dot_file(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 mod tests {
     use super::{
         RunAnnouncement, RunOptions, TraceRecorder, build_capability_report_json, build_program,
-        build_state_diff, pre_bundle_status, resolve_dot_file, run, sha256_hex,
-        trace_finish_status,
+        build_runtime_context, build_state_diff, pre_bundle_status, resolve_dot_file, run,
+        sha256_hex, trace_finish_status,
     };
     use dot_artifacts::{
         CAPABILITY_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE, STATE_DIFF_FILE, TRACE_FILE,
@@ -1172,6 +1226,15 @@ end
                 Instruction::Halt
             ]
         );
+    }
+
+    #[test]
+    fn build_runtime_context_uses_selected_determinism_mode() {
+        let document = sample_document(8080);
+        let ctx = build_runtime_context(&document, dot_rt::DeterminismMode::Strict)
+            .expect("runtime context should build");
+
+        assert_eq!(ctx.determinism_mode(), dot_rt::DeterminismMode::Strict);
     }
 
     #[test]
@@ -1749,6 +1812,88 @@ end
     }
 
     #[test]
+    fn run_persists_selected_determinism_mode_in_run_record_and_manifest() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
+        let temp = TempDir::new().expect("temp dir must create");
+        let source = r#"dot 0.1
+app "x"
+
+server listen 18080
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#;
+        std::fs::write(temp.path().join("app.dot"), source)
+        .expect("dot file write");
+        let _cwd = CwdGuard::set(temp.path());
+
+        let err = run(RunOptions {
+            file: None,
+            determinism: dot_rt::DeterminismMode::Strict,
+            max_requests: Some(1),
+            announcement: RunAnnouncement::Print,
+        })
+        .expect_err("run should fail validation");
+        assert!(err.contains("missing required capability `net.http.listen`"));
+
+        let bundle_dir = single_bundle_dir(temp.path());
+        let manifest = read_json(&bundle_dir.join(MANIFEST_FILE));
+        let run_id = manifest["run_id"]
+            .as_str()
+            .expect("run id must be present in manifest");
+        assert_eq!(manifest["determinism_mode"], "strict");
+
+        let db = DotDb::open_in(temp.path()).expect("db must reopen");
+        let run = db.run_record(run_id).expect("run record must exist");
+        assert_eq!(run.determinism_mode, "strict");
+    }
+
+    #[test]
+    fn strict_mode_denies_http_serve_before_binding_listener() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
+        let temp = TempDir::new().expect("temp dir must create");
+        let port = reserve_port();
+        std::fs::write(
+            temp.path().join("app.dot"),
+            format!(
+                r#"dot 0.1
+app "x"
+allow net.http.listen
+
+server listen {port}
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#
+            ),
+        )
+        .expect("dot file write");
+        let _cwd = CwdGuard::set(temp.path());
+
+        let err = run(RunOptions {
+            file: None,
+            determinism: dot_rt::DeterminismMode::Strict,
+            max_requests: Some(1),
+            announcement: RunAnnouncement::Print,
+        })
+        .expect_err("strict mode should deny unsupported http serving");
+        assert_eq!(
+            err,
+            "determinism violation: strict mode does not support syscall `net.http.serve`"
+        );
+
+        let rebound =
+            TcpListener::bind(("127.0.0.1", port)).expect("strict failure should not bind port");
+        drop(rebound);
+    }
+
+    #[test]
     fn resolve_dot_file_prefers_app_dot() {
         let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
         let temp = TempDir::new().expect("temp dir must create");
@@ -1809,6 +1954,7 @@ end
 
         run(RunOptions {
             file: None,
+            determinism: dot_rt::DeterminismMode::Default,
             max_requests: Some(1),
             announcement: RunAnnouncement::Print,
         })
@@ -1995,6 +2141,7 @@ end
 
         run(RunOptions {
             file: Some(dot_path),
+            determinism: dot_rt::DeterminismMode::Default,
             max_requests: Some(1),
             announcement: RunAnnouncement::Print,
         })

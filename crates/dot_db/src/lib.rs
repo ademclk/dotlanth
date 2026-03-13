@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 const DEFAULT_DB_DIR: &str = ".dotlanth";
 const DEFAULT_DB_FILE: &str = "dotdb.sqlite";
+const DEFAULT_DETERMINISM_MODE: &str = "default";
 
 const MIGRATIONS: &[&str] = &[
     r#"
@@ -56,6 +57,9 @@ CREATE TABLE IF NOT EXISTS artifact_bundles (
     updated_at_ms INTEGER NOT NULL,
     FOREIGN KEY(run_row_id) REFERENCES runs(id) ON DELETE CASCADE
 );
+"#,
+    r#"
+ALTER TABLE runs ADD COLUMN determinism_mode TEXT NOT NULL DEFAULT 'default';
 "#,
 ];
 
@@ -126,8 +130,13 @@ impl DotDb {
         let created_at_ms = now_ms();
         self.conn
             .execute(
-                "INSERT INTO runs(run_id, status, created_at_ms) VALUES (?1, ?2, ?3)",
-                params![run_id, RunStatus::Running.as_str(), created_at_ms],
+                "INSERT INTO runs(run_id, status, created_at_ms, determinism_mode) VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    run_id,
+                    RunStatus::Running.as_str(),
+                    created_at_ms,
+                    DEFAULT_DETERMINISM_MODE
+                ],
             )
             .map_err(|source| DotDbError::Sql {
                 action: "insert run",
@@ -150,6 +159,31 @@ impl DotDb {
             )
             .map_err(|source| DotDbError::Sql {
                 action: "finalize run",
+                source,
+            })?;
+
+        if updated == 0 {
+            return Err(DotDbError::RunRowNotFound { row_id: run_id });
+        }
+
+        Ok(())
+    }
+
+    /// Updates the determinism mode for a persisted run.
+    pub fn set_run_determinism_mode(
+        &mut self,
+        run_id: RunId,
+        determinism_mode: &str,
+    ) -> Result<(), DotDbError> {
+        let determinism_mode = normalize_determinism_mode(determinism_mode)?;
+        let updated = self
+            .conn
+            .execute(
+                "UPDATE runs SET determinism_mode = ?1 WHERE id = ?2",
+                params![determinism_mode, run_id.0],
+            )
+            .map_err(|source| DotDbError::Sql {
+                action: "update run determinism mode",
                 source,
             })?;
 
@@ -464,6 +498,7 @@ WHERE run_row_id = ?1
             .prepare(
                 r#"
 SELECT run_id, status, created_at_ms, finalized_at_ms
+    , determinism_mode
 FROM runs
 ORDER BY created_at_ms DESC, id DESC
 LIMIT ?1
@@ -480,7 +515,8 @@ LIMIT ?1
                 let status: String = row.get(1)?;
                 let created_at_ms: i64 = row.get(2)?;
                 let finalized_at_ms: Option<i64> = row.get(3)?;
-                Ok((run_id, status, created_at_ms, finalized_at_ms))
+                let determinism_mode: String = row.get(4)?;
+                Ok((run_id, status, created_at_ms, finalized_at_ms, determinism_mode))
             })
             .map_err(|source| DotDbError::Sql {
                 action: "query recent runs",
@@ -489,7 +525,7 @@ LIMIT ?1
 
         let mut runs = Vec::new();
         for row in rows {
-            let (run_id, status, created_at_ms, finalized_at_ms) =
+            let (run_id, status, created_at_ms, finalized_at_ms, determinism_mode) =
                 row.map_err(|source| DotDbError::Sql {
                     action: "read recent run row",
                     source,
@@ -497,9 +533,13 @@ LIMIT ?1
             runs.push(StoredRun {
                 run_id: run_id.clone(),
                 status: RunStatus::from_db_str(&status)
-                    .ok_or(DotDbError::CorruptRunStatus { run_id, status })?,
+                    .ok_or(DotDbError::CorruptRunStatus {
+                        run_id: run_id.clone(),
+                        status,
+                    })?,
                 created_at_ms,
                 finalized_at_ms,
+                determinism_mode: normalize_stored_determinism_mode(&run_id, &determinism_mode)?,
             });
         }
 
@@ -509,16 +549,16 @@ LIMIT ?1
     /// Loads a persisted run by its external run id.
     pub fn run_record(&self, run_id: &str) -> Result<StoredRun, DotDbError> {
         let run_id = normalize_lookup_run_id(run_id)?;
-        let row: Option<(String, String, i64, Option<i64>)> = self
+        let row: Option<(String, String, i64, Option<i64>, String)> = self
             .conn
             .query_row(
                 r#"
-SELECT run_id, status, created_at_ms, finalized_at_ms
+SELECT run_id, status, created_at_ms, finalized_at_ms, determinism_mode
 FROM runs
 WHERE run_id = ?1
 "#,
                 params![run_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
             )
             .optional()
             .map_err(|source| DotDbError::Sql {
@@ -526,16 +566,20 @@ WHERE run_id = ?1
                 source,
             })?;
 
-        let Some((run_id, status, created_at_ms, finalized_at_ms)) = row else {
+        let Some((run_id, status, created_at_ms, finalized_at_ms, determinism_mode)) = row else {
             return Err(DotDbError::RunNotFound { run_id });
         };
 
         Ok(StoredRun {
             run_id: run_id.clone(),
             status: RunStatus::from_db_str(&status)
-                .ok_or(DotDbError::CorruptRunStatus { run_id, status })?,
+                .ok_or(DotDbError::CorruptRunStatus {
+                    run_id: run_id.clone(),
+                    status,
+                })?,
             created_at_ms,
             finalized_at_ms,
+            determinism_mode: normalize_stored_determinism_mode(&run_id, &determinism_mode)?,
         })
     }
 
@@ -745,6 +789,8 @@ pub struct StoredRun {
     pub created_at_ms: i64,
     /// Finalization timestamp when available.
     pub finalized_at_ms: Option<i64>,
+    /// Selected determinism mode for the run record.
+    pub determinism_mode: String,
 }
 
 #[derive(Debug)]
@@ -780,6 +826,9 @@ pub enum DotDbError {
     InvalidManifestSha256 {
         manifest_sha256: String,
     },
+    InvalidDeterminismMode {
+        determinism_mode: String,
+    },
     InvalidArtifactManifestBytes {
         manifest_bytes: u64,
     },
@@ -790,6 +839,10 @@ pub enum DotDbError {
     CorruptRunStatus {
         run_id: String,
         status: String,
+    },
+    CorruptDeterminismMode {
+        run_id: String,
+        determinism_mode: String,
     },
 }
 
@@ -824,6 +877,9 @@ impl std::fmt::Display for DotDbError {
             Self::InvalidManifestSha256 { manifest_sha256 } => {
                 write!(f, "invalid manifest sha256 `{manifest_sha256}`")
             }
+            Self::InvalidDeterminismMode { determinism_mode } => {
+                write!(f, "invalid determinism mode `{determinism_mode}`")
+            }
             Self::InvalidArtifactManifestBytes { manifest_bytes } => {
                 write!(f, "invalid artifact manifest byte count `{manifest_bytes}`")
             }
@@ -837,6 +893,13 @@ impl std::fmt::Display for DotDbError {
             Self::CorruptRunStatus { run_id, status } => {
                 write!(f, "corrupt run status `{status}` for run `{run_id}`")
             }
+            Self::CorruptDeterminismMode {
+                run_id,
+                determinism_mode,
+            } => write!(
+                f,
+                "corrupt determinism mode `{determinism_mode}` for run `{run_id}`"
+            ),
         }
     }
 }
@@ -853,9 +916,11 @@ impl std::error::Error for DotDbError {
             | Self::InvalidRunId { .. }
             | Self::InvalidBundleRef { .. }
             | Self::InvalidManifestSha256 { .. }
+            | Self::InvalidDeterminismMode { .. }
             | Self::InvalidArtifactManifestBytes { .. }
             | Self::CorruptArtifactManifestBytes { .. }
-            | Self::CorruptRunStatus { .. } => None,
+            | Self::CorruptRunStatus { .. }
+            | Self::CorruptDeterminismMode { .. } => None,
         }
     }
 }
@@ -941,6 +1006,26 @@ fn normalize_manifest_sha256(manifest_sha256: &str) -> Result<String, DotDbError
         });
     }
     Ok(trimmed.to_owned())
+}
+
+fn normalize_determinism_mode(determinism_mode: &str) -> Result<String, DotDbError> {
+    let trimmed = determinism_mode.trim();
+    match trimmed {
+        "default" | "strict" => Ok(trimmed.to_owned()),
+        _ => Err(DotDbError::InvalidDeterminismMode {
+            determinism_mode: determinism_mode.to_owned(),
+        }),
+    }
+}
+
+fn normalize_stored_determinism_mode(
+    run_id: &str,
+    determinism_mode: &str,
+) -> Result<String, DotDbError> {
+    normalize_determinism_mode(determinism_mode).map_err(|_| DotDbError::CorruptDeterminismMode {
+        run_id: run_id.to_owned(),
+        determinism_mode: determinism_mode.to_owned(),
+    })
 }
 
 #[cfg(test)]
@@ -1194,6 +1279,23 @@ PRAGMA user_version = 2;
         assert_eq!(run.run_id, created_run.run_id());
         assert_eq!(run.status, RunStatus::Succeeded);
         assert!(run.finalized_at_ms.is_some());
+    }
+
+    #[test]
+    fn run_record_roundtrips_selected_determinism_mode() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let mut db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let created_run = db
+            .create_run_with_id("run_determinism_roundtrip")
+            .expect("run must create");
+        db.set_run_determinism_mode(created_run.row_id(), "strict")
+            .expect("determinism mode must store");
+
+        let run = db
+            .run_record(created_run.run_id())
+            .expect("run record must load");
+        assert_eq!(run.determinism_mode, "strict");
     }
 
     #[test]

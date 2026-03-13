@@ -3,6 +3,7 @@
 use crate::commands::run;
 use crate::commands::support::open_existing_dotdb_in;
 use dot_artifacts::ENTRY_DOT_FILE;
+use dot_rt::DeterminismMode;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn run(run_id: Option<&str>, bundle: Option<&Path>) -> Result<(), String> {
@@ -31,6 +32,7 @@ pub(crate) fn run_in(
     run::run_resolved_with_announcement(
         entry_dot,
         project_root.to_path_buf(),
+        DeterminismMode::Default,
         Some(0),
         announcement,
     )
