@@ -516,7 +516,13 @@ LIMIT ?1
                 let created_at_ms: i64 = row.get(2)?;
                 let finalized_at_ms: Option<i64> = row.get(3)?;
                 let determinism_mode: String = row.get(4)?;
-                Ok((run_id, status, created_at_ms, finalized_at_ms, determinism_mode))
+                Ok((
+                    run_id,
+                    status,
+                    created_at_ms,
+                    finalized_at_ms,
+                    determinism_mode,
+                ))
             })
             .map_err(|source| DotDbError::Sql {
                 action: "query recent runs",
@@ -532,11 +538,10 @@ LIMIT ?1
                 })?;
             runs.push(StoredRun {
                 run_id: run_id.clone(),
-                status: RunStatus::from_db_str(&status)
-                    .ok_or(DotDbError::CorruptRunStatus {
-                        run_id: run_id.clone(),
-                        status,
-                    })?,
+                status: RunStatus::from_db_str(&status).ok_or(DotDbError::CorruptRunStatus {
+                    run_id: run_id.clone(),
+                    status,
+                })?,
                 created_at_ms,
                 finalized_at_ms,
                 determinism_mode: normalize_stored_determinism_mode(&run_id, &determinism_mode)?,
@@ -558,7 +563,15 @@ FROM runs
 WHERE run_id = ?1
 "#,
                 params![run_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
             )
             .optional()
             .map_err(|source| DotDbError::Sql {
@@ -572,11 +585,10 @@ WHERE run_id = ?1
 
         Ok(StoredRun {
             run_id: run_id.clone(),
-            status: RunStatus::from_db_str(&status)
-                .ok_or(DotDbError::CorruptRunStatus {
-                    run_id: run_id.clone(),
-                    status,
-                })?,
+            status: RunStatus::from_db_str(&status).ok_or(DotDbError::CorruptRunStatus {
+                run_id: run_id.clone(),
+                status,
+            })?,
             created_at_ms,
             finalized_at_ms,
             determinism_mode: normalize_stored_determinism_mode(&run_id, &determinism_mode)?,

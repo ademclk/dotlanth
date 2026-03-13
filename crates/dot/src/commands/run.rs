@@ -1826,8 +1826,7 @@ api "public"
   end
 end
 "#;
-        std::fs::write(temp.path().join("app.dot"), source)
-        .expect("dot file write");
+        std::fs::write(temp.path().join("app.dot"), source).expect("dot file write");
         let _cwd = CwdGuard::set(temp.path());
 
         let err = run(RunOptions {

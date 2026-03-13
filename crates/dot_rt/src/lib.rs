@@ -252,11 +252,8 @@ end
         )
         .expect("document must validate");
 
-        let ctx = RuntimeContext::from_dot_dsl_with_mode(
-            &document,
-            super::DeterminismMode::Strict,
-        )
-        .expect("context must build");
+        let ctx = RuntimeContext::from_dot_dsl_with_mode(&document, super::DeterminismMode::Strict)
+            .expect("context must build");
 
         assert_eq!(ctx.determinism_mode(), super::DeterminismMode::Strict);
     }
