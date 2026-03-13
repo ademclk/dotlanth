@@ -195,6 +195,7 @@ async fn run_async(
         &ctx,
         &document,
         max_requests,
+        determinism_mode,
         &run_id,
         &mut trace,
         announcement,
@@ -342,10 +343,14 @@ async fn run_vm_execution(
     ctx: &RuntimeContext,
     document: &dot_dsl::Document,
     max_requests: Option<u64>,
+    determinism_mode: DeterminismMode,
     run_id: &str,
     trace: &mut TraceRecorder,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
+    let program = build_program(document, max_requests)?;
+    crate::commands::determinism::enforce_program_supported(determinism_mode, &program)?;
+
     host.configure_http_from_document(document)
         .map_err(|error| error.to_string())?;
 
@@ -356,7 +361,6 @@ async fn run_vm_execution(
         println!("run {run_id} listening on http://{addr}");
     }
 
-    let program = build_program(document, max_requests)?;
     let mut vm = Vm::new(program);
     vm.run_with_capabilities_host_and_events(ctx.capabilities(), host, trace)
         .await
@@ -1767,6 +1771,61 @@ end
         assert_eq!(run.status, RunStatus::Failed);
         let bundle = db.artifact_bundle(run_id).expect("bundle ref must resolve");
         assert_eq!(bundle.bundle_ref, format!(".dotlanth/bundles/{run_id}"));
+    }
+
+    #[test]
+    fn strict_mode_denies_host_syscalls_before_side_effects_execute() {
+        let _cwd_lock = CWD_LOCK.lock().expect("cwd lock");
+        let temp = TempDir::new().expect("temp dir must create");
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener must bind");
+        let port = listener
+            .local_addr()
+            .expect("listener addr must read")
+            .port();
+        std::fs::write(
+            temp.path().join("app.dot"),
+            format!(
+                r#"dot 0.1
+app "x"
+allow net.http.listen
+
+server listen {port}
+
+api "public"
+  route GET "/hello"
+    respond 200 "Hello from Dotlanth"
+  end
+end
+"#
+            ),
+        )
+        .expect("dot file write");
+        let _cwd = CwdGuard::set(temp.path());
+
+        let err = run(RunOptions {
+            file: None,
+            max_requests: Some(1),
+            determinism_mode: DeterminismMode::Strict,
+            announcement: RunAnnouncement::Silent,
+        })
+        .expect_err("strict mode should deny runtime host syscalls");
+        assert!(
+            err.contains("strict deterministic mode"),
+            "error should explain strict-mode denial: {err}"
+        );
+
+        drop(listener);
+
+        let bundle_dir = single_bundle_dir(temp.path());
+        let manifest = read_json(&bundle_dir.join(MANIFEST_FILE));
+        assert_eq!(manifest["determinism"]["mode"], "strict");
+
+        let trace = read_trace(&bundle_dir);
+        let events = trace
+            .iter()
+            .map(|entry| entry["event"].as_str().expect("event must exist"))
+            .collect::<Vec<_>>();
+        assert_eq!(events, vec!["run.start", "run.finish"]);
     }
 
     #[test]
