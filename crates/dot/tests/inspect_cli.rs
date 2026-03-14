@@ -1,5 +1,6 @@
 use dot_artifacts::{
-    CAPABILITY_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE, STATE_DIFF_FILE, TRACE_FILE,
+    CAPABILITY_REPORT_FILE, DETERMINISM_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE,
+    STATE_DIFF_FILE, TRACE_FILE,
 };
 use dot_db::{DotDb, RunStatus};
 use serde_json::json;
@@ -86,6 +87,27 @@ end
             }
         ]
     });
+    let determinism_report = json!({
+        "schema_version": "1",
+        "informational": true,
+        "counters": {
+            "gated_total": 1,
+            "allowed_total": 0,
+            "denied_total": 1,
+            "controlled_side_effect_total": 0,
+            "non_deterministic_total": 1
+        },
+        "violations": [
+            {
+                "syscall": "net.http.serve",
+                "classification": "non_deterministic",
+                "required_capability": "net.http.listen",
+                "count": 1,
+                "first_seq": 2,
+                "message": "determinism violation"
+            }
+        ]
+    });
 
     write_file(temp.path(), ENTRY_DOT_FILE, entry_dot);
     write_file(temp.path(), TRACE_FILE, trace.as_bytes());
@@ -99,6 +121,13 @@ end
         CAPABILITY_REPORT_FILE,
         &capability_report_bytes,
     );
+    let determinism_report_bytes =
+        serde_json::to_vec_pretty(&determinism_report).expect("report must serialize");
+    write_file(
+        temp.path(),
+        DETERMINISM_REPORT_FILE,
+        &determinism_report_bytes,
+    );
 
     let manifest = json!({
         "schema_version": "1",
@@ -109,6 +138,7 @@ end
             ENTRY_DOT_FILE,
             TRACE_FILE,
             STATE_DIFF_FILE,
+            DETERMINISM_REPORT_FILE,
             CAPABILITY_REPORT_FILE
         ],
         "sections": {
@@ -116,6 +146,11 @@ end
                 "path": CAPABILITY_REPORT_FILE,
                 "status": "ok",
                 "bytes": capability_report_bytes.len()
+            },
+            "determinism_report": {
+                "path": DETERMINISM_REPORT_FILE,
+                "status": "ok",
+                "bytes": determinism_report_bytes.len()
             },
             "state_diff": {
                 "path": STATE_DIFF_FILE,
@@ -191,7 +226,10 @@ end
                 "  inputs/entry.dot: present ({} bytes)\n",
                 "  trace.jsonl: present ({} bytes)\n",
                 "  state_diff.json: present ({} bytes)\n",
+                "  determinism_report.json: present ({} bytes)\n",
                 "  capability_report.json: present ({} bytes)\n",
+                "determinism_budget: gated=1 allowed=0 denied=1 controlled_side_effect=0 non_deterministic=1\n",
+                "determinism_violations: count=1\n",
                 "capabilities: declared=2 used=1 denied=1\n",
                 "trace: events=4\n",
                 "state_diff: changes=2 added=1 updated=1 removed=0\n"
@@ -201,6 +239,7 @@ end
             entry_dot.len(),
             trace.len(),
             state_diff_bytes.len(),
+            determinism_report_bytes.len(),
             capability_report_bytes.len(),
         )
     );
@@ -226,11 +265,16 @@ end
             ENTRY_DOT_FILE,
             TRACE_FILE,
             STATE_DIFF_FILE,
+            DETERMINISM_REPORT_FILE,
             CAPABILITY_REPORT_FILE
         ],
         "sections": {
             "capability_report": {
                 "path": CAPABILITY_REPORT_FILE,
+                "status": "unavailable"
+            },
+            "determinism_report": {
+                "path": DETERMINISM_REPORT_FILE,
                 "status": "unavailable"
             },
             "state_diff": {
@@ -305,7 +349,10 @@ end
                 "  inputs/entry.dot: present ({} bytes)\n",
                 "  trace.jsonl: unavailable\n",
                 "  state_diff.json: unavailable\n",
+                "  determinism_report.json: unavailable\n",
                 "  capability_report.json: unavailable\n",
+                "determinism_budget: unavailable\n",
+                "determinism_violations: unavailable\n",
                 "capabilities: unavailable\n",
                 "trace: events=unavailable\n",
                 "state_diff: unavailable\n"

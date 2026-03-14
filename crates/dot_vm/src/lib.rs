@@ -25,8 +25,8 @@ mod tests {
         validate_strict_determinism,
     };
     use dot_ops::{
-        Host, HostError, RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SourceRef,
-        SourceSpan, SyscallId,
+        Host, HostError, RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE,
+        SYSCALL_RANDOM_BYTES, SYSCALL_TIME_NOW, SourceRef, SourceSpan, SyscallId,
     };
     use dot_sec::{Capability, CapabilitySet};
     use std::future::Future;
@@ -287,6 +287,192 @@ mod tests {
                 }),
             ]
         );
+    }
+
+    #[test]
+    fn strict_determinism_denial_happens_before_host_dispatch() {
+        struct CountingHost {
+            calls: usize,
+        }
+
+        impl Host<Value> for CountingHost {
+            fn syscall<'a>(
+                &'a mut self,
+                _id: SyscallId,
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                self.calls += 1;
+                Box::pin(async { Ok(vec![]) })
+            }
+        }
+
+        let mut vm = Vm::with_register_count(
+            vec![Instruction::Syscall {
+                id: SYSCALL_NET_HTTP_SERVE,
+                args: vec![],
+                results: vec![],
+                source: None,
+            }],
+            1,
+        );
+        let mut capabilities = CapabilitySet::empty();
+        capabilities.insert(Capability::NetHttpListen);
+        let mut host = CountingHost { calls: 0 };
+        struct NoopSink;
+
+        impl EventSink for NoopSink {
+            fn emit(&mut self, _event: VmEvent) {}
+        }
+
+        let error = block_on(vm.run_with_policy_host_and_events(
+            &capabilities,
+            true,
+            &mut host,
+            &mut NoopSink,
+        ))
+        .expect_err("strict non-deterministic syscall must fail before host dispatch");
+
+        assert_eq!(
+            error,
+            VmError::SyscallFailed {
+                id: SYSCALL_NET_HTTP_SERVE,
+                error: HostError::new(
+                    "determinism violation: strict mode does not support syscall `net.http.serve`"
+                ),
+            }
+        );
+        assert_eq!(host.calls, 0);
+    }
+
+    #[test]
+    fn strict_determinism_denial_emits_attempt_and_result_events_before_host_dispatch() {
+        struct CountingHost {
+            calls: usize,
+        }
+
+        impl Host<Value> for CountingHost {
+            fn syscall<'a>(
+                &'a mut self,
+                _id: SyscallId,
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                self.calls += 1;
+                Box::pin(async { Ok(vec![]) })
+            }
+        }
+
+        struct CollectSink(Vec<VmEvent>);
+
+        impl EventSink for CollectSink {
+            fn emit(&mut self, event: VmEvent) {
+                self.0.push(event);
+            }
+        }
+
+        let source = Some(SourceRef::with_span_and_path(
+            SourceSpan::new(4, 3, 8),
+            "server",
+        ));
+        let mut vm = Vm::with_register_count(
+            vec![Instruction::Syscall {
+                id: SYSCALL_NET_HTTP_SERVE,
+                args: vec![],
+                results: vec![],
+                source: source.clone(),
+            }],
+            1,
+        );
+        let mut capabilities = CapabilitySet::empty();
+        capabilities.insert(Capability::NetHttpListen);
+        let mut host = CountingHost { calls: 0 };
+        let mut sink = CollectSink(Vec::new());
+
+        let error =
+            block_on(vm.run_with_policy_host_and_events(&capabilities, true, &mut host, &mut sink))
+                .expect_err("strict non-deterministic syscall must fail");
+
+        assert_eq!(
+            error,
+            VmError::SyscallFailed {
+                id: SYSCALL_NET_HTTP_SERVE,
+                error: HostError::new(
+                    "determinism violation: strict mode does not support syscall `net.http.serve`"
+                ),
+            }
+        );
+        assert_eq!(host.calls, 0);
+        assert_eq!(
+            sink.0,
+            vec![
+                VmEvent::SyscallAttempt(SyscallAttemptEvent {
+                    ip: 0,
+                    id: SYSCALL_NET_HTTP_SERVE,
+                    args: vec![],
+                    source: source.clone(),
+                }),
+                VmEvent::SyscallResult(SyscallResultEvent {
+                    ip: 0,
+                    id: SYSCALL_NET_HTTP_SERVE,
+                    result: Err(HostError::new(
+                        "determinism violation: strict mode does not support syscall `net.http.serve`"
+                    )),
+                    source,
+                }),
+            ]
+        );
+    }
+
+    #[test]
+    fn strict_mode_still_requires_capability_for_controlled_side_effects() {
+        struct CountingHost {
+            calls: usize,
+        }
+
+        impl Host<Value> for CountingHost {
+            fn syscall<'a>(
+                &'a mut self,
+                _id: SyscallId,
+                _args: &'a [Value],
+            ) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, HostError>> + 'a>> {
+                self.calls += 1;
+                Box::pin(async { Ok(vec![]) })
+            }
+        }
+
+        let mut vm = Vm::with_register_count(
+            vec![Instruction::Syscall {
+                id: SYSCALL_LOG_EMIT,
+                args: vec![],
+                results: vec![],
+                source: None,
+            }],
+            1,
+        );
+        let mut host = CountingHost { calls: 0 };
+        struct NoopSink;
+
+        impl EventSink for NoopSink {
+            fn emit(&mut self, _event: VmEvent) {}
+        }
+
+        let error = block_on(vm.run_with_policy_host_and_events(
+            &CapabilitySet::empty(),
+            true,
+            &mut host,
+            &mut NoopSink,
+        ))
+        .expect_err("missing log capability must still fail in strict mode");
+
+        assert_eq!(
+            error,
+            VmError::SyscallFailed {
+                id: SYSCALL_LOG_EMIT,
+                error: HostError::new(
+                    "capability denied: syscall `log.emit` requires capability `log`. Hint: add `allow log`. Declare it in your `.dot` file with an `allow ...` statement."
+                ),
+            }
+        );
+        assert_eq!(host.calls, 0);
     }
 
     #[test]
@@ -906,6 +1092,34 @@ mod tests {
             http_serve.required_capability(),
             Some(Capability::NetHttpListen)
         );
+
+        let time_now = Instruction::Syscall {
+            id: SYSCALL_TIME_NOW,
+            args: vec![],
+            results: vec![Reg(0)],
+            source: None,
+        }
+        .determinism_metadata()
+        .expect("time.now metadata must exist");
+        assert_eq!(
+            time_now.classification(),
+            DeterminismClass::NonDeterministic
+        );
+        assert_eq!(time_now.required_capability(), None);
+
+        let random_bytes = Instruction::Syscall {
+            id: SYSCALL_RANDOM_BYTES,
+            args: vec![Reg(0)],
+            results: vec![Reg(1)],
+            source: None,
+        }
+        .determinism_metadata()
+        .expect("random.bytes metadata must exist");
+        assert_eq!(
+            random_bytes.classification(),
+            DeterminismClass::NonDeterministic
+        );
+        assert_eq!(random_bytes.required_capability(), None);
     }
 
     #[test]
@@ -956,6 +1170,23 @@ mod tests {
                 classification: DeterminismClass::NonDeterministic,
             })
         );
+
+        for syscall in [SYSCALL_TIME_NOW, SYSCALL_RANDOM_BYTES] {
+            let program = vec![Instruction::Syscall {
+                id: syscall,
+                args: vec![],
+                results: vec![],
+                source: None,
+            }];
+
+            assert_eq!(
+                validate_strict_determinism(&program),
+                Err(StrictDeterminismError::UnsupportedInStrictMode {
+                    opcode: Opcode::Syscall(syscall),
+                    classification: DeterminismClass::NonDeterministic,
+                })
+            );
+        }
     }
 
     #[test]

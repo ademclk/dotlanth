@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
 use crate::{
-    EventSink, Instruction, Reg, RegisterFile, SyscallAttemptEvent, SyscallResultEvent, Value,
-    VmError, VmEvent,
+    EventSink, Instruction, Opcode, Reg, RegisterFile, StrictDeterminismError, SyscallAttemptEvent,
+    SyscallResultEvent, Value, VmError, VmEvent,
 };
 use dot_ops::{Host, SyscallId, syscall_spec};
 use dot_sec::{CapabilitySet, Syscall};
@@ -69,7 +69,7 @@ impl Vm {
         &mut self,
         host: &mut dyn Host<Value>,
     ) -> Result<StepOutcome, VmError> {
-        self.step_inner_async(None, host, None).await
+        self.step_inner_async(None, false, host, None).await
     }
 
     pub async fn step_with_host_and_events(
@@ -77,7 +77,7 @@ impl Vm {
         host: &mut dyn Host<Value>,
         events: &mut dyn EventSink,
     ) -> Result<StepOutcome, VmError> {
-        self.step_inner_async(None, host, Some(events)).await
+        self.step_inner_async(None, false, host, Some(events)).await
     }
 
     pub async fn step_with_capabilities_and_host(
@@ -85,7 +85,8 @@ impl Vm {
         capabilities: &CapabilitySet,
         host: &mut dyn Host<Value>,
     ) -> Result<StepOutcome, VmError> {
-        self.step_inner_async(Some(capabilities), host, None).await
+        self.step_inner_async(Some(capabilities), false, host, None)
+            .await
     }
 
     pub async fn step_with_capabilities_host_and_events(
@@ -94,8 +95,27 @@ impl Vm {
         host: &mut dyn Host<Value>,
         events: &mut dyn EventSink,
     ) -> Result<StepOutcome, VmError> {
-        self.step_inner_async(Some(capabilities), host, Some(events))
+        self.step_inner_async(Some(capabilities), false, host, Some(events))
             .await
+    }
+
+    pub async fn run_with_policy_host_and_events(
+        &mut self,
+        capabilities: &CapabilitySet,
+        strict_determinism: bool,
+        host: &mut dyn Host<Value>,
+        events: &mut dyn EventSink,
+    ) -> Result<(), VmError> {
+        while !self.halted {
+            self.step_inner_async(
+                Some(capabilities),
+                strict_determinism,
+                host,
+                Some(&mut *events),
+            )
+            .await?;
+        }
+        Ok(())
     }
 
     fn step_inner(&mut self) -> Result<StepOutcome, VmError> {
@@ -136,6 +156,7 @@ impl Vm {
     async fn step_inner_async(
         &mut self,
         capabilities: Option<&CapabilitySet>,
+        strict_determinism: bool,
         host: &mut dyn Host<Value>,
         mut events: Option<&mut dyn EventSink>,
     ) -> Result<StepOutcome, VmError> {
@@ -187,6 +208,21 @@ impl Vm {
                         args: values.clone(),
                         source: source.clone(),
                     }));
+                }
+
+                if let Some(error) = strict_determinism
+                    .then(|| strict_determinism_denial(id))
+                    .flatten()
+                {
+                    if let Some(events) = events.as_mut() {
+                        (*events).emit(VmEvent::SyscallResult(SyscallResultEvent {
+                            ip: self.ip,
+                            id,
+                            result: Err(error.clone()),
+                            source,
+                        }));
+                    }
+                    return Err(VmError::SyscallFailed { id, error });
                 }
 
                 if let Some(error) = capabilities
@@ -279,7 +315,7 @@ impl Vm {
         events: &mut dyn EventSink,
     ) -> Result<(), VmError> {
         while !self.halted {
-            self.step_inner_async(None, host, Some(&mut *events))
+            self.step_inner_async(None, false, host, Some(&mut *events))
                 .await?;
         }
         Ok(())
@@ -304,7 +340,7 @@ impl Vm {
         events: &mut dyn EventSink,
     ) -> Result<(), VmError> {
         while !self.halted {
-            self.step_inner_async(Some(capabilities), host, Some(&mut *events))
+            self.step_inner_async(Some(capabilities), false, host, Some(&mut *events))
                 .await?;
         }
         Ok(())
@@ -312,7 +348,30 @@ impl Vm {
 }
 
 fn capability_gated_syscall(id: SyscallId) -> Option<Syscall> {
-    syscall_spec(id).map(|spec| spec.syscall())
+    syscall_spec(id).and_then(|spec| spec.syscall())
+}
+
+fn strict_determinism_denial(id: SyscallId) -> Option<dot_ops::HostError> {
+    let Some(spec) = syscall_spec(id) else {
+        return Some(dot_ops::HostError::new(
+            StrictDeterminismError::MissingClassification {
+                opcode: Opcode::Syscall(id),
+            }
+            .to_string(),
+        ));
+    };
+
+    if spec.classification().supports_strict_mode() {
+        None
+    } else {
+        Some(dot_ops::HostError::new(
+            StrictDeterminismError::UnsupportedInStrictMode {
+                opcode: Opcode::Syscall(id),
+                classification: spec.classification(),
+            }
+            .to_string(),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -322,7 +381,7 @@ mod tests {
     #[test]
     fn capability_gate_tracks_registered_syscalls() {
         for spec in dot_ops::registered_syscalls() {
-            assert_eq!(capability_gated_syscall(spec.id()), Some(spec.syscall()));
+            assert_eq!(capability_gated_syscall(spec.id()), spec.syscall());
         }
     }
 }

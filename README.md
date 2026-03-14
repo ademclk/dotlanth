@@ -51,7 +51,7 @@ The scriptable subcommands still work for automation and docs:
 cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 ```
 
-`dot run` also accepts `--determinism <default|strict>`. The selected mode is persisted in DotDB and in each bundle `manifest.json`, and `dot inspect <run_id>` prints it back. Strict mode is fail-closed today: unsupported syscalls such as `net.http.serve` are denied before side effects execute.
+`dot run` also accepts `--determinism <default|strict>`. The selected mode is persisted in DotDB and in each bundle `manifest.json`, and `dot inspect <run_id>` prints it back. Strict mode is fail-closed today: unsupported non-deterministic host syscalls such as `net.http.serve`, `time.now`, and `random.bytes` are denied before side effects execute.
 
 ```bash
 curl http://127.0.0.1:18080/hello
@@ -68,6 +68,7 @@ The bounded run writes an artifact bundle to `.dotlanth/bundles/<run_id>/` with:
 - `inputs/entry.dot`
 - `trace.jsonl`
 - `state_diff.json`
+- `determinism_report.json`
 - `capability_report.json`
 
 DotDB also indexes that finalized bundle by external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
@@ -76,7 +77,11 @@ DotDB also indexes that finalized bundle by external `run_id`, storing the bundl
 
 `state_diff.json` exports a stable `state_kv` diff with deterministic ordering and omits unchanged values.
 
+`determinism_report.json` records the informational v26.3 determinism budget counters plus any strict-mode violation summaries captured for the run.
+
 `capability_report.json` records declared capabilities with source spans and semantic paths, plus stable `used` and `denied` accounting for capability-gated syscalls.
+
+`trace.jsonl` keeps stable syscall boundary events and now records each registered syscall's determinism `classification`, `required_capability` when a capability gate applies, and explicit audit events for strict determinism denials plus controlled side-effect use.
 
 The TUI also tracks demo-owned fixture and export metadata in `.dotlanth/demo/metadata/scenarios.json` so the same scenarios can be refreshed and replayed across sessions without mocking any subsystem behavior.
 

@@ -51,6 +51,10 @@ fn finalize_creates_required_files_with_explicit_markers() {
     assert_eq!(state_diff["section"], "state_diff");
     assert_eq!(state_diff["status"], "unavailable");
 
+    let determinism_report = read_json(&bundle.join(DETERMINISM_REPORT_FILE));
+    assert_eq!(determinism_report["section"], "determinism_report");
+    assert_eq!(determinism_report["status"], "unavailable");
+
     let capability_report = read_json(&bundle.join(CAPABILITY_REPORT_FILE));
     assert_eq!(capability_report["section"], "capability_report");
     assert_eq!(capability_report["status"], "unavailable");
@@ -61,6 +65,10 @@ fn finalize_creates_required_files_with_explicit_markers() {
     let manifest = read_json(&bundle.join(MANIFEST_FILE));
     assert_eq!(manifest["sections"]["trace"]["status"], "unavailable");
     assert_eq!(manifest["sections"]["state_diff"]["status"], "unavailable");
+    assert_eq!(
+        manifest["sections"]["determinism_report"]["status"],
+        "unavailable"
+    );
     assert_eq!(
         manifest["sections"]["capability_report"]["status"],
         "unavailable"
@@ -86,6 +94,19 @@ fn snapshot_capture_hashes_entry_dot_and_updates_manifest() {
     writer
         .write_state_diff_json(&json!({"state":"unchanged"}))
         .expect("state diff should write");
+    writer
+        .write_determinism_report_json(&json!({
+            "schema_version": "1",
+            "informational": true,
+            "counters": {
+                "gated_total": 1,
+                "allowed_total": 1,
+                "denied_total": 0,
+                "controlled_side_effect_total": 0,
+                "non_deterministic_total": 1
+            }
+        }))
+        .expect("determinism report should write");
     writer
         .write_capability_report_json(&json!({"used":["log"]}))
         .expect("capability report should write");
@@ -116,6 +137,7 @@ fn snapshot_capture_hashes_entry_dot_and_updates_manifest() {
         Value::String(crate::util::sha256_hex(expected_trace.as_bytes()))
     );
     assert_eq!(manifest["sections"]["state_diff"]["status"], "ok");
+    assert_eq!(manifest["sections"]["determinism_report"]["status"], "ok");
     assert_eq!(manifest["sections"]["capability_report"]["status"], "ok");
 }
 

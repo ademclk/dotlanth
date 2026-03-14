@@ -2,7 +2,8 @@
 
 use crate::commands::support::open_existing_dotdb_in;
 use dot_artifacts::{
-    CAPABILITY_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE, STATE_DIFF_FILE, TRACE_FILE,
+    CAPABILITY_REPORT_FILE, DETERMINISM_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE,
+    STATE_DIFF_FILE, TRACE_FILE,
 };
 use serde_json::Value as JsonValue;
 use std::fs;
@@ -60,6 +61,13 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
         Some(json_lookup(&manifest, &["sections", "capability_report"])?),
         CAPABILITY_REPORT_FILE,
     );
+    let determinism_report = artifact_summary(
+        &bundle_dir,
+        manifest
+            .get("sections")
+            .and_then(|sections| sections.get("determinism_report")),
+        DETERMINISM_REPORT_FILE,
+    );
 
     let capability_summary = match capability_report.availability {
         ArtifactAvailability::Present => {
@@ -81,6 +89,60 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
         }
         ArtifactAvailability::Unavailable | ArtifactAvailability::Absent => {
             "capabilities: unavailable\n".to_owned()
+        }
+    };
+
+    let determinism_summary = match determinism_report.availability {
+        ArtifactAvailability::Present => {
+            let determinism_report: JsonValue = serde_json::from_slice(
+                &fs::read(bundle_dir.join(DETERMINISM_REPORT_FILE)).map_err(|error| {
+                    format!(
+                        "failed to read `{}`: {error}",
+                        bundle_dir.join(DETERMINISM_REPORT_FILE).display()
+                    )
+                })?,
+            )
+            .map_err(|error| format!("failed to parse `{DETERMINISM_REPORT_FILE}`: {error}"))?;
+            format!(
+                "determinism_budget: gated={} allowed={} denied={} controlled_side_effect={} non_deterministic={}\n",
+                json_u64_field(&determinism_report, &["counters", "gated_total"])?,
+                json_u64_field(&determinism_report, &["counters", "allowed_total"])?,
+                json_u64_field(&determinism_report, &["counters", "denied_total"])?,
+                json_u64_field(
+                    &determinism_report,
+                    &["counters", "controlled_side_effect_total"]
+                )?,
+                json_u64_field(
+                    &determinism_report,
+                    &["counters", "non_deterministic_total"]
+                )?,
+            )
+        }
+        ArtifactAvailability::Unavailable | ArtifactAvailability::Absent => {
+            "determinism_budget: unavailable\n".to_owned()
+        }
+    };
+
+    let determinism_violation_summary = match determinism_report.availability {
+        ArtifactAvailability::Present => {
+            let determinism_report: JsonValue = serde_json::from_slice(
+                &fs::read(bundle_dir.join(DETERMINISM_REPORT_FILE)).map_err(|error| {
+                    format!(
+                        "failed to read `{}`: {error}",
+                        bundle_dir.join(DETERMINISM_REPORT_FILE).display()
+                    )
+                })?,
+            )
+            .map_err(|error| format!("failed to parse `{DETERMINISM_REPORT_FILE}`: {error}"))?;
+            let count = json_array_len(&determinism_report, &["violations"])?;
+            if count == 0 {
+                "determinism_violations: none\n".to_owned()
+            } else {
+                format!("determinism_violations: count={count}\n")
+            }
+        }
+        ArtifactAvailability::Unavailable | ArtifactAvailability::Absent => {
+            "determinism_violations: unavailable\n".to_owned()
         }
     };
 
@@ -129,7 +191,10 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
             "  inputs/entry.dot: {}\n",
             "  trace.jsonl: {}\n",
             "  state_diff.json: {}\n",
+            "  determinism_report.json: {}\n",
             "  capability_report.json: {}\n",
+            "{}",
+            "{}",
             "{}",
             "{}",
             "{}"
@@ -142,7 +207,10 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
         entry_dot.render(),
         trace.render(),
         state_diff.render(),
+        determinism_report.render(),
         capability_report.render(),
+        determinism_summary,
+        determinism_violation_summary,
         capability_summary,
         trace_summary,
         state_diff_summary,
@@ -250,6 +318,12 @@ fn json_array_len(value: &JsonValue, path: &[&str]) -> Result<usize, String> {
         .as_array()
         .ok_or_else(|| format!("expected `{}` to be an array", path.join(".")))?
         .len())
+}
+
+fn json_u64_field(value: &JsonValue, path: &[&str]) -> Result<u64, String> {
+    json_lookup(value, path)?
+        .as_u64()
+        .ok_or_else(|| format!("expected `{}` to be an unsigned integer", path.join(".")))
 }
 
 fn json_lookup<'a>(value: &'a JsonValue, path: &[&str]) -> Result<&'a JsonValue, String> {

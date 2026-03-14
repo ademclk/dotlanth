@@ -169,6 +169,14 @@ impl BundleWriter {
         self.write_json_section(BundleSection::StateDiff, value)
     }
 
+    pub fn write_determinism_report_json<T: Serialize>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), BundleWriterError> {
+        self.ensure_open()?;
+        self.write_json_section(BundleSection::DeterminismReport, value)
+    }
+
     pub fn write_capability_report_json<T: Serialize>(
         &mut self,
         value: &T,

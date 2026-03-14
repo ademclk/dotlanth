@@ -9,7 +9,7 @@ use std::mem;
 use std::net::{SocketAddr, TcpListener};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::task::JoinSet;
 use tokio::time::{Instant, timeout, timeout_at};
@@ -19,6 +19,8 @@ pub struct SyscallId(pub u32);
 
 pub const SYSCALL_LOG_EMIT: SyscallId = SyscallId(1);
 pub const SYSCALL_NET_HTTP_SERVE: SyscallId = SyscallId(2);
+pub const SYSCALL_TIME_NOW: SyscallId = SyscallId(3);
+pub const SYSCALL_RANDOM_BYTES: SyscallId = SyscallId(4);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DeterminismClass {
@@ -44,16 +46,31 @@ impl DeterminismClass {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyscallSpec {
     id: SyscallId,
-    syscall: Syscall,
+    name: &'static str,
     classification: DeterminismClass,
+    capability_syscall: Option<Syscall>,
 }
 
 impl SyscallSpec {
-    pub const fn new(id: SyscallId, syscall: Syscall, classification: DeterminismClass) -> Self {
+    pub const fn gated(id: SyscallId, syscall: Syscall, classification: DeterminismClass) -> Self {
         Self {
             id,
-            syscall,
+            name: syscall.name(),
             classification,
+            capability_syscall: Some(syscall),
+        }
+    }
+
+    pub const fn ungated(
+        id: SyscallId,
+        name: &'static str,
+        classification: DeterminismClass,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            classification,
+            capability_syscall: None,
         }
     }
 
@@ -61,16 +78,19 @@ impl SyscallSpec {
         self.id
     }
 
-    pub const fn syscall(self) -> Syscall {
-        self.syscall
+    pub const fn syscall(self) -> Option<Syscall> {
+        self.capability_syscall
     }
 
     pub const fn name(self) -> &'static str {
-        self.syscall.name()
+        self.name
     }
 
-    pub const fn required_capability(self) -> Capability {
-        self.syscall.required_capability()
+    pub const fn required_capability(self) -> Option<Capability> {
+        match self.capability_syscall {
+            Some(syscall) => Some(syscall.required_capability()),
+            None => None,
+        }
     }
 
     pub const fn classification(self) -> DeterminismClass {
@@ -79,14 +99,24 @@ impl SyscallSpec {
 }
 
 const REGISTERED_SYSCALLS: &[SyscallSpec] = &[
-    SyscallSpec::new(
+    SyscallSpec::gated(
         SYSCALL_LOG_EMIT,
         Syscall::LogEmit,
         DeterminismClass::ControlledSideEffect,
     ),
-    SyscallSpec::new(
+    SyscallSpec::gated(
         SYSCALL_NET_HTTP_SERVE,
         Syscall::NetHttpServe,
+        DeterminismClass::NonDeterministic,
+    ),
+    SyscallSpec::ungated(
+        SYSCALL_TIME_NOW,
+        "time.now",
+        DeterminismClass::NonDeterministic,
+    ),
+    SyscallSpec::ungated(
+        SYSCALL_RANDOM_BYTES,
+        "random.bytes",
         DeterminismClass::NonDeterministic,
     ),
 ];
@@ -103,7 +133,7 @@ pub fn syscall_spec(id: SyscallId) -> Option<SyscallSpec> {
 }
 
 pub fn required_capability_for_syscall(id: SyscallId) -> Option<Capability> {
-    syscall_spec(id).map(|spec| spec.required_capability())
+    syscall_spec(id).and_then(|spec| spec.required_capability())
 }
 
 const MAX_HTTP_REQUEST_LINE_BYTES: usize = 8 * 1024;
@@ -252,6 +282,8 @@ pub trait Host<V> {
 pub trait OpValue: Clone {
     fn as_i64(&self) -> Option<i64>;
     fn as_str(&self) -> Option<&str>;
+    fn from_i64(value: i64) -> Self;
+    fn from_bytes(value: Vec<u8>) -> Self;
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -272,6 +304,8 @@ pub struct OpsHost {
     record_mode: RecordMode,
     strict_determinism: bool,
     stdout: Box<dyn Write + Send>,
+    time_hook: Box<dyn FnMut() -> Result<i64, HostError> + Send>,
+    random_hook: Box<dyn FnMut(usize) -> Result<Vec<u8>, HostError> + Send>,
     http: Option<HttpConfig>,
 }
 
@@ -291,6 +325,8 @@ impl OpsHost {
             record_mode: RecordMode::default(),
             strict_determinism: false,
             stdout: Box::new(std::io::stdout()),
+            time_hook: Box::new(default_time_now_ms),
+            random_hook: Box::new(default_random_bytes),
             http: None,
         })
     }
@@ -313,6 +349,20 @@ impl OpsHost {
         F: FnMut(RuntimeEvent) + 'static,
     {
         self.runtime_event_forwarder = Some(Box::new(forwarder));
+    }
+
+    pub fn set_time_hook<F>(&mut self, hook: F)
+    where
+        F: FnMut() -> Result<i64, HostError> + Send + 'static,
+    {
+        self.time_hook = Box::new(hook);
+    }
+
+    pub fn set_random_hook<F>(&mut self, hook: F)
+    where
+        F: FnMut(usize) -> Result<Vec<u8>, HostError> + Send + 'static,
+    {
+        self.random_hook = Box::new(hook);
     }
 
     pub fn run_id(&self) -> &str {
@@ -344,6 +394,12 @@ impl OpsHost {
         self.db
             .state_snapshot()
             .map_err(|error| HostError::new(format!("failed to snapshot state: {error}")))
+    }
+
+    pub fn state_set(&mut self, namespace: &str, key: &str, value: &[u8]) -> Result<(), HostError> {
+        self.db
+            .state_set(namespace, key, value)
+            .map_err(|error| HostError::new(format!("failed to set state kv: {error}")))
     }
 
     pub fn index_artifact_bundle(
@@ -454,6 +510,38 @@ impl OpsHost {
         })?;
 
         Ok(vec![])
+    }
+
+    fn syscall_time_now<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
+        self.enforce_supported_in_current_mode(SYSCALL_TIME_NOW)?;
+        if !args.is_empty() {
+            return Err(HostError::new("time.now expects 0 arguments"));
+        }
+
+        let now_ms = (self.time_hook)()?;
+        Ok(vec![V::from_i64(now_ms)])
+    }
+
+    fn syscall_random_bytes<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
+        self.enforce_supported_in_current_mode(SYSCALL_RANDOM_BYTES)?;
+        let len = match args {
+            [value] => {
+                let Some(value) = value.as_i64() else {
+                    return Err(HostError::new(
+                        "random.bytes expects 1 integer argument (len)",
+                    ));
+                };
+                usize::try_from(value).map_err(|_| {
+                    HostError::new("random.bytes expects len to be a non-negative integer")
+                })?
+            }
+            _ => {
+                return Err(HostError::new("random.bytes expects 1 argument (len)"));
+            }
+        };
+
+        let bytes = (self.random_hook)(len)?;
+        Ok(vec![V::from_bytes(bytes)])
     }
 
     async fn syscall_http_serve<V: OpValue>(&mut self, args: &[V]) -> Result<Vec<V>, HostError> {
@@ -596,6 +684,8 @@ impl<V: OpValue> Host<V> for OpsHost {
             self.enforce_supported_in_current_mode(id)?;
             match id {
                 SYSCALL_LOG_EMIT => self.syscall_log_emit(args),
+                SYSCALL_TIME_NOW => self.syscall_time_now(args),
+                SYSCALL_RANDOM_BYTES => self.syscall_random_bytes(args),
                 SYSCALL_NET_HTTP_SERVE => self.syscall_http_serve(args).await,
                 _ => Err(HostError::new(format!("unknown syscall id: {}", id.0))),
             }
@@ -657,6 +747,21 @@ pub fn syscall_name(id: SyscallId) -> &'static str {
 
 struct ConnectionOutcome {
     runtime_events: Vec<RuntimeEvent>,
+}
+
+fn default_time_now_ms() -> Result<i64, HostError> {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| HostError::new("time.now requires a system clock after Unix epoch"))?;
+    i64::try_from(now.as_millis())
+        .map_err(|_| HostError::new("time.now exceeded the supported 64-bit millisecond range"))
+}
+
+fn default_random_bytes(len: usize) -> Result<Vec<u8>, HostError> {
+    let mut bytes = vec![0_u8; len];
+    getrandom::fill(&mut bytes)
+        .map_err(|error| HostError::new(format!("random.bytes failed to fill buffer: {error}")))?;
+    Ok(bytes)
 }
 
 fn json_string(value: &str) -> String {
@@ -1036,8 +1141,9 @@ where
 mod tests {
     use super::{
         Host, HostError, MAX_HTTP_REQUEST_LINE_BYTES, OpValue, OpsHost, RecordMode, RouteTable,
-        RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SyscallId,
-        handle_http_connection_async, registered_syscalls, write_http_response,
+        RuntimeEvent, SYSCALL_LOG_EMIT, SYSCALL_NET_HTTP_SERVE, SYSCALL_RANDOM_BYTES,
+        SYSCALL_TIME_NOW, SyscallId, handle_http_connection_async, registered_syscalls,
+        write_http_response,
     };
     use dot_db::DotDb;
     use dot_dsl::parse_and_validate;
@@ -1082,6 +1188,7 @@ mod tests {
     enum TestValue {
         I64(i64),
         Str(String),
+        Bytes(Vec<u8>),
     }
 
     impl From<&str> for TestValue {
@@ -1094,15 +1201,23 @@ mod tests {
         fn as_i64(&self) -> Option<i64> {
             match self {
                 Self::I64(value) => Some(*value),
-                Self::Str(_) => None,
+                Self::Str(_) | Self::Bytes(_) => None,
             }
         }
 
         fn as_str(&self) -> Option<&str> {
             match self {
-                Self::I64(_) => None,
+                Self::I64(_) | Self::Bytes(_) => None,
                 Self::Str(value) => Some(value),
             }
+        }
+
+        fn from_i64(value: i64) -> Self {
+            Self::I64(value)
+        }
+
+        fn from_bytes(value: Vec<u8>) -> Self {
+            Self::Bytes(value)
         }
     }
 
@@ -1348,19 +1463,107 @@ end
     }
 
     #[test]
+    fn time_now_uses_configured_hook_in_default_mode() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
+        host.set_time_hook(|| Ok(1_701_234_567_i64));
+
+        let result =
+            block_on(host.syscall(SYSCALL_TIME_NOW, &[] as &[TestValue])).expect("time.now ok");
+
+        assert_eq!(result, vec![TestValue::I64(1_701_234_567_i64)]);
+    }
+
+    #[test]
+    fn strict_mode_denies_time_now_before_hook_invocation() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let calls = Arc::new(Mutex::new(0_usize));
+        let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
+        host.set_determinism_mode("strict")
+            .expect("strict mode should persist");
+        host.set_time_hook({
+            let calls = Arc::clone(&calls);
+            move || {
+                *calls.lock().expect("lock") += 1;
+                Ok(1_i64)
+            }
+        });
+
+        let error = block_on(host.syscall(SYSCALL_TIME_NOW, &[] as &[TestValue])).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "determinism violation: strict mode does not support syscall `time.now`"
+        );
+        assert_eq!(*calls.lock().expect("lock"), 0);
+    }
+
+    #[test]
+    fn random_bytes_uses_configured_hook_in_default_mode() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
+        host.set_random_hook(|len| {
+            assert_eq!(len, 4);
+            Ok(vec![1, 2, 3, 4])
+        });
+
+        let result = block_on(host.syscall(SYSCALL_RANDOM_BYTES, &[TestValue::I64(4)]))
+            .expect("random.bytes ok");
+
+        assert_eq!(result, vec![TestValue::Bytes(vec![1, 2, 3, 4])]);
+    }
+
+    #[test]
+    fn strict_mode_denies_random_bytes_before_hook_invocation() {
+        let temp = TempDir::new().expect("temp dir must create");
+        let db = DotDb::open_in(temp.path()).expect("db open must succeed");
+
+        let calls = Arc::new(Mutex::new(0_usize));
+        let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
+        host.set_determinism_mode("strict")
+            .expect("strict mode should persist");
+        host.set_random_hook({
+            let calls = Arc::clone(&calls);
+            move |len| {
+                *calls.lock().expect("lock") += len;
+                Ok(vec![0; len])
+            }
+        });
+
+        let error = block_on(host.syscall(SYSCALL_RANDOM_BYTES, &[TestValue::I64(8)])).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "determinism violation: strict mode does not support syscall `random.bytes`"
+        );
+        assert_eq!(*calls.lock().expect("lock"), 0);
+    }
+
+    #[test]
     fn registered_syscalls_are_dispatched_by_host() {
         let temp = TempDir::new().expect("temp dir must create");
         let db = DotDb::open_in(temp.path()).expect("db open must succeed");
         let mut host = OpsHost::new(CapabilitySet::empty(), db).expect("host create must succeed");
 
         for spec in registered_syscalls() {
-            let error = block_on(host.syscall(spec.id(), &[] as &[TestValue]))
-                .expect_err("test intentionally uses invalid setup");
-            assert!(
-                !error.to_string().starts_with("unknown syscall id:"),
-                "registered syscall {} must not fall through host dispatch",
-                spec.name()
-            );
+            match block_on(host.syscall(spec.id(), &[] as &[TestValue])) {
+                Ok(_) => assert_eq!(
+                    spec.id(),
+                    SYSCALL_TIME_NOW,
+                    "only time.now should succeed with the registry smoke-test arguments"
+                ),
+                Err(error) => assert!(
+                    !error.to_string().starts_with("unknown syscall id:"),
+                    "registered syscall {} must not fall through host dispatch",
+                    spec.name()
+                ),
+            }
         }
     }
 
