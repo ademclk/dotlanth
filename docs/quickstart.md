@@ -12,7 +12,7 @@ From the repo root:
 cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 ```
 
-`dot run` also accepts `--determinism <default|strict>`. The chosen mode is persisted in DotDB, recorded in the bundle `manifest.json`, and echoed by `dot inspect <run_id>`.
+`dot run` also accepts `--determinism <default|strict>`. The chosen mode is persisted in DotDB, recorded in the bundle `manifest.json`, and echoed by `dot inspect <run_id>`. The bundle manifest now also records `determinism_eligibility`, `determinism_audit_summary`, and a `replay_proof` payload so replay comparisons can use stable bundle metadata.
 
 Expected output:
 
@@ -42,7 +42,9 @@ Strict mode is fail-closed for opcode classification coverage. `log.emit` is cla
 
 `state_diff.json` exports a stable `state_kv` diff with deterministic ordering and no unchanged entries. In v26.3 it can include the persisted determinism budget snapshot under `runtime/determinism_budget.v26_3`.
 
-`determinism_report.json` records informational v26.3 counters and any strict-mode violation summaries for the run.
+`determinism_report.json` records the selected mode, replay eligibility, an `audit_summary`, the informational v26.3 counters, and any strict-mode violation summaries for the run.
+
+The manifest `replay_proof` payload summarizes normalized fingerprints for the trace, state diff, capability report, and determinism audit surface. It strips run-local trace fields such as `run_id`, `seq`, and `run.start.entry_dot`, and it ignores the internal `runtime/determinism_budget.v26_3` state bookkeeping change when calculating the proof's `state_diff` fingerprint so original and replayed runs can compare cleanly.
 
 The capability report includes declared capabilities with source metadata, along with stable `used` and `denied` counts for capability-gated operations. `trace.jsonl` also records syscall `classification` facts, `required_capability` when a registered syscall is capability-gated, `audit.determinism_denial` events for strict failures, and `audit.controlled_side_effect` events when controlled operations pass determinism policy.
 

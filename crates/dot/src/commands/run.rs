@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
-use dot_artifacts::{BundleSection, BundleWriter, TRACE_FILE};
+use dot_artifacts::{
+    BundleSection, BundleWriter, CAPABILITY_REPORT_FILE, STATE_DIFF_FILE, SectionStatus, TRACE_FILE,
+};
 use dot_db::{DotDb, StateKvEntry};
 use dot_ops::{
     OpsHost, RecordMode, RuntimeEvent, SYSCALL_NET_HTTP_SERVE, SourceRef, SourceSpan, SyscallId,
@@ -218,8 +220,9 @@ async fn run_async(
                 .map_err(Clone::clone)
         });
     let state_diff_result = write_state_diff(&mut bundle, before_state, after_state);
-    let determinism_report_result = write_determinism_report(&mut bundle, &trace);
     let capability_report_result = write_capability_report(&mut bundle, &ctx, &trace);
+    let determinism_report_result =
+        write_determinism_report(&mut bundle, determinism.as_str(), &trace);
     let pre_bundle_status = pre_bundle_status(
         &execution_result,
         &state_diff_result,
@@ -259,6 +262,7 @@ async fn run_async(
     ]);
     trace.record_run_finish(trace_status, trace_error.as_deref());
 
+    let determinism_metadata_result = write_bundle_determinism_metadata(&mut bundle, &trace);
     let bundle_result = finalize_bundle(&mut host, &mut bundle, &trace, &run_id);
     let mut errors = Vec::new();
 
@@ -272,6 +276,9 @@ async fn run_async(
         errors.push(error);
     }
     if let Err(error) = capability_report_result {
+        errors.push(error);
+    }
+    if let Err(error) = determinism_metadata_result {
         errors.push(error);
     }
     if let Err(error) = bundle_result {
@@ -315,13 +322,6 @@ fn finish_pre_execution_failure(
             "state diff unavailable because execution did not start",
         )
         .map_err(|error| format!("failed to mark state_diff.json as unavailable: {error}"));
-    let determinism_report_result = bundle
-        .mark_section_unavailable(
-            BundleSection::DeterminismReport,
-            "execution_not_started",
-            "determinism_report.json unavailable because execution did not start",
-        )
-        .map_err(|error| format!("failed to mark determinism_report.json as unavailable: {error}"));
     let capability_report_result = bundle
         .mark_section_unavailable(
             BundleSection::CapabilityReport,
@@ -329,6 +329,8 @@ fn finish_pre_execution_failure(
             "capability report unavailable because execution did not start",
         )
         .map_err(|error| format!("failed to mark capability_report.json as unavailable: {error}"));
+    let determinism_mode = bundle.manifest().determinism_mode.clone();
+    let determinism_report_result = write_determinism_report(bundle, &determinism_mode, trace);
     let finalize_result = host
         .finalize_run(dot_db::RunStatus::Failed)
         .map_err(|error| error.to_string());
@@ -349,6 +351,7 @@ fn finish_pre_execution_failure(
     ]);
     trace.record_run_finish(trace_status, trace_error.as_deref());
 
+    let determinism_metadata_result = write_bundle_determinism_metadata(bundle, trace);
     let bundle_result = finalize_bundle(host, bundle, trace, run_id);
     let mut errors = vec![execution_error];
     if let Err(error) = state_diff_result {
@@ -358,6 +361,9 @@ fn finish_pre_execution_failure(
         errors.push(error);
     }
     if let Err(error) = capability_report_result {
+        errors.push(error);
+    }
+    if let Err(error) = determinism_metadata_result {
         errors.push(error);
     }
     if let Err(error) = bundle_result {
@@ -472,9 +478,13 @@ fn validate_program_determinism(
 
 fn write_determinism_report(
     bundle: &mut BundleWriter,
+    determinism_mode: &str,
     trace: &TraceRecorder,
 ) -> Result<(), String> {
+    let eligibility = build_replay_eligibility_json(bundle);
     match bundle.write_determinism_report_json(&build_determinism_report_json(
+        determinism_mode,
+        eligibility,
         trace.determinism_budget(),
         &trace.determinism_violations(),
     )) {
@@ -1112,12 +1122,18 @@ impl DeterminismBudgetCounters {
 }
 
 fn build_determinism_report_json(
+    determinism_mode: &str,
+    eligibility: JsonValue,
     counters: DeterminismBudgetCounters,
     violations: &DeterminismViolationAccumulator,
 ) -> JsonValue {
+    let audit_summary = build_determinism_audit_summary_json(counters, violations);
     json!({
         "schema_version": "1",
         "informational": true,
+        "mode": determinism_mode,
+        "eligibility": eligibility,
+        "audit_summary": audit_summary,
         "counters": {
             "gated_total": counters.gated_total,
             "allowed_total": counters.allowed_total,
@@ -1134,6 +1150,8 @@ fn persist_determinism_budget_state(
     trace: &TraceRecorder,
 ) -> Result<(), String> {
     let bytes = serde_json::to_vec(&build_determinism_report_json(
+        "default",
+        json!({ "status": "unknown" }),
         trace.determinism_budget(),
         &trace.determinism_violations(),
     ))
@@ -1199,6 +1217,338 @@ impl DeterminismViolationAccumulator {
                 value
             })
             .collect()
+    }
+
+    fn total_count(&self) -> u64 {
+        self.entries.values().map(|entry| entry.count).sum()
+    }
+
+    fn first_seq(&self) -> Option<u64> {
+        self.entries.values().map(|entry| entry.first_seq).min()
+    }
+}
+
+fn build_determinism_audit_summary_json(
+    counters: DeterminismBudgetCounters,
+    violations: &DeterminismViolationAccumulator,
+) -> JsonValue {
+    json!({
+        "budget": {
+            "gated_total": counters.gated_total,
+            "allowed_total": counters.allowed_total,
+            "denied_total": counters.denied_total,
+            "controlled_side_effect_total": counters.controlled_side_effect_total,
+            "non_deterministic_total": counters.non_deterministic_total,
+        },
+        "violations": {
+            "count": violations.total_count(),
+            "first_seq": violations.first_seq(),
+        }
+    })
+}
+
+fn build_replay_eligibility_json(bundle: &BundleWriter) -> JsonValue {
+    let Some(state_diff) = bundle
+        .manifest()
+        .sections
+        .get(BundleSection::StateDiff.key())
+    else {
+        return json!({
+            "status": "unsupported",
+            "reason": "manifest_incomplete"
+        });
+    };
+    let Some(capability_report) = bundle
+        .manifest()
+        .sections
+        .get(BundleSection::CapabilityReport.key())
+    else {
+        return json!({
+            "status": "unsupported",
+            "reason": "manifest_incomplete"
+        });
+    };
+
+    for section in [state_diff, capability_report] {
+        if section.status != SectionStatus::Ok {
+            return json!({
+                "status": "unsupported",
+                "reason": section
+                    .error
+                    .as_ref()
+                    .map(|error| error.code.clone())
+                    .unwrap_or_else(|| "artifact_unavailable".to_owned()),
+            });
+        }
+    }
+
+    json!({
+        "status": "eligible"
+    })
+}
+
+fn write_bundle_determinism_metadata(
+    bundle: &mut BundleWriter,
+    trace: &TraceRecorder,
+) -> Result<(), String> {
+    trace.flush()?;
+
+    let eligibility = build_replay_eligibility_json(bundle);
+    let audit_summary = build_determinism_audit_summary_json(
+        trace.determinism_budget(),
+        &trace.determinism_violations(),
+    );
+    let determinism_mode = bundle.manifest().determinism_mode.clone();
+    let replay_proof = build_replay_proof_json(bundle, &determinism_mode, &eligibility, trace)?;
+
+    bundle
+        .set_determinism_eligibility_json(eligibility)
+        .map_err(|error| format!("failed to update manifest determinism eligibility: {error}"))?;
+    bundle
+        .set_determinism_audit_summary_json(audit_summary)
+        .map_err(|error| format!("failed to update manifest determinism audit summary: {error}"))?;
+    bundle
+        .set_replay_proof_json(replay_proof)
+        .map_err(|error| format!("failed to update manifest replay proof: {error}"))?;
+    Ok(())
+}
+
+fn build_replay_proof_json(
+    bundle: &BundleWriter,
+    determinism_mode: &str,
+    eligibility: &JsonValue,
+    trace: &TraceRecorder,
+) -> Result<JsonValue, String> {
+    let trace_surface = build_trace_replay_surface(&bundle.staging_dir().join(TRACE_FILE))?;
+    let state_diff_surface = build_artifact_replay_surface(
+        bundle,
+        BundleSection::StateDiff,
+        &bundle.staging_dir().join(STATE_DIFF_FILE),
+    )?;
+    let capability_surface = build_artifact_replay_surface(
+        bundle,
+        BundleSection::CapabilityReport,
+        &bundle.staging_dir().join(CAPABILITY_REPORT_FILE),
+    )?;
+    let determinism_surface = build_determinism_replay_surface(
+        determinism_mode,
+        trace.determinism_budget(),
+        &trace.determinism_violations(),
+    );
+    let canonical_surface = json!({
+        "trace": trace_surface,
+        "state_diff": state_diff_surface,
+        "capability_report": capability_surface,
+        "determinism": determinism_surface,
+    });
+    let comparison_fingerprint = sha256_hex(
+        canonical_json_string(&json!({
+            "eligibility": eligibility,
+            "canonical_surface": canonical_surface,
+        }))
+        .as_bytes(),
+    );
+
+    Ok(json!({
+        "status": "ready",
+        "schema_version": "1",
+        "eligibility": eligibility,
+        "canonical_surface": canonical_surface,
+        "comparison_fingerprint": comparison_fingerprint,
+    }))
+}
+
+fn build_trace_replay_surface(path: &Path) -> Result<JsonValue, String> {
+    let raw = std::fs::read_to_string(path).map_err(|error| {
+        format!(
+            "failed to read `{}` for replay proof: {error}",
+            path.display()
+        )
+    })?;
+    let events = raw
+        .lines()
+        .map(normalize_trace_line_for_proof)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(json!({
+        "event_count": events.len(),
+        "fingerprint": sha256_hex(canonical_json_string(&JsonValue::Array(events)).as_bytes()),
+    }))
+}
+
+fn normalize_trace_line_for_proof(line: &str) -> Result<JsonValue, String> {
+    let mut value = serde_json::from_str::<JsonValue>(line)
+        .map_err(|error| format!("failed to parse trace line for replay proof: {error}"))?;
+    let JsonValue::Object(ref mut map) = value else {
+        return Err("trace line for replay proof must be a JSON object".to_owned());
+    };
+    map.remove("seq");
+    map.remove("run_id");
+    if map.get("event").and_then(JsonValue::as_str) == Some("run.start") {
+        map.remove("entry_dot");
+    }
+    Ok(value)
+}
+
+fn build_artifact_replay_surface(
+    bundle: &BundleWriter,
+    section: BundleSection,
+    path: &Path,
+) -> Result<JsonValue, String> {
+    let section_manifest = bundle
+        .manifest()
+        .sections
+        .get(section.key())
+        .ok_or_else(|| format!("bundle manifest missing `{}` section", section.key()))?;
+
+    if section_manifest.status != SectionStatus::Ok {
+        return Ok(json!({
+            "status": match section_manifest.status {
+                SectionStatus::Ok => "ok",
+                SectionStatus::Unavailable => "unavailable",
+                SectionStatus::Error => "error",
+            },
+            "reason": section_manifest
+                .error
+                .as_ref()
+                .map(|error| error.code.as_str())
+                .unwrap_or("artifact_unavailable"),
+        }));
+    }
+
+    let value = read_json_file(path)?;
+    match section {
+        BundleSection::StateDiff => Ok(json!({
+            "status": "ok",
+            "change_count": normalized_state_diff_for_proof(&value)?
+                .get("changes")
+                .and_then(JsonValue::as_array)
+                .map(|changes| changes.len() as u64)
+                .ok_or_else(|| "state_diff replay proof requires a `changes` array".to_owned())?,
+            "fingerprint": sha256_hex(
+                canonical_json_string(&normalized_state_diff_for_proof(&value)?).as_bytes()
+            ),
+        })),
+        BundleSection::CapabilityReport => Ok(json!({
+            "status": "ok",
+            "declared_count": value
+                .get("declared")
+                .and_then(JsonValue::as_array)
+                .map(|items| items.len() as u64)
+                .ok_or_else(|| "capability_report replay proof requires a `declared` array".to_owned())?,
+            "used_count": value
+                .get("used")
+                .and_then(JsonValue::as_array)
+                .map(|items| items.len() as u64)
+                .ok_or_else(|| "capability_report replay proof requires a `used` array".to_owned())?,
+            "denied_count": value
+                .get("denied")
+                .and_then(JsonValue::as_array)
+                .map(|items| items.len() as u64)
+                .ok_or_else(|| "capability_report replay proof requires a `denied` array".to_owned())?,
+            "fingerprint": sha256_hex(canonical_json_string(&value).as_bytes()),
+        })),
+        BundleSection::Trace | BundleSection::DeterminismReport => Err(format!(
+            "replay proof surface helper does not support `{}`",
+            section.key()
+        )),
+    }
+}
+
+fn build_determinism_replay_surface(
+    determinism_mode: &str,
+    counters: DeterminismBudgetCounters,
+    violations: &DeterminismViolationAccumulator,
+) -> JsonValue {
+    let mut surface = json!({
+        "mode": determinism_mode,
+        "budget": {
+            "gated_total": counters.gated_total,
+            "allowed_total": counters.allowed_total,
+            "denied_total": counters.denied_total,
+            "controlled_side_effect_total": counters.controlled_side_effect_total,
+            "non_deterministic_total": counters.non_deterministic_total,
+        },
+        "violations": {
+            "count": violations.total_count(),
+            "first_seq": violations.first_seq(),
+        }
+    });
+    let fingerprint = sha256_hex(canonical_json_string(&surface).as_bytes());
+    surface["fingerprint"] = json!(fingerprint);
+    surface
+}
+
+fn normalized_state_diff_for_proof(value: &JsonValue) -> Result<JsonValue, String> {
+    let Some(changes) = value.get("changes").and_then(JsonValue::as_array) else {
+        return Err("state_diff replay proof requires a `changes` array".to_owned());
+    };
+    let filtered_changes = changes
+        .iter()
+        .filter(|change| {
+            change.get("namespace").and_then(JsonValue::as_str) != Some("runtime")
+                || change.get("key").and_then(JsonValue::as_str)
+                    != Some(DETERMINISM_BUDGET_STATE_KEY)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+
+    Ok(json!({
+        "schema_version": value
+            .get("schema_version")
+            .and_then(JsonValue::as_str)
+            .unwrap_or("1"),
+        "scope": value
+            .get("scope")
+            .and_then(JsonValue::as_str)
+            .unwrap_or("state_kv"),
+        "changes": filtered_changes,
+    }))
+}
+
+fn read_json_file(path: &Path) -> Result<JsonValue, String> {
+    serde_json::from_slice(&std::fs::read(path).map_err(|error| {
+        format!(
+            "failed to read `{}` for replay proof: {error}",
+            path.display()
+        )
+    })?)
+    .map_err(|error| {
+        format!(
+            "failed to parse `{}` for replay proof: {error}",
+            path.display()
+        )
+    })
+}
+
+fn canonical_json_string(value: &JsonValue) -> String {
+    match value {
+        JsonValue::Null => "null".to_owned(),
+        JsonValue::Bool(value) => value.to_string(),
+        JsonValue::Number(value) => value.to_string(),
+        JsonValue::String(value) => {
+            serde_json::to_string(value).expect("json string must serialize")
+        }
+        JsonValue::Array(values) => format!(
+            "[{}]",
+            values
+                .iter()
+                .map(canonical_json_string)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        JsonValue::Object(values) => {
+            let mut keys = values.keys().collect::<Vec<_>>();
+            keys.sort_unstable();
+            let mut entries = Vec::with_capacity(keys.len());
+            for key in keys {
+                entries.push(format!(
+                    "{}:{}",
+                    serde_json::to_string(key).expect("json key must serialize"),
+                    canonical_json_string(&values[key]),
+                ));
+            }
+            format!("{{{}}}", entries.join(","))
+        }
     }
 }
 
@@ -2045,6 +2395,36 @@ end
             manifest["sections"]["capability_report"]["status"],
             "unavailable"
         );
+        assert_eq!(manifest["determinism_mode"], "default");
+        assert_eq!(manifest["determinism_eligibility"]["status"], "unsupported");
+        assert_eq!(
+            manifest["determinism_eligibility"]["reason"],
+            "execution_not_started"
+        );
+        assert_eq!(
+            manifest["determinism_audit_summary"]["budget"]["gated_total"],
+            0
+        );
+        assert_eq!(
+            manifest["determinism_audit_summary"]["violations"]["count"],
+            0
+        );
+        assert_eq!(manifest["replay_proof"]["status"], "ready");
+        assert_eq!(
+            manifest["replay_proof"]["eligibility"]["status"],
+            "unsupported"
+        );
+        assert_eq!(
+            manifest["replay_proof"]["canonical_surface"]["trace"]["event_count"],
+            2
+        );
+        assert!(
+            manifest["replay_proof"]["comparison_fingerprint"]
+                .as_str()
+                .expect("proof fingerprint must exist")
+                .len()
+                > 8
+        );
 
         let trace = read_trace(&bundle_dir);
         assert_eq!(trace.len(), 2);
@@ -2244,6 +2624,40 @@ end
         let bundle_dir = single_bundle_dir(temp.path());
         let manifest = read_json(&bundle_dir.join(MANIFEST_FILE));
         assert_eq!(manifest["sections"]["determinism_report"]["status"], "ok");
+        assert_eq!(manifest["determinism_mode"], "strict");
+        assert_eq!(manifest["determinism_eligibility"]["status"], "eligible");
+        assert_eq!(
+            manifest["determinism_audit_summary"]["budget"]["gated_total"],
+            1
+        );
+        assert_eq!(
+            manifest["determinism_audit_summary"]["budget"]["denied_total"],
+            1
+        );
+        assert_eq!(
+            manifest["determinism_audit_summary"]["violations"]["count"],
+            1
+        );
+        assert_eq!(
+            manifest["determinism_audit_summary"]["violations"]["first_seq"],
+            1
+        );
+        assert_eq!(manifest["replay_proof"]["status"], "ready");
+        assert_eq!(
+            manifest["replay_proof"]["canonical_surface"]["trace"]["event_count"],
+            3
+        );
+        assert_eq!(
+            manifest["replay_proof"]["canonical_surface"]["determinism"]["mode"],
+            "strict"
+        );
+        assert!(
+            manifest["replay_proof"]["comparison_fingerprint"]
+                .as_str()
+                .expect("proof fingerprint must exist")
+                .len()
+                > 8
+        );
 
         let determinism_report: JsonValue = serde_json::from_slice(
             &std::fs::read(bundle_dir.join(DETERMINISM_REPORT_FILE))
@@ -2267,6 +2681,23 @@ end
             json!({
                 "schema_version": "1",
                 "informational": true,
+                "mode": "strict",
+                "eligibility": {
+                    "status": "eligible"
+                },
+                "audit_summary": {
+                    "budget": {
+                        "gated_total": 1,
+                        "allowed_total": 0,
+                        "denied_total": 1,
+                        "controlled_side_effect_total": 0,
+                        "non_deterministic_total": 1
+                    },
+                    "violations": {
+                        "count": 1,
+                        "first_seq": 1
+                    }
+                },
                 "counters": {
                     "gated_total": 1,
                     "allowed_total": 0,
@@ -2437,6 +2868,40 @@ end
         assert_eq!(manifest["sections"]["state_diff"]["status"], "ok");
         assert_eq!(manifest["sections"]["determinism_report"]["status"], "ok");
         assert_eq!(manifest["sections"]["capability_report"]["status"], "ok");
+        assert_eq!(manifest["determinism_mode"], "default");
+        assert_eq!(manifest["determinism_eligibility"]["status"], "eligible");
+        assert_eq!(
+            manifest["determinism_audit_summary"]["budget"]["gated_total"],
+            1
+        );
+        assert_eq!(
+            manifest["determinism_audit_summary"]["budget"]["allowed_total"],
+            1
+        );
+        assert_eq!(
+            manifest["determinism_audit_summary"]["violations"]["count"],
+            0
+        );
+        assert_eq!(manifest["replay_proof"]["status"], "ready");
+        assert_eq!(
+            manifest["replay_proof"]["canonical_surface"]["trace"]["event_count"],
+            7
+        );
+        assert_eq!(
+            manifest["replay_proof"]["canonical_surface"]["state_diff"]["change_count"],
+            0
+        );
+        assert_eq!(
+            manifest["replay_proof"]["canonical_surface"]["capability_report"]["used_count"],
+            1
+        );
+        assert!(
+            manifest["replay_proof"]["comparison_fingerprint"]
+                .as_str()
+                .expect("proof fingerprint must exist")
+                .len()
+                > 8
+        );
 
         let state_diff: JsonValue = serde_json::from_slice(
             &std::fs::read(bundle_path.join("state_diff.json")).expect("state diff must read"),
@@ -2462,6 +2927,23 @@ end
             json!({
                 "schema_version": "1",
                 "informational": true,
+                "mode": "default",
+                "eligibility": {
+                    "status": "eligible"
+                },
+                "audit_summary": {
+                    "budget": {
+                        "gated_total": 1,
+                        "allowed_total": 1,
+                        "denied_total": 0,
+                        "controlled_side_effect_total": 0,
+                        "non_deterministic_total": 1
+                    },
+                    "violations": {
+                        "count": 0,
+                        "first_seq": null
+                    }
+                },
                 "counters": {
                     "gated_total": 1,
                     "allowed_total": 1,

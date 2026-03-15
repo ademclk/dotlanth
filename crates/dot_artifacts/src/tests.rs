@@ -16,11 +16,42 @@ fn manifest_serialization_is_deterministic() {
     assert_eq!(first, second);
     let json = String::from_utf8(first).expect("json should be utf8");
     assert!(json.contains("\"schema_version\": \"1\""));
+    assert!(json.contains("\"determinism_eligibility\""));
+    assert!(json.contains("\"determinism_audit_summary\""));
+    assert!(json.contains("\"replay_proof\""));
     let cap = json.find("\"capability_report\"").expect("capability key");
     let state = json.find("\"state_diff\"").expect("state key");
     let trace = json.find("\"trace\"").expect("trace key");
     assert!(cap < state);
     assert!(state < trace);
+}
+
+#[test]
+fn manifest_defaults_include_determinism_summary_and_replay_proof_placeholders() {
+    let manifest = read_json_bytes(
+        &BundleManifestV1::new_with_created_at("run-proof-defaults", 7)
+            .serialize_pretty_json()
+            .expect("manifest should serialize"),
+    );
+
+    assert_eq!(manifest["determinism_mode"], "default");
+    assert_eq!(manifest["determinism_eligibility"]["status"], "unknown");
+    assert_eq!(
+        manifest["determinism_audit_summary"]["budget"],
+        json!({
+            "gated_total": 0,
+            "allowed_total": 0,
+            "denied_total": 0,
+            "controlled_side_effect_total": 0,
+            "non_deterministic_total": 0
+        })
+    );
+    assert_eq!(
+        manifest["determinism_audit_summary"]["violations"]["count"],
+        0
+    );
+    assert_eq!(manifest["replay_proof"]["status"], "unavailable");
+    assert_eq!(manifest["replay_proof"]["reason"], "not_generated");
 }
 
 #[test]
@@ -156,6 +187,71 @@ fn manifest_records_selected_determinism_mode() {
 }
 
 #[test]
+fn manifest_records_determinism_summary_and_replay_proof_updates() {
+    let tmp = TempDir::new().expect("tempdir");
+    let bundle = tmp.path().join("bundle-run-proof");
+    let mut writer = BundleWriter::new(&bundle, "run-proof").expect("writer should initialize");
+
+    writer
+        .set_determinism_mode("strict")
+        .expect("determinism mode should update");
+    writer
+        .set_determinism_eligibility_json(json!({
+            "status": "eligible"
+        }))
+        .expect("determinism eligibility should update");
+    writer
+        .set_determinism_audit_summary_json(json!({
+            "budget": {
+                "gated_total": 1,
+                "allowed_total": 0,
+                "denied_total": 1,
+                "controlled_side_effect_total": 0,
+                "non_deterministic_total": 1
+            },
+            "violations": {
+                "count": 1,
+                "first_seq": 1
+            }
+        }))
+        .expect("determinism audit summary should update");
+    writer
+        .set_replay_proof_json(json!({
+            "status": "ready",
+            "schema_version": "1",
+            "eligibility": {
+                "status": "eligible"
+            },
+            "canonical_surface": {
+                "trace": {
+                    "event_count": 3,
+                    "fingerprint": "trace-fingerprint"
+                }
+            },
+            "comparison_fingerprint": "overall-fingerprint"
+        }))
+        .expect("replay proof should update");
+    writer.finalize().expect("finalize should succeed");
+
+    let manifest = read_json(&bundle.join(MANIFEST_FILE));
+    assert_eq!(manifest["determinism_mode"], "strict");
+    assert_eq!(manifest["determinism_eligibility"]["status"], "eligible");
+    assert_eq!(
+        manifest["determinism_audit_summary"]["budget"]["denied_total"],
+        1
+    );
+    assert_eq!(
+        manifest["determinism_audit_summary"]["violations"]["count"],
+        1
+    );
+    assert_eq!(manifest["replay_proof"]["schema_version"], "1");
+    assert_eq!(
+        manifest["replay_proof"]["comparison_fingerprint"],
+        "overall-fingerprint"
+    );
+}
+
+#[test]
 fn section_error_markers_are_written_to_file_and_manifest() {
     let tmp = TempDir::new().expect("tempdir");
     let bundle = tmp.path().join("bundle-run-3");
@@ -223,4 +319,8 @@ fn finalize_downgrades_manifest_when_section_file_missing() {
 fn read_json(path: &std::path::Path) -> Value {
     let raw = fs::read(path).expect("json file should read");
     serde_json::from_slice(&raw).expect("json file should parse")
+}
+
+fn read_json_bytes(bytes: &[u8]) -> Value {
+    serde_json::from_slice(bytes).expect("json bytes should parse")
 }

@@ -140,10 +140,122 @@ pub struct BundleManifestV1 {
     pub schema_version: String,
     pub run_id: String,
     pub determinism_mode: String,
+    pub determinism_eligibility: DeterminismEligibilityManifest,
+    pub determinism_audit_summary: DeterminismAuditSummaryManifest,
+    pub replay_proof: ReplayProofManifest,
     pub created_at_ms: u64,
     pub required_files: Vec<String>,
     pub sections: BTreeMap<String, SectionManifest>,
     pub inputs: BTreeMap<String, InputSnapshotManifest>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeterminismEligibilityManifest {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl DeterminismEligibilityManifest {
+    pub fn unknown() -> Self {
+        Self {
+            status: "unknown".to_owned(),
+            reason: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeterminismBudgetSummaryManifest {
+    pub gated_total: u64,
+    pub allowed_total: u64,
+    pub denied_total: u64,
+    pub controlled_side_effect_total: u64,
+    pub non_deterministic_total: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeterminismViolationSummaryManifest {
+    pub count: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_seq: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeterminismAuditSummaryManifest {
+    pub budget: DeterminismBudgetSummaryManifest,
+    pub violations: DeterminismViolationSummaryManifest,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReplayProofManifest {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub eligibility: Option<DeterminismEligibilityManifest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub canonical_surface: Option<ReplayProofCanonicalSurfaceManifest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comparison_fingerprint: Option<String>,
+}
+
+impl ReplayProofManifest {
+    pub fn unavailable() -> Self {
+        Self {
+            status: "unavailable".to_owned(),
+            reason: Some("not_generated".to_owned()),
+            schema_version: None,
+            eligibility: None,
+            canonical_surface: None,
+            comparison_fingerprint: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReplayProofCanonicalSurfaceManifest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace: Option<ReplayProofTraceSurfaceManifest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_diff: Option<ReplayProofArtifactSurfaceManifest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capability_report: Option<ReplayProofArtifactSurfaceManifest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub determinism: Option<ReplayProofDeterminismSurfaceManifest>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReplayProofTraceSurfaceManifest {
+    pub event_count: u64,
+    pub fingerprint: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReplayProofArtifactSurfaceManifest {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub change_count: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declared_count: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub used_count: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub denied_count: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReplayProofDeterminismSurfaceManifest {
+    pub mode: String,
+    pub budget: DeterminismBudgetSummaryManifest,
+    pub violations: DeterminismViolationSummaryManifest,
+    pub fingerprint: String,
 }
 
 impl BundleManifestV1 {
@@ -170,6 +282,9 @@ impl BundleManifestV1 {
             schema_version: BUNDLE_SCHEMA_VERSION_V1.to_owned(),
             run_id: run_id.into(),
             determinism_mode: "default".to_owned(),
+            determinism_eligibility: DeterminismEligibilityManifest::unknown(),
+            determinism_audit_summary: DeterminismAuditSummaryManifest::default(),
+            replay_proof: ReplayProofManifest::unavailable(),
             created_at_ms,
             required_files: REQUIRED_FILE_PATHS
                 .iter()
@@ -196,5 +311,23 @@ impl BundleManifestV1 {
 
     pub fn set_determinism_mode(&mut self, determinism_mode: impl Into<String>) {
         self.determinism_mode = determinism_mode.into();
+    }
+
+    pub fn set_determinism_eligibility(
+        &mut self,
+        determinism_eligibility: DeterminismEligibilityManifest,
+    ) {
+        self.determinism_eligibility = determinism_eligibility;
+    }
+
+    pub fn set_determinism_audit_summary(
+        &mut self,
+        determinism_audit_summary: DeterminismAuditSummaryManifest,
+    ) {
+        self.determinism_audit_summary = determinism_audit_summary;
+    }
+
+    pub fn set_replay_proof(&mut self, replay_proof: ReplayProofManifest) {
+        self.replay_proof = replay_proof;
     }
 }

@@ -2,7 +2,7 @@ use dot_artifacts::{
     CAPABILITY_REPORT_FILE, ENTRY_DOT_FILE, MANIFEST_FILE, STATE_DIFF_FILE, TRACE_FILE,
 };
 use dot_db::{DotDb, RunStatus};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::fs;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -107,6 +107,96 @@ fn replay_bundle_path_replays_without_existing_dotdb_state() {
     );
 }
 
+#[test]
+fn replayed_run_matches_original_replay_proof_fingerprint() {
+    let temp = TempDir::new().expect("temp dir must create");
+    fs::write(temp.path().join("app.dot"), sample_entry_dot()).expect("dot file must write");
+
+    let manifest_path = workspace_manifest();
+    let manifest_path = manifest_path.display().to_string();
+    let original_run = Command::new("cargo")
+        .current_dir(temp.path())
+        .args([
+            "run",
+            "--quiet",
+            "--manifest-path",
+            &manifest_path,
+            "-p",
+            "dot",
+            "--",
+            "run",
+            "--max-requests",
+            "0",
+        ])
+        .output()
+        .expect("original run command must run");
+
+    assert!(
+        original_run.status.success(),
+        "original run should succeed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&original_run.stdout),
+        String::from_utf8_lossy(&original_run.stderr)
+    );
+
+    let original_bundle_dir = single_bundle_dir(temp.path());
+    let original_manifest = read_json(&original_bundle_dir.join(MANIFEST_FILE));
+    let original_run_id = original_manifest["run_id"]
+        .as_str()
+        .expect("original run id must exist")
+        .to_owned();
+    let original_proof = original_manifest["replay_proof"]["comparison_fingerprint"]
+        .as_str()
+        .expect("original replay proof fingerprint must exist")
+        .to_owned();
+
+    let replay_output = Command::new("cargo")
+        .current_dir(temp.path())
+        .args([
+            "run",
+            "--quiet",
+            "--manifest-path",
+            &manifest_path,
+            "-p",
+            "dot",
+            "--",
+            "replay",
+            &original_run_id,
+        ])
+        .output()
+        .expect("replay command must run");
+
+    assert!(
+        replay_output.status.success(),
+        "replay command should succeed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&replay_output.stdout),
+        String::from_utf8_lossy(&replay_output.stderr)
+    );
+
+    let replay_bundle_dir = other_bundle_dir(temp.path(), &original_run_id);
+    let replay_manifest = read_json(&replay_bundle_dir.join(MANIFEST_FILE));
+    let replay_proof = replay_manifest["replay_proof"]["comparison_fingerprint"]
+        .as_str()
+        .expect("replayed run fingerprint must exist");
+
+    assert_eq!(
+        replay_manifest["determinism_eligibility"]["status"],
+        "eligible"
+    );
+    assert_eq!(original_proof, replay_proof);
+    assert_eq!(
+        original_manifest["replay_proof"]["canonical_surface"]["trace"]["fingerprint"],
+        replay_manifest["replay_proof"]["canonical_surface"]["trace"]["fingerprint"]
+    );
+    assert_eq!(
+        original_manifest["replay_proof"]["canonical_surface"]["state_diff"]["fingerprint"],
+        replay_manifest["replay_proof"]["canonical_surface"]["state_diff"]["fingerprint"]
+    );
+    assert_eq!(
+        original_manifest["replay_proof"]["canonical_surface"]["capability_report"]["fingerprint"],
+        replay_manifest["replay_proof"]["canonical_surface"]["capability_report"]["fingerprint"]
+    );
+}
+
 fn create_bundle_fixture(root: &Path, run_id: &str, entry_dot: String) {
     let bundle_dir = root.join(".dotlanth").join("bundles").join(run_id);
     create_exported_bundle(&bundle_dir, run_id, entry_dot.clone());
@@ -192,6 +282,40 @@ fn create_exported_bundle(bundle_dir: &Path, run_id: &str, entry_dot: String) {
     let mut manifest_bytes = serde_json::to_vec_pretty(&manifest).expect("manifest must serialize");
     manifest_bytes.push(b'\n');
     write_file(bundle_dir, MANIFEST_FILE, &manifest_bytes);
+}
+
+fn single_bundle_dir(root: &Path) -> PathBuf {
+    let bundle_dirs = bundle_dirs(root);
+    assert_eq!(
+        bundle_dirs.len(),
+        1,
+        "expected exactly one bundle directory"
+    );
+    bundle_dirs
+        .into_iter()
+        .next()
+        .expect("bundle dir must exist")
+}
+
+fn other_bundle_dir(root: &Path, original_run_id: &str) -> PathBuf {
+    bundle_dirs(root)
+        .into_iter()
+        .find(|path| path.file_name().and_then(|name| name.to_str()) != Some(original_run_id))
+        .expect("expected replay bundle directory to exist")
+}
+
+fn bundle_dirs(root: &Path) -> Vec<PathBuf> {
+    let mut bundle_dirs = fs::read_dir(root.join(".dotlanth").join("bundles"))
+        .expect("bundles dir must exist")
+        .map(|entry| entry.expect("bundle dir entry must read").path())
+        .collect::<Vec<_>>();
+    bundle_dirs.sort();
+    bundle_dirs
+}
+
+fn read_json(path: &Path) -> Value {
+    serde_json::from_slice(&fs::read(path).expect("json file must read"))
+        .expect("json file must parse")
 }
 
 fn sample_entry_dot() -> String {

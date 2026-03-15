@@ -1,11 +1,13 @@
 use crate::error::BundleWriterError;
 use crate::schema::{
     BundleManifestV1, BundleSection, DEFAULT_INPUT_UNAVAILABLE_MESSAGE,
-    DEFAULT_SECTION_UNAVAILABLE_MESSAGE, DEFAULT_UNAVAILABLE_CODE, ENTRY_DOT_FILE,
-    INPUT_ENTRY_DOT_KEY, INPUTS_DIR, MANIFEST_FILE, SectionErrorMarker, SectionStatus, TRACE_FILE,
+    DEFAULT_SECTION_UNAVAILABLE_MESSAGE, DEFAULT_UNAVAILABLE_CODE, DeterminismAuditSummaryManifest,
+    DeterminismEligibilityManifest, ENTRY_DOT_FILE, INPUT_ENTRY_DOT_KEY, INPUTS_DIR, MANIFEST_FILE,
+    ReplayProofManifest, SectionErrorMarker, SectionStatus, TRACE_FILE,
 };
 use crate::util::{build_staging_dir, create_dir_all, sha256_hex, sha256_hex_file, write_bytes};
 use serde::Serialize;
+use serde_json::Value as JsonValue;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -99,6 +101,36 @@ impl BundleWriter {
 
     pub fn is_finalized(&self) -> bool {
         self.finalized
+    }
+
+    pub fn set_determinism_eligibility_json(
+        &mut self,
+        value: JsonValue,
+    ) -> Result<(), BundleWriterError> {
+        self.ensure_open()?;
+        let eligibility = serde_json::from_value::<DeterminismEligibilityManifest>(value)
+            .map_err(|source| BundleWriterError::ManifestSerialize { source })?;
+        self.manifest.set_determinism_eligibility(eligibility);
+        Ok(())
+    }
+
+    pub fn set_determinism_audit_summary_json(
+        &mut self,
+        value: JsonValue,
+    ) -> Result<(), BundleWriterError> {
+        self.ensure_open()?;
+        let summary = serde_json::from_value::<DeterminismAuditSummaryManifest>(value)
+            .map_err(|source| BundleWriterError::ManifestSerialize { source })?;
+        self.manifest.set_determinism_audit_summary(summary);
+        Ok(())
+    }
+
+    pub fn set_replay_proof_json(&mut self, value: JsonValue) -> Result<(), BundleWriterError> {
+        self.ensure_open()?;
+        let replay_proof = serde_json::from_value::<ReplayProofManifest>(value)
+            .map_err(|source| BundleWriterError::ManifestSerialize { source })?;
+        self.manifest.set_replay_proof(replay_proof);
+        Ok(())
     }
 
     pub fn snapshot_entry_dot_from_path(
