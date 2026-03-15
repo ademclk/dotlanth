@@ -83,7 +83,7 @@ cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 
 prints a stable external `run_id` and writes an artifact bundle under `.dotlanth/bundles/<run_id>/`.
 
-You can also pass `--determinism <default|strict>`. The selected mode is persisted into DotDB, stored in the bundle `manifest.json` as `determinism_mode`, and printed back by `dot inspect <run_id>`.
+You can also pass `--determinism <default|strict>`. The selected mode is persisted into DotDB, stored in the bundle `manifest.json` as `determinism_mode`, and printed back by `dot inspect <run_id>`. The manifest now also carries `determinism_eligibility`, `determinism_audit_summary`, and a `replay_proof` payload so replay checks can compare stable bundle metadata directly.
 
 The bundle captures:
 - `inputs/entry.dot`
@@ -95,8 +95,9 @@ The bundle captures:
 
 `trace.jsonl` is ordered by `seq` and includes lifecycle events, syscall boundaries, determinism classification facts, required capability facts when they exist, audit events for strict denials and controlled side-effect use, and source mappings back to the `server`, `route`, and `respond` statements when that mapping is known.
 `state_diff.json` exports a stable `state_kv` diff ordered by `(namespace, key)` and skips unchanged values. In v26.3 it can include the persisted determinism budget snapshot under `runtime/determinism_budget.v26_3`.
-`determinism_report.json` records informational counters and strict-mode violation summaries for the run.
+`determinism_report.json` records the selected mode, replay eligibility, an `audit_summary`, informational counters, and strict-mode violation summaries for the run.
 `capability_report.json` lists declared capabilities with their source spans/semantic paths, plus stable `used` and `denied` accounting. When a capability-gated syscall is denied, the report keeps a representative error message and the matching trace `seq` when available.
+The manifest `replay_proof` payload summarizes normalized fingerprints for the trace, state diff, capability report, and determinism audit surface. It strips run-specific trace fields (`run_id`, `seq`, and the `run.start.entry_dot` path) and ignores the internal `runtime/determinism_budget.v26_3` bookkeeping delta when hashing the proof's state-diff surface, so original and replayed bundles can compare without full byte equality.
 DotDB indexes the finalized bundle by the external `run_id`, storing the bundle ref plus `manifest.json` SHA-256 and byte count.
 
 Strict mode is fail-closed for opcode classification coverage. In the current milestone:
