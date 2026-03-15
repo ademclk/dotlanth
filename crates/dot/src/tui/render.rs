@@ -7,16 +7,19 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Tabs, Wrap};
+use ratatui::widgets::{
+    Block, BorderType, Borders, List, ListItem, ListState, Paragraph, Tabs, Wrap,
+};
 
 pub(crate) fn render(frame: &mut Frame<'_>, app: &App) {
     let area = frame.area();
     let vertical = Layout::default()
         .direction(Direction::Vertical)
+        .spacing(1)
         .constraints([
-            Constraint::Length(5),
-            Constraint::Min(22),
-            Constraint::Length(3),
+            Constraint::Length(7),
+            Constraint::Min(20),
+            Constraint::Length(4),
         ])
         .split(area);
 
@@ -28,15 +31,34 @@ pub(crate) fn render(frame: &mut Frame<'_>, app: &App) {
 fn render_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Length(3)])
+        .spacing(1)
+        .constraints([Constraint::Length(3), Constraint::Length(3)])
         .split(area);
 
-    let title = Paragraph::new(vec![Line::from(vec![
-        Span::styled("Dotlanth Capability Lab", title_style()),
-        Span::raw("  "),
-        Span::styled("Unified Demo/Dev ecosystem testbench", subtitle_style()),
-    ])])
-    .block(Block::default().borders(Borders::ALL).title("Overview"));
+    let title = Paragraph::new(vec![
+        Line::from(vec![
+            Span::styled("Dotlanth Capability Lab", title_style()),
+            Span::raw("  "),
+            Span::styled(
+                "Focused TUI for runs, artifacts, and demos",
+                subtitle_style(),
+            ),
+        ]),
+        Line::from(vec![
+            inline_label("Mode"),
+            Span::raw(app.mode_label()),
+            Span::raw("   "),
+            inline_label("Capability"),
+            Span::raw(app.capability_label()),
+            Span::raw("   "),
+            inline_label("Focus"),
+            Span::raw(focus_label(app.focus)),
+            Span::raw("   "),
+            inline_label("Fixture"),
+            Span::raw(app.selected_fixture_label()),
+        ]),
+    ])
+    .block(panel_block("Overview", None, false));
     frame.render_widget(title, sections[0]);
 
     let tabs = Tabs::new(
@@ -45,16 +67,11 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
             .map(|mode| Line::from(mode.label()))
             .collect::<Vec<_>>(),
     )
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Modes")
-            .border_style(if app.focus == Focus::Modes {
-                Style::default().fg(Color::Rgb(207, 147, 70))
-            } else {
-                Style::default().fg(Color::DarkGray)
-            }),
-    )
+    .block(panel_block(
+        "Modes",
+        Some(Color::Rgb(207, 147, 70)),
+        app.focus == Focus::Modes,
+    ))
     .select(match app.mode {
         Mode::Demo => 0,
         Mode::Dev => 1,
@@ -71,7 +88,8 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
 fn render_body(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let columns = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(28), Constraint::Percentage(72)])
+        .spacing(1)
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(area);
 
     render_left_column(frame, columns[0], app);
@@ -81,16 +99,17 @@ fn render_body(frame: &mut Frame<'_>, area: Rect, app: &App) {
 fn render_left_column(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(8), Constraint::Min(14)])
+        .spacing(1)
+        .constraints([Constraint::Length(10), Constraint::Min(12)])
         .split(area);
 
     let project = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("Project  ", label_style()),
+            Span::styled("Project   ", label_style()),
             Span::raw(app.project_root().display().to_string()),
         ]),
         Line::from(vec![
-            Span::styled("DotDB  ", label_style()),
+            Span::styled("DotDB     ", label_style()),
             status_chip(
                 if app.db_available { "ready" } else { "missing" },
                 app.db_available,
@@ -101,15 +120,15 @@ fn render_left_column(frame: &mut Frame<'_>, area: Rect, app: &App) {
             Span::raw(app.dot_path_label()),
         ]),
         Line::from(vec![
-            Span::styled("Job  ", label_style()),
+            Span::styled("Job       ", label_style()),
             Span::raw(app.job_state.label()),
         ]),
+        Line::from(vec![
+            Span::styled("Bundle    ", label_style()),
+            Span::raw(app.selected_bundle_label()),
+        ]),
     ])
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Mission Summary"),
-    );
+    .block(panel_block("Workspace", None, false));
     frame.render_widget(project, sections[0]);
 
     let capabilities = List::new(
@@ -118,23 +137,18 @@ fn render_left_column(frame: &mut Frame<'_>, area: Rect, app: &App) {
             .map(|capability| ListItem::new(Line::from(capability.label())))
             .collect::<Vec<_>>(),
     )
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Capability Rail")
-            .border_style(if app.focus == Focus::Capabilities {
-                Style::default().fg(Color::Rgb(98, 163, 176))
-            } else {
-                Style::default().fg(Color::DarkGray)
-            }),
-    )
+    .block(panel_block(
+        "Capability Rail",
+        Some(Color::Rgb(98, 163, 176)),
+        app.focus == Focus::Capabilities,
+    ))
     .highlight_style(
         Style::default()
             .fg(Color::Black)
             .bg(Color::Rgb(98, 163, 176))
             .add_modifier(Modifier::BOLD),
     )
-    .highlight_symbol(">> ");
+    .highlight_symbol("> ");
     let mut state = ListState::default();
     state.select(Some(capability_index(app.capability)));
     frame.render_stateful_widget(capabilities, sections[1], &mut state);
@@ -143,23 +157,23 @@ fn render_left_column(frame: &mut Frame<'_>, area: Rect, app: &App) {
 fn render_right_column(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
+        .spacing(1)
         .constraints([
             Constraint::Length(5),
-            Constraint::Length(9),
-            Constraint::Length(8),
-            Constraint::Min(10),
+            Constraint::Length(11),
+            Constraint::Min(8),
         ])
         .split(area);
 
     render_summary_row(frame, sections[0], app);
-    render_actions(frame, sections[1], app);
-    render_recent_runs(frame, sections[2], app);
-    render_detail(frame, sections[3], app);
+    render_activity_row(frame, sections[1], app);
+    render_detail(frame, sections[2], app);
 }
 
 fn render_summary_row(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let stats = Layout::default()
         .direction(Direction::Horizontal)
+        .spacing(1)
         .constraints([
             Constraint::Percentage(25),
             Constraint::Percentage(25),
@@ -198,6 +212,17 @@ fn render_summary_row(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+fn render_activity_row(frame: &mut Frame<'_>, area: Rect, app: &App) {
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .spacing(1)
+        .constraints([Constraint::Percentage(54), Constraint::Percentage(46)])
+        .split(area);
+
+    render_actions(frame, columns[0], app);
+    render_recent_runs(frame, columns[1], app);
+}
+
 fn render_actions(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let actions = List::new(
         app.actions
@@ -216,23 +241,18 @@ fn render_actions(frame: &mut Frame<'_>, area: Rect, app: &App) {
             })
             .collect::<Vec<_>>(),
     )
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Action List")
-            .border_style(if app.focus == Focus::Actions {
-                Style::default().fg(Color::Rgb(207, 147, 70))
-            } else {
-                Style::default().fg(Color::DarkGray)
-            }),
-    )
+    .block(panel_block(
+        "Actions",
+        Some(Color::Rgb(207, 147, 70)),
+        app.focus == Focus::Actions,
+    ))
     .highlight_style(
         Style::default()
             .fg(Color::Black)
             .bg(Color::Rgb(207, 147, 70))
             .add_modifier(Modifier::BOLD),
     )
-    .highlight_symbol(">> ");
+    .highlight_symbol("> ");
     let mut state = ListState::default();
     state.select((!app.actions.is_empty()).then_some(app.action_index));
     frame.render_stateful_widget(actions, area, &mut state);
@@ -249,23 +269,18 @@ fn render_recent_runs(frame: &mut Frame<'_>, area: Rect, app: &App) {
     };
 
     let runs = List::new(items)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Recent Runs")
-                .border_style(if app.focus == Focus::Runs {
-                    Style::default().fg(Color::Rgb(88, 148, 186))
-                } else {
-                    Style::default().fg(Color::DarkGray)
-                }),
-        )
+        .block(panel_block(
+            "Run Timeline",
+            Some(Color::Rgb(88, 148, 186)),
+            app.focus == Focus::Runs,
+        ))
         .highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Rgb(88, 148, 186))
                 .add_modifier(Modifier::BOLD),
         )
-        .highlight_symbol(">> ");
+        .highlight_symbol("> ");
     let mut state = ListState::default();
     state.select((!app.recent_runs.is_empty()).then_some(app.run_index));
     frame.render_stateful_widget(runs, area, &mut state);
@@ -279,16 +294,11 @@ fn render_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
         .map(Line::from)
         .collect::<Vec<_>>();
     let detail = Paragraph::new(lines)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(app.detail_title.as_str())
-                .border_style(if app.focus == Focus::Output {
-                    Style::default().fg(Color::Rgb(140, 140, 140))
-                } else {
-                    Style::default().fg(Color::DarkGray)
-                }),
-        )
+        .block(panel_block(
+            app.detail_title.as_str(),
+            Some(Color::Rgb(140, 140, 140)),
+            app.focus == Focus::Output,
+        ))
         .wrap(Wrap { trim: false })
         .scroll((app.output_scroll, 0));
     frame.render_widget(detail, area);
@@ -297,37 +307,19 @@ fn render_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
 fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let footer = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("Keys  ", label_style()),
-            Span::raw("Tab/Shift-Tab focus  "),
-            Span::raw("h/j/k/l move  "),
-            Span::raw("Enter execute  "),
-            Span::raw("q quit  "),
-            Span::raw("r refresh"),
+            Span::styled("Status  ", label_style()),
+            Span::raw(app.status_line.as_str()),
         ]),
         Line::from(vec![
-            Span::styled("Mode  ", label_style()),
-            Span::raw(app.mode_label()),
-            Span::raw("   "),
-            Span::styled("Capability  ", label_style()),
-            Span::raw(app.capability_label()),
-            Span::raw("   "),
-            Span::styled("Action  ", label_style()),
-            Span::raw(app.action_label()),
-            Span::raw("   "),
-            Span::styled("Run  ", label_style()),
-            Span::raw(app.selected_run_label()),
-            Span::raw("   "),
-            Span::styled("Bundle  ", label_style()),
-            Span::raw(app.selected_bundle_label()),
-            Span::raw("   "),
-            Span::styled("Export  ", label_style()),
-            Span::raw(app.selected_export_label()),
-            Span::raw("   "),
-            Span::styled("Fixture  ", label_style()),
-            Span::raw(app.selected_fixture_label()),
+            Span::styled("Keys  ", label_style()),
+            Span::raw("Tab/Shift-Tab focus   "),
+            Span::raw("h/j/k/l move   "),
+            Span::raw("Enter run action   "),
+            Span::raw("r refresh   "),
+            Span::raw("q quit"),
         ]),
     ])
-    .block(Block::default().borders(Borders::ALL));
+    .block(panel_block("Status", None, false));
     frame.render_widget(footer, area);
 }
 
@@ -339,7 +331,7 @@ fn render_stat(frame: &mut Frame<'_>, area: Rect, label: &str, value: &str, acce
             Style::default().fg(accent).add_modifier(Modifier::BOLD),
         )),
     ])
-    .block(Block::default().borders(Borders::ALL));
+    .block(panel_block("", Some(accent), false));
     frame.render_widget(widget, area);
 }
 
@@ -350,13 +342,19 @@ fn render_run_item(run: &StoredRun) -> ListItem<'static> {
         RunStatus::Running => ("RUN", Color::Rgb(88, 148, 186)),
     };
 
-    ListItem::new(Line::from(vec![
-        Span::styled(
-            format!("{status_label:<4}"),
-            Style::default().fg(color).add_modifier(Modifier::BOLD),
-        ),
-        Span::raw(run.run_id.clone()),
-    ]))
+    ListItem::new(vec![
+        Line::from(vec![
+            Span::styled(
+                format!("{status_label:<4}"),
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(run.run_id.clone()),
+        ]),
+        Line::from(vec![
+            Span::styled("mode ", Style::default().fg(Color::Gray)),
+            Span::raw(run.determinism_mode.clone()),
+        ]),
+    ])
 }
 
 fn capability_index(capability: Capability) -> usize {
@@ -382,6 +380,10 @@ fn label_style() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+fn inline_label(text: &'static str) -> Span<'static> {
+    Span::styled(format!("{text}  "), label_style())
+}
+
 fn status_chip<'a>(text: &'a str, ok: bool) -> Span<'a> {
     Span::styled(
         text,
@@ -393,6 +395,40 @@ fn status_chip<'a>(text: &'a str, ok: bool) -> Span<'a> {
             })
             .add_modifier(Modifier::BOLD),
     )
+}
+
+fn panel_block<'a>(title: &'a str, accent: Option<Color>, focused: bool) -> Block<'a> {
+    let border = match (accent, focused) {
+        (Some(color), true) => Style::default().fg(color),
+        _ => Style::default().fg(Color::DarkGray),
+    };
+
+    let title_line = if title.is_empty() {
+        Line::default()
+    } else {
+        Line::from(Span::styled(
+            title,
+            Style::default()
+                .fg(Color::Rgb(235, 229, 214))
+                .add_modifier(Modifier::BOLD),
+        ))
+    };
+
+    Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(border)
+        .title(title_line)
+}
+
+fn focus_label(focus: Focus) -> &'static str {
+    match focus {
+        Focus::Modes => "Modes",
+        Focus::Capabilities => "Capabilities",
+        Focus::Actions => "Actions",
+        Focus::Runs => "Runs",
+        Focus::Output => "Detail",
+    }
 }
 
 #[cfg(test)]
@@ -414,8 +450,9 @@ mod tests {
 
         let rendered = buffer_text(terminal.backend().buffer());
         assert!(rendered.contains("Capability Rail"));
-        assert!(rendered.contains("Action List"));
-        assert!(rendered.contains("Recent Runs"));
+        assert!(rendered.contains("Actions"));
+        assert!(rendered.contains("Run Timeline"));
+        assert!(rendered.contains("Status"));
         assert!(rendered.contains("Validate Demo Fixture"));
     }
 
@@ -446,11 +483,23 @@ mod tests {
             .expect("render must succeed");
 
         let rendered = buffer_text(terminal.backend().buffer());
-        assert!(rendered.contains("Mode"));
-        assert!(rendered.contains("Capability"));
-        assert!(rendered.contains("Action"));
-        assert!(rendered.contains("Run"));
-        assert!(rendered.contains("Fixture"));
+        assert!(rendered.contains("Tab/Shift-Tab"));
+        assert!(rendered.contains("Enter run action"));
+        assert!(rendered.contains("Capability lab ready"));
+    }
+
+    #[test]
+    fn capability_lab_status_bar_shows_runtime_status_line() {
+        let app = App::test_fixture();
+        let backend = TestBackend::new(120, 36);
+        let mut terminal = Terminal::new(backend).expect("test terminal must create");
+        terminal
+            .draw(|frame| render(frame, &app))
+            .expect("render must succeed");
+
+        let rendered = buffer_text(terminal.backend().buffer());
+        assert!(rendered.contains("Status"));
+        assert!(rendered.contains("Capability lab ready"));
     }
 
     fn buffer_text(buffer: &Buffer) -> String {

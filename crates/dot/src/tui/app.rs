@@ -251,12 +251,6 @@ impl App {
         self.capability.label()
     }
 
-    pub(crate) fn action_label(&self) -> &'static str {
-        self.selected_action()
-            .map(|action| action.label)
-            .unwrap_or("none")
-    }
-
     pub(crate) fn selected_run_label(&self) -> String {
         self.selected_run()
             .map(|run| run.run_id.clone())
@@ -266,13 +260,6 @@ impl App {
     pub(crate) fn selected_bundle_label(&self) -> String {
         self.selected_bundle_ref
             .clone()
-            .unwrap_or_else(|| "none".to_owned())
-    }
-
-    pub(crate) fn selected_export_label(&self) -> String {
-        self.selected_export_dir
-            .as_ref()
-            .map(|path| path.display().to_string())
             .unwrap_or_else(|| "none".to_owned())
     }
 

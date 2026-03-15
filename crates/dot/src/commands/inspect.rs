@@ -68,6 +68,7 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
             .and_then(|sections| sections.get("determinism_report")),
         DETERMINISM_REPORT_FILE,
     );
+    let validator_summary = render_validator_summary(&manifest);
 
     let capability_summary = match capability_report.availability {
         ArtifactAvailability::Present => {
@@ -92,59 +93,7 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
         }
     };
 
-    let determinism_summary = match determinism_report.availability {
-        ArtifactAvailability::Present => {
-            let determinism_report: JsonValue = serde_json::from_slice(
-                &fs::read(bundle_dir.join(DETERMINISM_REPORT_FILE)).map_err(|error| {
-                    format!(
-                        "failed to read `{}`: {error}",
-                        bundle_dir.join(DETERMINISM_REPORT_FILE).display()
-                    )
-                })?,
-            )
-            .map_err(|error| format!("failed to parse `{DETERMINISM_REPORT_FILE}`: {error}"))?;
-            format!(
-                "determinism_budget: gated={} allowed={} denied={} controlled_side_effect={} non_deterministic={}\n",
-                json_u64_field(&determinism_report, &["counters", "gated_total"])?,
-                json_u64_field(&determinism_report, &["counters", "allowed_total"])?,
-                json_u64_field(&determinism_report, &["counters", "denied_total"])?,
-                json_u64_field(
-                    &determinism_report,
-                    &["counters", "controlled_side_effect_total"]
-                )?,
-                json_u64_field(
-                    &determinism_report,
-                    &["counters", "non_deterministic_total"]
-                )?,
-            )
-        }
-        ArtifactAvailability::Unavailable | ArtifactAvailability::Absent => {
-            "determinism_budget: unavailable\n".to_owned()
-        }
-    };
-
-    let determinism_violation_summary = match determinism_report.availability {
-        ArtifactAvailability::Present => {
-            let determinism_report: JsonValue = serde_json::from_slice(
-                &fs::read(bundle_dir.join(DETERMINISM_REPORT_FILE)).map_err(|error| {
-                    format!(
-                        "failed to read `{}`: {error}",
-                        bundle_dir.join(DETERMINISM_REPORT_FILE).display()
-                    )
-                })?,
-            )
-            .map_err(|error| format!("failed to parse `{DETERMINISM_REPORT_FILE}`: {error}"))?;
-            let count = json_array_len(&determinism_report, &["violations"])?;
-            if count == 0 {
-                "determinism_violations: none\n".to_owned()
-            } else {
-                format!("determinism_violations: count={count}\n")
-            }
-        }
-        ArtifactAvailability::Unavailable | ArtifactAvailability::Absent => {
-            "determinism_violations: unavailable\n".to_owned()
-        }
-    };
+    let determinism_summary = render_determinism_summary(&manifest);
 
     let trace_summary = match trace.availability {
         ArtifactAvailability::Present => {
@@ -185,6 +134,7 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
             "run_id: {}\n",
             "status: {}\n",
             "determinism: {}\n",
+            "{}",
             "schema_version: {}\n",
             "artifacts:\n",
             "  manifest.json: present ({} bytes)\n",
@@ -196,12 +146,12 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
             "{}",
             "{}",
             "{}",
-            "{}",
             "{}"
         ),
         run.run_id,
         run.status,
         determinism_mode,
+        validator_summary,
         schema_version,
         manifest_bytes.len(),
         entry_dot.render(),
@@ -210,7 +160,6 @@ pub(crate) fn render_summary_in(project_root: &Path, run_id: &str) -> Result<Str
         determinism_report.render(),
         capability_report.render(),
         determinism_summary,
-        determinism_violation_summary,
         capability_summary,
         trace_summary,
         state_diff_summary,
@@ -320,12 +269,6 @@ fn json_array_len(value: &JsonValue, path: &[&str]) -> Result<usize, String> {
         .len())
 }
 
-fn json_u64_field(value: &JsonValue, path: &[&str]) -> Result<u64, String> {
-    json_lookup(value, path)?
-        .as_u64()
-        .ok_or_else(|| format!("expected `{}` to be an unsigned integer", path.join(".")))
-}
-
 fn json_lookup<'a>(value: &'a JsonValue, path: &[&str]) -> Result<&'a JsonValue, String> {
     let mut current = value;
     for key in path {
@@ -334,6 +277,60 @@ fn json_lookup<'a>(value: &'a JsonValue, path: &[&str]) -> Result<&'a JsonValue,
             .ok_or_else(|| format!("missing required field `{}`", path.join(".")))?;
     }
     Ok(current)
+}
+
+fn render_validator_summary(manifest: &JsonValue) -> String {
+    let eligibility = manifest
+        .get("replay_proof")
+        .and_then(|proof| proof.get("eligibility"))
+        .or_else(|| manifest.get("determinism_eligibility"));
+    let status = eligibility
+        .and_then(|value| value.get("status"))
+        .and_then(JsonValue::as_str)
+        .unwrap_or("unknown");
+    let reason = eligibility
+        .and_then(|value| value.get("reason"))
+        .and_then(JsonValue::as_str);
+
+    match (status, reason) {
+        ("unsupported", Some(reason)) => format!("validator: unsupported ({reason})\n"),
+        _ => format!("validator: {status}\n"),
+    }
+}
+
+fn render_determinism_summary(manifest: &JsonValue) -> String {
+    let validator_status = manifest
+        .get("replay_proof")
+        .and_then(|proof| proof.get("eligibility"))
+        .or_else(|| manifest.get("determinism_eligibility"))
+        .and_then(|value| value.get("status"))
+        .and_then(JsonValue::as_str)
+        .unwrap_or("unknown");
+    if validator_status != "eligible" {
+        return "determinism_summary: unavailable\n".to_owned();
+    }
+
+    let Some(violations) = manifest
+        .get("determinism_audit_summary")
+        .and_then(|summary| summary.get("violations"))
+    else {
+        return "determinism_summary: unavailable\n".to_owned();
+    };
+
+    let count = violations
+        .get("count")
+        .and_then(JsonValue::as_u64)
+        .unwrap_or(0);
+    if count == 0 {
+        return "determinism_summary: clean\n".to_owned();
+    }
+
+    match violations.get("first_seq").and_then(JsonValue::as_u64) {
+        Some(first_seq) => {
+            format!("determinism_summary: denied count={count} first_seq={first_seq}\n")
+        }
+        None => format!("determinism_summary: denied count={count}\n"),
+    }
 }
 
 fn count_jsonl_events(path: &Path) -> Result<usize, String> {
