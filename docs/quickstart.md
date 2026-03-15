@@ -40,6 +40,20 @@ DotDB indexes the finalized bundle by external `run_id`, storing the bundle ref 
 
 Strict mode is fail-closed for opcode classification coverage. `log.emit` is classified as a `controlled_side_effect`, so strict mode does not reject it on determinism grounds, but the call still needs the `log` capability to succeed. `net.http.serve`, `time.now`, and `random.bytes` are classified as `non_deterministic` and fail before their host hooks execute. Unclassified syscall ids are also rejected before execution.
 
+The supported strict-mode validation flow in v26.3 is a no-serve dry-run:
+
+```bash
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --determinism strict --max-requests 0
+cargo run -p dot -- inspect <run_id>
+cargo run -p dot -- validate-replay <run_id>
+```
+
+That command prints `run <run_id> completed without serving requests (determinism: strict)` and produces a replay-valid strict bundle without executing `net.http.serve`. Trying to serve HTTP under strict mode remains an intentional rejection path:
+
+```bash
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --determinism strict --max-requests 1
+```
+
 `state_diff.json` exports a stable `state_kv` diff with deterministic ordering and no unchanged entries. In v26.3 it can include the persisted determinism budget snapshot under `runtime/determinism_budget.v26_3`.
 
 `determinism_report.json` records the selected mode, replay eligibility, an `audit_summary`, the informational v26.3 counters, and any strict-mode violation summaries for the run.

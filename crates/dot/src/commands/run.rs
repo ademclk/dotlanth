@@ -402,6 +402,16 @@ async fn run_vm_execution(
     trace: &mut TraceRecorder,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
+    if ctx.determinism_mode() == DeterminismMode::Strict && max_requests == Some(0) {
+        if matches!(announcement, RunAnnouncement::Print) {
+            println!(
+                "run {run_id} completed without serving requests (determinism: {})",
+                ctx.determinism_mode().as_str()
+            );
+        }
+        return Ok(());
+    }
+
     let program = build_program(document, max_requests)?;
     validate_program_determinism(ctx, &program, trace)?;
 

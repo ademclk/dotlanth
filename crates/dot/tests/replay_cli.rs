@@ -197,6 +197,76 @@ fn replayed_run_matches_original_replay_proof_fingerprint() {
     );
 }
 
+#[test]
+fn replay_requires_a_run_id_or_bundle_argument() {
+    let temp = TempDir::new().expect("temp dir must create");
+
+    let manifest_path = workspace_manifest();
+    let manifest_path = manifest_path.display().to_string();
+    let output = Command::new("cargo")
+        .current_dir(temp.path())
+        .args([
+            "run",
+            "--quiet",
+            "--manifest-path",
+            &manifest_path,
+            "-p",
+            "dot",
+            "--",
+            "replay",
+        ])
+        .output()
+        .expect("replay command must run");
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "replay without inputs should fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("replay requires a run id or `--bundle <path>`")
+    );
+}
+
+#[test]
+fn replay_bundle_requires_an_entry_dot_snapshot() {
+    let temp = TempDir::new().expect("temp dir must create");
+    let bundle_dir = temp.path().join("exported").join("bundle-copy");
+    fs::create_dir_all(&bundle_dir).expect("bundle dir must create");
+
+    let manifest_path = workspace_manifest();
+    let manifest_path = manifest_path.display().to_string();
+    let output = Command::new("cargo")
+        .current_dir(temp.path())
+        .args([
+            "run",
+            "--quiet",
+            "--manifest-path",
+            &manifest_path,
+            "-p",
+            "dot",
+            "--",
+            "replay",
+            "--bundle",
+            &bundle_dir.display().to_string(),
+        ])
+        .output()
+        .expect("replay command must run");
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "replay should fail when the exported bundle is missing inputs/entry.dot\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("failed to read"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("inputs/entry.dot"));
+}
+
 fn create_bundle_fixture(root: &Path, run_id: &str, entry_dot: String) {
     let bundle_dir = root.join(".dotlanth").join("bundles").join(run_id);
     create_exported_bundle(&bundle_dir, run_id, entry_dot.clone());

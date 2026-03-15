@@ -107,6 +107,22 @@ Strict mode is fail-closed for opcode classification coverage. In the current mi
 - `time.now` and `random.bytes` are also classified as `non_deterministic`, so strict mode rejects those host hooks before they execute
 - unclassified syscall ids are rejected before execution instead of silently falling through policy
 
+The supported strict-mode success path for this example is a no-serve dry-run:
+
+```bash
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --determinism strict --max-requests 0
+cargo run -p dot -- inspect <run_id>
+cargo run -p dot -- validate-replay <run_id>
+```
+
+That run records a strict bundle, prints `run <run_id> completed without serving requests (determinism: strict)`, and validates replay without executing `net.http.serve`.
+
+Trying to serve the HTTP example under strict mode still rejects before side effects execute:
+
+```bash
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --determinism strict --max-requests 1
+```
+
 Use the run id to print a stable bundle summary:
 
 ```bash
