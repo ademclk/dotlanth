@@ -133,6 +133,64 @@ end
         "schema_version": "1",
         "run_id": run_id,
         "created_at_ms": 1,
+        "determinism_mode": "default",
+        "determinism_eligibility": {
+            "status": "eligible"
+        },
+        "determinism_audit_summary": {
+            "budget": {
+                "gated_total": 1,
+                "allowed_total": 0,
+                "denied_total": 1,
+                "controlled_side_effect_total": 0,
+                "non_deterministic_total": 1
+            },
+            "violations": {
+                "count": 1,
+                "first_seq": 2
+            }
+        },
+        "replay_proof": {
+            "status": "ready",
+            "schema_version": "1",
+            "eligibility": {
+                "status": "eligible"
+            },
+            "canonical_surface": {
+                "trace": {
+                    "event_count": 4,
+                    "fingerprint": "fixture-trace"
+                },
+                "state_diff": {
+                    "status": "ok",
+                    "change_count": 2,
+                    "fingerprint": "fixture-state"
+                },
+                "capability_report": {
+                    "status": "ok",
+                    "declared_count": 2,
+                    "used_count": 1,
+                    "denied_count": 1,
+                    "fingerprint": "fixture-capability"
+                },
+                "determinism": {
+                    "mode": "default",
+                    "budget": {
+                        "gated_total": 1,
+                        "allowed_total": 0,
+                        "denied_total": 1,
+                        "controlled_side_effect_total": 0,
+                        "non_deterministic_total": 1
+                    },
+                    "violations": {
+                        "count": 1,
+                        "first_seq": 2
+                    },
+                    "fingerprint": "fixture-determinism"
+                }
+            },
+            "comparison_fingerprint": "fixture-proof"
+        },
         "required_files": [
             MANIFEST_FILE,
             ENTRY_DOT_FILE,
@@ -220,6 +278,7 @@ end
                 "run_id: {}\n",
                 "status: succeeded\n",
                 "determinism: default\n",
+                "validator: eligible\n",
                 "schema_version: 1\n",
                 "artifacts:\n",
                 "  manifest.json: present ({} bytes)\n",
@@ -228,8 +287,7 @@ end
                 "  state_diff.json: present ({} bytes)\n",
                 "  determinism_report.json: present ({} bytes)\n",
                 "  capability_report.json: present ({} bytes)\n",
-                "determinism_budget: gated=1 allowed=0 denied=1 controlled_side_effect=0 non_deterministic=1\n",
-                "determinism_violations: count=1\n",
+                "determinism_summary: denied count=1 first_seq=2\n",
                 "capabilities: declared=2 used=1 denied=1\n",
                 "trace: events=4\n",
                 "state_diff: changes=2 added=1 updated=1 removed=0\n"
@@ -260,6 +318,62 @@ end
         "schema_version": "1",
         "run_id": run_id,
         "created_at_ms": 1,
+        "determinism_mode": "default",
+        "determinism_eligibility": {
+            "status": "unsupported",
+            "reason": "execution_not_started"
+        },
+        "determinism_audit_summary": {
+            "budget": {
+                "gated_total": 0,
+                "allowed_total": 0,
+                "denied_total": 0,
+                "controlled_side_effect_total": 0,
+                "non_deterministic_total": 0
+            },
+            "violations": {
+                "count": 0,
+                "first_seq": null
+            }
+        },
+        "replay_proof": {
+            "status": "ready",
+            "schema_version": "1",
+            "eligibility": {
+                "status": "unsupported",
+                "reason": "execution_not_started"
+            },
+            "canonical_surface": {
+                "trace": {
+                    "event_count": 0,
+                    "fingerprint": "unsupported"
+                },
+                "state_diff": {
+                    "status": "unavailable",
+                    "reason": "execution_not_started"
+                },
+                "capability_report": {
+                    "status": "unavailable",
+                    "reason": "execution_not_started"
+                },
+                "determinism": {
+                    "mode": "default",
+                    "budget": {
+                        "gated_total": 0,
+                        "allowed_total": 0,
+                        "denied_total": 0,
+                        "controlled_side_effect_total": 0,
+                        "non_deterministic_total": 0
+                    },
+                    "violations": {
+                        "count": 0,
+                        "first_seq": null
+                    },
+                    "fingerprint": "unsupported"
+                }
+            },
+            "comparison_fingerprint": "unsupported"
+        },
         "required_files": [
             MANIFEST_FILE,
             ENTRY_DOT_FILE,
@@ -343,6 +457,7 @@ end
                 "run_id: {}\n",
                 "status: failed\n",
                 "determinism: default\n",
+                "validator: unsupported (execution_not_started)\n",
                 "schema_version: 1\n",
                 "artifacts:\n",
                 "  manifest.json: present ({} bytes)\n",
@@ -351,8 +466,7 @@ end
                 "  state_diff.json: unavailable\n",
                 "  determinism_report.json: unavailable\n",
                 "  capability_report.json: unavailable\n",
-                "determinism_budget: unavailable\n",
-                "determinism_violations: unavailable\n",
+                "determinism_summary: unavailable\n",
                 "capabilities: unavailable\n",
                 "trace: events=unavailable\n",
                 "state_diff: unavailable\n"

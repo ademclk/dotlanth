@@ -82,14 +82,24 @@ enum Command {
         #[arg(long, conflicts_with = "run_id")]
         bundle: Option<PathBuf>,
     },
+    /// Re-run a recorded bundle and compare its replay proof surfaces.
+    ValidateReplay {
+        /// Run id printed by `dot run`.
+        run_id: String,
+    },
+}
+
+enum CommandOutcome {
+    Success,
+    Exit(u8),
 }
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Command::Tui => tui::launch("dot tui"),
-        Command::Init { dir } => commands::init::run(&dir),
+        Command::Tui => tui::launch("dot tui").map(|_| CommandOutcome::Success),
+        Command::Init { dir } => commands::init::run(&dir).map(|_| CommandOutcome::Success),
         Command::Run {
             file,
             determinism,
@@ -99,17 +109,27 @@ fn main() -> ExitCode {
             determinism: determinism.into(),
             max_requests,
             announcement: commands::run::RunAnnouncement::Print,
-        }),
-        Command::Logs { run_id } => commands::logs::run(&run_id),
-        Command::Inspect { run_id } => commands::inspect::run(&run_id),
-        Command::ExportArtifacts { run_id, out } => commands::export_artifacts::run(&run_id, &out),
+        })
+        .map(|_| CommandOutcome::Success),
+        Command::Logs { run_id } => commands::logs::run(&run_id).map(|_| CommandOutcome::Success),
+        Command::Inspect { run_id } => {
+            commands::inspect::run(&run_id).map(|_| CommandOutcome::Success)
+        }
+        Command::ExportArtifacts { run_id, out } => {
+            commands::export_artifacts::run(&run_id, &out).map(|_| CommandOutcome::Success)
+        }
         Command::Replay { run_id, bundle } => {
             commands::replay::run(run_id.as_deref(), bundle.as_deref())
+                .map(|_| CommandOutcome::Success)
+        }
+        Command::ValidateReplay { run_id } => {
+            commands::validate_replay::run(&run_id).map(CommandOutcome::Exit)
         }
     };
 
     match result {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(CommandOutcome::Success) => ExitCode::SUCCESS,
+        Ok(CommandOutcome::Exit(code)) => ExitCode::from(code),
         Err(message) => {
             eprintln!("{message}");
             ExitCode::from(1)
@@ -138,5 +158,12 @@ mod tests {
         let cli = Cli::try_parse_from(["dot", "run", "--determinism", "strict"])
             .expect("cli should parse determinism mode");
         assert!(matches!(cli.command, Command::Run { .. }));
+    }
+
+    #[test]
+    fn cli_accepts_validate_replay_subcommand() {
+        let cli = Cli::try_parse_from(["dot", "validate-replay", "run_123"])
+            .expect("cli should parse validate-replay subcommand");
+        assert!(matches!(cli.command, Command::ValidateReplay { .. }));
     }
 }

@@ -53,6 +53,7 @@ pub(crate) fn run(options: RunOptions) -> Result<(), String> {
         options.max_requests,
         options.announcement,
     )
+    .map(|_| ())
 }
 
 pub(crate) fn run_resolved_with_announcement(
@@ -62,12 +63,22 @@ pub(crate) fn run_resolved_with_announcement(
     max_requests: Option<u64>,
     announcement: RunAnnouncement,
 ) -> Result<(), String> {
-    run_resolved_options(
+    run_resolved_capture_with_announcement(
         Some((dot_path, project_root)),
         determinism,
         max_requests,
         announcement,
     )
+    .map(|_| ())
+}
+
+pub(crate) fn run_resolved_capture_with_announcement(
+    resolved: Option<(PathBuf, PathBuf)>,
+    determinism: DeterminismMode,
+    max_requests: Option<u64>,
+    announcement: RunAnnouncement,
+) -> Result<String, String> {
+    run_resolved_options(resolved, determinism, max_requests, announcement)
 }
 
 fn run_resolved_options(
@@ -75,7 +86,7 @@ fn run_resolved_options(
     determinism: DeterminismMode,
     max_requests: Option<u64>,
     announcement: RunAnnouncement,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -88,7 +99,7 @@ async fn run_async(
     determinism: DeterminismMode,
     max_requests: Option<u64>,
     announcement: RunAnnouncement,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let (dot_path, project_root) = match resolved {
         Some((dot_path, project_root)) => (dot_path, project_root),
         None => {
@@ -292,7 +303,7 @@ async fn run_async(
     }
 
     match errors.split_first() {
-        None => Ok(()),
+        None => Ok(run_id),
         Some((primary, extras)) => Err(combine_errors(
             primary.clone(),
             extras.iter().cloned().map(Some),
@@ -313,7 +324,7 @@ fn finish_pre_execution_failure(
     trace: &mut TraceRecorder,
     run_id: &str,
     execution_error: String,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let execution_result = Err(execution_error.clone());
     let state_diff_result = bundle
         .mark_section_unavailable(
@@ -401,7 +412,10 @@ async fn run_vm_execution(
         .http_addr()
         .ok_or_else(|| "http listener did not report a local address".to_owned())?;
     if matches!(announcement, RunAnnouncement::Print) {
-        println!("run {run_id} listening on http://{addr}");
+        println!(
+            "run {run_id} listening on http://{addr} (determinism: {})",
+            ctx.determinism_mode().as_str()
+        );
     }
 
     let mut vm = Vm::new(program);
