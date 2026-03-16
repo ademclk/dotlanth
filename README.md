@@ -53,6 +53,20 @@ cargo run -p dot -- run --file examples/hello-api/hello-api.dot --max-requests 1
 
 `dot run` also accepts `--determinism <default|strict>`. The selected mode is persisted in DotDB and in each bundle `manifest.json`, and `dot inspect <run_id>` prints it back. The manifest also now carries `determinism_eligibility`, `determinism_audit_summary`, and a `replay_proof` payload so replay comparisons can use stable bundle metadata instead of raw manifest byte equality. Strict mode is fail-closed today: unsupported non-deterministic host syscalls such as `net.http.serve`, `time.now`, and `random.bytes` are denied before side effects execute.
 
+The supported strict-mode validation flow in v26.3 is a no-serve dry-run:
+
+```bash
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --determinism strict --max-requests 0
+cargo run -p dot -- inspect <run_id>
+cargo run -p dot -- validate-replay <run_id>
+```
+
+That path records a strict bundle without executing `net.http.serve`, so replay validation can prove the strict artifact contract end-to-end. Active HTTP serving remains intentionally rejected in strict mode:
+
+```bash
+cargo run -p dot -- run --file examples/hello-api/hello-api.dot --determinism strict --max-requests 1
+```
+
 ```bash
 curl http://127.0.0.1:18080/hello
 ```
