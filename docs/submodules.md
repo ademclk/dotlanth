@@ -1,6 +1,6 @@
 # Product Submodule Rules
 
-Product paths under `src/<product>` are reserved for product git submodules once a product remote exists. Core currently uses `src/core`; Forge is shaped under `src/forge` to match that boundary.
+Product paths under `src/<product>` are reserved for product git submodules once a product remote exists. Core uses `src/core`, Forge uses `src/forge`, and Entropy uses `src/entropy` to match that boundary.
 
 ## Parent Repo Owns
 
@@ -19,6 +19,7 @@ Product paths under `src/<product>` are reserved for product git submodules once
 ```bash
 git submodule add <remote-url> src/core
 git submodule add <remote-url> src/forge
+git submodule add <remote-url> src/entropy
 git submodule update --init --recursive
 git submodule update --remote --merge
 git submodule status --recursive

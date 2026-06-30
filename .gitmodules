@@ -7,3 +7,6 @@
 [submodule "forge"]
 	path = src/forge
 	url = git@github.com:ademclk/dotlanth-forge.git
+[submodule "entropy"]
+	path = src/entropy
+	url = git@github.com:ademclk/dotlanth-entropy.git

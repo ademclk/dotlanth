@@ -1,6 +1,0 @@
-@Dot.Entropy.Api_HostAddress = http://localhost:0
-
-GET {{Dot.Entropy.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

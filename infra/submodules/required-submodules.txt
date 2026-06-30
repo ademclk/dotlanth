@@ -2,4 +2,4 @@
 frontend
 src/core
 src/forge
-products/dot-entropy
+src/entropy
