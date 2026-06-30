@@ -8,7 +8,7 @@ on:
 
 jobs:
   submodules:
-    name: Product submodule hygiene
+    name: Submodule hygiene
     runs-on: ubuntu-latest
 
     steps:
@@ -17,5 +17,5 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Verify submodule state
+      - name: Verify expected submodules
         run: bash infra/scripts/check-submodules.sh

@@ -1,0 +1,5 @@
+# One submodule path per line. Blank lines and comments are ignored.
+frontend
+products/dot-core
+products/dot-forge
+products/dot-entropy
