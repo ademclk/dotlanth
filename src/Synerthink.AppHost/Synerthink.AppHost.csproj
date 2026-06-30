@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Dot.Core.Api\Dot.Core.Api.csproj" />
+    <ProjectReference Include="..\..\core\src\Dot.Core.Api\Dot.Core.Api.csproj" />
     <ProjectReference Include="..\Dot.Forge.Api\Dot.Forge.Api.csproj" />
     <ProjectReference Include="..\Dot.Entropy.Api\Dot.Entropy.Api.csproj" />
   </ItemGroup>

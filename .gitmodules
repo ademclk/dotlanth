@@ -1,3 +1,6 @@
 [submodule "frontend"]
 	path = frontend
 	url = git@github.com:ademclk/dotlanth-frontend.git
+[submodule "core"]
+	path = core
+	url = git@github.com:ademclk/dotlanth-core.git
