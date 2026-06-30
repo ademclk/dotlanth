@@ -1,0 +1,73 @@
+name: Release Readiness
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-readiness:
+    name: Build release artifacts and enforce production gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Restore backend
+        run: dotnet restore --tlp:off -m:1 -nr:false -v:minimal
+
+      - name: Build backend
+        run: dotnet build --tlp:off -m:1 -nr:false --no-restore -v:minimal
+
+      - name: Test backend
+        run: dotnet test --tlp:off -m:1 -nr:false --no-build -v:minimal
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Validate frontend
+        working-directory: frontend
+        run: |
+          npm run lint
+          npm test
+          npm run typecheck
+          npm run build
+
+      - name: Publish Aspire manifest
+        run: dotnet run --project src/Synerthink.AppHost --no-build -- --publisher manifest --output-path "${{ github.workspace }}/infra/compose/aspire-manifest.json"
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Upload Aspire manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: aspire-manifest
+          path: infra/compose/aspire-manifest.json
+
+      - name: Block unpinned production runtime images
+        run: |
+          if ! grep -RInE "WithImageTag|WithImage" src/Synerthink.AppHost infra; then
+            echo "Production release is blocked until PostgreSQL and Valkey images are pinned by tag or digest."
+            exit 1
+          fi

@@ -1,0 +1,21 @@
+name: Submodules
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  submodules:
+    name: Product submodule hygiene
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify submodule state
+        run: bash infra/scripts/check-submodules.sh

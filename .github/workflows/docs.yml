@@ -1,0 +1,19 @@
+name: Docs
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  docs:
+    name: Documentation structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required docs
+        run: bash infra/scripts/check-docs.sh
