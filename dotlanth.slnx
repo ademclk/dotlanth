@@ -1,6 +1,6 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="core/src/Dot.Core.Api/Dot.Core.Api.csproj" />
+    <Project Path="src/core/src/Dot.Core.Api/Dot.Core.Api.csproj" />
     <Project Path="src/Dot.Entropy.Api/Dot.Entropy.Api.csproj" />
     <Project Path="src/Dot.Forge.Api/Dot.Forge.Api.csproj" />
     <Project Path="src/Dot.Shared/Dot.Shared.csproj" />
@@ -8,7 +8,7 @@
     <Project Path="src/Synerthink.ServiceDefaults/Synerthink.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="core/tests/Dot.Core.Tests/Dot.Core.Tests.csproj" />
+    <Project Path="src/core/tests/Dot.Core.Tests/Dot.Core.Tests.csproj" />
     <Project Path="tests/Dot.Entropy.Tests/Dot.Entropy.Tests.csproj" />
     <Project Path="tests/Dot.Forge.Tests/Dot.Forge.Tests.csproj" />
     <Project Path="tests/Dot.Shared.Tests/Dot.Shared.Tests.csproj" />
