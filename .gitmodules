@@ -4,3 +4,6 @@
 [submodule "core"]
 	path = src/core
 	url = git@github.com:ademclk/dotlanth-core.git
+[submodule "forge"]
+	path = src/forge
+	url = git@github.com:ademclk/dotlanth-forge.git

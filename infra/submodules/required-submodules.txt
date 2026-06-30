@@ -1,5 +1,5 @@
 # One submodule path per line. Blank lines and comments are ignored.
 frontend
 src/core
-products/dot-forge
+src/forge
 products/dot-entropy

@@ -1,6 +1,6 @@
 # Product Submodule Rules
 
-Product paths under `products/*` are reserved for future git submodules. Product documentation is not bundled in the parent repo.
+Product paths under `src/<product>` are reserved for product git submodules once a product remote exists. Core currently uses `src/core`; Forge is shaped under `src/forge` to match that boundary.
 
 ## Parent Repo Owns
 
@@ -17,7 +17,8 @@ Product paths under `products/*` are reserved for future git submodules. Product
 ## Activation Commands
 
 ```bash
-git submodule add <remote-url> products/dot-core
+git submodule add <remote-url> src/core
+git submodule add <remote-url> src/forge
 git submodule update --init --recursive
 git submodule update --remote --merge
 git submodule status --recursive
