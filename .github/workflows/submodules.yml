@@ -15,6 +15,7 @@ jobs:
       - name: Checkout with submodules
         uses: actions/checkout@v4
         with:
+          ssh-key: ${{ secrets.FRONTEND_SUBMODULE_SSH_KEY }}
           submodules: recursive
 
       - name: Verify expected submodules
